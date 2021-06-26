@@ -16,4 +16,7 @@ clean:
 install:
 	@echo "to be completed"
 
-.PHONY: all build test clean install
+check:
+	$(shell go env GOPATH)/bin/golangci-lint run -e gofmt -e gocyclo -e errorlint -e gosec
+
+.PHONY: all build test clean install check
