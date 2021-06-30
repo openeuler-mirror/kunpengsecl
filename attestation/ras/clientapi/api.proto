@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+option go_package = "gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi";
+
+service Ras {
+  rpc CreateIKCert (CreateIKCertRequest) returns (CreateIKCertReply) {}
+  rpc RegisterClient (RegisterClientRequest) returns (RegisterClientReply) {}
+  rpc UnregisterClient (UnregisterClientRequest) returns (UnregisterClientReply) {}
+  rpc SendHeartbeat (SendHeartbeatRequest) returns (SendHeartbeatReply) {}
+  rpc SendReport (SendReportRequest) returns (SendReportReply) {}
+}
+
+message CreateIKCertRequest {
+  KeyPub ekPub = 1;
+  KeyPub ikPub = 2;
+  KeyName ikName = 3;
+}
+
+message KeyPub {
+}
+
+message KeyName {
+}
+
+message CreateIKCertReply {
+  CertEncrypted icEncrypted = 1;
+  Challenge challenge = 2;
+}
+
+message CertEncrypted {
+}
+
+message Challenge {
+}
+
+message RegisterClientRequest {
+  Cert ic = 1;
+  ClientInfo clientInfo = 2;
+}
+
+message Cert {
+}
+
+message ClientInfo {
+}
+
+message RegisterClientReply {
+  int64 clientId = 1;
+  ClientConfig clientConfig = 2;
+}
+
+message ClientConfig {
+}
+
+message UnregisterClientRequest {
+  int64 clientId = 1;
+}
+
+message UnregisterClientReply {
+  bool result = 1;
+}
+
+message SendHeartbeatRequest {
+  int64 clientId = 1;
+}
+
+message SendHeartbeatReply {
+  int64 nextAction = 1;
+  ActionParameters actionParameters = 2;
+}
+
+message ActionParameters {
+}
+
+message SendReportRequest {
+  int64 clientId = 1;
+  TrustReport trustReport = 2;
+}
+
+message TrustReport {
+}
+
+message SendReportReply {
+  bool result = 1;
+}
+
