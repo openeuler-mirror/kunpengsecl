@@ -5,7 +5,7 @@ all: build
 test:
 	@echo "to be completed"
 
-build:
+build: vendor
 	go build -mod=vendor -o $(PKGPATH)/ras cmd/ras/*.go
 
 clean:
