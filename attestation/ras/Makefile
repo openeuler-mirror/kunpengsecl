@@ -26,4 +26,7 @@ proto:
 vendor:
 	go mod vendor
 
-.PHONY: all build test clean install check gofmt proto vendor
+oapi-codegen:
+	oapi-codegen -package restapi -generate types,server,client restapi/api.yaml > restapi/api.gen.go
+
+.PHONY: all build test clean install check gofmt proto vendor oapi-codegen
