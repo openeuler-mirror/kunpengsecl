@@ -5,6 +5,7 @@ This project develops security software components running on Kunpeng processors
 
 #### Software Architecture
 Software architecture description
+![kunpengsecl arch](doc/RA-arch-1.png "kunpengsecl remote attestation architecture")
 
 #### Installation
 
