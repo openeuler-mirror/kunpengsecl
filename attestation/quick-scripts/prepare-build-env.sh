@@ -10,3 +10,5 @@ protoc --version
 go get google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
 go get google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
 export PATH="$PATH:$(go env GOPATH)/bin"
+
+go get github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.8.1

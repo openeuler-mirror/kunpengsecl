@@ -1,0 +1,164 @@
+openapi: 3.0.1
+info:
+  title: KunpengSecL Remote Attestation REST server
+  description: TODO
+  version: 0.1.0
+Servers:
+-url: https://localhost
+paths:
+  /version:
+    get:
+      summary: Return the version of current API
+      response:
+        '200':
+          description: A version string
+          content:
+            application/json:
+              schema:
+                type: string
+  /config:
+    get:
+      summary: Return a list of all config items in key:value pair format
+      response:
+        '200':
+          description: A JSON array of config items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConfigItem'
+    post:
+      summary: Create a list of config items
+      requestBody:
+        description: config items to be created or updated
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConfigItem'
+      responses:
+        '200':
+          description: Given config items created
+          content: {}
+        
+  /server:
+    get:
+      summary: Return a list of briefing info for all servers
+      response:
+        '200':
+          description: A JSON array of server briefing info
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerBriefInfo'
+    put:
+      summary: put a list of servers into regitered status
+      requestBody:
+        description: servers identified by clientids to be put into registered status
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: integer
+                format: int64
+      responses:
+        '200':
+          description: Given servers registered
+          content: {}
+
+  /status:
+    get:
+      summary: Return a list of trust status for all servers
+      response:
+        '200':
+          description: A JSON array of server trust status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerTrustStatus'
+
+  /report/{serverId}:
+    get:
+      summary: Return the trust report for the given server
+      parameters:
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      response:
+        '200':
+          description: A server trust report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerTrustReport'
+
+components:
+  schemas:
+    ConfigItem:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+    ServerBriefInfo:
+      type: object
+      properties:
+        clientid:
+          type: integer
+          format: int64
+        ip:
+          type: string
+        registered:
+          type: boolean
+          default: false
+    ServerTrustStatus:
+      type: object
+      properties:
+        clientid:
+          type: integer
+          format: int64
+        status:
+          type: string
+          default: unkown
+          enum:
+          - unkown
+          - untrusted
+          - trusted
+    ServerTrustReport:
+      type: object
+      properties:
+        clientid:
+          type: integer
+          format: int64
+        report:
+          type: object
+          properties:
+            pcrvalues:
+              type: array
+              items:
+                $ref: '#/components/schemas/PcrValue'
+            manifest:
+              type: string
+            quote:
+              type: string
+    PcrValue:
+      type: object
+      properties:
+        index:
+          type: integer
+          maximum: 23
+          minimum: 0
+        value:
+          type: string
+          format: binary
