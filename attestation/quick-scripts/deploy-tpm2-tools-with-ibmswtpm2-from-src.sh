@@ -14,7 +14,7 @@ osv=`grep "\<NAME=" /etc/os-release | awk -F\" '{print $2}'`
 ubuntu_deps="autoconf-archive libcmocka0 libcmocka-dev procps iproute2 build-essential git pkg-config gcc libtool automake libssl-dev uthash-dev autoconf doxygen libjson-c-dev libini-config-dev libcurl4-openssl-dev uuid-dev python-yaml pandoc"
 openeuler_deps="curl-devel gcc-c++ gdb git libgcrypt-devel libtool openssl-devel autoconf-archive libcmocka-devel autoconf automake babeltrace cmake-filesystem e2fsprogs-devel emacs-filesystem gdb-headless keyutils-libs-devel krb5-devel libgpg-error-devel libselinux-devel libsepol-devel libstdc++-devel libverto-devel m4 pcre2-devel perl-Error perl-Git perl-TermReadKey tar zlib-devel libcmocka pkgconf systemd procps iproute uthash-devel doxygen uuid-devel python-yaml json-c-devel"
 case $osv in
-    Ubuntu) sudo apt-get remove libtss2-esys0 tpm2-tools tpm2-tss tpm2-abrmd; sudo apt-get install $ubuntu_deps;;
+    Ubuntu) sudo apt-get remove libtss2-esys0 libtss2-dev libtss2-tcti-tabrmd0 libtss2-tcti-tabrmd-dev tpm2-tools tpm2-abrmd; sudo apt-get install $ubuntu_deps;;
     openEuler) sudo dnf remove tpm2-tools tpm2-tss tpm2-abrmd; sudo dnf groupinstall -y "Development Tools"; sudo dnf install -y $openeuler_deps;;
     *) echo $osv is not supported yet; exit;;
 esac
@@ -22,7 +22,7 @@ esac
 # download, build and running ibmswtpm2
 cd $workdir
 ibmtpm_w_ver=ibmtpm1637
-wget https://udomain.dl.sourceforge.net/project/ibmswtpm2/$ibmtpm_w_ver.tar.gz
+wget https://sourceforge.net/projects/ibmswtpm2/files/$ibmtpm_w_ver.tar.gz
 mkdir $ibmtpm_w_ver; cd $ibmtpm_w_ver; tar xf ../$ibmtpm_w_ver.tar.gz
 kill `pidof tpm_server`
 cd src; make && ./tpm_server&
