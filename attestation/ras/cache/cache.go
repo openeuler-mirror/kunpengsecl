@@ -11,7 +11,7 @@ See the Mulan PSL v2 for more details.
 
 Author: wucaijun
 Create: 2021-09-17
-Description: Moniter RAC status and judge its trust state.
+Description: Moniter RAC status and check its trust report state.
 */
 
 package cache
@@ -37,21 +37,27 @@ type (
 		command         int
 		hbExpiration    time.Time
 		trustExpiration time.Time
-		config.RACConfig
 	}
 )
 
-// Update is called when receives heart beat message from RAC.
-func (c *Cache) Update() {
-	// Half past of trust expiration, we need to get a new trust report.
-	if time.Now().After(c.trustExpiration.Add(-c.GetTrustDuration() / 2)) {
+// UpdateHeartBeat is called when receives heart beat message from RAC.
+func (c *Cache) UpdateHeartBeat() {
+	cfg := config.GetDefault()
+	// Once get a heart beat message then extends the expiration.
+	c.hbExpiration = time.Now().Add(cfg.GetHBDuration())
+	// If half past of trust report expiration, we need to get a new trust report.
+	if time.Now().After(c.trustExpiration.Add(-cfg.GetTrustDuration() / 2)) {
 		c.GetTrustReport()
 	}
-	// Once get a new heart beat message then extends the heart beat expiration.
-	c.hbExpiration = time.Now().Add(time.Second * c.GetHBDuration())
 }
 
-func (c *Cache) IsExpire() bool {
+// UpdateTrustReport is called when receives trust report message from RAC.
+func (c *Cache) UpdateTrustReport() {
+	cfg := config.GetDefault()
+	c.trustExpiration = time.Now().Add(cfg.GetTrustDuration())
+}
+
+func (c *Cache) IsHeartBeatExpired() bool {
 	return time.Now().After(c.hbExpiration)
 }
 
@@ -71,16 +77,18 @@ func (c *Cache) GetTrustReport() {
 	c.command |= cmdGETREPORT
 }
 
-func (c *Cache) IsTrust() bool {
-	// After trust expiration there is no new trust report, the RAC can't
-	// be trusted and needs to get a new trust report.
+// IsReportValid checks where the RAC trust report is valid or not.
+func (c *Cache) IsReportValid() bool {
+	cfg := config.GetDefault()
+	// After trust report expiration there is no one report received,
+	// the RAC can't be trusted any more and needs to get a new trust report.
 	if time.Now().After(c.trustExpiration) {
 		c.GetTrustReport()
 		return false
 	}
-	// Even half past of trust expiration we still trust this RAC,
-	// but we need to get a new trust report.
-	if time.Now().After(c.trustExpiration.Add(-c.GetTrustDuration() / 2)) {
+	// Even half past of trust report expiration we still trust the report
+	// of this RAC, but we need to get a new trust report.
+	if time.Now().After(c.trustExpiration.Add(-cfg.GetTrustDuration() / 2)) {
 		c.GetTrustReport()
 	}
 	return true

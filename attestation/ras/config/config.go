@@ -18,9 +18,10 @@ package config
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
 	"os"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -78,6 +79,24 @@ func CreateConfig() (*Config, error) {
 	return c, nil
 }
 
+// GetDefault returns the golbal default config object.
+func GetDefault() *Config {
+	config, _ = CreateConfig()
+	if config == nil {
+		config = &Config{
+			rasConfig: RASConfig{
+				mgrStrategy: "auto",
+				changeTime:  time.Now(),
+			},
+			racConfig: RACConfig{
+				hbDuration:    10 * time.Second,
+				trustDuration: 120 * time.Second,
+			},
+		}
+	}
+	return config
+}
+
 func (c *Config) GetHBDuration() time.Duration {
 	return c.racConfig.hbDuration
 }
@@ -96,8 +115,8 @@ func (c *Config) SetHBDuration(d time.Duration) {
 */
 func (c *Config) ChangeConfig(hbDuration time.Duration, trustDuration time.Duration, mgrStrategy string) error {
 	viper.Set("racConfig.hbDuration", hbDuration)
-	viper.Set("racConfig.trustDuration",trustDuration)
-	viper.Set("rasConfig.mgrStrategy",mgrStrategy)
+	viper.Set("racConfig.trustDuration", trustDuration)
+	viper.Set("rasConfig.mgrStrategy", mgrStrategy)
 	viper.Set("rasConfig.changeTime", time.Now())
 	err := viper.WriteConfig()
 	if err != nil {
@@ -125,4 +144,8 @@ func (c *Config) SetMgrStrategy(s string) {
 
 func (c *Config) GetChangeTime() time.Time {
 	return c.rasConfig.changeTime
+}
+
+func (c *Config) SetChangeTime(n time.Time) {
+	c.rasConfig.changeTime = n
 }

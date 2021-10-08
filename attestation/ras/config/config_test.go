@@ -1,28 +1,73 @@
 package config
 
 import (
-	"fmt"
-	"github.com/magiconair/properties/assert"
 	"testing"
 	"time"
 )
 
-func TestConfig(t *testing.T) {
-	config, err := CreateConfig()
-	if err != nil {
-		t.FailNow()
+func TestRASConfig(t *testing.T) {
+	config := GetDefault()
+
+	testCases1 := []struct {
+		input  string
+		result string
+	}{
+		{"abcdef12345", "abcdef12345"},
+		{"123#$%^&*()!@#", "123#$%^&*()!@#"},
+		{"zxcdfeaonasdfasdf", "zxcdfeaonasdfasdf"},
 	}
-	// change and test
-	config.SetHBDuration(time.Second*2)
-	config.SetTrustDuration(time.Minute*2)
-	config.SetMgrStrategy("auto")
-	config.ChangeConfig(time.Second*2, time.Minute*2, "auto")
-	hd := config.GetHBDuration()
-	td := config.GetTrustDuration()
-	ms := config.GetMgrStrategy()
-	ct := config.GetChangeTime()
-	assert.Equal(t, hd, time.Second*2, "hbDuration error")
-	assert.Equal(t, td, time.Minute*2, "trustDuration error")
-	assert.Equal(t, ms, "auto", "MgrStrategy error")
-	fmt.Printf("change changeTime: %s\n", ct)
+	for i := 0; i < len(testCases1); i++ {
+		config.SetMgrStrategy(testCases1[i].input)
+		if config.GetMgrStrategy() != testCases1[i].result {
+			t.Errorf("test mgrStrategy error at case %d\n", i)
+		}
+	}
+
+	now := time.Now()
+	hLate := now.Add(time.Hour * 12)
+	testCases2 := []struct {
+		input  time.Time
+		result time.Time
+	}{
+		{now, now},
+		{hLate, hLate},
+	}
+	for i := 0; i < len(testCases2); i++ {
+		config.SetChangeTime(testCases2[i].input)
+		if config.GetChangeTime() != testCases2[i].result {
+			t.Errorf("test changeTime error at case %d\n", i)
+		}
+	}
+}
+
+func TestRACConfig(t *testing.T) {
+	config := GetDefault()
+
+	testCases1 := []struct {
+		input  time.Duration
+		result time.Duration
+	}{
+		{time.Second, time.Second},
+		{time.Hour, time.Hour},
+	}
+	for i := 0; i < len(testCases1); i++ {
+		config.SetHBDuration(testCases1[i].input)
+		if config.GetHBDuration() != testCases1[i].result {
+			t.Errorf("test hbDuration error at case %d\n", i)
+		}
+	}
+
+	testCases2 := []struct {
+		input  time.Duration
+		result time.Duration
+	}{
+		{time.Second, time.Second},
+		{time.Hour, time.Hour},
+	}
+	for i := 0; i < len(testCases2); i++ {
+		config.SetTrustDuration(testCases2[i].input)
+		if config.GetTrustDuration() != testCases2[i].result {
+			t.Errorf("test trustDuration error at case %d\n", i)
+		}
+	}
 }
