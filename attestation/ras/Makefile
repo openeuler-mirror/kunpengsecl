@@ -1,9 +1,10 @@
 PKGPATH = pkg
+TESTEES = ./cache ./clientapi ./cmd/ras ./config ./dao ./entity ./pca ./restapi ./trustmgr ./verifier
 
 all: build
 
 test:
-	@echo "to be completed"
+	go test $(TESTEES)
 
 build: vendor
 	go build -mod=vendor -o $(PKGPATH)/ras cmd/ras/*.go
