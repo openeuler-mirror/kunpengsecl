@@ -1,20 +1,19 @@
+/*
+For test purpose, do the following steps:
+1. open two terminal, one to run ras and another to run rac.
+2. in terminal A, run command: go run ras/cmd/main.go
+3. in terminal B, run command: go run rac/cmd/main.go
+*/
 package main
 
 import (
-	"fmt"
-
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 )
 
 func main() {
-	fmt.Println("hello, this is ras!")
-	clientapi.Test()
-	pca.Test()
-	restapi.Test()
-	trustmgr.Test()
-	verifier.Test()
+	// TODO:
+	// add argv handling code for parameters
+	// or read config from yaml file...
+	const addr string = "127.0.0.1:40001"
+	clientapi.StartServer(addr)
 }

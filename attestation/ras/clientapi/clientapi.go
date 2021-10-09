@@ -1,43 +1,85 @@
+/*
+Copyright (c) Huawei Technologies Co., Ltd. 2021. All rights reserved.
+kunpengsecl licensed under the Mulan PSL v2.
+You can use this software according to the terms and conditions of the Mulan PSL v2.
+You may obtain a copy of Mulan PSL v2 at:
+    http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+PURPOSE.
+See the Mulan PSL v2 for more details.
+
+Author: wucaijun
+Create: 2021-10-08
+Description: Using grpc to implement the service API.
+*/
+
 package clientapi
 
 import (
 	"context"
-	"fmt"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"errors"
 	"log"
 	"net"
+	"sync"
 	"time"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 
 	"google.golang.org/grpc"
 )
 
 const (
-	port = "127.0.0.1:40001"
+	constDEFAULTRAC     int           = 1000
+	constDEFAULTTIMEOUT time.Duration = 10 * time.Second
 )
 
-type server struct {
-	UnimplementedRasServer
+type (
+	clientInfo struct {
+		cache cache.Cache
+	}
+)
+
+type service struct {
+	sync.Mutex
+	cli map[int64]*clientInfo
 }
 
-func (s *server) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
-	log.Printf("Received: %v", "CreateIKCert")
+func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
+	log.Printf("Server: receive CreateIKCert")
 	return &CreateIKCertReply{}, nil
 }
 
 // RegisterClient TODO: need a challenge
-func (s *server) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
+func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
+	log.Printf("Server: receive RegisterClient")
 	// register and get clientId
-	ci := in.GetClientInfo().GetClientInfo()
-	eci := &entity.ClientInfo{
-		Info: ci,
+	// This part should be modified to correct the config.yaml path error.
+	/*
+		ci := in.GetClientInfo().GetClientInfo()
+		eci := &entity.ClientInfo{
+			Info: ci,
+		}
+		ic := in.GetIc().String()
+		clientID, err := trustmgr.RegisterClient(eci, ic)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	clientID := int64(1)
+
+	s.Lock()
+	info, ok := s.cli[clientID]
+	if !ok {
+		info = &clientInfo{}
+		s.cli[clientID] = info
+		log.Printf("reg %d", clientID)
 	}
-	ic := in.GetIc().String()
-	clientId, err := trustmgr.RegisterClient(eci, ic)
-	if err != nil {
-		return nil, err
-	}
+	info.cache.ClearCommands()
+	info.cache.UpdateHeartBeat()
+	info.cache.GetTrustReport()
+	s.Unlock()
 
 	// get client config
 	c, err := config.CreateConfig()
@@ -46,92 +88,188 @@ func (s *server) RegisterClient(ctx context.Context, in *RegisterClientRequest) 
 	}
 	hd := c.GetHBDuration()
 	td := c.GetTrustDuration()
-	log.Printf("Received: %v", "RegisterClient")
 
 	return &RegisterClientReply{
-		ClientId:      clientId,
-		ClientConfig:  &ClientConfig{
+		ClientId: clientID,
+		ClientConfig: &ClientConfig{
 			HbDurationSeconds:    int64(hd.Seconds()),
 			TrustDurationSeconds: int64(td.Seconds()),
 		},
 	}, nil
 }
 
-func (s *server) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
-	log.Printf("Received: %v", "UnregisterClient")
-	return &UnregisterClientReply{}, nil
+func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
+	log.Printf("Server: receive UnregisterClient")
+	cid := in.GetClientId()
+	s.Lock()
+	_, ok := s.cli[cid]
+	if ok {
+		log.Printf("delete %d", cid)
+		delete(s.cli, cid)
+	}
+	s.Unlock()
+	return &UnregisterClientReply{Result: true}, nil
 }
 
-func (s *server) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
-	log.Printf("Received: %v", "SendHeartbeat")
-	return &SendHeartbeatReply{}, nil
+func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
+	log.Printf("Server: receive SendHeartbeat")
+	cid := in.GetClientId()
+	s.Lock()
+	info, ok := s.cli[cid]
+	if ok {
+		log.Printf("hb %d", cid)
+		info.cache.UpdateHeartBeat()
+	}
+	s.Unlock()
+	return &SendHeartbeatReply{NextAction: 0}, nil
 }
 
-func (s *server) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
-	log.Printf("Received: %v", "SendReport")
+func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
+	log.Printf("Server: receive SendReport")
+	cid := in.GetClientId()
+	s.Lock()
+	info, ok := s.cli[cid]
+	if ok {
+		log.Printf("report %d", cid)
+		info.cache.UpdateTrustReport()
+	}
+	s.Unlock()
 	return &SendReportReply{}, nil
 }
 
-func startServer() {
-	lis, err := net.Listen("tcp", port)
+func (s *service) mustEmbedUnimplementedRasServer() {
+	// match the RasServer interface requirements.
+}
+
+// StartServer starts ras server and provides rpc services.
+func StartServer(addr string) {
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("Server: fail to listen at %v", err)
+		return
 	}
 	s := grpc.NewServer()
-	RegisterRasServer(s, &server{})
-	log.Printf("server listening at %v", lis.Addr())
+	svc := &service{}
+	svc.cli = make(map[int64]*clientInfo, constDEFAULTRAC)
+	RegisterRasServer(s, svc)
+	log.Printf("Server: listen at %s", addr)
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		log.Fatalf("Server: fail to serve %v", err)
 	}
 }
 
-func startClient() {
-	conn, err := grpc.Dial(port, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
-	}
-	defer conn.Close()
-	c := NewRasClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	_, err = c.CreateIKCert(ctx, &CreateIKCertRequest{})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
-	}
-	log.Printf("CreateIKCert ok")
-
-	_, err = c.RegisterClient(ctx, &RegisterClientRequest{})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
-	}
-	log.Printf("RegisterClient ok")
-
-	_, err = c.UnregisterClient(ctx, &UnregisterClientRequest{})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
-	}
-	log.Printf("UnregisterClient ok")
-
-	_, err = c.SendHeartbeat(ctx, &SendHeartbeatRequest{})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
-	}
-	log.Printf("SendHeartbeat ok")
-
-	_, err = c.SendReport(ctx, &SendReportRequest{})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
-	}
-	log.Printf("SendReport ok")
+type rasConn struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	conn   *grpc.ClientConn
+	c      RasClient
 }
 
-func Test() {
-	fmt.Println("hello, this is clientapi!")
-	fmt.Println("start ras server!")
-	go startServer()
+func makesock(addr string) (*rasConn, error) {
+	ras := &rasConn{}
+	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return nil, errors.New("Client: fail to connect " + addr)
+	}
+	ras.conn = conn
+	ras.c = NewRasClient(conn)
+	ras.ctx, ras.cancel = context.WithTimeout(context.Background(), constDEFAULTTIMEOUT)
+	log.Printf("Client: connect to %s", addr)
+	return ras, nil
+}
 
-	fmt.Println("start ras client!")
-	startClient()
+// DoCreateIKCert creates an identity certificate from ras server.
+func DoCreateIKCert(addr string, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
+	ras, err := makesock(addr)
+	if err != nil {
+		log.Fatalf("%v", err)
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+
+	bk, err := ras.c.CreateIKCert(ras.ctx, in)
+	if err != nil {
+		log.Fatalf("Client: invoke CreateIKCert error %v", err)
+		return nil, err
+	}
+	log.Printf("Client: invoke CreateIKCert ok")
+	return bk, nil
+}
+
+// DoRegisterClient registers the rac to the ras server.
+func DoRegisterClient(addr string, in *RegisterClientRequest) (*RegisterClientReply, error) {
+	ras, err := makesock(addr)
+	if err != nil {
+		log.Fatalf("%v", err)
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+
+	bk, err := ras.c.RegisterClient(ras.ctx, in)
+	if err != nil {
+		log.Fatalf("Client: invoke RegisterClient error %v", err)
+		return nil, err
+	}
+	log.Printf("Client: invoke RegisterClient ok, clientID=%d", bk.GetClientId())
+	return bk, nil
+}
+
+// DoUnregisterClient unregisters the rac from the ras server.
+func DoUnregisterClient(addr string, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
+	ras, err := makesock(addr)
+	if err != nil {
+		log.Fatalf("%v", err)
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+
+	bk, err := ras.c.UnregisterClient(ras.ctx, in)
+	if err != nil {
+		log.Fatalf("Client: invoke UnregisterClient error %v", err)
+		return nil, err
+	}
+	log.Printf("Client: invoke UnregisterClient %v", bk.Result)
+	return bk, nil
+}
+
+// DoSendHeartbeat sends a heart beat message to the ras server.
+func DoSendHeartbeat(addr string, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
+	ras, err := makesock(addr)
+	if err != nil {
+		log.Fatalf("%v", err)
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+
+	bk, err := ras.c.SendHeartbeat(ras.ctx, in)
+	if err != nil {
+		log.Fatalf("Client: invoke SendHeartbeat error %v", err)
+		return nil, err
+	}
+	log.Printf("Client: invoke SendHeartbeat ok")
+	//bk.NextAction = 123
+	return bk, nil
+}
+
+// DoSendReport sends a trust report message to the ras server.
+func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) {
+	ras, err := makesock(addr)
+	if err != nil {
+		log.Fatalf("%v", err)
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+
+	bk, err := ras.c.SendReport(ras.ctx, in)
+	if err != nil {
+		log.Fatalf("Client: invoke SendReport error %v", err)
+		return nil, err
+	}
+	log.Printf("Client: invoke SendReport ok")
+	return bk, nil
 }
