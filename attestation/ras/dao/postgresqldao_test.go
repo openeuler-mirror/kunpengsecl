@@ -3,6 +3,7 @@ package dao
 import (
 	"fmt"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -73,11 +74,45 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 		},
 	}
 
-
 	psdErr := psd.SaveReport(testReport)
 	if psdErr != nil {
 		fmt.Println(psdErr)
 		t.FailNow()
 	}
 
+}
+
+func TestRegisterClient(t *testing.T) {
+	psd := CreatePostgreSqlDAO()
+	ci := &entity.ClientInfo{
+		Info: map[string]string{
+			"info name1" : "info value1",
+			"info name2" : "info value2",
+		},
+	}
+	ic := "test ic"
+	_, err := psd.RegisterClient(ci, ic)
+	if err != nil {
+		t.FailNow()
+	}
+}
+
+func TestUnRegisterClient(t *testing.T) {
+	psd := CreatePostgreSqlDAO()
+	clientIds, err := psd.SelectAllClientIds()
+	if err != nil {
+		fmt.Println(err)
+		t.FailNow()
+	}
+	err = psd.UnRegisterClient(clientIds[0])
+	if err != nil {
+		fmt.Println(err)
+		t.FailNow()
+	}
+	newClientIds, err := psd.SelectAllClientIds()
+	if err != nil {
+		fmt.Println(err)
+		t.FailNow()
+	}
+	assert.NotEqual(t, clientIds[0], newClientIds[0])
 }

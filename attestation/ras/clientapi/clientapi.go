@@ -3,6 +3,9 @@ package clientapi
 import (
 	"context"
 	"fmt"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"log"
 	"net"
 	"time"
@@ -23,9 +26,35 @@ func (s *server) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*Cr
 	return &CreateIKCertReply{}, nil
 }
 
+// RegisterClient TODO: need a challenge
 func (s *server) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
+	// register and get clientId
+	ci := in.GetClientInfo().GetClientInfo()
+	eci := &entity.ClientInfo{
+		Info: ci,
+	}
+	ic := in.GetIc().String()
+	clientId, err := trustmgr.RegisterClient(eci, ic)
+	if err != nil {
+		return nil, err
+	}
+
+	// get client config
+	c, err := config.CreateConfig()
+	if err != nil {
+		return nil, err
+	}
+	hd := c.GetHBDuration()
+	td := c.GetTrustDuration()
 	log.Printf("Received: %v", "RegisterClient")
-	return &RegisterClientReply{}, nil
+
+	return &RegisterClientReply{
+		ClientId:      clientId,
+		ClientConfig:  &ClientConfig{
+			HbDurationSeconds:    int64(hd.Seconds()),
+			TrustDurationSeconds: int64(td.Seconds()),
+		},
+	}, nil
 }
 
 func (s *server) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {

@@ -52,6 +52,24 @@ func RecordReport(report *entity.Report) error {
 	}
 }
 
+func RegisterClient(clientInfo *entity.ClientInfo, ic string) (int64, error) {
+	psd := dao.CreatePostgreSqlDAO()
+	clientId, err := psd.RegisterClient(clientInfo, ic)
+	if err != nil {
+		return 0, err
+	}
+	return clientId, nil
+}
+
+func UnRegisterClient(clientId int64) error {
+	psd := dao.CreatePostgreSqlDAO()
+	err := psd.UnRegisterClient(clientId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func Test() {
 	fmt.Println("hello, this is trustmgr!")
 }

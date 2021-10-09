@@ -42,6 +42,7 @@ message Cert {
 }
 
 message ClientInfo {
+  map<string, string> clientInfo = 1;
 }
 
 message RegisterClientReply {
@@ -50,6 +51,8 @@ message RegisterClientReply {
 }
 
 message ClientConfig {
+  int64 hbDurationSeconds = 1;
+  int64 trustDurationSeconds = 2;
 }
 
 message UnregisterClientRequest {

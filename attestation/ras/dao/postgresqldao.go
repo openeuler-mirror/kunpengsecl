@@ -88,10 +88,118 @@ func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 			return err
 		}
 	}
-
-	tx.Commit(context.Background())
-
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+/*
+	RegisterClient start a transaction, first insert clientInfo into table client_info,
+	get the client_info_id and then insert data into table register_client.
+ */
+func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic string) (int64, error) {
+	var clientInfoId int64
+	var clientId int64
+	tx, err := psd.conn.Begin(context.Background())
+	if err != nil {
+		return 0, err
+	}
+
+	/*
+		Insert report data into client_info.
+		Using serial to generate client_info_id is impossible because clientInfo is a map,
+		several rows have the same client_info_id.
+		Here we use table client_info_id to record client_info_id value.
+	 */
+	err = tx.QueryRow(context.Background(),
+		"INSERT INTO client_info_id(online) VALUES ($1) RETURNING id", true).Scan(&clientInfoId)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return 0, err
+	}
+	for name, value := range clientInfo.Info {
+		_, err = tx.Exec(context.Background(),
+			"INSERT INTO client_info(client_info_id, name, value) VALUES ($1, $2, $3)",
+			clientInfoId,
+			name,
+			value)
+		if err != nil {
+			tx.Rollback(context.Background())
+			return 0, err
+		}
+	}
+
+	// Insert data into register_client
+	err = tx.QueryRow(context.Background(),
+		"INSERT INTO register_client(client_info_id, register_time, ak_certificate) " +
+		"VALUES ($1, $2, $3) RETURNING client_id", clientInfoId, time.Now(), ic).Scan(&clientId)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return 0, err
+	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	return clientId, nil
+}
+
+/*
+	UnRegisterClient delete client data from table client_info, client_info_id and register_client.
+ */
+func (psd *PostgreSqlDAO) UnRegisterClient(clientId int64) error {
+	var clientInfoId int64
+	tx, err := psd.conn.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+	err = tx.QueryRow(context.Background(),
+		"SELECT client_info_id FROM register_client WHERE client_id = $1",
+		clientId).Scan(&clientInfoId)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return err
+	}
+	_, err = tx.Exec(context.Background(), "DELETE FROM client_info WHERE client_info_id = $1", clientInfoId)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return err
+	}
+	_, err = tx.Exec(context.Background(), "DELETE FROM client_info_id WHERE id = $1", clientInfoId)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return err
+	}
+	_, err = tx.Exec(context.Background(), "DELETE FROM register_client WHERE client_id = $1", clientId)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return err
+	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error){
+	var clientIds []int64
+	rows, err := psd.conn.Query(context.Background(),
+		"SELECT client_id FROM register_client")
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var ci int64
+		err = rows.Scan(&ci)
+		if err != nil {
+			return nil, err
+		}
+		clientIds = append(clientIds, ci)
+	}
+	return clientIds, nil
 }
 
 func (psd *PostgreSqlDAO) init() error {
