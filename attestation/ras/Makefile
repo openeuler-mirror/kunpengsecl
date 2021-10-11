@@ -6,7 +6,7 @@ all: build
 test:
 	go test $(TESTEES)
 
-build: vendor
+build:
 	go build -mod=vendor -o $(PKGPATH)/ras cmd/ras/*.go
 
 clean:
@@ -24,10 +24,7 @@ gofmt:
 proto:
 	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative ./clientapi/api.proto
 
-vendor:
-	go mod vendor
-
 oapi-codegen:
 	oapi-codegen -package restapi -generate types,server,client restapi/api.yaml > restapi/api.gen.go
 
-.PHONY: all build test clean install check gofmt proto vendor oapi-codegen
+.PHONY: all build test clean install check gofmt proto oapi-codegen
