@@ -21,4 +21,7 @@ install:
 check:
 	$(shell go env GOPATH)/bin/golangci-lint run -e gofmt -e gocyclo -e errorlint -e gosec
 
+gofmt:
+	gofmt -s -w *
+
 .PHONY: all build test clean install check
