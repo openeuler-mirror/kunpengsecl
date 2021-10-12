@@ -40,7 +40,7 @@ func (s *server) RegisterClient(ctx context.Context, in *RegisterClientRequest) 
 	}
 
 	// get client config
-	c, err := config.CreateConfig()
+	c, err := config.CreateConfig("")
 	if err != nil {
 		return nil, err
 	}
