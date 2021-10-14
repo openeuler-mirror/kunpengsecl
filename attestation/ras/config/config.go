@@ -17,20 +17,23 @@ Description: Store RAS and RAC configurations.
 package config
 
 import (
+	"errors"
 	"fmt"
-	"os"
-	"time"
-
 	"github.com/spf13/viper"
+	"time"
 )
 
+var defaultConfigPath = []string{
+	"./",
+}
+
 type Config struct {
+	path string
 	rasConfig RASConfig
 	racConfig RACConfig
 }
 type (
 	RASConfig struct {
-		// TODO:
 		mgrStrategy string
 		changeTime  time.Time
 	}
@@ -45,19 +48,25 @@ var config *Config
 
 /*
 	CreateConfig creates Config object if it was not initialized.
+	The path can't be empty when CreateConfig is called first time. Normally it is called when app initializes.
+	The path can't be modified when app running.
+	If the path is empty, CreateConfig return current Config object. So after called for the first time,
+	the parameter is always "".
 */
-func CreateConfig() (*Config, error) {
-	if config != nil {
+func CreateConfig(path string) (*Config, error) {
+	if config != nil && path == "" {
 		return config, nil
 	}
-	path, err := os.Getwd()
-	if err != nil {
-		return nil, err
+	if config != nil && path != "" {
+		return config, errors.New("the parameter must be empty because config has been initialized")
+	}
+	if config == nil && path == "" {
+		return config, errors.New("the parameter can't be empty for initializing config")
 	}
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(path)
-	err = viper.ReadInConfig()
+	err := viper.ReadInConfig()
 	if err != nil {
 		fmt.Println("failed to read config file")
 		return nil, err
@@ -67,6 +76,7 @@ func CreateConfig() (*Config, error) {
 	mgrStrategy := viper.GetString("rasConfig.mgrStrategy")
 	changeTime := viper.GetTime("rasConfig.changeTime")
 	c := &Config{
+		path: path,
 		rasConfig: RASConfig{
 			mgrStrategy: mgrStrategy,
 			changeTime:  changeTime,
@@ -79,9 +89,12 @@ func CreateConfig() (*Config, error) {
 	return c, nil
 }
 
-// GetDefault returns the golbal default config object.
+// GetDefault returns the global default config object.
 func GetDefault() *Config {
-	config, _ = CreateConfig()
+	var config *Config
+	for _, p := range defaultConfigPath {
+		config, _ = CreateConfig(p)
+	}
 	if config == nil {
 		config = &Config{
 			rasConfig: RASConfig{

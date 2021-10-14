@@ -82,7 +82,7 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 	s.Unlock()
 
 	// get client config
-	c, err := config.CreateConfig()
+	c, err := config.CreateConfig("")
 	if err != nil {
 		return nil, err
 	}
