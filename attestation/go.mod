@@ -4,6 +4,8 @@ go 1.15
 
 require (
 	github.com/deepmap/oapi-codegen v1.8.1
+	github.com/google/go-tpm v0.3.2
+	github.com/google/go-tpm-tools v0.2.1
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/labstack/echo/v4 v4.3.0
 	github.com/spf13/viper v1.7.1
