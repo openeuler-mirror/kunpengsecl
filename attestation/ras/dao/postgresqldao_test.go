@@ -9,13 +9,13 @@ import (
 )
 
 func TestPostgreSqlDAOSaveReport(t *testing.T) {
-	psd, err := CreatePostgreSqlDAO()
+	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
 		return
 	}
 	pcrInfo := entity.PcrInfo{
-		Algorithm: 1,
+		AlgName: "sha256",
 		Values: []entity.PcrValue{
 			1: {
 				Id:    1,
@@ -68,7 +68,7 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 			1: biosManifest,
 			2: imaManifest,
 		},
-		ClientId: 1,
+		ClientID: 1,
 		ClientInfo: entity.ClientInfo{
 			Info: map[string]string{
 				"client_name":        "test_client",
@@ -87,7 +87,7 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 }
 
 func TestRegisterClient(t *testing.T) {
-	psd, err := CreatePostgreSqlDAO()
+	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
 		return
@@ -106,7 +106,7 @@ func TestRegisterClient(t *testing.T) {
 }
 
 func TestUnRegisterClient(t *testing.T) {
-	psd, err := CreatePostgreSqlDAO()
+	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
 		return
