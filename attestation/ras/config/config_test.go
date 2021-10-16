@@ -22,22 +22,6 @@ func TestRASConfig(t *testing.T) {
 			t.Errorf("test mgrStrategy error at case %d\n", i)
 		}
 	}
-
-	now := time.Now()
-	hLate := now.Add(time.Hour * 12)
-	testCases2 := []struct {
-		input  time.Time
-		result time.Time
-	}{
-		{now, now},
-		{hLate, hLate},
-	}
-	for i := 0; i < len(testCases2); i++ {
-		config.SetChangeTime(testCases2[i].input)
-		if config.GetChangeTime() != testCases2[i].result {
-			t.Errorf("test changeTime error at case %d\n", i)
-		}
-	}
 }
 
 func TestRACConfig(t *testing.T) {
