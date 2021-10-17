@@ -1,5 +1,5 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -81,13 +81,8 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 	info.cache.GetTrustReport()
 	s.Unlock()
 
-	// get client config
-	c, err := config.CreateConfig("")
-	if err != nil {
-		return nil, err
-	}
-	hd := c.GetHBDuration()
-	td := c.GetTrustDuration()
+	hd := config.GetDefault().GetHBDuration()
+	td := config.GetDefault().GetTrustDuration()
 
 	return &RegisterClientReply{
 		ClientId: clientID,

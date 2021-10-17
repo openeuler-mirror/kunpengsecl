@@ -1,11 +1,11 @@
 database:
   dbname: kunpengsecl
   host: localhost
-  password: 
+  password: ""
   port: 5432
-  user:
+  user: ""
 racconfig:
-  hbduration: 2s
+  hbduration: 3s
   trustduration: 2m0s
 rasconfig:
   changetime: 2021-09-30T11:53:24.0581136+08:00

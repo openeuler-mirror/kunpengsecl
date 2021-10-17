@@ -2,17 +2,21 @@ package dao
 
 import (
 	"fmt"
+	"testing"
+
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestPostgreSqlDAOSaveReport(t *testing.T) {
-	psd := CreatePostgreSqlDAO()
-
+	psd, err := CreatePostgreSqlDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+		return
+	}
 	pcrInfo := entity.PcrInfo{
 		Algorithm: 1,
-		Values:    []entity.PcrValue{
+		Values: []entity.PcrValue{
 			1: {
 				Id:    1,
 				Value: "pcr value 1",
@@ -22,7 +26,7 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 				Value: "pcr value 2",
 			},
 		},
-		Quote:     []byte("test quote"),
+		Quote: []byte("test quote"),
 	}
 
 	biosItem1 := entity.ManifestItem{
@@ -44,7 +48,7 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 	}
 
 	biosManifest := entity.Manifest{
-		Type:  "bios",
+		Type: "bios",
 		Items: []entity.ManifestItem{
 			1: biosItem1,
 			2: biosItem2,
@@ -52,23 +56,23 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 	}
 
 	imaManifest := entity.Manifest{
-		Type:  "ima",
+		Type: "ima",
 		Items: []entity.ManifestItem{
 			1: imaItem1,
 		},
 	}
 
 	testReport := &entity.Report{
-		PcrInfo:    pcrInfo,
-		Manifest:   []entity.Manifest{
+		PcrInfo: pcrInfo,
+		Manifest: []entity.Manifest{
 			1: biosManifest,
 			2: imaManifest,
 		},
-		ClientId:   1,
+		ClientId: 1,
 		ClientInfo: entity.ClientInfo{
 			Info: map[string]string{
-				"client_name": "test_client",
-				"client_type": "test_type",
+				"client_name":        "test_client",
+				"client_type":        "test_type",
 				"client_description": "test description",
 			},
 		},
@@ -83,22 +87,30 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 }
 
 func TestRegisterClient(t *testing.T) {
-	psd := CreatePostgreSqlDAO()
+	psd, err := CreatePostgreSqlDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+		return
+	}
 	ci := &entity.ClientInfo{
 		Info: map[string]string{
-			"info name1" : "info value1",
-			"info name2" : "info value2",
+			"info name1": "info value1",
+			"info name2": "info value2",
 		},
 	}
 	ic := "test ic"
-	_, err := psd.RegisterClient(ci, ic)
-	if err != nil {
+	_, err2 := psd.RegisterClient(ci, ic)
+	if err2 != nil {
 		t.FailNow()
 	}
 }
 
 func TestUnRegisterClient(t *testing.T) {
-	psd := CreatePostgreSqlDAO()
+	psd, err := CreatePostgreSqlDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+		return
+	}
 	clientIds, err := psd.SelectAllClientIds()
 	if err != nil {
 		fmt.Println(err)

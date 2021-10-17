@@ -3,23 +3,24 @@ package dao
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"github.com/jackc/pgx/v4"
-	"github.com/spf13/viper"
-	"os"
-	"time"
 )
 
 /*
 	PostgreSqlDAO implements dao.
 	conn is a connection initialized in CreatePostgreSqlDAO() and destroyed in Destroy()
- */
+*/
 type PostgreSqlDAO struct {
 	conn *pgx.Conn
 }
+
 /*
 	SaveReport use conn to execute a transaction for insert data into tables
- */
+*/
 func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 	var reportId int64
 	tx, err := psd.conn.Begin(context.Background())
@@ -98,7 +99,7 @@ func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 /*
 	RegisterClient start a transaction, first insert clientInfo into table client_info,
 	get the client_info_id and then insert data into table register_client.
- */
+*/
 func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic string) (int64, error) {
 	var clientInfoId int64
 	var clientId int64
@@ -112,7 +113,7 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic strin
 		Using serial to generate client_info_id is impossible because clientInfo is a map,
 		several rows have the same client_info_id.
 		Here we use table client_info_id to record client_info_id value.
-	 */
+	*/
 	err = tx.QueryRow(context.Background(),
 		"INSERT INTO client_info_id(online) VALUES ($1) RETURNING id", true).Scan(&clientInfoId)
 	if err != nil {
@@ -133,8 +134,8 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic strin
 
 	// Insert data into register_client
 	err = tx.QueryRow(context.Background(),
-		"INSERT INTO register_client(client_info_id, register_time, ak_certificate) " +
-		"VALUES ($1, $2, $3) RETURNING client_id", clientInfoId, time.Now(), ic).Scan(&clientId)
+		"INSERT INTO register_client(client_info_id, register_time, ak_certificate) "+
+			"VALUES ($1, $2, $3) RETURNING client_id", clientInfoId, time.Now(), ic).Scan(&clientId)
 	if err != nil {
 		tx.Rollback(context.Background())
 		return 0, err
@@ -148,7 +149,7 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic strin
 
 /*
 	UnRegisterClient delete client data from table client_info, client_info_id and register_client.
- */
+*/
 func (psd *PostgreSqlDAO) UnRegisterClient(clientId int64) error {
 	var clientInfoId int64
 	tx, err := psd.conn.Begin(context.Background())
@@ -184,7 +185,7 @@ func (psd *PostgreSqlDAO) UnRegisterClient(clientId int64) error {
 	return nil
 }
 
-func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error){
+func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
 	var clientIds []int64
 	rows, err := psd.conn.Query(context.Background(),
 		"SELECT client_id FROM register_client")
@@ -202,42 +203,20 @@ func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error){
 	return clientIds, nil
 }
 
-func (psd *PostgreSqlDAO) init() error {
-	// use viper to read config for connecting database
-	path, err:= os.Getwd()
-	if err != nil {
-		return err
-	}
-	path = path + "\\..\\config"
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(path)
-	err = viper.ReadInConfig()
-	if err != nil {
-		fmt.Println("读取配置文件失败")
-		return err
-	}
-	host := viper.GetString("database.host")
-	port := viper.GetString("database.port")
-	dbname := viper.GetString("database.dbname")
-	user := viper.GetString("database.user")
-	password := viper.GetString("database.password")
-	url := "postgres://"+user+":"+password+"@"+host+":"+port+"/"+dbname
-	psd.conn, err = pgx.Connect(context.Background(), url)
-	if err != nil {
-		fmt.Println("数据库连接失败")
-		return err
-	}
-	return nil
-}
 
-/*
-	use factory mode to get a pointer of PostgreSqlDAO
- */
-func CreatePostgreSqlDAO() *PostgreSqlDAO {
-	psd := new(PostgreSqlDAO)
-	psd.init()
-	return psd
+// CreatePostgreSqlDAO creates a postgre database connection to read and store data.
+func CreatePostgreSqlDAO() (*PostgreSqlDAO, error) {
+	host := config.GetDefault().GetHost()
+	port := config.GetDefault().GetPort()
+	dbname := config.GetDefault().GetDBName()
+	user := config.GetDefault().GetUser()
+	password := config.GetDefault().GetPassword()
+	url := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, password, host, port, dbname)
+	c, err := pgx.Connect(context.Background(), url)
+	if err != nil {
+		return nil, err
+	}
+	return &PostgreSqlDAO{conn: c}, nil
 }
 
 func (psd *PostgreSqlDAO) Destroy() {

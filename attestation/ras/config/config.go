@@ -1,5 +1,5 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -17,148 +17,188 @@ Description: Store RAS and RAC configurations.
 package config
 
 import (
-	"errors"
-	"fmt"
-	"github.com/spf13/viper"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 var defaultConfigPath = []string{
-	"./",
+	".",
+	"./ras/config",
+	"$HOME/.config/attestation",
+	"/usr/lib/attestation",
+	"/etc/attestation",
 }
 
-type Config struct {
-	path string
-	rasConfig RASConfig
-	racConfig RACConfig
-}
 type (
-	RASConfig struct {
+	dbConfig struct {
+		host     string
+		dbName   string
+		user     string
+		password string
+		port     int
+	}
+	rasConfig struct {
 		mgrStrategy string
 		changeTime  time.Time
 	}
-
-	RACConfig struct {
+	racConfig struct {
 		hbDuration    time.Duration // heartbeat duration
 		trustDuration time.Duration // trust state duration
 	}
+	config struct {
+		dbConfig
+		rasConfig
+		racConfig
+	}
 )
 
-var config *Config
+var cfg *config
 
 /*
-	CreateConfig creates Config object if it was not initialized.
-	The path can't be empty when CreateConfig is called first time. Normally it is called when app initializes.
-	The path can't be modified when app running.
-	If the path is empty, CreateConfig return current Config object. So after called for the first time,
-	the parameter is always "".
+	GetDefault returns the global default config object.
+	It searches the defaultConfigPath to find the first matched config.yaml.
+	if it doesn't find any one, it returns the default values by code.
 */
-func CreateConfig(path string) (*Config, error) {
-	if config != nil && path == "" {
-		return config, nil
+func GetDefault() *config {
+	if cfg != nil {
+		return cfg
 	}
-	if config != nil && path != "" {
-		return config, errors.New("the parameter must be empty because config has been initialized")
-	}
-	if config == nil && path == "" {
-		return config, errors.New("the parameter can't be empty for initializing config")
-	}
+
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath(path)
-	err := viper.ReadInConfig()
-	if err != nil {
-		fmt.Println("failed to read config file")
-		return nil, err
+	for _, s := range defaultConfigPath {
+		viper.AddConfigPath(s)
 	}
-	hbDuration := viper.GetDuration("racConfig.hbDuration")
-	trustDuration := viper.GetDuration("racConfig.trustDuration")
-	mgrStrategy := viper.GetString("rasConfig.mgrStrategy")
-	changeTime := viper.GetTime("rasConfig.changeTime")
-	c := &Config{
-		path: path,
-		rasConfig: RASConfig{
-			mgrStrategy: mgrStrategy,
-			changeTime:  changeTime,
-		},
-		racConfig: RACConfig{
-			hbDuration:    hbDuration,
-			trustDuration: trustDuration,
-		},
-	}
-	return c, nil
-}
 
-// GetDefault returns the global default config object.
-func GetDefault() *Config {
-	var config *Config
-	for _, p := range defaultConfigPath {
-		config, _ = CreateConfig(p)
+	err := viper.ReadInConfig()
+	if err == nil {
+		cfg = &config{
+			dbConfig: dbConfig{
+				host:     viper.GetString("database.host"),
+				dbName:   viper.GetString("database.dbname"),
+				user:     viper.GetString("database.user"),
+				password: viper.GetString("database.password"),
+				port:     viper.GetInt("database.port"),
+			},
+			rasConfig: rasConfig{
+				mgrStrategy: viper.GetString("rasConfig.mgrStrategy"),
+				changeTime:  viper.GetTime("rasConfig.changeTime"),
+			},
+			racConfig: racConfig{
+				hbDuration:    viper.GetDuration("racConfig.hbDuration"),
+				trustDuration: viper.GetDuration("racConfig.trustDuration"),
+			},
+		}
+		return cfg
 	}
-	if config == nil {
-		config = &Config{
-			rasConfig: RASConfig{
+
+	if cfg == nil {
+		cfg = &config{
+			dbConfig: dbConfig{
+				host:     "localhost",
+				dbName:   "test",
+				user:     "",
+				password: "",
+				port:     5432,
+			},
+			rasConfig: rasConfig{
 				mgrStrategy: "auto",
 				changeTime:  time.Now(),
 			},
-			racConfig: RACConfig{
+			racConfig: racConfig{
 				hbDuration:    10 * time.Second,
 				trustDuration: 120 * time.Second,
 			},
 		}
 	}
-	return config
+	return cfg
 }
 
-func (c *Config) GetHBDuration() time.Duration {
-	return c.racConfig.hbDuration
-}
-
-/*
-	SetHBDuration just set hbDuration for now, it can't change the config file.
-	If you want to change the config file, please use ChangeConfig.
-*/
-func (c *Config) SetHBDuration(d time.Duration) {
-	c.racConfig.hbDuration = d
-}
-
-/*
-	ChangeConfig just change the config file, it can't set config value for now.
-	If you want to set current config value, please use SetXXX function.
-*/
-func (c *Config) ChangeConfig(hbDuration time.Duration, trustDuration time.Duration, mgrStrategy string) error {
-	viper.Set("racConfig.hbDuration", hbDuration)
-	viper.Set("racConfig.trustDuration", trustDuration)
-	viper.Set("rasConfig.mgrStrategy", mgrStrategy)
-	viper.Set("rasConfig.changeTime", time.Now())
-	err := viper.WriteConfig()
-	if err != nil {
-		return err
+// Save saves all config variables to the config.yaml file.
+func Save() {
+	if cfg != nil {
+		viper.Set("database.host", cfg.host)
+		viper.Set("database.dbname", cfg.dbName)
+		viper.Set("database.user", cfg.user)
+		viper.Set("database.password", cfg.password)
+		viper.Set("database.port", cfg.port)
+		viper.Set("racConfig.hbDuration", cfg.hbDuration)
+		viper.Set("racConfig.trustDuration", cfg.trustDuration)
+		viper.Set("rasConfig.mgrStrategy", cfg.mgrStrategy)
+		viper.Set("rasConfig.changeTime", cfg.changeTime)
+		err := viper.WriteConfig()
+		if err != nil {
+			_ = viper.SafeWriteConfig()
+		}
 	}
-	return nil
 }
 
-func (c *Config) GetTrustDuration() time.Duration {
-	return c.racConfig.trustDuration
+func (c *config) GetHost() string {
+	return c.host
 }
 
-func (c *Config) SetTrustDuration(d time.Duration) {
-	c.racConfig.trustDuration = d
+func (c *config) SetHost(host string) {
+	c.host = host
 }
 
-func (c *Config) GetMgrStrategy() string {
-	return c.rasConfig.mgrStrategy
+func (c *config) GetDBName() string {
+	return c.dbName
 }
 
-func (c *Config) SetMgrStrategy(s string) {
-	c.rasConfig.mgrStrategy = s
-	c.rasConfig.changeTime = time.Now()
+func (c *config) SetDBName(dbName string) {
+	c.dbName = dbName
 }
 
-func (c *Config) GetChangeTime() time.Time {
-	return c.rasConfig.changeTime
+func (c *config) GetUser() string {
+	return c.user
 }
 
-func (c *Config) SetChangeTime(n time.Time) {
-	c.rasConfig.changeTime = n
+func (c *config) SetUser(user string) {
+	c.user = user
+}
+
+func (c *config) GetPassword() string {
+	return c.password
+}
+
+func (c *config) SetPassword(password string) {
+	c.password = password
+}
+
+func (c *config) GetPort() int {
+	return c.port
+}
+
+func (c *config) SetPort(port int) {
+	c.port = port
+}
+
+func (c *config) GetHBDuration() time.Duration {
+	return c.hbDuration
+}
+
+func (c *config) SetHBDuration(d time.Duration) {
+	c.hbDuration = d
+}
+
+func (c *config) GetTrustDuration() time.Duration {
+	return c.trustDuration
+}
+
+func (c *config) SetTrustDuration(d time.Duration) {
+	c.trustDuration = d
+}
+
+func (c *config) GetMgrStrategy() string {
+	return c.mgrStrategy
+}
+
+func (c *config) SetMgrStrategy(s string) {
+	c.mgrStrategy = s
+	c.changeTime = time.Now()
+}
+
+func (c *config) GetChangeTime() time.Time {
+	return c.changeTime
 }
