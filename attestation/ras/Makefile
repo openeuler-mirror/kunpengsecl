@@ -8,6 +8,15 @@ test:
 
 build:
 	go build -mod=vendor -o $(PKGPATH)/ras cmd/ras/*.go
+	go build -mod=vendor -o $(PKGPATH)/pca pca/*.go
+	go build -mod=vendor -o $(PKGPATH)/config config/*.go
+	go build -mod=vendor -o $(PKGPATH)/trustmgr trustmgr/*.go
+	go build -mod=vendor -o $(PKGPATH)/verifier verifier/*.go
+	go build -mod=vendor -o $(PKGPATH)/cache cache/*.go
+	go build -mod=vendor -o $(PKGPATH)/clientapi clientapi/*.go
+	go build -mod=vendor -o $(PKGPATH)/dao dao/*.go
+	go build -mod=vendor -o $(PKGPATH)/entity entity/*.go
+	go build -mod=vendor -o $(PKGPATH)/restapi restapi/*.go
 
 clean:
 	@rm -rf $(PKGPATH)

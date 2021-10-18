@@ -12,3 +12,5 @@ go get google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
 export PATH="$PATH:$(go env GOPATH)/bin"
 
 go get github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.8.1
+sudo dnf install -y openssl-devel
+go get github.com/google/go-tpm-tools/simulator@v0.2.1

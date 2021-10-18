@@ -1,7 +1,7 @@
 
 subdir = ras rac
 
-.PHONY: all build test clean install check vendor
+.PHONY: all build test clean install check
 build: vendor
 
 all build test clean install check:
