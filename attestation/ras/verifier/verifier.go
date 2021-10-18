@@ -3,7 +3,6 @@ package verifier
 	verifier is used to verify trust status of target RAC.
  */
 import (
-	"fmt"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
@@ -91,6 +90,3 @@ func (vm *VerifierMgr) Validate(report *entity.Report) error {
 	return nil
 }
 
-func Test() {
-	fmt.Println("hello, this is verifier!")
-}

@@ -4,7 +4,6 @@ package trustmgr
  */
 import (
 	"errors"
-	"fmt"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/dao"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
@@ -42,7 +41,10 @@ func RecordReport(report *entity.Report) error {
 		if err != nil {
 			return err
 		}
-		psd := dao.CreatePostgreSqlDAO()
+		psd, err := dao.CreatePostgreSQLDAO()
+		if err != nil {
+			return err
+		}
 		defer psd.Destroy()
 		err = psd.SaveReport(report)
 		if err != nil {
@@ -53,7 +55,10 @@ func RecordReport(report *entity.Report) error {
 }
 
 func RegisterClient(clientInfo *entity.ClientInfo, ic string) (int64, error) {
-	psd := dao.CreatePostgreSqlDAO()
+	psd, err := dao.CreatePostgreSQLDAO()
+	if err != nil {
+		return 0, err
+	}
 	clientId, err := psd.RegisterClient(clientInfo, ic)
 	if err != nil {
 		return 0, err
@@ -62,14 +67,13 @@ func RegisterClient(clientInfo *entity.ClientInfo, ic string) (int64, error) {
 }
 
 func UnRegisterClient(clientId int64) error {
-	psd := dao.CreatePostgreSqlDAO()
-	err := psd.UnRegisterClient(clientId)
+	psd, err := dao.CreatePostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	err = psd.UnRegisterClient(clientId)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func Test() {
-	fmt.Println("hello, this is trustmgr!")
 }
