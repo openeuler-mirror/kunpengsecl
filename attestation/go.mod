@@ -8,6 +8,7 @@ require (
 	github.com/google/go-tpm-tools v0.2.1
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/labstack/echo/v4 v4.3.0
+	github.com/pkg/errors v0.8.1
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	google.golang.org/grpc v1.40.0
