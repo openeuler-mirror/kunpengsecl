@@ -98,7 +98,7 @@ func TestRegisterClient(t *testing.T) {
 			"info name2": "info value2",
 		},
 	}
-	ic := "test ic"
+	ic := "test ic2"
 	_, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
 		t.FailNow()

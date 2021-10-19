@@ -29,7 +29,10 @@ func TestClientAPI(t *testing.T) {
 	}
 	t.Logf("Client: invoke CreateIKCert ok")
 
-	r, err := c.RegisterClient(ctx, &RegisterClientRequest{})
+	r, err := c.RegisterClient(ctx, &RegisterClientRequest{
+		Ic:         &Cert{Cert: "register cert"},
+		ClientInfo: &ClientInfo{ClientInfo: map[string]string{"test name": "test value"}},
+	})
 	if err != nil {
 		t.Errorf("Client: invoke RegisterClient error %v", err)
 	}
@@ -48,7 +51,7 @@ func TestClientAPI(t *testing.T) {
 	t.Logf("Client: invoke SendReport ok")
 
 	u, err := c.UnregisterClient(ctx,
-		&UnregisterClientRequest{ClientId: 1})
+		&UnregisterClientRequest{ClientId: r.GetClientId()})
 	if err != nil {
 		t.Errorf("Client: invoke UnregisterClient error %v", err)
 	}

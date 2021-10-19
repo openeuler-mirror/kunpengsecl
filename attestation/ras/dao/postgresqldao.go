@@ -57,7 +57,7 @@ func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 
 	// insert report data into trust_report table and return reportID
 	err = tx.QueryRow(context.Background(),
-		"INSERT INTO trust_report(client_id, client_info_ver, report_time, pcr_quote, verified) VALUES ($1, $2, $3, $4, $5) RETURNING report_id",
+		"INSERT INTO trust_report(client_id, client_info_ver, report_time, pcr_quote, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id",
 		report.ClientID, clientInfoVer, time.Now().Format("2006/01/02 15:04:05"),
 		string(report.PcrInfo.Quote), report.Verified).Scan(&reportID)
 	if err != nil {
@@ -102,6 +102,12 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic strin
 	var clientInfoVer int
 	var deleted bool
 
+	if clientInfo == nil{
+		return 0, errors.New("client info is empty")
+	}
+	if ic == ""{
+		return 0, errors.New("ic is empty")
+	}
 	tx, err := psd.conn.Begin(context.Background())
 	if err != nil {
 		return 0, err
@@ -127,6 +133,8 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic strin
 			tx.Rollback(context.Background())
 			return 0, err
 		}
+	} else {
+		return 0, err
 	}
 
 	if deleted {

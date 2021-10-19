@@ -39,6 +39,7 @@ message RegisterClientRequest {
 }
 
 message Cert {
+  string cert = 1;
 }
 
 message ClientInfo {
