@@ -18,7 +18,7 @@ func TestRecordReport(t *testing.T) {
 	SetValidator(vm)
 
 	pcrInfo := entity.PcrInfo{
-		Algorithm: 1,
+		AlgName: "sha1",
 		Values:    []entity.PcrValue{
 			0: {
 				Id:    1,
@@ -71,7 +71,7 @@ func TestRecordReport(t *testing.T) {
 			0: biosManifest,
 			1: imaManifest,
 		},
-		ClientId:   1,
+		ClientID:   1,
 		ClientInfo: entity.ClientInfo{
 			Info: map[string]string{
 				"client_name": "test_client",

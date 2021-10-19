@@ -1,9 +1,10 @@
 PKGPATH = pkg
-TESTEES = ./cache ./clientapi ./cmd/ras ./config ./dao ./entity ./pca ./restapi ./trustmgr ./verifier
+TESTEES = ./cache ./clientapi ./cmd/ras ./config ./dao ./entity ./restapi ./trustmgr ./verifier
 
 all: build
 
 test:
+	sh ../quick-scripts/clear-database.sh
 	go test $(TESTEES)
 
 build:
