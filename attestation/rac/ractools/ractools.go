@@ -1,7 +1,6 @@
 package ractools
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,40 +9,12 @@ import (
 	"github.com/google/go-tpm/tpmutil"
 )
 
-//FIXME: nonce is not used in functions
-func CreateTrustReport(rw io.ReadWriter, pcrSelection tpm2.PCRSelection, imapath string, nonce, clientid int64,
-	clientinfo map[string]string) (report TrustReport, err error) {
-
-	keyHandle, _, _, _, _, _, err := tpm2.CreatePrimaryEx(rw, tpm2.HandleEndorsement,
-		pcrSelection, EmptyPassword, EmptyPassword, Params)
-	if err != nil {
-		return TrustReport{}, err
-	}
-
-	pcrmp, _ := tpm2.ReadPCRs(rw, pcrSelection)
-	if err != nil {
-		return TrustReport{}, err
-	}
-
-	var pcrValues []PcrValue
-	for _, pcr := range pcrmp {
-		pcrValues = append(pcrValues, (PcrValue)(pcr))
-	}
-
-	qattestation, _, err := tpm2.Quote(rw, keyHandle, EmptyPassword, EmptyPassword,
-		nil, pcrSelection, tpm2.AlgNull)
-	if err != nil {
-		return TrustReport{}, err
-	}
-
-	var pcrinfo PcrInfo = PcrInfo{pcrSelection, pcrValues, qattestation}
-
-	//To construct the manifest
+func GetManifest(imapath string) ([]Manifest, error) {
 	f, err := ioutil.ReadFile(imapath)
 	if err != nil {
-		return TrustReport{}, err
+		return nil, err
 	}
-	var mainfest []Manifest
+	var manifest []Manifest
 	s := make([]string, 5, 6)
 	var j int = 0
 	for i, _ := range f {
@@ -56,7 +27,35 @@ func CreateTrustReport(rw io.ReadWriter, pcrSelection tpm2.PCRSelection, imapath
 		s[j] = s[j] + (string)(f[i])
 	}
 	ma := Manifest{s[0], s[1], s[2], s[3], s[4]}
-	mainfest = append(mainfest, ma)
+	manifest = append(manifest, ma)
+	return manifest, nil
+}
+
+//FIXME: nonce is not used in functions
+func CreateTrustReport(rw io.ReadWriter, akHandle tpmutil.Handle, AkPassword string, pcrSelection tpm2.PCRSelection, imapath string, nonce, clientid int64,
+	clientinfo map[string]string) (report TrustReport, err error) {
+
+	pcrmp, _ := tpm2.ReadPCRs(rw, pcrSelection)
+	if err != nil {
+		return TrustReport{}, err
+	}
+
+	var pcrValues []PcrValue
+	for _, pcr := range pcrmp {
+		pcrValues = append(pcrValues, (PcrValue)(pcr))
+	}
+
+	attestation, _, err := tpm2.Quote(rw, akHandle, AkPassword, EmptyPassword,
+		nil, pcrSelection, tpm2.AlgNull)
+	if err != nil {
+		return TrustReport{}, err
+	}
+
+	pcrinfo := PcrInfo{pcrSelection, pcrValues, attestation}
+	mainfest, err := GetManifest(imapath)
+	if err != nil {
+		return TrustReport{}, err
+	}
 
 	clientId := clientid
 	clientInfo := clientinfo
@@ -66,24 +65,21 @@ func CreateTrustReport(rw io.ReadWriter, pcrSelection tpm2.PCRSelection, imapath
 	return trust_report, err
 }
 
-func CreateAk(rw io.ReadWriter, parentHandle tpmutil.Handle, parentPassword string) ([]byte, []byte, []byte, error) {
+func CreateAk(rw io.ReadWriter, parentHandle tpmutil.Handle, parentPassword, AkPassword string, AkSel tpm2.PCRSelection) ([]byte, []byte, []byte, error) {
 
-	privateAk, publicAk, _, _, _, err := tpm2.CreateKey(rw, parentHandle, PcrSelection7,
-		parentPassword, EmptyPassword, DefaultKeyParams)
+	privateAk, publicAk, _, _, _, err := tpm2.CreateKey(rw, parentHandle, AkSel,
+		parentPassword, AkPassword, Params)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	keyHandle, nameData, err := tpm2.Load(rw, parentHandle, parentPassword, publicAk,
+	keyHandle, _, err := tpm2.Load(rw, parentHandle, parentPassword, publicAk,
 		privateAk)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	defer tpm2.FlushContext(rw, keyHandle)
 
-	if _, err := tpm2.DecodeName(bytes.NewBuffer(nameData)); err != nil {
-		return nil, nil, nil, err
-	}
 	_, Akname, _, err := tpm2.ReadPublic(rw, keyHandle)
 	if err != nil {
 		return nil, nil, nil, err
