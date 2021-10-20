@@ -2,13 +2,10 @@
 
 sql=$(cat ../ras/dao/createTable.sql)
 sudo dnf install postgresql-server -y
-sudo postgresql-setup --initdb
 sudo su - postgres <<EOF
+initdb --pgdata="/var/lib/pgsql/data" --auth=ident
 sed -i "s/ ident/ md5/g" ~/data/pg_hba.conf
-EOF
-sudo systemctl enable postgresql.service
-sudo systemctl start postgresql.service
-sudo su - postgres <<EOF
+pg_ctl -D /var/lib/pgsql/data start
 psql -U postgres -c "alter user postgres with password 'postgres';";
 psql -U postgres -c "create database kunpengsecl owner postgres;";
 psql -U postgres -c "grant all privileges on database kunpengsecl to postgres;";
