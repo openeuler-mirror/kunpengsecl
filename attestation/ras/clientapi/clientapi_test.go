@@ -4,12 +4,32 @@ import (
 	"context"
 	"testing"
 	"time"
+	"io/ioutil"
 
 	grpc "google.golang.org/grpc"
 )
 
+const testConfig =
+`database:
+  dbname: kunpengsecl
+  host: localhost
+  password: "postgres"
+  port: 5432
+  user: "postgres"
+racconfig:
+  hbduration: 3s
+  trustduration: 2m0s
+rasconfig:
+  changetime: 2021-09-30T11:53:24.0581136+08:00
+  mgrstrategy: auto`
+
+func createConfigFile() {
+	ioutil.WriteFile("./config.yaml", []byte(testConfig), 0644)
+}
+
 func TestClientAPI(t *testing.T) {
 	const addr string = "127.0.0.1:40001"
+	createConfigFile()
 	go StartServer(addr)
 
 	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
