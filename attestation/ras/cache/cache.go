@@ -17,6 +17,8 @@ Description: Moniter RAC status and check its trust report state.
 package cache
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
@@ -77,6 +79,10 @@ func (c *Cache) GetTrustReport() {
 	c.command |= cmdGETREPORT
 }
 
+func (c *Cache) GetCommands() int {
+	return c.command
+}
+
 // IsReportValid checks where the RAC trust report is valid or not.
 func (c *Cache) IsReportValid() bool {
 	cfg := config.GetDefault()
@@ -92,4 +98,13 @@ func (c *Cache) IsReportValid() bool {
 		c.GetTrustReport()
 	}
 	return true
+}
+
+func (c *Cache) CreateNonce() (uint64, error) {
+	var a [8]byte
+	_, err := rand.Read(a[:])
+	if err != nil {
+		return 0, err
+	}
+	return binary.LittleEndian.Uint64(a[:]), nil
 }
