@@ -71,6 +71,7 @@ message SendHeartbeatRequest {
 message SendHeartbeatReply {
   int64 nextAction = 1;
   ActionParameters actionParameters = 2;
+  uint64 nonce = 3;
 }
 
 message ActionParameters {

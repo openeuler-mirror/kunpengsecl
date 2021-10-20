@@ -109,15 +109,29 @@ func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequ
 
 func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
 	log.Printf("Server: receive SendHeartbeat")
+	nextAction := 0
+	var nonce uint64
 	cid := in.GetClientId()
 	s.Lock()
 	info, ok := s.cli[cid]
 	if ok {
+		var err error
 		log.Printf("hb %d", cid)
 		info.cache.UpdateHeartBeat()
+		if info.cache.HasCommands() {
+			nextAction = info.cache.GetCommands()
+			nonce, err = info.cache.CreateNonce()
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	s.Unlock()
-	return &SendHeartbeatReply{NextAction: 0}, nil
+	return &SendHeartbeatReply{
+		NextAction:       int64(nextAction),
+		ActionParameters: nil,
+		Nonce: nonce,
+	}, nil
 }
 
 func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {

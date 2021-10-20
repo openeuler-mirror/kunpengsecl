@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -84,4 +85,16 @@ func TestCacheTrust(t *testing.T) {
 			t.Errorf("test cache trust error at case %d, command wrong\n", i)
 		}
 	}
+}
+
+func TestNonce(t *testing.T) {
+	c := &Cache{}
+	for i := 0; i <10; i++ {
+		nonce, err := c.CreateNonce()
+		if err != nil {
+			t.FailNow()
+		}
+		t.Log(len(strconv.FormatUint(nonce, 2)))
+	}
+
 }
