@@ -19,6 +19,8 @@ package clientapi
 import (
 	"context"
 	"errors"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"log"
 	"net"
 	"sync"
@@ -55,19 +57,15 @@ func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*C
 func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
 	log.Printf("Server: receive RegisterClient")
 	// register and get clientId
-	// This part should be modified to correct the config.yaml path error.
-	/*
-		ci := in.GetClientInfo().GetClientInfo()
-		eci := &entity.ClientInfo{
-			Info: ci,
-		}
-		ic := in.GetIc().String()
-		clientID, err := trustmgr.RegisterClient(eci, ic)
-		if err != nil {
-			return nil, err
-		}
-	*/
-	clientID := int64(1)
+	ci := in.GetClientInfo().GetClientInfo()
+	eci := &entity.ClientInfo{
+		Info: ci,
+	}
+	ic := in.GetIc().GetCert()
+	clientID, err := trustmgr.RegisterClient(eci, ic)
+	if err != nil {
+		return nil, err
+	}
 
 	s.Lock()
 	info, ok := s.cli[clientID]
@@ -97,13 +95,16 @@ func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequ
 	log.Printf("Server: receive UnregisterClient")
 	cid := in.GetClientId()
 	s.Lock()
+	result := false
 	_, ok := s.cli[cid]
 	if ok {
 		log.Printf("delete %d", cid)
 		delete(s.cli, cid)
+		trustmgr.UnRegisterClient(cid)
+		result = true
 	}
-	s.Unlock()
-	return &UnregisterClientReply{Result: true}, nil
+	defer s.Unlock()
+	return &UnregisterClientReply{Result: result}, nil
 }
 
 func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {

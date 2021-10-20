@@ -28,6 +28,7 @@ var defaultConfigPath = []string{
 	"$HOME/.config/attestation",
 	"/usr/lib/attestation",
 	"/etc/attestation",
+	"../config",
 }
 
 type (

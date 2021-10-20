@@ -102,6 +102,12 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic strin
 	var clientInfoVer int
 	var deleted bool
 
+	if clientInfo == nil{
+		return 0, errors.New("client info is empty")
+	}
+	if ic == ""{
+		return 0, errors.New("ic is empty")
+	}
 	tx, err := psd.conn.Begin(context.Background())
 	if err != nil {
 		return 0, err
@@ -127,6 +133,8 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic strin
 			tx.Rollback(context.Background())
 			return 0, err
 		}
+	} else {
+		return 0, err
 	}
 
 	if deleted {
