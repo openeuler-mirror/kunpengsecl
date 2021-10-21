@@ -24,28 +24,35 @@ var (
 		sha1:0000000000000000000000000000000000000000 boot_aggregate`
 	imaInfo = `10 1d8d532d463c9f8c205d0df7787669a85f93e260 ima-ng 
 		sha1:0000000000000000000000000000000000000000 boot_aggregate`
-	imaTestPath          = "imaTestPath"
-	imaPath              = "imapath"
-	nonce          int64 = 1
-	clientId       int64 = 1
-	clientInfo     map[string]string
-	PCRDigest      []byte = ([]byte)("\xdeGɲ~\xb8\xd3\x00۵\xf2\xc3S\xe62Ó&,\xf0c@\xc4\xfa\u007f\x1b@\xc4\xcb\xd3o\x90")
-	parentPassword        = MyPassword
-	ownerPassword         = EmptyPassword
-	AkPassword            = MyPassword
-	AkSel                 = PcrSelection1_17
+	imaTestPath       = "imaTestPath"
+	imaPath           = "imapath"
+	nonce       int64 = 1
+	clientId    int64 = 1
+	clientInfo  map[string]string
+	//TPM simulator PCRDigest
+	PCRDigestS []byte = []byte{222, 71, 201, 178, 126, 184, 211, 0, 219, 181,
+		242, 195, 83, 230, 50, 195, 147, 38, 44, 240, 99, 64, 196, 250, 127, 27, 64, 196, 203, 211, 111, 144}
+	//Physical TPM PCRDigest
+	PCRDigestP []byte = []byte{60, 13, 233, 2, 198, 16, 14, 200, 249, 63, 3,
+		95, 211, 74, 220, 203, 79, 247, 227, 31, 126, 184, 41, 19, 100, 35, 51, 36, 128, 209, 90, 2}
+	PCRDigest      []byte
+	parentPassword = MyPassword
+	ownerPassword  = EmptyPassword
+	AkPassword     = MyPassword
+	AkSel          = PcrSelection1_17
 )
 
-func openTPM(tb testing.TB) io.ReadWriteCloser {
+//if open physical TPM, return true, else return false
+func openTPM(tb testing.TB) (io.ReadWriteCloser, bool) {
 	tb.Helper()
 	if useDeviceTPM() {
-		return openDeviceTPM(tb)
+		return openDeviceTPM(tb), true
 	}
 	simulator, err := simulator.Get()
 	if err != nil {
 		tb.Fatalf("Simulator initialization failed: %v", err)
 	}
-	return simulator
+	return simulator, false
 }
 
 func useDeviceTPM() bool { return *tpmPath != "" }
@@ -82,9 +89,14 @@ func compareManifest(t *testing.T, got, want []Manifest) {
 	}
 }
 func TestCreateTrustReport(t *testing.T) {
-	rw := openTPM(t)
+	rw, isPhysiacl := openTPM(t)
 	defer rw.Close()
 
+	if isPhysiacl {
+		PCRDigest = PCRDigestP
+	} else {
+		PCRDigest = PCRDigestS
+	}
 	clientInfo = make(map[string]string)
 	clientInfo["version"] = "0.0.1"
 
@@ -105,7 +117,7 @@ func TestCreateTrustReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadAk failed: %s", err)
 	}
-	got, err := CreateTrustReport(rw, AkHandle, AkPassword, AkSel, imaPath, nonce, clientId, clientInfo)
+	got, err := CreateTrustReport(rw, AkHandle, AkPassword, pcrSelection, imaPath, nonce, clientId, clientInfo)
 	if err != nil {
 		t.Fatalf("CreateTrustReport failed: %s", err)
 	}
@@ -143,7 +155,7 @@ func TestCreateTrustReport(t *testing.T) {
 }
 
 func TestCreateAk(t *testing.T) {
-	rw := openTPM(t)
+	rw, _ := openTPM(t)
 	defer rw.Close()
 
 	parentHandle, _, err := tpm2.CreatePrimary(rw, tpm2.HandleEndorsement, pcrSelection,
