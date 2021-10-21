@@ -59,7 +59,7 @@ var (
 
 type PcrInfo struct {
 	pcrSelection tpm2.PCRSelection
-	pcrValues    []PcrValue
+	pcrValues    map[int]PcrValue
 	pcrQuote     []byte
 }
 

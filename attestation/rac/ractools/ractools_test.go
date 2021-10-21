@@ -125,12 +125,10 @@ func TestCreateTrustReport(t *testing.T) {
 	//compare pcrInfo
 	pcrmp, _ := tpm2.ReadPCRs(rw, pcrSelection)
 
-	i := 0
-	for _, pcr := range pcrmp {
+	for i, pcr := range pcrmp {
 		if !bytes.Equal(pcr, []byte(got.pcrInfo.pcrValues[i])) {
 			t.Fatalf("PCRs are not equal, got %v want %v", []byte(got.pcrInfo.pcrValues[i]), pcr)
 		}
-		i += 1
 	}
 
 	attestation, _, err := tpm2.Quote(rw, AkHandle, AkPassword, EmptyPassword,
