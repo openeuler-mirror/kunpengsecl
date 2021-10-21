@@ -32,37 +32,35 @@ func GetManifest(imapath string) ([]Manifest, error) {
 }
 
 //FIXME: nonce is not used in functions
-func CreateTrustReport(rw io.ReadWriter, akHandle tpmutil.Handle, AkPassword string, pcrSelection tpm2.PCRSelection, imapath string, nonce, clientid int64,
-	clientinfo map[string]string) (report TrustReport, err error) {
+func CreateTrustReport(rw io.ReadWriter, akHandle tpmutil.Handle, AkPassword string, pcrSelection tpm2.PCRSelection,
+	imapath string, nonce, clientid int64, clientinfo map[string]string) (*TrustReport, error) {
 
-	pcrmp, _ := tpm2.ReadPCRs(rw, pcrSelection)
+	pcrmp, err := tpm2.ReadPCRs(rw, pcrSelection)
 	if err != nil {
-		return TrustReport{}, err
+		return &TrustReport{}, err
 	}
 
-	var pcrValues []PcrValue
-	for _, pcr := range pcrmp {
-		pcrValues = append(pcrValues, (PcrValue)(pcr))
+	pcrValues := map[int]PcrValue{}
+	for key, pcr := range pcrmp {
+		pcrValues[key] = PcrValue(pcr)
 	}
 
 	attestation, _, err := tpm2.Quote(rw, akHandle, AkPassword, EmptyPassword,
 		nil, pcrSelection, tpm2.AlgNull)
 	if err != nil {
-		return TrustReport{}, err
+		return &TrustReport{}, err
 	}
 
 	pcrinfo := PcrInfo{pcrSelection, pcrValues, attestation}
 	mainfest, err := GetManifest(imapath)
 	if err != nil {
-		return TrustReport{}, err
+		return &TrustReport{}, err
 	}
 
 	clientId := clientid
 	clientInfo := clientinfo
 
-	var trust_report TrustReport = TrustReport{pcrinfo, mainfest, clientId, clientInfo}
-
-	return trust_report, err
+	return &TrustReport{pcrinfo, mainfest, clientId, clientInfo}, nil
 }
 
 func CreateAk(rw io.ReadWriter, parentHandle tpmutil.Handle, parentPassword, AkPassword string, AkSel tpm2.PCRSelection) ([]byte, []byte, []byte, error) {
