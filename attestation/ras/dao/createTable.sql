@@ -45,4 +45,17 @@ CREATE TABLE client_info(
     PRIMARY KEY(client_id, client_info_ver, name)
 );
 
+/*
+CREATE TABLE client_base_value(
+    id BIGSERIAL NOT NULL,
+    client_id BIGINT NOT NULL REFERENCES register_client(id),
+    report_id BIGINT NOT NULL REFERENCES trust_report(id)
+);
+*/
 
+CREATE TABLE client_base_value(
+    id BIGSERIAL NOT NULL,
+    client_id BIGINT NOT NULL REFERENCES register_client(id),
+    pcr_info_id BIGINT[] NOT NULL,
+    manifest_id BIGINT[] NOT NULL
+);
