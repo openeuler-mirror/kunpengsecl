@@ -2,9 +2,9 @@ package clientapi
 
 import (
 	"context"
+	"io/ioutil"
 	"testing"
 	"time"
-	"io/ioutil"
 
 	grpc "google.golang.org/grpc"
 )
@@ -50,7 +50,7 @@ func TestClientAPI(t *testing.T) {
 	t.Logf("Client: invoke CreateIKCert ok")
 
 	r, err := c.RegisterClient(ctx, &RegisterClientRequest{
-		Ic:         &Cert{Cert: "register cert"},
+		Ic:         &Cert{Cert: []byte("register cert")},
 		ClientInfo: &ClientInfo{ClientInfo: map[string]string{"test name": "test value"}},
 	})
 	if err != nil {

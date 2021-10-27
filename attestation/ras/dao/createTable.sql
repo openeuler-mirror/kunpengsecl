@@ -1,10 +1,11 @@
 CREATE TABLE register_client (
-                                 id BIGSERIAL PRIMARY KEY NOT NULL,
-                                 client_info_ver INT,
-                                 register_time TIMESTAMPTZ,
-                                 ak_certificate TEXT,
-                                 online BOOLEAN,
-                                 deleted BOOLEAN
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    client_info_ver INT,
+    register_time TIMESTAMPTZ,
+    ak_certificate TEXT,
+    online BOOLEAN,
+    deleted BOOLEAN,
+    base_value_ver INT
 );
 
 CREATE TABLE trust_report (
@@ -45,17 +46,21 @@ CREATE TABLE client_info(
     PRIMARY KEY(client_id, client_info_ver, name)
 );
 
-/*
-CREATE TABLE client_base_value(
-    id BIGSERIAL NOT NULL,
-    client_id BIGINT NOT NULL REFERENCES register_client(id),
-    report_id BIGINT NOT NULL REFERENCES trust_report(id)
+CREATE TABLE base_value_pcr_info(
+                                      id BIGSERIAL NOT NULL,
+                                      client_id BIGINT NOT NULL REFERENCES register_client(id),
+                                      base_value_ver INT,
+                                      pcr_id INTEGER NOT NULL,
+                                      alg_name VARCHAR(16),
+                                      pcr_value TEXT
 );
-*/
 
-CREATE TABLE client_base_value(
-    id BIGSERIAL NOT NULL,
-    client_id BIGINT NOT NULL REFERENCES register_client(id),
-    pcr_info_id BIGINT[] NOT NULL,
-    manifest_id BIGINT[] NOT NULL
+CREATE TABLE base_value_manifest(
+                                      id BIGSERIAL NOT NULL,
+                                      client_id BIGINT NOT NULL REFERENCES register_client(id),
+                                      base_value_ver INT,
+                                      type VARCHAR(16),
+                                      name VARCHAR(128),
+                                      value TEXT,
+                                      detail TEXT
 );

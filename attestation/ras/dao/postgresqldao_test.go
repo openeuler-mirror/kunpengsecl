@@ -2,8 +2,8 @@ package dao
 
 import (
 	"fmt"
-	"testing"
 	"io/ioutil"
+	"testing"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"github.com/stretchr/testify/assert"
@@ -39,7 +39,7 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 			"info name2": "info value2",
 		},
 	}
-	ic := "test ic 2"
+	ic := []byte("test ic 2")
 	id, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
 		t.FailNow()
@@ -129,7 +129,7 @@ func TestRegisterClient(t *testing.T) {
 			"info name2": "info value2",
 		},
 	}
-	ic := "test ic2"
+	ic := []byte("test ic3")
 	_, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
 		t.FailNow()
@@ -149,7 +149,7 @@ func TestUnRegisterClient(t *testing.T) {
 			"info name2": "info value2",
 		},
 	}
-	ic := "test ic 1"
+	ic := []byte("test ic 1")
 	_, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
 		t.FailNow()
@@ -172,4 +172,68 @@ func TestUnRegisterClient(t *testing.T) {
 	assert.NotEqual(t, clientIds[0], newClientIds[0])
 */
 	assert.NotEqual(t, clientIds[0], 0)
+}
+
+func TestSaveBaseValue(t *testing.T) {
+	clientId := int64(1)
+
+	pcrInfo := entity.PcrInfo{
+		AlgName: "sha256",
+		Values: []entity.PcrValue{
+			0: {
+				Id:    1,
+				Value: "pcr value 1",
+			},
+			1: {
+				Id:    2,
+				Value: "pcr value 2",
+			},
+		},
+		Quote: []byte("test quote"),
+	}
+
+	biosItem1 := entity.ManifestItem{
+		Name:   "test bios name1",
+		Value:  "test bios value1",
+		Detail: "test bios detail1",
+	}
+	biosItem2 := entity.ManifestItem{
+		Name:   "test bios name2",
+		Value:  "test bios value2",
+		Detail: "test bios detail2",
+	}
+	imaItem1 := entity.ManifestItem{
+		Name:   "test ima name1",
+		Value:  "test ima value1",
+		Detail: "test ima detail1",
+	}
+	biosManifest := entity.Manifest{
+		Type: "bios",
+		Items: []entity.ManifestItem{
+			0: biosItem1,
+			1: biosItem2,
+		},
+	}
+	imaManifest := entity.Manifest{
+		Type: "ima",
+		Items: []entity.ManifestItem{
+			0: imaItem1,
+		},
+	}
+	manifest := []entity.Manifest{
+		0: biosManifest,
+		1: imaManifest,
+	}
+
+	createConfigFile()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+		return
+	}
+	err = psd.SaveBaseValue(clientId, pcrInfo, manifest)
+	if err != nil {
+		t.Log(err)
+		t.FailNow()
+	}
 }

@@ -97,17 +97,18 @@ func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 }
 
 // RegisterClient registers a new client and save its information.
-func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic string) (int64, error) {
+func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic []byte) (int64, error) {
 	var clientID int64
 	var clientInfoVer int
 	var deleted bool
-
+	/* TODO: after completing register function, let this block of code effective
 	if clientInfo == nil{
 		return 0, errors.New("client info is empty")
 	}
 	if ic == ""{
 		return 0, errors.New("ic is empty")
 	}
+	*/
 	tx, err := psd.conn.Begin(context.Background())
 	if err != nil {
 		return 0, err
@@ -171,6 +172,59 @@ func (psd *PostgreSqlDAO) UnRegisterClient(clientID int64) error {
 		tx.Rollback(context.Background())
 		return err
 	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, info entity.PcrInfo, manifest []entity.Manifest) error {
+	var baseValueVer int
+	tx, err := psd.conn.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+	err = tx.QueryRow(context.Background(),
+		"SELECT base_value_ver FROM register_client WHERE id = $1", clientID).Scan(&baseValueVer)
+	// if baseValue is empty or baseValue == 0, initialize base_value_ver.
+	if err != nil || baseValueVer == 0 {
+		baseValueVer = 1
+	} else {
+		baseValueVer++
+	}
+
+	_, err = tx.Exec(context.Background(),
+		"UPDATE register_client SET base_value_ver = $1 WHERE id = $2",
+		baseValueVer, clientID)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return err
+	}
+
+	for _, pv := range info.Values {
+		_, err = tx.Exec(context.Background(),
+			"INSERT INTO base_value_pcr_info(client_id, base_value_ver, pcr_id, alg_name, pcr_value) VALUES ($1, $2, $3, $4, $5)",
+			clientID, baseValueVer, pv.Id, info.AlgName, pv.Value)
+		if err != nil {
+			tx.Rollback(context.Background())
+			return err
+		}
+	}
+
+	for _, mf := range manifest {
+		for _, item := range mf.Items {
+			_, err = tx.Exec(context.Background(),
+				"INSERT INTO base_value_manifest(client_id, base_value_ver, type, name, value, detail) " +
+				"VALUES ($1, $2, $3, $4, $5, $6)",
+				clientID, baseValueVer, mf.Type, item.Name, item.Value, item.Detail)
+			if err != nil {
+				tx.Rollback(context.Background())
+				return err
+			}
+		}
+	}
+
 	err = tx.Commit(context.Background())
 	if err != nil {
 		return err

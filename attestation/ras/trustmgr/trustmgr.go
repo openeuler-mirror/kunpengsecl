@@ -54,7 +54,7 @@ func RecordReport(report *entity.Report) error {
 	}
 }
 
-func RegisterClient(clientInfo *entity.ClientInfo, ic string) (int64, error) {
+func RegisterClient(clientInfo *entity.ClientInfo, ic []byte) (int64, error) {
 	psd, err := getPostgreSQLDAO()
 	if err != nil {
 		return 0, err

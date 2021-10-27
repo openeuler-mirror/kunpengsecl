@@ -17,9 +17,11 @@ message CreateIKCertRequest {
 }
 
 message KeyPub {
+  bytes key = 1;
 }
 
 message KeyName {
+  string name = 1;
 }
 
 message CreateIKCertReply {
@@ -28,9 +30,11 @@ message CreateIKCertReply {
 }
 
 message CertEncrypted {
+  bytes cert = 1;
 }
 
 message Challenge {
+  string challenge = 1;
 }
 
 message RegisterClientRequest {
@@ -39,7 +43,7 @@ message RegisterClientRequest {
 }
 
 message Cert {
-  string cert = 1;
+  bytes cert = 1;
 }
 
 message ClientInfo {
@@ -83,6 +87,29 @@ message SendReportRequest {
 }
 
 message TrustReport {
+  PcrInfo pcrInfo = 1;
+  repeated Manifest manifest = 2;
+  int64 clientId = 3;
+  ClientInfo clientInfo = 4;
+  string algorithm = 5;
+}
+
+message PcrInfo{
+  PcrSelection pcrSelection = 1;
+  map<int64, string> pcrValues = 2;
+  bytes pcrQuote = 3;
+}
+
+message PcrSelection{
+  repeated int32 pcrs = 1;
+}
+
+message Manifest{
+  string pcr = 1;
+  string template_hash = 2;
+  string format = 3;
+  string filedata_hash = 4;
+  string filename_hint = 5;
 }
 
 message SendReportReply {
