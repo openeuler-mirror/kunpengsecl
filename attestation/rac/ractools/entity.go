@@ -1,6 +1,9 @@
 package ractools
 
-import "github.com/google/go-tpm/tpm2"
+import (
+	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpmutil"
+)
 
 type Algorithm uint16
 type PcrValue string
@@ -40,9 +43,7 @@ var (
 			ExponentRaw: 1<<16 + 1,
 		},
 	}
-	MyPassword = "123456"
-	// The initial passwd is 123456, and user can modify it
-	// FIXME: we should consider passwd length constraints later
+	MyPcrSelection         = PcrSelection7
 	DefaultRsaSignerParams = tpm2.Public{
 		Type:       tpm2.AlgRSA,
 		NameAlg:    tpm2.AlgSHA256,
@@ -74,6 +75,20 @@ type Manifest struct {
 type TrustReport struct {
 	pcrInfo    PcrInfo
 	manifest   []Manifest
+	clientId   int64
+	clientInfo map[string]string
+}
+type AttestionKey struct {
+	Name     []byte
+	Public   []byte
+	Private  []byte
+	Handle   tpmutil.Handle
+	Password string
+	PcrSel   tpm2.PCRSelection
+}
+type TrustReportIn struct {
+	imaPath    string
+	nonce      int64
 	clientId   int64
 	clientInfo map[string]string
 }

@@ -1,12 +1,20 @@
 package ractools
 
 import (
+	"crypto"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
+)
+
+var (
+	TRep  *TrustReport
+	AK    *AttestionKey
+	EkPub crypto.PublicKey
 )
 
 func GetManifest(imapath string) ([]Manifest, error) {
@@ -31,9 +39,31 @@ func GetManifest(imapath string) ([]Manifest, error) {
 	return manifest, nil
 }
 
-//FIXME: nonce is not used in functions
-func CreateTrustReport(rw io.ReadWriter, akHandle tpmutil.Handle, AkPassword string, pcrSelection tpm2.PCRSelection,
-	imapath string, nonce, clientid int64, clientinfo map[string]string) (*TrustReport, error) {
+func CreateAk(rw io.ReadWriter, parentHandle tpmutil.Handle, parentPassword, AkPassword string,
+	AkSel tpm2.PCRSelection) ([]byte, []byte, []byte, error) {
+
+	privateAk, publicAk, _, _, _, err := tpm2.CreateKey(rw, parentHandle, AkSel,
+		parentPassword, AkPassword, Params)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	akHandle, _, err := tpm2.Load(rw, parentHandle, parentPassword, publicAk,
+		privateAk)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	_, akname, _, err := tpm2.ReadPublic(rw, akHandle)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return akname, privateAk, publicAk, nil
+}
+
+func CreateTrustReport(rw io.ReadWriter, AK *AttestionKey, pcrSelection tpm2.PCRSelection,
+	tRepIn TrustReportIn) (*TrustReport, error) {
 
 	pcrmp, err := tpm2.ReadPCRs(rw, pcrSelection)
 	if err != nil {
@@ -45,49 +75,28 @@ func CreateTrustReport(rw io.ReadWriter, akHandle tpmutil.Handle, AkPassword str
 		pcrValues[key] = PcrValue(pcr)
 	}
 
-	attestation, _, err := tpm2.Quote(rw, akHandle, AkPassword, EmptyPassword,
-		nil, pcrSelection, tpm2.AlgNull)
+	//invert int64 to []byte
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(tRepIn.nonce))
+
+	attestation, _, err := tpm2.Quote(rw, AK.Handle, AK.Password, EmptyPassword,
+		buf, pcrSelection, tpm2.AlgNull)
+
 	if err != nil {
 		return &TrustReport{}, err
 	}
 
 	pcrinfo := PcrInfo{pcrSelection, pcrValues, attestation}
-	mainfest, err := GetManifest(imapath)
+	mainfest, err := GetManifest(tRepIn.imaPath)
 	if err != nil {
 		return &TrustReport{}, err
 	}
-
-	clientId := clientid
-	clientInfo := clientinfo
-
-	return &TrustReport{pcrinfo, mainfest, clientId, clientInfo}, nil
-}
-
-func CreateAk(rw io.ReadWriter, parentHandle tpmutil.Handle, parentPassword, AkPassword string, AkSel tpm2.PCRSelection) ([]byte, []byte, []byte, error) {
-
-	privateAk, publicAk, _, _, _, err := tpm2.CreateKey(rw, parentHandle, AkSel,
-		parentPassword, AkPassword, Params)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	keyHandle, _, err := tpm2.Load(rw, parentHandle, parentPassword, publicAk,
-		privateAk)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	defer tpm2.FlushContext(rw, keyHandle)
-
-	_, Akname, _, err := tpm2.ReadPublic(rw, keyHandle)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	return Akname, privateAk, publicAk, nil
+	TRep = &TrustReport{pcrinfo, mainfest, tRepIn.clientId, tRepIn.clientInfo}
+	return TRep, nil
 }
 
 func ActivateAC(rw io.ReadWriter, activeHandle, keyHandle tpmutil.Handle, activePassword, protectorPassword string,
-	credServer, encryptedSecret []byte, secret []byte) (rerecoveredCredential []byte, err error) {
+	credServer, encryptedSecret []byte) (rerecoveredCredential []byte, err error) {
 
 	recoveredCredential, err := tpm2.ActivateCredential(rw, activeHandle, keyHandle, activePassword,
 		protectorPassword, credServer, encryptedSecret)
@@ -95,4 +104,34 @@ func ActivateAC(rw io.ReadWriter, activeHandle, keyHandle tpmutil.Handle, active
 		fmt.Printf("ActivateCredential failed: %v \n", err)
 	}
 	return recoveredCredential, err
+}
+
+func GetAk(rw io.ReadWriter) (*AttestionKey, crypto.PublicKey, error) {
+	ekPassword := EmptyPassword
+	ekSel := MyPcrSelection
+	ekHandle, EkPub, err := tpm2.CreatePrimary(rw, tpm2.HandleEndorsement, ekSel,
+		EmptyPassword, ekPassword, DefaultKeyParams)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	AK = &AttestionKey{}
+	AK.Password = EmptyPassword
+	AK.PcrSel = MyPcrSelection
+	AK.Name, AK.Private, AK.Public, err = CreateAk(rw, ekHandle, ekPassword, AK.Password, AK.PcrSel)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	AK.Handle, _, err = tpm2.Load(rw, ekHandle, ekPassword, AK.Public,
+		AK.Private)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return AK, EkPub, err
+}
+
+func GetTrustReport(rw io.ReadWriter, tRepIn TrustReportIn) (*TrustReport, error) {
+	return CreateTrustReport(rw, AK, MyPcrSelection, tRepIn)
 }
