@@ -135,3 +135,14 @@ func GetAk(rw io.ReadWriter) (*AttestionKey, crypto.PublicKey, error) {
 func GetTrustReport(rw io.ReadWriter, tRepIn TrustReportIn) (*TrustReport, error) {
 	return CreateTrustReport(rw, AK, MyPcrSelection, tRepIn)
 }
+func PrintInitRw()(io.ReadWriteCloser,tpmutil.Handle,error){
+	tpmpath :="test"
+	rw,_:=tpm2.OpenTPM(tpmpath)
+	parentHandle, _, err := tpm2.CreatePrimary(rw, tpm2.HandleEndorsement, PcrSelection7,
+		"","", DefaultKeyParams)
+	if err != nil {
+		fmt.Errorf("CreatePrimary failed: %s", err)
+	}
+	defer tpm2.FlushContext(rw, parentHandle)
+	return rw,parentHandle,nil
+}
