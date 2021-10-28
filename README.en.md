@@ -1,37 +1,25 @@
-# kunpengsecl
+# Kunpeng security library (kunpengsecl)
 
 #### Description
-This project develops security software components running on Kunpeng processors, specifically focusing on trusted computing related software components such as remote attestation client and service, etc.
+This project develops basic security software components running on Kunpeng processors. In the early stage, the project focuses on trusted computing fields such as remote attestation to empower security developers in the community.
 
-#### Software Architecture
+#### Software architecture
 Software architecture description
-![kunpengsecl arch](doc/RA-arch-1.png "kunpengsecl remote attestation architecture")
 
-#### Installation
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
-
-#### Instructions
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
+![kunpengsecl arch](https://gitee.com/openeuler/G11N/raw/master/learning-materials/open-source-basics/images/%E6%8D%95%E8%8E%B7.PNG)
 
 #### Contribution
 
-1.  Fork the repository
-2.  Create Feat_xxx branch
-3.  Commit your code
-4.  Create Pull Request
+1.	Fork this repository.
+2.	Creating the Feat_xxx branch
+3.	Submit your code.
+4.	Create a pull request (PR).
 
+#### Gitee Features
 
-#### Gitee Feature
-
-1.  You can use Readme\_XXX.md to support different languages, such as Readme\_en.md, Readme\_zh.md
-2.  Gitee blog [blog.gitee.com](https://blog.gitee.com)
-3.  Explore open source project [https://gitee.com/explore](https://gitee.com/explore)
-4.  The most valuable open source project [GVP](https://gitee.com/gvp)
-5.  The manual of Gitee [https://gitee.com/help](https://gitee.com/help)
-6.  The most popular members  [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+1.  Use Readme_XXX.md to mark README files with different languages, such as Readme_en.md and Readme_zh.md.
+2.  Gitee blog: [blog.gitee.com](https://blog.gitee.com)
+3.  You can visit [https://gitee.com/explore](https://gitee.com/explore) to learn about excellent open source projects on Gitee.
+4.  [GVP](https://gitee.com/gvp) is short for Gitee Most Valuable Project.
+5.  User manual provided by Gitee: [https://gitee.com/help](https://gitee.com/help)
+6.  Gitee Cover People is a column to display Gitee members' demeanor. Visit [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/).
