@@ -5,17 +5,25 @@ package restapi
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
+)
+
+const (
+	Servermgt_authScopes = "servermgt_auth.Scopes"
 )
 
 // ConfigItem defines model for ConfigItem.
@@ -936,6 +944,8 @@ func (w *ServerInterfaceWrapper) GetConfig(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) PostConfig(ctx echo.Context) error {
 	var err error
 
+	ctx.Set(Servermgt_authScopes, []string{"write:config"})
+
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PostConfig(ctx)
 	return err
@@ -952,6 +962,8 @@ func (w *ServerInterfaceWrapper) GetReportServerId(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter serverId: %s", err))
 	}
 
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetReportServerId(ctx, serverId)
 	return err
@@ -960,6 +972,8 @@ func (w *ServerInterfaceWrapper) GetReportServerId(ctx echo.Context) error {
 // GetServer converts echo context to params.
 func (w *ServerInterfaceWrapper) GetServer(ctx echo.Context) error {
 	var err error
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetServer(ctx)
@@ -970,6 +984,8 @@ func (w *ServerInterfaceWrapper) GetServer(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) PutServer(ctx echo.Context) error {
 	var err error
 
+	ctx.Set(Servermgt_authScopes, []string{"write:servers"})
+
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PutServer(ctx)
 	return err
@@ -978,6 +994,8 @@ func (w *ServerInterfaceWrapper) PutServer(ctx echo.Context) error {
 // GetStatus converts echo context to params.
 func (w *ServerInterfaceWrapper) GetStatus(ctx echo.Context) error {
 	var err error
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetStatus(ctx)
@@ -1030,3 +1048,96 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/version", wrapper.GetVersion)
 
 }
+
+// Base64 encoded, gzipped, json marshaled Swagger object
+var swaggerSpec = []string{
+
+	"H4sIAAAAAAAC/8RW32/bNhD+V4jbHrXI7bYC01uaDYW3YSnibC9BMdDSWWYrkdzxmMIz/L8PR0m2VLvO",
+	"liDrkyjqeD++++4Tt/BNpAYKWDP7UOR540rdrF1gyGCBdI8UoLCxaTIoXeudRcsBii2Eco2tTssrZ1em",
+	"njO28ubJeSQ2mL5Z3aI8eeMRCghMxtawy+BeN/HUl1027Ljleyw57QQsIxneLCRo5zik5Nqa/9SR17Kz",
+	"atzH9Ek2HJm/NRtnr1yFR5u/72sel1x8P/vhVT4xhAxC6XwXklBXRRhASa+qe1XGrhy16UiADD6SYSzK",
+	"hAsU0LrKrDaKdFDdXqTBe2d5cNqbsqYaefA+ORQEPXYf8GwVyWCCptT1EnayJdlKQRWGkoxPqRRwe/3j",
+	"NWTAhhs58Eu0Hm29wPJXdYOtY1SXzBg4ZaFuflrc9vlBBpJ952V28eJiJik6j1Z7AwV8ezG7eAEZeM3r",
+	"BGQ+ILOFGlkeQpnkd15BAW+QO05BBoTBOxtSD1/OZvIonWW06Zz2vjFlOpm/D5LAwExZGcY2BfyacAUF",
+	"fJUfOJz3BM5H7D2gpYn0pgNrCtKl+nlx/ZtK35Vb9a1RXSQxH/Ldj02IbatpAwXcIEeySqvGBJbDumkm",
+	"DpSx6gNuijQbymtDqqOVZOZlKI+geuvCGKu/IgZ+7arNl8ZpUhY7tURVEmrGSjlS0VeyhCle+wZPXb0x",
+	"92inOPWuJtoAxd2xKtxNR/Hd7t24IVfJzaghR93MCb0jzred43m1O0fam2S86E0T40m3yGm077ZgpByZ",
+	"Ash6YYRwMJbuGcIKCqaI2ag/PQkKMJZffQd79I1lrJFgJ2U9ZVDO9b0r55Zi6Os7PRa9VLHYKRoMT83D",
+	"+X5NRPaTfvUDxGucxJEhSZt1YkovSql9/fpMzxaDhD270HSRXpPB1VwE+BFq04O8FB/G1um381woH6Zi",
+	"Ei6BLcI1nBZpiqeUKY6xfaIwPTgBD2PZ56tMhZbNymCllhtVNkZeq0GkfGRlLDtFWJvASFgp+eXF8F/E",
+	"aoh1cPLvpeozXZHEDi3ZFzOkOs00Ub9bn6N+Z/G/UT9pyGIP5iPJ303+qNJn5f442jH1Bef91efzQP/R",
+	"mzwN6U8vyicA63NRo8v0w/cRUc7hoPwDIxFaVpdv5xJk908AAAD//+jS8PQjDAAA",
+}
+
+// GetSwagger returns the content of the embedded swagger specification file
+// or error if failed to decode
+func decodeSpec() ([]byte, error) {
+	zipped, err := base64.StdEncoding.DecodeString(strings.Join(swaggerSpec, ""))
+	if err != nil {
+		return nil, fmt.Errorf("error base64 decoding spec: %s", err)
+	}
+	zr, err := gzip.NewReader(bytes.NewReader(zipped))
+	if err != nil {
+		return nil, fmt.Errorf("error decompressing spec: %s", err)
+	}
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(zr)
+	if err != nil {
+		return nil, fmt.Errorf("error decompressing spec: %s", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+var rawSpec = decodeSpecCached()
+
+// a naive cached of a decoded swagger spec
+func decodeSpecCached() func() ([]byte, error) {
+	data, err := decodeSpec()
+	return func() ([]byte, error) {
+		return data, err
+	}
+}
+
+// Constructs a synthetic filesystem for resolving external references when loading openapi specifications.
+func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
+	var res = make(map[string]func() ([]byte, error))
+	if len(pathToFile) > 0 {
+		res[pathToFile] = rawSpec
+	}
+
+	return res
+}
+
+// GetSwagger returns the Swagger specification corresponding to the generated code
+// in this file. The external references of Swagger specification are resolved.
+// The logic of resolving external references is tightly connected to "import-mapping" feature.
+// Externally referenced files must be embedded in the corresponding golang packages.
+// Urls can be supported but this task was out of the scope.
+func GetSwagger() (swagger *openapi3.T, err error) {
+	var resolvePath = PathToRawSpec("")
+
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
+		var pathToFile = url.String()
+		pathToFile = path.Clean(pathToFile)
+		getSpec, ok := resolvePath[pathToFile]
+		if !ok {
+			err1 := fmt.Errorf("path not found: %s", pathToFile)
+			return nil, err1
+		}
+		return getSpec()
+	}
+	var specData []byte
+	specData, err = rawSpec()
+	if err != nil {
+		return
+	}
+	swagger, err = loader.LoadFromData(specData)
+	if err != nil {
+		return
+	}
+	return
+}
+

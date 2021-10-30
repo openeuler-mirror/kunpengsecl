@@ -42,7 +42,9 @@ paths:
         '200':
           description: Given config items created
           content: {}
-        
+      security:
+      - servermgt_auth:
+        - write:config
   /server:
     get:
       summary: Return a list of briefing info for all servers
@@ -55,6 +57,9 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ServerBriefInfo'
+      security:
+      - servermgt_auth:
+        - read:servers
     put:
       summary: put a list of servers into regitered status
       requestBody:
@@ -70,7 +75,9 @@ paths:
         '200':
           description: Given servers registered
           content: {}
-
+      security:
+      - servermgt_auth:
+        - write:servers
   /status:
     get:
       summary: Return a list of trust status for all servers
@@ -83,7 +90,9 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ServerTrustStatus'
-
+      security:
+      - servermgt_auth:
+        - read:servers
   /report/{serverId}:
     get:
       summary: Return the trust report for the given server
@@ -101,6 +110,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ServerTrustReport'
+      security:
+      - servermgt_auth:
+        - read:servers
 
 components:
   schemas:
@@ -162,3 +174,14 @@ components:
         value:
           type: string
           format: binary
+  securitySchemes:
+    servermgt_auth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: http://localhost:5096/authorization
+          tokenUrl: http://localhost:5096/token
+          scopes:
+            write:servers: modify target server configurations
+            read:servers: read server informations
+            write:config: modify ras configuration
