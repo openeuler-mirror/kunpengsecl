@@ -175,8 +175,6 @@ func TestUnRegisterClient(t *testing.T) {
 }
 
 func TestSaveBaseValue(t *testing.T) {
-	clientId := int64(1)
-
 	pcrInfo := entity.PcrInfo{
 		AlgName: "sha256",
 		Values: []entity.PcrValue{
@@ -231,7 +229,12 @@ func TestSaveBaseValue(t *testing.T) {
 		t.Fatalf("%v", err)
 		return
 	}
-	err = psd.SaveBaseValue(clientId, pcrInfo, manifest)
+	clientIds, err := psd.SelectAllClientIds()
+	if err != nil {
+		fmt.Println(err)
+		t.FailNow()
+	}
+	err = psd.SaveBaseValue(clientIds[0], pcrInfo, manifest)
 	if err != nil {
 		t.Log(err)
 		t.FailNow()

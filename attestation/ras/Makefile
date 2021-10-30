@@ -5,7 +5,7 @@ all: build
 
 test:
 	sh ../quick-scripts/clear-database.sh
-	go test $(TESTEES)
+	go test -count=1 $(TESTEES)
 
 build:
 	go build -mod=vendor -o $(PKGPATH)/ras cmd/ras/*.go

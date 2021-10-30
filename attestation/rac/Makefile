@@ -4,7 +4,7 @@ TESTEES=./ractools
 all: build
 
 test:
-	go test $(TESTEES)
+	go test -count=1 $(TESTEES)
 
 build: 
 	go build -mod=vendor -o pkg/raagent cmd/raagent/*.go
