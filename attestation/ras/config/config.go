@@ -82,6 +82,24 @@ func GetDefault() *config {
 	}
 
 	err := viper.ReadInConfig()
+	var mRules []entity.ManifestRule
+	mrs := viper.Get("rasConfig.basevalue-extract-rules.manifest").([]interface{})
+	for _, mr := range mrs {
+		var mRule entity.ManifestRule
+		for k, v := range mr.(map[interface{}]interface{}) {
+			if k.(string) == "type" {
+				mRule.MType = v.(string)
+			}
+			if k.(string) == "name" {
+				var names []string
+				for _, n := range v.([]interface{}) {
+					names = append(names, n.(string))
+				}
+				mRule.Name = names
+			}
+		}
+		mRules = append(mRules, mRule)
+	}
 	if err == nil {
 		cfg = &config{}
 		if strings.ToLower(viper.GetString("conftype")) == "server" {
