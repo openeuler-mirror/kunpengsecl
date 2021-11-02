@@ -24,7 +24,7 @@ import (
 
 var defaultConfigPath = []string{
 	".",
-	"./ras/config",
+	"./config",
 	"$HOME/.config/attestation",
 	"/usr/lib/attestation",
 	"/etc/attestation",
@@ -46,6 +46,8 @@ type (
 	racConfig struct {
 		hbDuration    time.Duration // heartbeat duration
 		trustDuration time.Duration // trust state duration
+		clientId      int64
+		cpassword     string
 	}
 	config struct {
 		dbConfig
@@ -55,6 +57,7 @@ type (
 )
 
 var cfg *config
+var racCfg *racConfig
 
 /*
 	GetDefault returns the global default config object.
@@ -89,6 +92,8 @@ func GetDefault() *config {
 			racConfig: racConfig{
 				hbDuration:    viper.GetDuration("racConfig.hbDuration"),
 				trustDuration: viper.GetDuration("racConfig.trustDuration"),
+				clientId:      viper.GetInt64("racConfig.clientId"),
+				cpassword:     viper.GetString("racConfig.cpassword"),
 			},
 		}
 		return cfg
@@ -110,10 +115,48 @@ func GetDefault() *config {
 			racConfig: racConfig{
 				hbDuration:    10 * time.Second,
 				trustDuration: 120 * time.Second,
+				clientId:      -1,
+				cpassword:     "",
 			},
 		}
 	}
+
+	racCfg = &cfg.racConfig
 	return cfg
+}
+
+func GetDefaultRac() *racConfig {
+	if racCfg != nil {
+		return racCfg
+	}
+
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	for _, s := range defaultConfigPath {
+		viper.AddConfigPath(s)
+	}
+
+	err := viper.ReadInConfig()
+	if err == nil {
+		racCfg = &racConfig{
+			hbDuration:    viper.GetDuration("racConfig.hbDuration"),
+			trustDuration: viper.GetDuration("racConfig.trustDuration"),
+			clientId:      viper.GetInt64("racConfig.clientId"),
+			cpassword:     viper.GetString("racConfig.cpassword"),
+		}
+		return racCfg
+	}
+
+	if cfg == nil {
+		racCfg = &racConfig{
+			hbDuration:    10 * time.Second,
+			trustDuration: 120 * time.Second,
+			clientId:      -1,
+			cpassword:     "",
+		}
+	}
+
+	return racCfg
 }
 
 // Save saves all config variables to the config.yaml file.
@@ -126,8 +169,24 @@ func Save() {
 		viper.Set("database.port", cfg.port)
 		viper.Set("racConfig.hbDuration", cfg.hbDuration)
 		viper.Set("racConfig.trustDuration", cfg.trustDuration)
+		viper.Set("racConfig.clientId", cfg.clientId)
+		viper.Set("racConfig.cpassword", cfg.password)
 		viper.Set("rasConfig.mgrStrategy", cfg.mgrStrategy)
 		viper.Set("rasConfig.changeTime", cfg.changeTime)
+		err := viper.WriteConfig()
+		if err != nil {
+			_ = viper.SafeWriteConfig()
+		}
+	}
+}
+
+// Save saves RacConfig variables to the config.yaml file.
+func SaveClient() {
+	if racCfg != nil {
+		viper.Set("racConfig.hbDuration", racCfg.hbDuration)
+		viper.Set("racConfig.trustDuration", racCfg.trustDuration)
+		viper.Set("racConfig.clientId", racCfg.clientId)
+		viper.Set("racConfig.cpassword", racCfg.cpassword)
 		err := viper.WriteConfig()
 		if err != nil {
 			_ = viper.SafeWriteConfig()
@@ -175,20 +234,28 @@ func (c *config) SetPort(port int) {
 	c.port = port
 }
 
-func (c *config) GetHBDuration() time.Duration {
-	return c.hbDuration
-}
-
-func (c *config) SetHBDuration(d time.Duration) {
-	c.hbDuration = d
-}
-
 func (c *config) GetTrustDuration() time.Duration {
 	return c.trustDuration
 }
 
 func (c *config) SetTrustDuration(d time.Duration) {
 	c.trustDuration = d
+}
+
+func (c *racConfig) GetHBDuration() time.Duration {
+	return c.hbDuration
+}
+
+func (c *racConfig) SetHBDuration(d time.Duration) {
+	c.hbDuration = d
+}
+
+func (c *racConfig) GetClientId() int64 {
+	return c.clientId
+}
+
+func (c *racConfig) SetClientId(id int64) {
+	c.clientId = id
 }
 
 func (c *config) GetMgrStrategy() string {
