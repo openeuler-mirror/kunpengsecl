@@ -3,6 +3,7 @@ package verifier
 	verifier is used to verify trust status of target RAC.
  */
 import (
+	"fmt"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
@@ -90,3 +91,22 @@ func (vm *VerifierMgr) Validate(report *entity.Report) error {
 	return nil
 }
 
+func (pv *PCRVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error {
+	if baseValue == nil || report == nil {
+		return fmt.Errorf("invalid input")
+	}
+	cnt := 0
+	i := 0
+	j := 0
+	for i < len(baseValue.PcrInfo.Values) && j < len(report.PcrInfo.Values) {
+		if baseValue.PcrInfo.Values[i] == report.PcrInfo.Values[j] {
+			cnt++
+			i++
+		}
+		j++
+	}
+	if cnt == len(baseValue.PcrInfo.Values) {
+		return nil
+	}
+	return fmt.Errorf("PCR verification failed")
+}
