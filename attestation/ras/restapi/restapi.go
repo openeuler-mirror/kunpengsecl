@@ -9,7 +9,10 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwt"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
 )
 
 type RasServer struct {
@@ -177,4 +180,30 @@ func CreateAuthValidator(v JWSValidator) (echo.MiddlewareFunc, error) {
 		})
 
 	return validator, nil
+}
+
+func StartServer(addr string) {
+	router := echo.New()
+
+	// FIXME: need to be replaced with a formal authenticator implementation
+	v, err := internal.NewFakeAuthenticator()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	av, err := CreateAuthValidator(v)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	router.Pre(echomiddleware.RemoveTrailingSlash())
+	router.Use(echomiddleware.Logger())
+	router.Use(av)
+
+	server := NewRasServer()
+	RegisterHandlers(router, server)
+
+	router.Logger.Fatal(router.Start(addr))
 }
