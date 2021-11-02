@@ -61,3 +61,15 @@ type Measurement struct {
 	Name  string
 	Value string
 }
+
+type ExtractRules struct {
+	PcrRule       PcrRule
+	ManifestRules []ManifestRule
+}
+type PcrRule struct {
+	PcrSelection []int
+}
+type ManifestRule struct {
+	MType string
+	Name  []string
+}

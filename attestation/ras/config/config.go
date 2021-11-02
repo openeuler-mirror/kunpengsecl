@@ -19,6 +19,7 @@ package config
 import (
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"github.com/spf13/viper"
 )
 
@@ -40,8 +41,9 @@ type (
 		port     int
 	}
 	rasConfig struct {
-		mgrStrategy string
-		changeTime  time.Time
+		mgrStrategy  string
+		changeTime   time.Time
+		extractRules entity.ExtractRules
 	}
 	racConfig struct {
 		hbDuration    time.Duration // heartbeat duration
@@ -76,6 +78,33 @@ func GetDefault() *config {
 	}
 
 	err := viper.ReadInConfig()
+	var mRules []entity.ManifestRule
+	mrs, ok := viper.Get("rasConfig.basevalue-extract-rules.manifest").([]interface{})
+	if ok {
+		for _, mr := range mrs {
+			var mRule entity.ManifestRule
+			if m, ok := mr.(map[interface{}]interface{}); ok {
+				for k, v := range m {
+					if ks, ok := k.(string); ok {
+						if ks == "type" {
+							mRule.MType = ks
+						}
+						if ks == "name" {
+							var names []string
+							if ns, ok := v.([]interface{}); ok {
+								for _, n := range ns {
+									names = append(names, n.(string))
+								}
+								mRule.Name = names
+							}
+						}
+					}
+				}
+				mRules = append(mRules, mRule)
+			}
+		}
+	}
+
 	if err == nil {
 		cfg = &config{
 			dbConfig: dbConfig{
@@ -88,6 +117,12 @@ func GetDefault() *config {
 			rasConfig: rasConfig{
 				mgrStrategy: viper.GetString("rasConfig.mgrStrategy"),
 				changeTime:  viper.GetTime("rasConfig.changeTime"),
+				extractRules: entity.ExtractRules{
+					PcrRule: entity.PcrRule{
+						PcrSelection: viper.GetIntSlice("rasConfig.basevalue-extract-rules.pcrinfo.pcrselection"),
+					},
+					ManifestRules: mRules,
+				},
 			},
 			racConfig: racConfig{
 				hbDuration:    viper.GetDuration("racConfig.hbDuration"),
@@ -111,6 +146,21 @@ func GetDefault() *config {
 			rasConfig: rasConfig{
 				mgrStrategy: "auto",
 				changeTime:  time.Now(),
+				extractRules: entity.ExtractRules{
+					PcrRule: entity.PcrRule{
+						PcrSelection: []int{1},
+					},
+					ManifestRules: []entity.ManifestRule{
+						0: {
+							MType: "bios",
+							Name:  []string{""},
+						},
+						1: {
+							MType: "ima",
+							Name:  []string{""},
+						},
+					},
+				},
 			},
 			racConfig: racConfig{
 				hbDuration:    10 * time.Second,
@@ -269,4 +319,12 @@ func (c *config) SetMgrStrategy(s string) {
 
 func (c *config) GetChangeTime() time.Time {
 	return c.changeTime
+}
+
+func (c *config) SetExtractRules(e entity.ExtractRules) {
+	c.rasConfig.extractRules = e
+}
+
+func (c *config) GetExtractRules() entity.ExtractRules {
+	return c.rasConfig.extractRules
 }
