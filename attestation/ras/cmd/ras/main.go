@@ -8,12 +8,15 @@ package main
 
 import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi"
 )
 
 func main() {
 	// TODO:
 	// add argv handling code for parameters
 	// or read config from yaml file...
-	const addr string = "127.0.0.1:40001"
-	clientapi.StartServer(addr)
+	const addrcapi string = "127.0.0.1:40001"
+	const addrrapi string = "127.0.0.1:40002"
+	go clientapi.StartServer(addrcapi)
+	restapi.StartServer(addrrapi)
 }
