@@ -11,17 +11,9 @@ service Ras {
 }
 
 message CreateIKCertRequest {
-  KeyPub ekPub = 1;
-  KeyPub ikPub = 2;
-  KeyName ikName = 3;
-}
-
-message KeyPub {
-  bytes key = 1;
-}
-
-message KeyName {
-  string name = 1;
+  string ekCert = 1;
+	string ikPub = 2;
+  bytes ikName = 3;
 }
 
 message CreateIKCertReply {
@@ -30,11 +22,12 @@ message CreateIKCertReply {
 }
 
 message CertEncrypted {
-  bytes cert = 1;
+  bytes EncryptAC = 1;
+  bytes IV = 2;
 }
 
 message Challenge {
-  string challenge = 1;
+  bytes SymBlob = 1;
 }
 
 message RegisterClientRequest {

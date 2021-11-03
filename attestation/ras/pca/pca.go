@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
@@ -23,33 +24,33 @@ type PCA struct{
 
 }
 type PrivacyCA interface {
-	GetEkCert(key IdentitySymKey,privateKey crypto.PrivateKey)([]byte,error)
+
 	VerifyEkCert(EkCert x509.Certificate)(bool,error)
 }
 
-//返回的是解密后的ekcert
-//函数功能：通过pca的私钥解密出一个对称密钥
-//并通过这个密钥对ekcert进行解密
-func (pca *PCA)GetEkCert(identitySymkey IdentitySymKey,pcaPri crypto.PrivateKey)([]byte,error){
-	//调用AsymDecryptofTPM 解出所需要的对称密钥symKey
-	symKey,err := AsymDecryptofTPM(pcaPri,identitySymkey.TPMAsymmetricKey.TPMEncscheme,identitySymkey.AsymBlob,nil)
-	//
+//Decode the cert from pem cert
+func DecodeCert(pemCert string) (*x509.Certificate, error){
+	block,_:=pem.Decode([]byte(pemCert))
+	if block==nil{
+		return nil,errors.New("failed to Decode the cert pem")
+	}
+	cert,err:=x509.ParseCertificate(block.Bytes)
 	if err!=nil{
-		return nil, errors.Wrap(err,"GetEkCert() while process the AsymDecryptofTPM Error")
+		return nil,errors.New("failed to parse public key : "+err.Error())
 	}
-	var ekCerts []byte
-	switch identitySymkey.TPMSymmetricKey.TPMEncscheme{
-	case TPM_CBC:
-		//通过上面求出的对称密钥解出EKcert
-		ekCerts,err = SymetricEncrypt(identitySymkey.SymBlob,symKey,identitySymkey.TPMSymmetricKey.IV,TPM_AES,TPM_CBC)
-		if err!=nil{
-			return nil,errors.Wrap(err,"GetEkCert() while process the SymetricEncrypt Error")
-		}
-	default:
-		return nil,errors.New("the TPM encScheme is Error")
+	return cert, nil
+}
+//Decode the publicKey from pem PubKey
+func DecodePubkey(pemPubKey string) (*rsa.PublicKey,error){
+	block,_:=pem.Decode([]byte(pemPubKey))
+	if block==nil||block.Type!="PUBLIC KEY"{
+		return nil,errors.New("failed to decode PEM block containing public key")
 	}
-	return ekCerts, nil
-
+	pub,err:=x509.ParsePKCS1PublicKey(block.Bytes)
+	if err!=nil{
+		return nil,errors.New("failed to parse public key : "+err.Error())
+	}
+	return pub, nil
 }
 //生成一个新的pca接口
 func NewPCA(req Request)(PrivacyCA,error){
