@@ -16,8 +16,8 @@ func main() {
 	cid := config.GetDefaultRac().GetClientId()
 	//akname,_,akpub,err:=ractools.CreateAk(rw,parentHandle,"",ractools.MyPassword,ractools.PcrSelection1_17)
 	req := clientapi.CreateIKCertRequest{
-		EkPub:  nil,
-		IkPub:  nil,
+		EkCert:  "",
+		IkPub:  "",
 		IkName: nil,
 	}
 	bk, err := clientapi.DoCreateIKCert(addr, &req)
