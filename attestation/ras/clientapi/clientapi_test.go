@@ -9,8 +9,7 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-const testConfig =
-`database:
+const testConfig = `database:
   dbname: kunpengsecl
   host: localhost
   password: "postgres"

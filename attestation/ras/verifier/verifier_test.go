@@ -2,8 +2,9 @@ package verifier
 
 import (
 	"fmt"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"testing"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
 
 func TestPCRVerifier_Verify(t *testing.T) {
@@ -11,7 +12,7 @@ func TestPCRVerifier_Verify(t *testing.T) {
 
 	bvpcrInfo1 := entity.PcrInfo{
 		AlgName: "sha1",
-		Values:    []entity.PcrValue{
+		Values: []entity.PcrValue{
 			0: {
 				Id:    2,
 				Value: "pcr value 2",
@@ -21,12 +22,12 @@ func TestPCRVerifier_Verify(t *testing.T) {
 				Value: "pcr value 5",
 			},
 		},
-		Quote:     []byte("test quote"),
+		Quote: []byte("test quote"),
 	}
 
 	bvpcrInfo2 := entity.PcrInfo{
 		AlgName: "sha1",
-		Values:    []entity.PcrValue{
+		Values: []entity.PcrValue{
 			0: {
 				Id:    2,
 				Value: "pcr value 1",
@@ -36,12 +37,12 @@ func TestPCRVerifier_Verify(t *testing.T) {
 				Value: "pcr value 5",
 			},
 		},
-		Quote:     []byte("test quote"),
+		Quote: []byte("test quote"),
 	}
 
 	repopcrInfo := entity.PcrInfo{
 		AlgName: "sha1",
-		Values:    []entity.PcrValue{
+		Values: []entity.PcrValue{
 			0: {
 				Id:    1,
 				Value: "pcr value 1",
@@ -63,26 +64,26 @@ func TestPCRVerifier_Verify(t *testing.T) {
 				Value: "pcr value 5",
 			},
 		},
-		Quote:     []byte("test quote"),
+		Quote: []byte("test quote"),
 	}
 
-	baseValue1 := &entity.MeasurementInfo {
+	baseValue1 := &entity.MeasurementInfo{
 		ClientID: 1,
-		PcrInfo: bvpcrInfo1,
+		PcrInfo:  bvpcrInfo1,
 		Manifest: nil,
 	}
 
-	baseValue2 := &entity.MeasurementInfo {
+	baseValue2 := &entity.MeasurementInfo{
 		ClientID: 1,
-		PcrInfo: bvpcrInfo2,
+		PcrInfo:  bvpcrInfo2,
 		Manifest: nil,
 	}
 
-	report := &entity.Report {
-		PcrInfo: repopcrInfo,
+	report := &entity.Report{
+		PcrInfo:  repopcrInfo,
 		Manifest: nil,
 		ClientID: 1,
-		ClientInfo: entity.ClientInfo {
+		ClientInfo: entity.ClientInfo{
 			Info: nil,
 		},
 		Verified: false,
@@ -102,7 +103,7 @@ func TestPCRVerifier_Verify(t *testing.T) {
 		err := pv.Verify(testCase[i].input1, testCase[i].input2)
 		if err == testCase[i].result {
 			t.Logf("test PCR Verify success at case %d\n", i)
-		} else if err.Error() == testCase[i].result.Error(){
+		} else if err.Error() == testCase[i].result.Error() {
 			t.Logf("test PCR Verify success at case %d\n", i)
 		} else {
 			t.Errorf("test PCR Verify error at case %d\n", i)

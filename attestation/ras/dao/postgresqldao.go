@@ -215,8 +215,8 @@ func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, info entity.PcrInfo, man
 	for _, mf := range manifest {
 		for _, item := range mf.Items {
 			_, err = tx.Exec(context.Background(),
-				"INSERT INTO base_value_manifest(client_id, base_value_ver, type, name, value, detail) " +
-				"VALUES ($1, $2, $3, $4, $5, $6)",
+				"INSERT INTO base_value_manifest(client_id, base_value_ver, type, name, value, detail) "+
+					"VALUES ($1, $2, $3, $4, $5, $6)",
 				clientID, baseValueVer, mf.Type, item.Name, item.Value, item.Detail)
 			if err != nil {
 				tx.Rollback(context.Background())
