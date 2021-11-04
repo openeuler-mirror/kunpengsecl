@@ -1,15 +1,15 @@
 package trustmgr
 
 import (
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"testing"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
 
 type testValidator struct {
-
 }
 
-func (tv *testValidator) Validate(report *entity.Report) error{
+func (tv *testValidator) Validate(report *entity.Report) error {
 	return nil
 }
 
@@ -19,7 +19,7 @@ func TestRecordReport(t *testing.T) {
 
 	pcrInfo := entity.PcrInfo{
 		AlgName: "sha1",
-		Values:    []entity.PcrValue{
+		Values: []entity.PcrValue{
 			0: {
 				Id:    1,
 				Value: "pcr value 1",
@@ -29,7 +29,7 @@ func TestRecordReport(t *testing.T) {
 				Value: "pcr value 2",
 			},
 		},
-		Quote:     []byte("test quote"),
+		Quote: []byte("test quote"),
 	}
 
 	biosItem1 := entity.ManifestItem{
@@ -51,7 +51,7 @@ func TestRecordReport(t *testing.T) {
 	}
 
 	biosManifest := entity.Manifest{
-		Type:  "bios",
+		Type: "bios",
 		Items: []entity.ManifestItem{
 			0: biosItem1,
 			1: biosItem2,
@@ -59,23 +59,23 @@ func TestRecordReport(t *testing.T) {
 	}
 
 	imaManifest := entity.Manifest{
-		Type:  "ima",
+		Type: "ima",
 		Items: []entity.ManifestItem{
 			0: imaItem1,
 		},
 	}
 
 	testReport := &entity.Report{
-		PcrInfo:    pcrInfo,
-		Manifest:   []entity.Manifest{
+		PcrInfo: pcrInfo,
+		Manifest: []entity.Manifest{
 			0: biosManifest,
 			1: imaManifest,
 		},
-		ClientID:   1,
+		ClientID: 1,
 		ClientInfo: entity.ClientInfo{
 			Info: map[string]string{
-				"client_name": "test_client",
-				"client_type": "test_type",
+				"client_name":        "test_client",
+				"client_type":        "test_type",
 				"client_description": "test description",
 			},
 		},

@@ -9,8 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testConfig =
-`database:
+const testConfig = `database:
   dbname: kunpengsecl
   host: localhost
   password: "postgres"
@@ -164,13 +163,13 @@ func TestUnRegisterClient(t *testing.T) {
 		fmt.Println(err)
 		t.FailNow()
 	}
-/*	newClientIds, err := psd.SelectAllClientIds()
-	if err != nil {
-		fmt.Println(err)
-		t.FailNow()
-	}
-	assert.NotEqual(t, clientIds[0], newClientIds[0])
-*/
+	/*	newClientIds, err := psd.SelectAllClientIds()
+		if err != nil {
+			fmt.Println(err)
+			t.FailNow()
+		}
+		assert.NotEqual(t, clientIds[0], newClientIds[0])
+	*/
 	assert.NotEqual(t, clientIds[0], 0)
 }
 

@@ -89,7 +89,7 @@ func TestCacheTrust(t *testing.T) {
 
 func TestNonce(t *testing.T) {
 	c := &Cache{}
-	for i := 0; i <10; i++ {
+	for i := 0; i < 10; i++ {
 		nonce, err := c.CreateNonce()
 		if err != nil {
 			t.FailNow()

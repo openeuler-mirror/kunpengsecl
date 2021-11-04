@@ -19,12 +19,13 @@ package clientapi
 import (
 	"context"
 	"errors"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"log"
 	"net"
 	"sync"
 	"time"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
@@ -130,7 +131,7 @@ func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (
 	return &SendHeartbeatReply{
 		NextAction:       int64(nextAction),
 		ActionParameters: nil,
-		Nonce: nonce,
+		Nonce:            nonce,
 	}, nil
 }
 

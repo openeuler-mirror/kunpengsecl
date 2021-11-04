@@ -1,9 +1,11 @@
 package trustmgr
+
 /*
 	trustmgr is used to register, save reports, extract base value, provide the newest report, etc.
- */
+*/
 import (
 	"errors"
+
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/dao"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
@@ -14,10 +16,12 @@ type TrustMgr struct {
 var validator Validator
 var extractor Extractor
 var postgreSqlDAO *dao.PostgreSqlDAO
+
 // Validator will be implemented to validate integrity of report
 type Validator interface {
 	Validate(report *entity.Report) error
 }
+
 // Extractor will be implemented to extract base value from report
 type Extractor interface {
 	Extract(report *entity.Report) error
@@ -27,6 +31,7 @@ type Extractor interface {
 func SetValidator(v Validator) {
 	validator = v
 }
+
 // SetExtractor is used to register variety extractor
 func SetExtractor(e Extractor) {
 	extractor = e

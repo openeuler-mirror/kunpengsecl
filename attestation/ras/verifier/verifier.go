@@ -1,9 +1,11 @@
 package verifier
+
 /*
 	verifier is used to verify trust status of target RAC.
- */
+*/
 import (
 	"fmt"
+
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
@@ -17,15 +19,17 @@ var create []func() (interface{}, error)
 type Verifier interface {
 	Verify(baseValue *entity.MeasurementInfo, report *entity.Report)
 }
+
 /*
 	VerifierMgr is provided for other packages.
 	it will call functions of validators, extractors, verifiers to process validating work.
- */
+*/
 type VerifierMgr struct {
 }
+
 /*
 	PCRVerifier will verify PCR values of trust report and base value
- */
+*/
 type PCRVerifier struct {
 }
 
@@ -46,11 +50,12 @@ func CreateVerifierMgr() (*VerifierMgr, error) {
 	}
 	return verifierMgr, nil
 }
+
 /*
 	if there are create functions in other packages , in their init function they can call RegisterFactoryMethod
 	to register that.
- */
-func RegisterFactoryMethod(c func()(interface{}, error)) {
+*/
+func RegisterFactoryMethod(c func() (interface{}, error)) {
 	create = append(create, c)
 }
 
@@ -79,7 +84,7 @@ func (vm *VerifierMgr) init() error {
 }
 
 /*
-	*VerifierMgr can call Validate to process Validate function of every validator in validators
+*VerifierMgr can call Validate to process Validate function of every validator in validators
  */
 func (vm *VerifierMgr) Validate(report *entity.Report) error {
 	for i := range validators {
