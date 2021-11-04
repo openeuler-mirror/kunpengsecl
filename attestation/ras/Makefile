@@ -1,5 +1,5 @@
 PKGPATH = pkg
-TESTEES = ./cache ./clientapi ./cmd/ras ./config ./dao ./entity ./restapi ./trustmgr ./verifier
+TESTEES = ./cache ./clientapi ./cmd/ras ./config ./dao ./entity ./restapi ./trustmgr ./verifier ./pca
 
 all: build
 
