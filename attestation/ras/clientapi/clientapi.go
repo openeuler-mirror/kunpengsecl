@@ -19,12 +19,16 @@ package clientapi
 import (
 	"context"
 	"errors"
+	"fmt"
+
 	"log"
 	"net"
 	"sync"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
+
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
@@ -50,7 +54,18 @@ type service struct {
 }
 
 func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
-	log.Printf("Server: receive CreateIKCert")
+	//get decode cert
+	cert, err := pca.DecodeCert(in.EkCert)
+	if err != nil {
+		return &CreateIKCertReply{}, err
+	}
+	fmt.Println(cert)
+	//get decode pubkey
+	pub, err := pca.DecodePubkey(string(in.IkPub))
+	if err != nil {
+		return &CreateIKCertReply{}, err
+	}
+	fmt.Println(pub)
 	return &CreateIKCertReply{}, nil
 }
 
