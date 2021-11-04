@@ -73,10 +73,10 @@ type Manifest struct {
 }
 
 type TrustReport struct {
-	pcrInfo    PcrInfo
-	manifest   []Manifest
-	clientId   int64
-	clientInfo map[string]string
+	PcrInfo    PcrInfo
+	Manifest   []Manifest
+	ClientId   int64
+	ClientInfo map[string]string
 }
 type AttestionKey struct {
 	Name     []byte
@@ -87,8 +87,8 @@ type AttestionKey struct {
 	PcrSel   tpm2.PCRSelection
 }
 type TrustReportIn struct {
-	imaPath    string
-	nonce      int64
-	clientId   int64
-	clientInfo map[string]string
+	ImaPath    string
+	Nonce      uint64
+	ClientId   int64
+	ClientInfo map[string]string
 }
