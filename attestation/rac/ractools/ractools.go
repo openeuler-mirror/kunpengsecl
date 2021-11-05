@@ -7,14 +7,18 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 )
 
 var (
-	TRep  *TrustReport
-	AK    *AttestionKey
-	EkPub crypto.PublicKey
+	rw            io.ReadWriteCloser = nil
+	tpmpath                          = "/dev/tpm0"
+	isPhysicalTpm bool
+	TRep          *TrustReport
+	AK            *AttestionKey
+	EkPub         crypto.PublicKey
 )
 
 func GetManifest(imapath string) ([]Manifest, error) {
@@ -25,7 +29,7 @@ func GetManifest(imapath string) ([]Manifest, error) {
 	var manifest []Manifest
 	s := make([]string, 5, 6)
 	var j int = 0
-	for i, _ := range f {
+	for i := range f {
 		if f[i] == ' ' {
 			j++
 			continue
@@ -53,6 +57,7 @@ func CreateAk(rw io.ReadWriter, parentHandle tpmutil.Handle, parentPassword, AkP
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	defer tpm2.FlushContext(rw, akHandle)
 
 	_, akname, _, err := tpm2.ReadPublic(rw, akHandle)
 	if err != nil {
@@ -75,9 +80,9 @@ func CreateTrustReport(rw io.ReadWriter, AK *AttestionKey, pcrSelection tpm2.PCR
 		pcrValues[key] = PcrValue(pcr)
 	}
 
-	//invert int64 to []byte
+	//invert uint64 to []byte
 	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(tRepIn.nonce))
+	binary.BigEndian.PutUint64(buf, uint64(tRepIn.Nonce))
 
 	attestation, _, err := tpm2.Quote(rw, AK.Handle, AK.Password, EmptyPassword,
 		buf, pcrSelection, tpm2.AlgNull)
@@ -87,11 +92,11 @@ func CreateTrustReport(rw io.ReadWriter, AK *AttestionKey, pcrSelection tpm2.PCR
 	}
 
 	pcrinfo := PcrInfo{pcrSelection, pcrValues, attestation}
-	mainfest, err := GetManifest(tRepIn.imaPath)
+	mainfest, err := GetManifest(tRepIn.ImaPath)
 	if err != nil {
-		return &TrustReport{}, err
+		fmt.Printf("Can't find ima-file : %v \n", err)
 	}
-	TRep = &TrustReport{pcrinfo, mainfest, tRepIn.clientId, tRepIn.clientInfo}
+	TRep = &TrustReport{pcrinfo, mainfest, tRepIn.ClientId, tRepIn.ClientInfo}
 	return TRep, nil
 }
 
@@ -106,7 +111,22 @@ func ActivateAC(rw io.ReadWriter, activeHandle, keyHandle tpmutil.Handle, active
 	return recoveredCredential, err
 }
 
-func GetAk(rw io.ReadWriter) (*AttestionKey, crypto.PublicKey, error) {
+func GetAk() (*AttestionKey, crypto.PublicKey, error) {
+	if rw == nil {
+		//first, try to open physical tpm
+		var err error
+		rw, err = tpm2.OpenTPM(tpmpath)
+		isPhysicalTpm = true
+		if err != nil {
+			//try to open simulator
+			rw, err = simulator.Get()
+			isPhysicalTpm = false
+			if err != nil {
+				fmt.Printf("Simulator initialization failed: %v", err)
+			}
+		}
+	}
+
 	ekPassword := EmptyPassword
 	ekSel := MyPcrSelection
 	ekHandle, EkPub, err := tpm2.CreatePrimary(rw, tpm2.HandleEndorsement, ekSel,
@@ -114,6 +134,7 @@ func GetAk(rw io.ReadWriter) (*AttestionKey, crypto.PublicKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	defer tpm2.FlushContext(rw, ekHandle)
 
 	AK = &AttestionKey{}
 	AK.Password = EmptyPassword
@@ -132,17 +153,25 @@ func GetAk(rw io.ReadWriter) (*AttestionKey, crypto.PublicKey, error) {
 	return AK, EkPub, err
 }
 
-func GetTrustReport(rw io.ReadWriter, tRepIn TrustReportIn) (*TrustReport, error) {
-	return CreateTrustReport(rw, AK, MyPcrSelection, tRepIn)
-}
-func PrintInitRw() (io.ReadWriteCloser, tpmutil.Handle, error) {
-	tpmpath := "test"
-	rw, _ := tpm2.OpenTPM(tpmpath)
-	parentHandle, _, err := tpm2.CreatePrimary(rw, tpm2.HandleEndorsement, PcrSelection7,
-		"", "", DefaultKeyParams)
-	if err != nil {
-		fmt.Errorf("CreatePrimary failed: %s", err)
+func GetTrustReport(tRepIn TrustReportIn) (*TrustReport, error) {
+	if rw == nil {
+		//first, try to open physical tpm
+		var err error
+		rw, err = tpm2.OpenTPM(tpmpath)
+		isPhysicalTpm = true
+		if err != nil {
+			//try to open simulator
+			rw, err = simulator.Get()
+			isPhysicalTpm = false
+			if err != nil {
+				fmt.Printf("Simulator initialization failed: %v", err)
+			}
+		}
 	}
-	defer tpm2.FlushContext(rw, parentHandle)
-	return rw, parentHandle, nil
+
+	if AK == nil {
+		AK, _, _ = GetAk()
+	}
+
+	return CreateTrustReport(rw, AK, MyPcrSelection, tRepIn)
 }
