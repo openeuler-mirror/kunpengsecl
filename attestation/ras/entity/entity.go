@@ -21,13 +21,8 @@ type Report struct {
 */
 type PcrInfo struct {
 	AlgName string
-	Values  []PcrValue
+	Values  map[int]string
 	Quote   PcrQuote
-}
-
-type PcrValue struct {
-	Id    int
-	Value string
 }
 
 type PcrQuote []byte

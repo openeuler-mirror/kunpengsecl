@@ -68,10 +68,11 @@ message SendHeartbeatRequest {
 message SendHeartbeatReply {
   int64 nextAction = 1;
   ActionParameters actionParameters = 2;
-  uint64 nonce = 3;
 }
 
 message ActionParameters {
+  uint64 nonce = 1;
+  ClientConfig clientConfig = 2;
 }
 
 message SendReportRequest {
@@ -84,25 +85,17 @@ message TrustReport {
   repeated Manifest manifest = 2;
   int64 clientId = 3;
   ClientInfo clientInfo = 4;
-  string algorithm = 5;
 }
 
 message PcrInfo{
-  PcrSelection pcrSelection = 1;
-  map<int64, string> pcrValues = 2;
-  bytes pcrQuote = 3;
-}
-
-message PcrSelection{
-  repeated int32 pcrs = 1;
+  map<int64, string> pcrValues = 1;
+  bytes pcrQuote = 2;
+  string algorithm = 3;
 }
 
 message Manifest{
-  string pcr = 1;
-  string template_hash = 2;
-  string format = 3;
-  string filedata_hash = 4;
-  string filename_hint = 5;
+  string type = 1;
+  bytes item = 2;
 }
 
 message SendReportReply {

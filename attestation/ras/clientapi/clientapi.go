@@ -144,9 +144,11 @@ func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (
 	}
 	s.Unlock()
 	return &SendHeartbeatReply{
-		NextAction:       int64(nextAction),
-		ActionParameters: nil,
-		Nonce:            nonce,
+		NextAction: int64(nextAction),
+		ActionParameters: &ActionParameters{
+			ClientConfig: &ClientConfig{},
+			Nonce:        nonce,
+		},
 	}, nil
 }
 

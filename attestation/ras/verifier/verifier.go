@@ -96,6 +96,7 @@ func (vm *VerifierMgr) Validate(report *entity.Report) error {
 	return nil
 }
 
+// TODO: need update because PcrValue struct become map.
 func (pv *PCRVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error {
 	if baseValue == nil || report == nil {
 		return fmt.Errorf("invalid input")
