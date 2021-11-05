@@ -45,15 +45,9 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 	}
 	pcrInfo := entity.PcrInfo{
 		AlgName: "sha256",
-		Values: []entity.PcrValue{
-			1: {
-				Id:    1,
-				Value: "pcr value 1",
-			},
-			2: {
-				Id:    2,
-				Value: "pcr value 2",
-			},
+		Values: map[int]string{
+			1: "pcr value 1",
+			2: "pcr value 2",
 		},
 		Quote: []byte("test quote"),
 	}
@@ -176,15 +170,9 @@ func TestUnRegisterClient(t *testing.T) {
 func TestSaveBaseValue(t *testing.T) {
 	pcrInfo := entity.PcrInfo{
 		AlgName: "sha256",
-		Values: []entity.PcrValue{
-			0: {
-				Id:    1,
-				Value: "pcr value 1",
-			},
-			1: {
-				Id:    2,
-				Value: "pcr value 2",
-			},
+		Values: map[int]string{
+			1: "pcr value 1",
+			2: "pcr value 2",
 		},
 		Quote: []byte("test quote"),
 	}

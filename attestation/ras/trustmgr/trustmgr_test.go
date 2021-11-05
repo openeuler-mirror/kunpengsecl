@@ -19,15 +19,9 @@ func TestRecordReport(t *testing.T) {
 
 	pcrInfo := entity.PcrInfo{
 		AlgName: "sha1",
-		Values: []entity.PcrValue{
-			0: {
-				Id:    1,
-				Value: "pcr value 1",
-			},
-			1: {
-				Id:    2,
-				Value: "pcr value 2",
-			},
+		Values: map[int]string{
+			1: "pcr value 1",
+			2: "pcr value 2",
 		},
 		Quote: []byte("test quote"),
 	}

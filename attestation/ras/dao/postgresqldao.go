@@ -79,10 +79,10 @@ func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 	}
 
 	// insert report data into trust_report_pcr_info
-	for _, pv := range report.PcrInfo.Values {
+	for k, v := range report.PcrInfo.Values {
 		_, err = tx.Exec(context.Background(),
 			"INSERT INTO trust_report_pcr_info(report_id, pcr_id, alg_name, pcr_value) VALUES ($1, $2, $3, $4)",
-			reportID, pv.Id, report.PcrInfo.AlgName, pv.Value)
+			reportID, k, report.PcrInfo.AlgName, v)
 		if err != nil {
 			tx.Rollback(context.Background())
 			return err
@@ -202,10 +202,10 @@ func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, info entity.PcrInfo, man
 		return err
 	}
 
-	for _, pv := range info.Values {
+	for k, v := range info.Values {
 		_, err = tx.Exec(context.Background(),
 			"INSERT INTO base_value_pcr_info(client_id, base_value_ver, pcr_id, alg_name, pcr_value) VALUES ($1, $2, $3, $4, $5)",
-			clientID, baseValueVer, pv.Id, info.AlgName, pv.Value)
+			clientID, baseValueVer, k, info.AlgName, v)
 		if err != nil {
 			tx.Rollback(context.Background())
 			return err

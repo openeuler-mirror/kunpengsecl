@@ -78,7 +78,7 @@ func GetNewTstRep(in1 interface{}, in2 interface{}, in3 interface{}) bool {
 	fmt.Printf("get a new trust report from RAC.")
 	_, err := ractools.GetTrustReport(ractools.TrustReportIn{
 		ImaPath:    "",
-		Nonce:      in1.(*clientapi.SendHeartbeatReply).Nonce,
+		Nonce:      in1.(*clientapi.SendHeartbeatReply).GetActionParameters().GetNonce(),
 		ClientId:   in2.(int64),
 		ClientInfo: map[string]string{},
 	})
