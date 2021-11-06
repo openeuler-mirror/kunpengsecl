@@ -120,7 +120,7 @@ type IdentityResponse struct {
 //加密ac
 func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
 	//对传进来的akCert进行加密，使用symKey作为加密密钥
-	SymKey, err := CreateRandomByte(16)
+	Secret, err := CreateRandomByte(16)
 	if err != nil {
 		errors.New("failed create the symkey of a random byte")
 	}
@@ -133,7 +133,7 @@ func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
 	if err != nil {
 		errors.New("failed create the iv of a random byte")
 	}
-	encryptAC, err := SymetricEncrypt(AkCert, SymKey, iv, TPM_AES, TPM_CBC)
+	encryptAC, err := SymetricEncrypt(AkCert, Secret, iv, TPM_AES, TPM_CBC)
 
 	if err != nil {
 		errors.New("failed the SymetricEncrypt")
@@ -143,7 +143,7 @@ func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
 		errors.New("failed CreatePrimary")
 	}
 	//generate the credential
-	credentialSecret, credentialBlob, err := tpm2.MakeCredential(simulator, parentHandle, AkCert, AkName)
+	credentialSecret, credentialBlob, err := tpm2.MakeCredential(simulator, parentHandle, Secret, AkName)
 	if err != nil {
 		errors.New("failed the MakeCredential")
 	}
@@ -153,8 +153,8 @@ func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
 		IV:        iv,
 	}
 	toACandsymKey := ToACandSymKey{
-		Secret:          credentialSecret,
-		Credential:      credentialBlob,
+		Credential:      credentialSecret,
+		SymBlob:         credentialBlob,
 		TPMSymKeyParams: symKeyParams,
 	}
 

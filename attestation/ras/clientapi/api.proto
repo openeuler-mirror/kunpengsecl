@@ -27,7 +27,8 @@ message CertEncrypted {
 }
 
 message Challenge {
-  bytes SymBlob = 1;
+  bytes Credential = 1;
+  bytes SymBlob = 2;
 }
 
 message RegisterClientRequest {

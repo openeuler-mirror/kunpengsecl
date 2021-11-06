@@ -18,6 +18,7 @@ package clientapi
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 
@@ -61,12 +62,32 @@ func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*C
 	}
 	fmt.Println(cert)
 	//get decode pubkey
-	pub, err := pca.DecodePubkey(string(in.IkPub))
+	pub, err := pca.DecodePubkey(in.IkPub)
 	if err != nil {
 		return &CreateIKCertReply{}, err
 	}
-	fmt.Println(pub)
-	return &CreateIKCertReply{}, nil
+	req := pca.Request{
+		TPMVer: "2.0",
+		AkPub:  nil,
+		AkName: in.IkName,
+	}
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		req.AkPub = pub
+	default:
+		return &CreateIKCertReply{}, errors.New("unknown type public key")
+	}
+
+	return &CreateIKCertReply{
+		IcEncrypted: &CertEncrypted{
+			EncryptAC: []byte{1, 2, 3},
+			IV:        []byte{1, 2, 3},
+		},
+		Challenge: &Challenge{
+			Credential: []byte{1, 2, 3},
+			SymBlob:    []byte{1, 2, 3},
+		},
+	}, nil
 }
 
 // RegisterClient TODO: need a challenge
