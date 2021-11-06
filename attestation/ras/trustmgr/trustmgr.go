@@ -24,7 +24,7 @@ type Validator interface {
 
 // Extractor will be implemented to extract base value from report
 type Extractor interface {
-	Extract(report *entity.Report) error
+	Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error
 }
 
 // SetValidator is used to register variety validator
