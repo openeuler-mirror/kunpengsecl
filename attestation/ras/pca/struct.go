@@ -29,7 +29,6 @@ var (
 )
 
 type ToACandSymKey struct {
-	Secret          []byte
 	Credential      []byte
 	TPMSymKeyParams TPMSymKeyParams
 	SymBlob         []byte
