@@ -72,16 +72,13 @@ func TestPCRVerifier_Verify(t *testing.T) {
 		{baseValue2, report, errcase},
 	}
 	for i := 0; i < len(testCase); i++ {
-		pv.Verify(testCase[i].input1, testCase[i].input2)
-		/*
-			if err == testCase[i].result {
-				t.Logf("test PCR Verify success at case %d\n", i)
-			} else if err.Error() == testCase[i].result.Error() {
-				t.Logf("test PCR Verify success at case %d\n", i)
-			} else {
-				t.Errorf("test PCR Verify error at case %d\n", i)
-			}
-		*/
+		err := pv.Verify(testCase[i].input1, testCase[i].input2)
+		if err == testCase[i].result {
+			t.Logf("test PCR Verify success at case %d\n", i)
+		} else if err.Error() == testCase[i].result.Error() {
+			t.Logf("test PCR Verify success at case %d\n", i)
+		} else {
+			t.Errorf("test PCR Verify error at case %d\n", i)
+		}
 	}
-
 }

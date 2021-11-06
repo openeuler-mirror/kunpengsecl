@@ -96,23 +96,15 @@ func (vm *VerifierMgr) Validate(report *entity.Report) error {
 	return nil
 }
 
-// TODO: need update because PcrValue struct become map.
 func (pv *PCRVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error {
 	if baseValue == nil || report == nil {
 		return fmt.Errorf("invalid input")
 	}
-	cnt := 0
-	i := 0
-	j := 0
-	for i < len(baseValue.PcrInfo.Values) && j < len(report.PcrInfo.Values) {
-		if baseValue.PcrInfo.Values[i] == report.PcrInfo.Values[j] {
-			cnt++
-			i++
+	for id, bvvalue := range baseValue.PcrInfo.Values {
+		rpvalue, isexist := report.PcrInfo.Values[id]
+		if isexist == false || bvvalue != rpvalue {
+			return fmt.Errorf("PCR verification failed")
 		}
-		j++
 	}
-	if cnt == len(baseValue.PcrInfo.Values) {
-		return nil
-	}
-	return fmt.Errorf("PCR verification failed")
+	return nil
 }
