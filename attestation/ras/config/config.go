@@ -17,6 +17,7 @@ Description: Store RAS and RAC configurations.
 package config
 
 import (
+	"strings"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
@@ -25,11 +26,10 @@ import (
 
 var defaultConfigPath = []string{
 	".",
-	"./config",
+	"../config",
 	"$HOME/.config/attestation",
 	"/usr/lib/attestation",
 	"/etc/attestation",
-	"../config",
 }
 
 type (
@@ -49,9 +49,10 @@ type (
 		hbDuration    time.Duration // heartbeat duration
 		trustDuration time.Duration // trust state duration
 		clientId      int64
-		cpassword     string
+		password      string
 	}
 	config struct {
+		isServer bool
 		dbConfig
 		rasConfig
 		racConfig
@@ -59,12 +60,14 @@ type (
 )
 
 var cfg *config
-var racCfg *racConfig
 
 /*
-	GetDefault returns the global default config object.
-	It searches the defaultConfigPath to find the first matched config.yaml.
-	if it doesn't find any one, it returns the default values by code.
+GetDefault returns the global default config object.
+It searches the defaultConfigPath to find the first matched config.yaml.
+if it doesn't find any one, it returns the default values by code.
+Notice:
+  server must has a config.yaml to give the configuration.
+  client may not have one.
 */
 func GetDefault() *config {
 	if cfg != nil {
@@ -78,66 +81,65 @@ func GetDefault() *config {
 	}
 
 	err := viper.ReadInConfig()
-	var mRules []entity.ManifestRule
-	mrs, ok := viper.Get("rasConfig.basevalue-extract-rules.manifest").([]interface{})
-	if ok {
-		for _, mr := range mrs {
-			var mRule entity.ManifestRule
-			if m, ok := mr.(map[interface{}]interface{}); ok {
-				for k, v := range m {
-					if ks, ok := k.(string); ok {
-						if ks == "type" {
-							if vs, ok := v.(string); ok {
-								mRule.MType = vs
-							}
-						}
-						if ks == "name" {
-							var names []string
-							if ns, ok := v.([]interface{}); ok {
-								for _, n := range ns {
-									names = append(names, n.(string))
+	if err == nil {
+		cfg = &config{}
+		if strings.ToLower(viper.GetString("conftype")) == "server" {
+			cfg.isServer = true
+		} else {
+			cfg.isServer = false
+		}
+		if cfg.isServer {
+			var mRules []entity.ManifestRule
+			mrs, ok := viper.Get("rasConfig.basevalue-extract-rules.manifest").([]interface{})
+			if ok {
+				for _, mr := range mrs {
+					var mRule entity.ManifestRule
+					if m, ok := mr.(map[interface{}]interface{}); ok {
+						for k, v := range m {
+							if ks, ok := k.(string); ok {
+								if ks == "type" {
+									if vs, ok := v.(string); ok {
+										mRule.MType = vs
+									}
 								}
-								mRule.Name = names
+								if ks == "name" {
+									var names []string
+									if ns, ok := v.([]interface{}); ok {
+										for _, n := range ns {
+											names = append(names, n.(string))
+										}
+										mRule.Name = names
+									}
+								}
 							}
 						}
+						mRules = append(mRules, mRule)
 					}
 				}
-				mRules = append(mRules, mRule)
 			}
-		}
-	}
-
-	if err == nil {
-		cfg = &config{
-			dbConfig: dbConfig{
-				host:     viper.GetString("database.host"),
-				dbName:   viper.GetString("database.dbname"),
-				user:     viper.GetString("database.user"),
-				password: viper.GetString("database.password"),
-				port:     viper.GetInt("database.port"),
-			},
-			rasConfig: rasConfig{
-				mgrStrategy: viper.GetString("rasConfig.mgrStrategy"),
-				changeTime:  viper.GetTime("rasConfig.changeTime"),
-				extractRules: entity.ExtractRules{
-					PcrRule: entity.PcrRule{
-						PcrSelection: viper.GetIntSlice("rasConfig.basevalue-extract-rules.pcrinfo.pcrselection"),
-					},
-					ManifestRules: mRules,
-				},
-			},
-			racConfig: racConfig{
-				hbDuration:    viper.GetDuration("racConfig.hbDuration"),
-				trustDuration: viper.GetDuration("racConfig.trustDuration"),
-				clientId:      viper.GetInt64("racConfig.clientId"),
-				cpassword:     viper.GetString("racConfig.cpassword"),
-			},
+			cfg.dbConfig.host = viper.GetString("database.host")
+			cfg.dbConfig.dbName = viper.GetString("database.dbname")
+			cfg.dbConfig.user = viper.GetString("database.user")
+			cfg.dbConfig.password = viper.GetString("database.password")
+			cfg.dbConfig.port = viper.GetInt("database.port")
+			cfg.rasConfig.mgrStrategy = viper.GetString("rasConfig.mgrStrategy")
+			cfg.rasConfig.changeTime = viper.GetTime("rasConfig.changeTime")
+			cfg.rasConfig.extractRules.PcrRule.PcrSelection = viper.GetIntSlice("rasConfig.basevalue-extract-rules.pcrinfo.pcrselection")
+			cfg.rasConfig.extractRules.ManifestRules = mRules
+			cfg.racConfig.hbDuration = viper.GetDuration("racConfig.hbDuration")
+			cfg.racConfig.trustDuration = viper.GetDuration("racConfig.trustDuration")
+		} else {
+			cfg.racConfig.hbDuration = viper.GetDuration("racConfig.hbDuration")
+			cfg.racConfig.trustDuration = viper.GetDuration("racConfig.trustDuration")
+			cfg.racConfig.clientId = viper.GetInt64("racConfig.clientId")
+			cfg.racConfig.password = viper.GetString("racConfig.password")
 		}
 		return cfg
 	}
 
 	if cfg == nil {
 		cfg = &config{
+			isServer: false,
 			dbConfig: dbConfig{
 				host:     "localhost",
 				dbName:   "test",
@@ -168,77 +170,38 @@ func GetDefault() *config {
 				hbDuration:    10 * time.Second,
 				trustDuration: 120 * time.Second,
 				clientId:      -1,
-				cpassword:     "",
+				password:      "",
 			},
 		}
 	}
 
-	racCfg = &cfg.racConfig
 	return cfg
-}
-
-func GetDefaultRac() *racConfig {
-	if racCfg != nil {
-		return racCfg
-	}
-
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	for _, s := range defaultConfigPath {
-		viper.AddConfigPath(s)
-	}
-
-	err := viper.ReadInConfig()
-	if err == nil {
-		racCfg = &racConfig{
-			hbDuration:    viper.GetDuration("racConfig.hbDuration"),
-			trustDuration: viper.GetDuration("racConfig.trustDuration"),
-			clientId:      viper.GetInt64("racConfig.clientId"),
-			cpassword:     viper.GetString("racConfig.cpassword"),
-		}
-		return racCfg
-	}
-
-	if cfg == nil {
-		racCfg = &racConfig{
-			hbDuration:    10 * time.Second,
-			trustDuration: 120 * time.Second,
-			clientId:      -1,
-			cpassword:     "",
-		}
-	}
-
-	return racCfg
 }
 
 // Save saves all config variables to the config.yaml file.
 func Save() {
 	if cfg != nil {
-		viper.Set("database.host", cfg.host)
-		viper.Set("database.dbname", cfg.dbName)
-		viper.Set("database.user", cfg.user)
-		viper.Set("database.password", cfg.password)
-		viper.Set("database.port", cfg.port)
-		viper.Set("racConfig.hbDuration", cfg.hbDuration)
-		viper.Set("racConfig.trustDuration", cfg.trustDuration)
-		viper.Set("racConfig.clientId", cfg.clientId)
-		viper.Set("racConfig.cpassword", cfg.password)
-		viper.Set("rasConfig.mgrStrategy", cfg.mgrStrategy)
-		viper.Set("rasConfig.changeTime", cfg.changeTime)
-		err := viper.WriteConfig()
-		if err != nil {
-			_ = viper.SafeWriteConfig()
+		if cfg.isServer {
+			viper.Set("conftype", "server")
+			viper.Set("database.host", cfg.dbConfig.host)
+			viper.Set("database.dbname", cfg.dbConfig.dbName)
+			viper.Set("database.user", cfg.dbConfig.user)
+			viper.Set("database.password", cfg.dbConfig.password)
+			viper.Set("database.port", cfg.dbConfig.port)
+			viper.Set("rasConfig.mgrStrategy", cfg.rasConfig.mgrStrategy)
+			viper.Set("rasConfig.changeTime", cfg.rasConfig.changeTime)
+			// store common configuration for all client
+			viper.Set("racConfig.hbDuration", cfg.racConfig.hbDuration)
+			viper.Set("racConfig.trustDuration", cfg.racConfig.trustDuration)
+		} else {
+			viper.Set("conftype", "client")
+			// store common part
+			viper.Set("racConfig.hbDuration", cfg.racConfig.hbDuration)
+			viper.Set("racConfig.trustDuration", cfg.racConfig.trustDuration)
+			// store special configuration for this client
+			viper.Set("racConfig.clientId", cfg.racConfig.clientId)
+			viper.Set("racConfig.password", cfg.racConfig.password)
 		}
-	}
-}
-
-// Save saves RacConfig variables to the config.yaml file.
-func SaveClient() {
-	if racCfg != nil {
-		viper.Set("racConfig.hbDuration", racCfg.hbDuration)
-		viper.Set("racConfig.trustDuration", racCfg.trustDuration)
-		viper.Set("racConfig.clientId", racCfg.clientId)
-		viper.Set("racConfig.cpassword", racCfg.cpassword)
 		err := viper.WriteConfig()
 		if err != nil {
 			_ = viper.SafeWriteConfig()
@@ -247,80 +210,80 @@ func SaveClient() {
 }
 
 func (c *config) GetHost() string {
-	return c.host
+	return c.dbConfig.host
 }
 
 func (c *config) SetHost(host string) {
-	c.host = host
+	c.dbConfig.host = host
 }
 
 func (c *config) GetDBName() string {
-	return c.dbName
+	return c.dbConfig.dbName
 }
 
 func (c *config) SetDBName(dbName string) {
-	c.dbName = dbName
+	c.dbConfig.dbName = dbName
 }
 
 func (c *config) GetUser() string {
-	return c.user
+	return c.dbConfig.user
 }
 
 func (c *config) SetUser(user string) {
-	c.user = user
+	c.dbConfig.user = user
 }
 
 func (c *config) GetPassword() string {
-	return c.password
+	return c.dbConfig.password
 }
 
 func (c *config) SetPassword(password string) {
-	c.password = password
+	c.dbConfig.password = password
 }
 
 func (c *config) GetPort() int {
-	return c.port
+	return c.dbConfig.port
 }
 
 func (c *config) SetPort(port int) {
-	c.port = port
+	c.dbConfig.port = port
 }
 
 func (c *config) GetTrustDuration() time.Duration {
-	return c.trustDuration
+	return c.racConfig.trustDuration
 }
 
 func (c *config) SetTrustDuration(d time.Duration) {
-	c.trustDuration = d
+	c.racConfig.trustDuration = d
 }
 
-func (c *racConfig) GetHBDuration() time.Duration {
-	return c.hbDuration
+func (c *config) GetHBDuration() time.Duration {
+	return c.racConfig.hbDuration
 }
 
-func (c *racConfig) SetHBDuration(d time.Duration) {
-	c.hbDuration = d
+func (c *config) SetHBDuration(d time.Duration) {
+	c.racConfig.hbDuration = d
 }
 
-func (c *racConfig) GetClientId() int64 {
-	return c.clientId
+func (c *config) GetClientId() int64 {
+	return c.racConfig.clientId
 }
 
-func (c *racConfig) SetClientId(id int64) {
-	c.clientId = id
+func (c *config) SetClientId(id int64) {
+	c.racConfig.clientId = id
 }
 
 func (c *config) GetMgrStrategy() string {
-	return c.mgrStrategy
+	return c.rasConfig.mgrStrategy
 }
 
 func (c *config) SetMgrStrategy(s string) {
-	c.mgrStrategy = s
-	c.changeTime = time.Now()
+	c.rasConfig.mgrStrategy = s
+	c.rasConfig.changeTime = time.Now()
 }
 
 func (c *config) GetChangeTime() time.Time {
-	return c.changeTime
+	return c.rasConfig.changeTime
 }
 
 func (c *config) SetExtractRules(e entity.ExtractRules) {
