@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
@@ -13,34 +14,37 @@ import (
 )
 
 var (
-	rw            io.ReadWriteCloser = nil
-	tpmpath                          = "/dev/tpm0"
+	tpm *TPM = &TPM{
+		config: TPMConfig{
+			IMALogPath:    "/sys/kernel/security/ima/ascii_runtime_measurements",
+			BIOSLogPath:   "/sys/kernel/security/tpm0/binary_bios_measurements",
+			EKAlg:         "",
+			AKAlg:         "",
+			ReportHashAlg: "",
+			AK:            nil,
+		},
+		dev: nil,
+	}
+	tpmpath       = "/dev/tpm0"
 	isPhysicalTpm bool
 	TRep          *TrustReport
-	AK            *AttestionKey
+	AK            *AttestationKey
 	EkPub         crypto.PublicKey
 )
 
-func GetManifest(imapath string) ([]Manifest, error) {
-	f, err := ioutil.ReadFile(imapath)
-	if err != nil {
-		return nil, err
-	}
+func GetManifest(imaPath, biosPath string) ([]Manifest, error) {
 	var manifest []Manifest
-	s := make([]string, 5, 6)
-	var j int = 0
-	for i := range f {
-		if f[i] == ' ' {
-			j++
-			continue
-		} else if f[i] == '\n' || f[i] == '\t' {
-			continue
-		}
-		s[j] = s[j] + (string)(f[i])
+	f, err := ioutil.ReadFile(imaPath)
+	if err == nil {
+		manifest = append(manifest, Manifest{Type: "ima", Content: f})
 	}
-	ma := Manifest{s[0], s[1], s[2], s[3], s[4]}
-	manifest = append(manifest, ma)
-	return manifest, nil
+
+	f, err = ioutil.ReadFile(biosPath)
+	if err == nil {
+		manifest = append(manifest, Manifest{Type: "bios", Content: f})
+	}
+
+	return manifest, err
 }
 
 func CreateAk(rw io.ReadWriter, parentHandle tpmutil.Handle, parentPassword, AkPassword string,
@@ -67,7 +71,7 @@ func CreateAk(rw io.ReadWriter, parentHandle tpmutil.Handle, parentPassword, AkP
 	return akname, privateAk, publicAk, nil
 }
 
-func CreateTrustReport(rw io.ReadWriter, AK *AttestionKey, pcrSelection tpm2.PCRSelection,
+func CreateTrustReport(rw io.ReadWriter, AK *AttestationKey, pcrSelection tpm2.PCRSelection,
 	tRepIn TrustReportIn) (*TrustReport, error) {
 
 	pcrmp, err := tpm2.ReadPCRs(rw, pcrSelection)
@@ -75,9 +79,13 @@ func CreateTrustReport(rw io.ReadWriter, AK *AttestionKey, pcrSelection tpm2.PCR
 		return &TrustReport{}, err
 	}
 
-	pcrValues := map[int]PcrValue{}
+	pcrValues := map[int]string{}
 	for key, pcr := range pcrmp {
-		pcrValues[key] = PcrValue(pcr)
+		var value string
+		for _, c := range pcr {
+			value += (string)(c + 48) //invert byte(0) into string(0)
+		}
+		pcrValues[key] = value
 	}
 
 	//invert uint64 to []byte
@@ -91,10 +99,10 @@ func CreateTrustReport(rw io.ReadWriter, AK *AttestionKey, pcrSelection tpm2.PCR
 		return &TrustReport{}, err
 	}
 
-	pcrinfo := PcrInfo{pcrSelection, pcrValues, attestation}
-	mainfest, err := GetManifest(tRepIn.ImaPath)
+	pcrinfo := PcrInfo{"SHA1", pcrValues, attestation}
+	mainfest, err := GetManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
 	if err != nil {
-		fmt.Printf("Can't find ima-file : %v \n", err)
+		log.Printf("Can't find manifest-file : %v \n", err)
 	}
 	TRep = &TrustReport{pcrinfo, mainfest, tRepIn.ClientId, tRepIn.ClientInfo}
 	return TRep, nil
@@ -111,15 +119,15 @@ func ActivateAC(rw io.ReadWriter, activeHandle, keyHandle tpmutil.Handle, active
 	return recoveredCredential, err
 }
 
-func GetAk() (*AttestionKey, crypto.PublicKey, error) {
-	if rw == nil {
+func GetAk() (*AttestationKey, crypto.PublicKey, error) {
+	if tpm.dev == nil {
 		//first, try to open physical tpm
 		var err error
-		rw, err = tpm2.OpenTPM(tpmpath)
+		tpm.dev, err = tpm2.OpenTPM(tpmpath)
 		isPhysicalTpm = true
 		if err != nil {
 			//try to open simulator
-			rw, err = simulator.Get()
+			tpm.dev, err = simulator.Get()
 			isPhysicalTpm = false
 			if err != nil {
 				fmt.Printf("Simulator initialization failed: %v", err)
@@ -129,22 +137,22 @@ func GetAk() (*AttestionKey, crypto.PublicKey, error) {
 
 	ekPassword := EmptyPassword
 	ekSel := MyPcrSelection
-	ekHandle, EkPub, err := tpm2.CreatePrimary(rw, tpm2.HandleEndorsement, ekSel,
+	ekHandle, EkPub, err := tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement, ekSel,
 		EmptyPassword, ekPassword, DefaultKeyParams)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer tpm2.FlushContext(rw, ekHandle)
+	defer tpm2.FlushContext(tpm.dev, ekHandle)
 
-	AK = &AttestionKey{}
+	AK = &AttestationKey{}
 	AK.Password = EmptyPassword
 	AK.PcrSel = MyPcrSelection
-	AK.Name, AK.Private, AK.Public, err = CreateAk(rw, ekHandle, ekPassword, AK.Password, AK.PcrSel)
+	AK.Name, AK.Private, AK.Public, err = CreateAk(tpm.dev, ekHandle, ekPassword, AK.Password, AK.PcrSel)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	AK.Handle, _, err = tpm2.Load(rw, ekHandle, ekPassword, AK.Public,
+	AK.Handle, _, err = tpm2.Load(tpm.dev, ekHandle, ekPassword, AK.Public,
 		AK.Private)
 	if err != nil {
 		return nil, nil, err
@@ -154,14 +162,14 @@ func GetAk() (*AttestionKey, crypto.PublicKey, error) {
 }
 
 func GetTrustReport(tRepIn TrustReportIn) (*TrustReport, error) {
-	if rw == nil {
+	if tpm.dev == nil {
 		//first, try to open physical tpm
 		var err error
-		rw, err = tpm2.OpenTPM(tpmpath)
+		tpm.dev, err = tpm2.OpenTPM(tpmpath)
 		isPhysicalTpm = true
 		if err != nil {
 			//try to open simulator
-			rw, err = simulator.Get()
+			tpm.dev, err = simulator.Get()
 			isPhysicalTpm = false
 			if err != nil {
 				fmt.Printf("Simulator initialization failed: %v", err)
@@ -173,5 +181,5 @@ func GetTrustReport(tRepIn TrustReportIn) (*TrustReport, error) {
 		AK, _, _ = GetAk()
 	}
 
-	return CreateTrustReport(rw, AK, MyPcrSelection, tRepIn)
+	return CreateTrustReport(tpm.dev, AK, MyPcrSelection, tRepIn)
 }

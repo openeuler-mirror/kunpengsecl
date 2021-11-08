@@ -28,7 +28,6 @@ var (
 	imaPath            = "imapath"
 	nonce       uint64 = 1
 	clientId    int64  = 1
-	clientInfo  map[string]string
 	//TPM simulator PCRDigest
 	PCRDigestS []byte = []byte{222, 71, 201, 178, 126, 184, 211, 0, 219, 181,
 		242, 195, 83, 230, 50, 195, 147, 38, 44, 240, 99, 64, 196, 250, 127, 27, 64, 196, 203, 211, 111, 144}
@@ -64,33 +63,10 @@ func openDeviceTPM(tb testing.TB) io.ReadWriteCloser {
 	return rw
 }
 
-func compareManifest(t *testing.T, got, want []Manifest) {
-	s := "Manifests are not equal"
-	if len(got) != len(want) {
-		t.Fatalf("%s in length", s)
-	}
-	for i := range got {
-		if got[i].pcr != want[i].pcr {
-			t.Fatalf("%s, got %v want %v", s, got[i].pcr, want[i].pcr)
-		}
-		if got[i].template_hash != want[i].template_hash {
-			t.Fatalf("%s, got %v want %v", s, got[i].template_hash, want[i].template_hash)
-		}
-		if got[i].format != want[i].format {
-			t.Fatalf("%s, got %v want %v", s, got[i].format, want[i].format)
-		}
-		if got[i].filedata_hash != want[i].filedata_hash {
-			t.Fatalf("%s, got %v want %v", s, got[i].filedata_hash, want[i].filedata_hash)
-		}
-		if got[i].filename_hint != want[i].filename_hint {
-			t.Fatalf("%s, got %v want %v", s, got[i].filename_hint, want[i].filename_hint)
-		}
-	}
-}
 func TestCreateTrustReport(t *testing.T) {
-	if rw == nil {
-		rw, isPhysicalTpm = openTPM(t)
-		defer rw.Close()
+	if tpm.dev == nil {
+		tpm.dev, isPhysicalTpm = openTPM(t)
+		//defer tpm.dev.Close()
 	}
 
 	if isPhysicalTpm {
@@ -98,14 +74,11 @@ func TestCreateTrustReport(t *testing.T) {
 	} else {
 		PCRDigest = PCRDigestS
 	}
-	clientInfo = make(map[string]string)
-	clientInfo["version"] = "0.0.1"
 
 	tRepIn := TrustReportIn{
-		ImaPath:    imaPath,
 		Nonce:      nonce,
 		ClientId:   clientId,
-		ClientInfo: clientInfo,
+		ClientInfo: "",
 	}
 	//generate ima-testfile
 	ioutil.WriteFile(imaTestPath, ([]byte)(imaTestInfo), 0777)
@@ -116,21 +89,28 @@ func TestCreateTrustReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAk failed: %s", err)
 	}
-	got, err := CreateTrustReport(rw, AK, pcrSelection, tRepIn)
+	got, err := CreateTrustReport(tpm.dev, AK, pcrSelection, tRepIn)
 	if err != nil {
 		t.Fatalf("CreateTrustReport failed: %s", err)
 	}
 
 	//compare pcrInfo
-	pcrmp, _ := tpm2.ReadPCRs(rw, pcrSelection)
-
-	for i, pcr := range pcrmp {
-		if !bytes.Equal(pcr, []byte(got.PcrInfo.pcrValues[i])) {
-			t.Fatalf("PCRs are not equal, got %v want %v", []byte(got.PcrInfo.pcrValues[i]), pcr)
+	pcrmp, _ := tpm2.ReadPCRs(tpm.dev, pcrSelection)
+	pcrValues := map[int]string{}
+	for key, pcr := range pcrmp {
+		var value string
+		for _, c := range pcr {
+			value += (string)(c + 48) //invert byte(0) into string(0)
+		}
+		pcrValues[key] = value
+	}
+	for i, _ := range pcrmp {
+		if got.PcrInfo.Values[i] != pcrValues[i] {
+			t.Fatalf("PCRs are not equal, got %v want %v", []byte(got.PcrInfo.Values[i]), pcrValues[i])
 		}
 	}
 
-	attestation, _, err := tpm2.Quote(rw, AK.Handle, AK.Password, EmptyPassword,
+	attestation, _, err := tpm2.Quote(tpm.dev, AK.Handle, AK.Password, EmptyPassword,
 		nil, pcrSelection, tpm2.AlgNull)
 	if err != nil {
 		t.Fatalf("Quote failed: %s", err)
@@ -143,28 +123,22 @@ func TestCreateTrustReport(t *testing.T) {
 		t.Fatalf("PCRDigest are not equal, got %v want %v", decoded.AttestedQuoteInfo.PCRDigest, PCRDigest)
 	}
 
-	//compare manifest
-	testManifest, err := GetManifest(imaTestPath)
-	if err != nil {
-		t.Fatalf("GetManifest failed: %s", err)
-	}
-	compareManifest(t, got.Manifest, testManifest)
 }
 
 func TestCreateAk(t *testing.T) {
-	if rw == nil {
-		rw, isPhysicalTpm = openTPM(t)
-		defer rw.Close()
+	if tpm.dev == nil {
+		tpm.dev, isPhysicalTpm = openTPM(t)
+		//defer tpm.dev.Close()
 	}
 
-	parentHandle, _, err := tpm2.CreatePrimary(rw, tpm2.HandleEndorsement, pcrSelection,
+	parentHandle, _, err := tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement, pcrSelection,
 		ownerPassword, parentPassword, DefaultKeyParams)
 	if err != nil {
 		t.Fatalf("CreatePrimary failed: %s", err)
 	}
-	defer tpm2.FlushContext(rw, parentHandle)
+	defer tpm2.FlushContext(tpm.dev, parentHandle)
 
-	_, _, _, err = CreateAk(rw, parentHandle, parentPassword, EmptyPassword, MyPcrSelection)
+	_, _, _, err = CreateAk(tpm.dev, parentHandle, parentPassword, EmptyPassword, MyPcrSelection)
 	if err != nil {
 		t.Fatalf("CreateAk failed: %s", err)
 	}
@@ -179,10 +153,9 @@ func TestGetAk(t *testing.T) {
 
 func TestGetTrustReport(t *testing.T) {
 	_, err := GetTrustReport(TrustReportIn{
-		ImaPath:    "",
-		Nonce:      (uint64)(1),
-		ClientId:   (int64)(1),
-		ClientInfo: map[string]string{},
+		Nonce:      nonce,
+		ClientId:   clientId,
+		ClientInfo: "",
 	})
 	if err != nil {
 		t.Fatalf("GetAk failed: %s", err)
