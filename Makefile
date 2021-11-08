@@ -3,7 +3,12 @@ subdir = attestation
 
 .PHONY: all build test clean install check vendor ci-check bat prepare
 
-all build test clean install check vendor:
+all build test clean install check: vendor
+	for name in $(subdir); do\
+		make -C $$name $@ || exit $$?;\
+	done
+
+vendor:
 	for name in $(subdir); do\
 		make -C $$name $@ || exit $$?;\
 	done
