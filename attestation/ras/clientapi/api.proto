@@ -12,7 +12,7 @@ service Ras {
 
 message CreateIKCertRequest {
   string ekCert = 1;
-	string ikPub = 2;
+  string ikPub = 2;
   bytes ikName = 3;
 }
 
@@ -67,7 +67,7 @@ message SendHeartbeatRequest {
 }
 
 message SendHeartbeatReply {
-  int64 nextAction = 1;
+  uint64 nextAction = 1;
   ActionParameters actionParameters = 2;
 }
 

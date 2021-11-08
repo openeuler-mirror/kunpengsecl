@@ -35,7 +35,7 @@ func TestCacheUpdate(t *testing.T) {
 		inputHB time.Duration
 		inputT  time.Duration
 		result  bool
-		cmd     int
+		cmd     uint64
 	}{
 		{10 * time.Second, 20 * time.Second, false, 0},
 		{2000000, 20 * time.Second, false, 0},
@@ -67,7 +67,7 @@ func TestCacheTrust(t *testing.T) {
 		inputT     time.Duration
 		inputDelay time.Duration
 		result     bool
-		cmd        int
+		cmd        uint64
 	}{
 		{time.Second, time.Second, false, cmdGETREPORT},
 		{2 * time.Second, time.Second, true, cmdGETREPORT},

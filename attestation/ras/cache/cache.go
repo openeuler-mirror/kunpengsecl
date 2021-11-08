@@ -28,15 +28,15 @@ import (
  In the heartbeat reply message, it will send some commands to RAC.
 */
 const (
-	cmdSENDCONF  int = 1 << iota // send new configuration to RAC.
-	cmdGETREPORT                 // get a new trust report from RAC.
-	cmdNONE      int = 0         // clear all pending commands.
+	cmdSENDCONF  uint64 = 1 << iota // send new configuration to RAC.
+	cmdGETREPORT                    // get a new trust report from RAC.
+	cmdNONE      uint64 = 0         // clear all pending commands.
 )
 
 type (
 	// Cache stores the latest status of one RAC target.
 	Cache struct {
-		command         int
+		command         uint64
 		hbExpiration    time.Time
 		trustExpiration time.Time
 	}
@@ -79,7 +79,7 @@ func (c *Cache) GetTrustReport() {
 	c.command |= cmdGETREPORT
 }
 
-func (c *Cache) GetCommands() int {
+func (c *Cache) GetCommands() uint64 {
 	return c.command
 }
 
