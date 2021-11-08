@@ -1,3 +1,4 @@
+conftype: server
 database:
   dbname: kunpengsecl
   host: localhost
@@ -7,8 +8,6 @@ database:
 racconfig:
   hbduration: 5s
   trustduration: 2m0s
-  clientId: -1
-  cpassword: ""
 rasconfig:
   changetime: 2021-09-30T11:53:24.0581136+08:00
   mgrstrategy: auto

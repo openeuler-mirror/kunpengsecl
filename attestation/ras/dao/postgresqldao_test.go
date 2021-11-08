@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testConfig = `database:
+const testConfig = `conftype: server
+database:
   dbname: kunpengsecl
   host: localhost
   password: "postgres"

@@ -13,7 +13,7 @@ import (
 func main() {
 	const addr string = "127.0.0.1:40001"
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
-	cid := config.GetDefaultRac().GetClientId()
+	cid := config.GetDefault().GetClientId()
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
 	if cid == -1 {
 		ak, _, err := ractools.GetAk()
@@ -39,10 +39,10 @@ func main() {
 			log.Fatal("Client: can't register rac!")
 		}
 		cid = bk.GetClientId()
-		config.GetDefaultRac().SetClientId(cid)
-		config.GetDefaultRac().SetHBDuration(time.Duration((int64)(time.Second) * bk.GetClientConfig().HbDurationSeconds))
+		config.GetDefault().SetClientId(cid)
+		config.GetDefault().SetHBDuration(time.Duration((int64)(time.Second) * bk.GetClientConfig().HbDurationSeconds))
 		log.Printf("Client: get clientId=%d", cid)
-		config.SaveClient()
+		config.Save()
 	}
 
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
@@ -63,11 +63,9 @@ func main() {
 		// step 5. what else??
 
 		// step n. sleep and wait.
-		time.Sleep(config.GetDefaultRac().GetHBDuration())
+		time.Sleep(config.GetDefault().GetHBDuration())
 	}
 }
-
-//具体的动作函数
 
 func SendNewConf(in1 interface{}, in2 interface{}, in3 interface{}) bool {
 	log.Printf("send new configuration to RAC.")
