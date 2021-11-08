@@ -146,7 +146,7 @@ func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequ
 
 func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
 	log.Printf("Server: receive SendHeartbeat")
-	nextAction := 0
+	var nextAction uint64
 	var nonce uint64
 	cid := in.GetClientId()
 	s.Lock()
@@ -165,7 +165,7 @@ func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (
 	}
 	s.Unlock()
 	return &SendHeartbeatReply{
-		NextAction: int64(nextAction),
+		NextAction: nextAction,
 		ActionParameters: &ActionParameters{
 			ClientConfig: &ClientConfig{},
 			Nonce:        nonce,
