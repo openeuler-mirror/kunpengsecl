@@ -1,5 +1,5 @@
 #/bin/sh
-osv=`grep "\<NAME=" /etc/os-release | awk -F\" '{print $2}'`
+osv=`grep "\<NAME=" /etc/os-release | awk -F '[" ]' '{print $2}'`
 # install deps
 ubuntu_deps="protobuf-compiler libssl-dev"
 openeuler_deps="golang protobuf-compiler openssl-devel"
@@ -8,9 +8,16 @@ OS=linux
 
 PROCESSOR=`uname -p`
 case $PROCESSOR in
-    aarch64) ARCH=arm64;;
-    x86_64)  ARCH=amd64;;
-    *) echo $PROCESSOR is not supported yet; exit;;
+    aarch64)
+        ARCH=arm64
+        ;;
+    x86_64)
+        ARCH=amd64
+        ;;
+    *)
+        echo $PROCESSOR is not supported yet
+        exit 1
+        ;;
 esac
 
 case $osv in
@@ -27,8 +34,13 @@ fi
 EOF
         . $HOME/.profile
         ;;
-    openEuler) sudo dnf install -y $openeuler_deps;;
-    *) echo $osv is not supported yet; exit;;
+    openEuler|CentOS)
+        sudo dnf install -y $openeuler_deps
+        ;;
+    *)
+        echo $osv is not supported yet
+        exit 1
+        ;;
 esac
 
 go env -w GOPROXY="https://goproxy.cn,direct"
@@ -42,3 +54,4 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 
 go get github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.8.1
 go get github.com/google/go-tpm-tools/simulator@v0.2.1
+
