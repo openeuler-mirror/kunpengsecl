@@ -28,9 +28,9 @@ import (
  In the heartbeat reply message, it will send some commands to RAC.
 */
 const (
-	cmdSENDCONF  uint64 = 1 << iota // send new configuration to RAC.
-	cmdGETREPORT                    // get a new trust report from RAC.
-	cmdNONE      uint64 = 0         // clear all pending commands.
+	CMDSENDCONF  uint64 = 1 << iota // send new configuration to RAC.
+	CMDGETREPORT                    // get a new trust report from RAC.
+	CMDNONE      uint64 = 0         // clear all pending commands.
 )
 
 type (
@@ -64,19 +64,19 @@ func (c *Cache) IsHeartBeatExpired() bool {
 }
 
 func (c *Cache) HasCommands() bool {
-	return c.command != cmdNONE
+	return c.command != CMDNONE
 }
 
 func (c *Cache) ClearCommands() {
-	c.command = cmdNONE
+	c.command = CMDNONE
 }
 
 func (c *Cache) SendConfigure() {
-	c.command |= cmdSENDCONF
+	c.command |= CMDSENDCONF
 }
 
 func (c *Cache) GetTrustReport() {
-	c.command |= cmdGETREPORT
+	c.command |= CMDGETREPORT
 }
 
 func (c *Cache) GetCommands() uint64 {

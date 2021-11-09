@@ -1,1 +1,5 @@
 *.o
+attestation/go.sum
+attestation/vendor/
+attestation/rac/pkg/
+attestation/ras/pkg/
