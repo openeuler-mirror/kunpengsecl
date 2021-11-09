@@ -1,5 +1,19 @@
 #!/bin/bash
-cat>/sys/kernel/security/ima/policy<<EOF
+policyPath="/etc/ima"
+policyFile="/etc/ima/ima-policy"
+if [ ! -d $policyPath ];then
+   mkdir -p /etc/ima
+   echo "file-path has been made-----------success"
+else
+   echo "file-path is existed--------------success"
+fi
+if [ ! -f $policyFile ];then
+   touch $policyFile
+   echo "file has been made----------------success"
+else
+   echo "file is existed-------------------success"
+fi
+cat>/etc/ima/ima-policy<<EOF
 dont_measure fsmagic=0x9fa0
 dont_appraise fsmagic=0x9fa0
 dont_measure fsmagic=0x62656572
@@ -21,3 +35,4 @@ measure obj_type=container_var_lib_t mask=MAY_EXEC
 measure obj_type=container_runtime_exec_t mask=MAY_EXEC
 measure func=PATH_CHECK mask=MAY_READ uid=0
 EOF
+echo "the ima policy has been written in the file,please restart your device"
