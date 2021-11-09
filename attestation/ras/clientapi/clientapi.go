@@ -19,6 +19,7 @@ package clientapi
 import (
 	"context"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -95,8 +96,13 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 	log.Printf("Server: receive RegisterClient")
 	// register and get clientId
 	ci := in.GetClientInfo().GetClientInfo()
+	cim := map[string]string{}
+	err := json.Unmarshal([]byte(ci), &cim)
+	if err != nil {
+		return nil, err
+	}
 	eci := &entity.ClientInfo{
-		Info: ci,
+		Info: cim,
 	}
 	ic := in.GetIc().GetCert()
 	clientID, err := trustmgr.RegisterClient(eci, ic)

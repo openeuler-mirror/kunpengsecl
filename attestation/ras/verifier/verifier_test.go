@@ -45,7 +45,9 @@ func TestPCRVerifier_Verify(t *testing.T) {
 			2: "pcr value 2",
 			5: "pcr value 5",
 		},
-		Quote: []byte("test quote"),
+		Quote: entity.PcrQuote{
+			Quoted: []byte("test quote"),
+		},
 	}
 
 	bvpcrInfo2 := entity.PcrInfo{
@@ -54,7 +56,9 @@ func TestPCRVerifier_Verify(t *testing.T) {
 			2: "pcr value 1",
 			5: "pcr value 5",
 		},
-		Quote: []byte("test quote"),
+		Quote: entity.PcrQuote{
+			Quoted: []byte("test quote"),
+		},
 	}
 
 	repopcrInfo := entity.PcrInfo{
@@ -66,7 +70,9 @@ func TestPCRVerifier_Verify(t *testing.T) {
 			4: "pcr value 4",
 			5: "pcr value 5",
 		},
-		Quote: []byte("test quote"),
+		Quote: entity.PcrQuote{
+			Quoted: []byte("test quote"),
+		},
 	}
 
 	baseValue1 := &entity.MeasurementInfo{
@@ -123,26 +129,180 @@ func TestPCRExtract(t *testing.T) {
 			4: "pcr value 4",
 			5: "pcr value 5",
 		},
-		Quote: []byte("test quote"),
+		Quote: entity.PcrQuote{
+			Quoted: []byte("test quote"),
+		},
+	}
+	pi2 := entity.PcrInfo{
+		AlgName: "sha1",
+		Values: map[int]string{
+			1: "pcr value 1",
+			4: "pcr value 4",
+			5: "pcr value 5",
+		},
+		Quote: entity.PcrQuote{
+			Quoted: []byte("test quote"),
+		},
 	}
 	testReport := &entity.Report{
 		PcrInfo: pi,
 	}
+	testReport2 := &entity.Report{
+		PcrInfo: pi2,
+	}
 	testMea := &entity.MeasurementInfo{}
+	testMea2 := &entity.MeasurementInfo{}
 	testCase := []struct {
 		input1 *entity.Report
 		input2 *entity.MeasurementInfo
 		result error
 	}{
 		{testReport, testMea, nil},
+		{testReport2, testMea2, fmt.Errorf("extract failed. pcr number %v doesn't exist in this report", 2)},
 	}
 
 	pv := new(PCRVerifier)
 	for _, tc := range testCase {
 		err := pv.Extract(tc.input1, tc.input2)
-		if err != tc.result {
-			t.Error(err)
+		if err != nil {
+			if err.Error() != tc.result.Error() {
+				t.Error(err)
+			}
+		} else {
+			if tc.result != nil {
+				t.Error("pcr extract test failed")
+			}
 		}
-		t.Log(tc.input2.PcrInfo)
 	}
+	t.Log(testMea)
+}
+
+func TestBIOSExtract(t *testing.T) {
+	createConfigFile()
+	bm := entity.Manifest{
+		Type: "bios",
+		Items: []entity.ManifestItem{
+			{
+				Name:   "name1",
+				Value:  "name1 value",
+				Detail: "name1 detail",
+			},
+			{
+				Name:   "name2",
+				Value:  "name2 value",
+				Detail: "name2 detail",
+			},
+		},
+	}
+	bm2 := entity.Manifest{
+		Type: "bios",
+		Items: []entity.ManifestItem{
+			{
+				Name:   "name1",
+				Value:  "name1 value",
+				Detail: "name1 detail",
+			},
+			{
+				Name:   "name3",
+				Value:  "name3 value",
+				Detail: "name3 detail",
+			},
+		},
+	}
+	testReport := &entity.Report{
+		Manifest: []entity.Manifest{bm},
+	}
+	testReport2 := &entity.Report{
+		Manifest: []entity.Manifest{bm2},
+	}
+	testMea := &entity.MeasurementInfo{}
+	testMea2 := &entity.MeasurementInfo{}
+	testCase := []struct {
+		input1 *entity.Report
+		input2 *entity.MeasurementInfo
+		result error
+	}{
+		{testReport, testMea, nil},
+		{testReport2, testMea2, fmt.Errorf("extract failed. bios manifest name %v doesn't exist in this report", "name2")},
+	}
+
+	bv := new(BIOSVerifier)
+	for _, tc := range testCase {
+		err := bv.Extract(tc.input1, tc.input2)
+		if err != nil {
+			if err.Error() != tc.result.Error() {
+				t.Error(err)
+			}
+		} else {
+			if tc.result != nil {
+				t.Error("bios extract test failed")
+			}
+		}
+	}
+	t.Log(testMea)
+}
+
+func TestIMAExtract(t *testing.T) {
+	createConfigFile()
+	im := entity.Manifest{
+		Type: "ima",
+		Items: []entity.ManifestItem{
+			{
+				Name:   "name1",
+				Value:  "name1 value",
+				Detail: "name1 detail",
+			},
+			{
+				Name:   "name2",
+				Value:  "name2 value",
+				Detail: "name2 detail",
+			},
+		},
+	}
+	im2 := entity.Manifest{
+		Type: "ima",
+		Items: []entity.ManifestItem{
+			{
+				Name:   "name1",
+				Value:  "name1 value",
+				Detail: "name1 detail",
+			},
+			{
+				Name:   "name3",
+				Value:  "name3 value",
+				Detail: "name3 detail",
+			},
+		},
+	}
+	testReport := &entity.Report{
+		Manifest: []entity.Manifest{im},
+	}
+	testReport2 := &entity.Report{
+		Manifest: []entity.Manifest{im2},
+	}
+	testMea := &entity.MeasurementInfo{}
+	testMea2 := &entity.MeasurementInfo{}
+	testCase := []struct {
+		input1 *entity.Report
+		input2 *entity.MeasurementInfo
+		result error
+	}{
+		{testReport, testMea, nil},
+		{testReport2, testMea2, fmt.Errorf("extract failed. ima manifest name %v doesn't exist in this report", "name2")},
+	}
+
+	iv := new(IMAVerifier)
+	for _, tc := range testCase {
+		err := iv.Extract(tc.input1, tc.input2)
+		if err != nil {
+			if err.Error() != tc.result.Error() {
+				t.Error(err)
+			}
+		} else {
+			if tc.result != nil {
+				t.Error("bios extract test failed")
+			}
+		}
+	}
+	t.Log(testMea)
 }

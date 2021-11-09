@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"time"
 
@@ -29,9 +30,10 @@ func main() {
 		eic := bkk.GetIcEncrypted()
 		log.Println("Client:get encryptedIC=", eic)
 
+		ci, err := json.Marshal(map[string]string{"test name": "test value"})
 		bk, err := clientapi.DoRegisterClient(addr, &clientapi.RegisterClientRequest{
 			Ic:         &clientapi.Cert{Cert: []byte{1, 2}},
-			ClientInfo: &clientapi.ClientInfo{ClientInfo: map[string]string{"test name": "test value"}},
+			ClientInfo: &clientapi.ClientInfo{ClientInfo: string(ci)},
 		})
 		if err != nil {
 			log.Fatal("Client: can't register rac!")

@@ -49,7 +49,9 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 			1: "pcr value 1",
 			2: "pcr value 2",
 		},
-		Quote: []byte("test quote"),
+		Quote: entity.PcrQuote{
+			Quoted: []byte("test quote"),
+		},
 	}
 
 	biosItem1 := entity.ManifestItem{
@@ -174,7 +176,9 @@ func TestSaveBaseValue(t *testing.T) {
 			1: "pcr value 1",
 			2: "pcr value 2",
 		},
-		Quote: []byte("test quote"),
+		Quote: entity.PcrQuote{
+			Quoted: []byte("test quote"),
+		},
 	}
 
 	biosItem1 := entity.ManifestItem{

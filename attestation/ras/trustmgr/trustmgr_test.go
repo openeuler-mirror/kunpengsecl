@@ -23,7 +23,9 @@ func TestRecordReport(t *testing.T) {
 			1: "pcr value 1",
 			2: "pcr value 2",
 		},
-		Quote: []byte("test quote"),
+		Quote: entity.PcrQuote{
+			Quoted: []byte("test quote"),
+		},
 	}
 
 	biosItem1 := entity.ManifestItem{

@@ -38,6 +38,9 @@ type PCRVerifier struct {
 type BIOSVerifier struct {
 }
 
+type IMAVerifier struct {
+}
+
 func (pv PCRVerifier) Validate() error {
 	// TODO: validate process
 	return nil
@@ -51,6 +54,11 @@ func createPCRVerifier() (interface{}, error) {
 func createBIOSVerifier() (interface{}, error) {
 	bv := new(BIOSVerifier)
 	return bv, nil
+}
+
+func createIMAVerifier() (interface{}, error) {
+	iv := new(IMAVerifier)
+	return iv, nil
 }
 
 func CreateVerifierMgr() (*VerifierMgr, error) {
@@ -72,6 +80,7 @@ func RegisterFactoryMethod(c func() (interface{}, error)) {
 func init() {
 	RegisterFactoryMethod(createPCRVerifier)
 	RegisterFactoryMethod(createBIOSVerifier)
+	RegisterFactoryMethod(createIMAVerifier)
 }
 
 func (vm *VerifierMgr) init() error {
@@ -152,7 +161,8 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 	config := config.GetDefault()
 	var biosNames []string
 	var biosManifest entity.Manifest
-	for _, rule := range config.GetExtractRules().ManifestRules {
+	mRule := config.GetExtractRules().ManifestRules
+	for _, rule := range mRule {
 		if strings.ToLower(rule.MType) == "bios" {
 			biosNames = rule.Name
 			break
@@ -179,6 +189,42 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 		}
 		if !isFound {
 			return fmt.Errorf("extract failed. bios manifest name %v doesn't exist in this report", bn)
+		}
+	}
+	return nil
+}
+
+func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
+	config := config.GetDefault()
+	var imaNames []string
+	var imaManifest entity.Manifest
+	for _, rule := range config.GetExtractRules().ManifestRules {
+		if strings.ToLower(rule.MType) == "ima" {
+			imaNames = rule.Name
+			break
+		}
+	}
+	for _, m := range report.Manifest {
+		if strings.ToLower(m.Type) == "ima" {
+			imaManifest = m
+			break
+		}
+	}
+	for _, in := range imaNames {
+		isFound := false
+		for _, imi := range imaManifest.Items {
+			if imi.Name == in {
+				isFound = true
+				mInfo.Manifest = append(mInfo.Manifest, entity.Measurement{
+					Type:  "ima",
+					Name:  in,
+					Value: imi.Value,
+				})
+				break
+			}
+		}
+		if !isFound {
+			return fmt.Errorf("extract failed. ima manifest name %v doesn't exist in this report", in)
 		}
 	}
 	return nil
