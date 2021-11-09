@@ -59,7 +59,7 @@ func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 	err = tx.QueryRow(context.Background(),
 		"INSERT INTO trust_report(client_id, client_info_ver, report_time, pcr_quote, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id",
 		report.ClientID, clientInfoVer, time.Now().Format("2006/01/02 15:04:05"),
-		string(report.PcrInfo.Quote), report.Verified).Scan(&reportID)
+		string(report.PcrInfo.Quote.Quoted), report.Verified).Scan(&reportID)
 	if err != nil {
 		tx.Rollback(context.Background())
 		return err

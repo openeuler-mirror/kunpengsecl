@@ -41,7 +41,7 @@ message Cert {
 }
 
 message ClientInfo {
-  map<string, string> clientInfo = 1;
+  string clientInfo = 1;
 }
 
 message RegisterClientReply {
@@ -89,9 +89,14 @@ message TrustReport {
 }
 
 message PcrInfo{
-  map<int64, string> pcrValues = 1;
-  bytes pcrQuote = 2;
+  map<int32, string> pcrValues = 1;
+  PcrQuote pcrQuote = 2;
   string algorithm = 3;
+}
+
+message PcrQuote {
+  bytes quoted = 1;
+  bytes signature = 2;
 }
 
 message Manifest{

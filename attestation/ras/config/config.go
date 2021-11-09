@@ -87,7 +87,9 @@ func GetDefault() *config {
 				for k, v := range m {
 					if ks, ok := k.(string); ok {
 						if ks == "type" {
-							mRule.MType = ks
+							if vs, ok := v.(string); ok {
+								mRule.MType = vs
+							}
 						}
 						if ks == "name" {
 							var names []string

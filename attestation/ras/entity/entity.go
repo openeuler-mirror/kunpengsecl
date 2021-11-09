@@ -16,6 +16,18 @@ type Report struct {
 }
 
 /*
+	TransformReport is used when receiving data from rac and after validate process,
+	it will be converted to Report
+*/
+type TransformReport struct {
+	PcrInfo    PcrInfo
+	Manifest   []Manifest
+	ClientID   int64
+	ClientInfo string
+	Verified   bool
+}
+
+/*
 	PcrInfo contains information of every pcr.
 	Quote is signed by RAC TPM and will be decrypted for validating identity
 */
@@ -25,7 +37,10 @@ type PcrInfo struct {
 	Quote   PcrQuote
 }
 
-type PcrQuote []byte
+type PcrQuote struct {
+	Quoted    []byte
+	Signature []byte
+}
 
 /*
 	Manifest is a list of measurement

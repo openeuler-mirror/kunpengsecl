@@ -2,6 +2,7 @@ package clientapi
 
 import (
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -91,9 +92,13 @@ func TestClientAPI(t *testing.T) {
 	}
 	t.Logf("Client: invoke CreateIKCert ok")
 
+	ci, err := json.Marshal(map[string]string{"test name": "test value"})
+	if err != nil {
+		t.Error(err)
+	}
 	r, err := c.RegisterClient(ctx, &RegisterClientRequest{
 		Ic:         &Cert{Cert: []byte("register cert")},
-		ClientInfo: &ClientInfo{ClientInfo: map[string]string{"test name": "test value"}},
+		ClientInfo: &ClientInfo{ClientInfo: string(ci)},
 	})
 	if err != nil {
 		t.Errorf("Client: invoke RegisterClient error %v", err)
