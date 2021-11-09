@@ -8,7 +8,8 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
 
-const testConfig = `database:
+const testConfig = `conftype: server
+database:
   dbname: kunpengsecl
   host: localhost
   password: "postgres"
