@@ -12,14 +12,14 @@ func TestCacheCommand(t *testing.T) {
 	c := &Cache{command: 0}
 
 	c.SendConfigure()
-	if (c.command & cmdSENDCONF) != cmdSENDCONF {
+	if (c.command & CMDSENDCONF) != CMDSENDCONF {
 		t.Errorf("test cache command error at send configure\n")
 	}
 
 	c.ClearCommands()
 
 	c.GetTrustReport()
-	if (c.command & cmdGETREPORT) != cmdGETREPORT {
+	if (c.command & CMDGETREPORT) != CMDGETREPORT {
 		t.Errorf("test cache command error at get trust report\n")
 	}
 }
@@ -39,7 +39,7 @@ func TestCacheUpdate(t *testing.T) {
 	}{
 		{10 * time.Second, 20 * time.Second, false, 0},
 		{2000000, 20 * time.Second, false, 0},
-		{10, 20, true, cmdGETREPORT}, // default nano-second unit.
+		{10, 20, true, CMDGETREPORT}, // default nano-second unit.
 	}
 	for i := 0; i < len(testCases1); i++ {
 		c.ClearCommands()
@@ -69,8 +69,8 @@ func TestCacheTrust(t *testing.T) {
 		result     bool
 		cmd        uint64
 	}{
-		{time.Second, time.Second, false, cmdGETREPORT},
-		{2 * time.Second, time.Second, true, cmdGETREPORT},
+		{time.Second, time.Second, false, CMDGETREPORT},
+		{2 * time.Second, time.Second, true, CMDGETREPORT},
 		{3 * time.Second, time.Second, true, 0},
 	}
 	for i := 0; i < len(testCases1); i++ {

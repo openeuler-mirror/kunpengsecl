@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/rac/ractools"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 )
@@ -15,7 +16,7 @@ func main() {
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
 	cid := config.GetDefault().GetClientId()
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
-	if cid == -1 {
+	if cid <= 0 {
 		ak, _, err := ractools.GetAk()
 
 		req := clientapi.CreateIKCertRequest{
@@ -47,19 +48,15 @@ func main() {
 
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
 	for {
-		bk, err := clientapi.DoSendHeartbeat(addr, &clientapi.SendHeartbeatRequest{ClientId: cid})
+		rpy, err := clientapi.DoSendHeartbeat(addr, &clientapi.SendHeartbeatRequest{ClientId: cid})
 		if err != nil {
 			log.Fatalf("Client: send heart beat error %v", err)
 		}
-		log.Printf("Client: get heart beat back %v", bk.GetNextAction())
+		log.Printf("Client: get heart beat back %v", rpy.GetNextAction())
 
 		// step 4. do what ras tells to do by NextAction...
-		result := DoNextAction(bk, cid, addr)
-		if result {
-			log.Printf("do next action ok.")
-		} else {
-			log.Printf("do next action failed.")
-		}
+		DoNextAction(addr, cid, rpy)
+
 		// step 5. what else??
 
 		// step n. sleep and wait.
@@ -67,51 +64,44 @@ func main() {
 	}
 }
 
-func SendNewConf(in1 interface{}, in2 interface{}, in3 interface{}) bool {
-	log.Printf("send new configuration to RAC.")
-	return true
+// DoNextAction checks the nextAction field and invoke the corresponding handler function.
+func DoNextAction(srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
+	action := rpy.GetNextAction()
+	if (action & cache.CMDSENDCONF) == cache.CMDSENDCONF {
+		SetNewConf(srv, id, rpy)
+	}
+	if (action & cache.CMDGETREPORT) == cache.CMDGETREPORT {
+		SendTrustReport(srv, id, rpy)
+	}
+	// add new command handler functions here.
 }
 
-func GetNewTstRep(in1 interface{}, in2 interface{}, in3 interface{}) bool {
+// SetNewConf sets the new configuration values from RAS.
+func SetNewConf(srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
+	log.Printf("Client: get new configuration from RAS.")
+	config.GetDefault().SetHBDuration(time.Duration(rpy.GetActionParameters().GetClientConfig().HbDurationSeconds))
+	config.GetDefault().SetTrustDuration(time.Duration(rpy.GetActionParameters().GetClientConfig().TrustDurationSeconds))
+}
+
+// SendTrustReport sneds a new trust report to RAS.
+func SendTrustReport(srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
 	_, err := ractools.GetTrustReport(ractools.TrustReportIn{
-		Nonce:      in1.(*clientapi.SendHeartbeatReply).GetActionParameters().GetNonce(),
-		ClientId:   in2.(int64),
+		Nonce:      rpy.GetActionParameters().GetNonce(),
+		ClientId:   id,
 		ClientInfo: "",
 	})
-	srr, _ := clientapi.DoSendReport(in3.(string), &clientapi.SendReportRequest{
-		ClientId:    in2.(int64),
+	if err != nil {
+		log.Fatalf("Client: create a new trust report failed :%v", err)
+		return
+	}
+
+	srr, _ := clientapi.DoSendReport(srv, &clientapi.SendReportRequest{
+		ClientId:    id,
 		TrustReport: &clientapi.TrustReport{},
 	})
-	if err != nil {
-		log.Fatalf("create a new trust report failed :%v", err)
-	} else {
-		log.Printf("create a new trust report from RAC ok.")
-	}
 	if srr.Result {
-		log.Printf("send a new trust report from RAC ok.")
+		log.Printf("Client: send a new trust report to RAS ok.")
 	} else {
-		log.Printf("send a new trust report from RAC failed.")
+		log.Printf("Client: send a new trust report to RAS failed.")
 	}
-	return true
-}
-
-func SendconfAndGetrep(in1 interface{}, in2 interface{}, in3 interface{}) bool {
-	_ = SendNewConf(in1, in2, in3)
-	_ = GetNewTstRep(in1, in2, in3)
-	return true
-}
-
-func DoNextAction(shbr *clientapi.SendHeartbeatReply, cid int64, addr string) bool {
-	var nCases = map[int]func(in1 interface{}, in2 interface{}, in3 interface{}) bool{
-		1: SendNewConf,
-		2: GetNewTstRep,
-		3: SendconfAndGetrep,
-	}
-	if nCases[int(shbr.GetNextAction())] == nil {
-		return false
-	}
-	if shbr.GetNextAction() == 0 {
-		return true
-	}
-	return nCases[int(shbr.GetNextAction())](shbr, cid, addr)
 }
