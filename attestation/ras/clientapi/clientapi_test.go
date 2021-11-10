@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -70,6 +71,9 @@ func createConfigFile() {
 func TestClientAPI(t *testing.T) {
 	const addr string = "127.0.0.1:40001"
 	createConfigFile()
+	defer func() {
+		os.Remove("./config.yaml")
+	}()
 	go StartServer(addr)
 
 	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
