@@ -3,6 +3,7 @@ package verifier
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
@@ -121,6 +122,9 @@ func TestPCRVerifier_Verify(t *testing.T) {
 
 func TestPCRExtract(t *testing.T) {
 	createConfigFile()
+	defer func() {
+		os.Remove("./config.yaml")
+	}()
 	pi := entity.PcrInfo{
 		AlgName: "sha1",
 		Values: map[int]string{
@@ -180,6 +184,9 @@ func TestPCRExtract(t *testing.T) {
 
 func TestBIOSExtract(t *testing.T) {
 	createConfigFile()
+	defer func() {
+		os.Remove("./config.yaml")
+	}()
 	bm := entity.Manifest{
 		Type: "bios",
 		Items: []entity.ManifestItem{
@@ -245,6 +252,9 @@ func TestBIOSExtract(t *testing.T) {
 
 func TestIMAExtract(t *testing.T) {
 	createConfigFile()
+	defer func() {
+		os.Remove("./config.yaml")
+	}()
 	im := entity.Manifest{
 		Type: "ima",
 		Items: []entity.ManifestItem{

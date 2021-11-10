@@ -3,6 +3,7 @@ package dao
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
@@ -28,6 +29,9 @@ func createConfigFile() {
 }
 func TestPostgreSqlDAOSaveReport(t *testing.T) {
 	createConfigFile()
+	defer func() {
+		os.Remove("./config.yaml")
+	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -114,6 +118,9 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 
 func TestRegisterClient(t *testing.T) {
 	createConfigFile()
+	defer func() {
+		os.Remove("./config.yaml")
+	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -134,6 +141,9 @@ func TestRegisterClient(t *testing.T) {
 
 func TestUnRegisterClient(t *testing.T) {
 	createConfigFile()
+	defer func() {
+		os.Remove("./config.yaml")
+	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -216,6 +226,9 @@ func TestSaveBaseValue(t *testing.T) {
 	}
 
 	createConfigFile()
+	defer func() {
+		os.Remove("./config.yaml")
+	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)

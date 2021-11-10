@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/google/go-tpm-tools/simulator"
@@ -24,8 +25,8 @@ var (
 		sha1:0000000000000000000000000000000000000000 boot_aggregate`
 	imaInfo = `10 1d8d532d463c9f8c205d0df7787669a85f93e260 ima-ng 
 		sha1:0000000000000000000000000000000000000000 boot_aggregate`
-	imaTestPath        = "imaTestPath"
-	imaPath            = "imapath"
+	imaTestPath        = "./imaTestPath"
+	imaPath            = "./imapath"
 	nonce       uint64 = 1
 	clientId    int64  = 1
 	//TPM simulator PCRDigest
@@ -83,6 +84,10 @@ func TestCreateTrustReport(t *testing.T) {
 	//generate ima-testfile
 	ioutil.WriteFile(imaTestPath, ([]byte)(imaTestInfo), 0777)
 	ioutil.WriteFile(imaPath, ([]byte)(imaInfo), 0777)
+	defer func() {
+		os.Remove(imaTestPath)
+		os.Remove(imaPath)
+	}()
 
 	//create EK,Ak,TrustReport
 	AK, _, err := GetAk()
