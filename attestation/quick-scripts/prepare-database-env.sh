@@ -9,7 +9,7 @@ case $osv in
         sudo apt-get install $ubuntu_deps
         ;;
     openEuler|CentOS)
-        sudo dnf install -y $openeuler_deps
+        sudo dnf -y --allowerasing install $openeuler_deps
         sudo su - postgres <<EOF
 initdb --pgdata="/var/lib/pgsql/data" --auth=ident
 sed -i "s/ ident/ md5/g" ~/data/pg_hba.conf
