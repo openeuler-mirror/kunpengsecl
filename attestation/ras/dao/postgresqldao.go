@@ -250,6 +250,139 @@ func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
 	return clientIds, nil
 }
 
+// SelectReportById find report by client id
+func (psd *PostgreSqlDAO) SelectReportById(clientId int64) (*[]entity.Report, error) {
+	var reports []entity.Report
+
+	rRows, err := psd.conn.Query(context.Background(),
+		"SELECT id, client_info_ver, report_time, pcr_quote, verified FROM trust_report WHERE client_id=$1", clientId)
+	if err != nil {
+		return nil, err
+	}
+	for rRows.Next() {
+		var (
+			report        entity.Report
+			reportId      int64
+			clientInfoVer int
+			reportTime    time.Time
+			pcrQuote      []byte
+			verified      bool
+			clientInfo    entity.ClientInfo
+			pcrInfo       entity.PcrInfo
+			manifests     []entity.Manifest
+		)
+		clientInfo.Info = map[string]string{}
+		err = rRows.Scan(&reportId, &clientInfoVer, &reportTime, &pcrQuote, &verified)
+		if err != nil {
+			return nil, err
+		}
+		rRows.Close()
+
+		// Select client info
+		ciRows, err := psd.conn.Query(context.Background(),
+			"SELECT name, value FROM client_info WHERE client_id=$1 AND client_info_ver=$2",
+			clientId, clientInfoVer)
+		if err != nil {
+			return nil, err
+		}
+		for ciRows.Next() {
+			var name string
+			var value string
+			err = ciRows.Scan(&name, &value)
+			if err != nil {
+				return nil, err
+			}
+			clientInfo.Info[name] = value
+		}
+		ciRows.Close()
+
+		//Select pcr info
+		pcrRows, err := psd.conn.Query(context.Background(),
+			"SELECT pcr_id, alg_name, pcr_value FROM trust_report_pcr_info WHERE report_id=$1", reportId)
+		if err != nil {
+			return nil, err
+		}
+		pcrInfo = entity.PcrInfo{
+			Values: map[int]string{},
+			Quote: entity.PcrQuote{
+				Quoted: pcrQuote,
+			},
+		}
+		for pcrRows.Next() {
+			var (
+				id      int
+				algName string
+				value   string
+			)
+			err = pcrRows.Scan(&id, &algName, &value)
+			if err != nil {
+				return nil, err
+			}
+			pcrInfo.AlgName = algName
+			pcrInfo.Values[id] = value
+		}
+		pcrRows.Close()
+
+		// select manifest
+		mRows, err := psd.conn.Query(context.Background(),
+			"SELECT type, name, value, detail FROM trust_report_manifest WHERE report_id=$1", reportId)
+		if err != nil {
+			return nil, err
+		}
+		for mRows.Next() {
+			var (
+				mType  string
+				name   string
+				value  string
+				detail string
+			)
+			err = mRows.Scan(&mType, &name, &value, &detail)
+			if err != nil {
+				return nil, err
+			}
+			// check if type existed
+			isExisted := false
+			for i, mf := range manifests {
+				if mf.Type == mType {
+					isExisted = true
+					manifests[i].Items = append(mf.Items, entity.ManifestItem{
+						Name:   name,
+						Value:  value,
+						Detail: detail,
+					})
+					break
+				}
+			}
+			if !isExisted {
+				manifests = append(manifests, entity.Manifest{
+					Type: mType,
+					Items: []entity.ManifestItem{
+						{
+							Name:   name,
+							Value:  value,
+							Detail: detail,
+						},
+					},
+				})
+			}
+		}
+		mRows.Close()
+
+		report = entity.Report{
+			PcrInfo:       pcrInfo,
+			Manifest:      manifests,
+			ClientID:      clientId,
+			ClientInfo:    clientInfo,
+			Verified:      verified,
+			ReportId:      reportId,
+			ClientInfoVer: clientInfoVer,
+			ReportTime:    reportTime,
+		}
+		reports = append(reports, report)
+	}
+	return &reports, nil
+}
+
 // CreatePostgreSQLDAO creates a postgre database connection to read and store data.
 func CreatePostgreSQLDAO() (*PostgreSqlDAO, error) {
 	host := config.GetDefault().GetHost()

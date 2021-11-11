@@ -1,5 +1,7 @@
 package entity
 
+import "time"
+
 /*
 	this package restores struct used in the project
 */
@@ -8,11 +10,14 @@ package entity
 	Report is a trust report, normally it is send by RAC
 */
 type Report struct {
-	PcrInfo    PcrInfo
-	Manifest   []Manifest
-	ClientID   int64
-	ClientInfo ClientInfo
-	Verified   bool
+	PcrInfo       PcrInfo
+	Manifest      []Manifest
+	ClientID      int64
+	ClientInfo    ClientInfo
+	Verified      bool
+	ReportId      int64
+	ClientInfoVer int
+	ReportTime    time.Time
 }
 
 /*

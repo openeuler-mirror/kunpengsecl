@@ -3,8 +3,10 @@ package dao
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"testing"
+	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"github.com/stretchr/testify/assert"
@@ -43,7 +45,7 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 			"info name2": "info value2",
 		},
 	}
-	ic := []byte("test ic 2")
+	ic := createRandomCert()
 	id, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
 		t.FailNow()
@@ -244,4 +246,108 @@ func TestSaveBaseValue(t *testing.T) {
 		t.Log(err)
 		t.FailNow()
 	}
+}
+
+func TestSelectReportById(t *testing.T) {
+	createConfigFile()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+		return
+	}
+
+	ci := &entity.ClientInfo{
+		Info: map[string]string{
+			"info name1": "info value1",
+			"info name2": "info value2",
+		},
+	}
+	ic := createRandomCert()
+	id, err2 := psd.RegisterClient(ci, ic)
+	if err2 != nil {
+		t.FailNow()
+	}
+	pcrInfo := entity.PcrInfo{
+		AlgName: "sha256",
+		Values: map[int]string{
+			1: "pcr value 1",
+			2: "pcr value 2",
+		},
+		Quote: entity.PcrQuote{
+			Quoted: []byte("test quote"),
+		},
+	}
+
+	biosItem1 := entity.ManifestItem{
+		Name:   "test bios name1",
+		Value:  "test bios value1",
+		Detail: "test bios detail1",
+	}
+
+	biosItem2 := entity.ManifestItem{
+		Name:   "test bios name2",
+		Value:  "test bios value2",
+		Detail: "test bios detail2",
+	}
+
+	imaItem1 := entity.ManifestItem{
+		Name:   "test ima name1",
+		Value:  "test ima value1",
+		Detail: "test ima detail1",
+	}
+
+	biosManifest := entity.Manifest{
+		Type: "bios",
+		Items: []entity.ManifestItem{
+			1: biosItem1,
+			2: biosItem2,
+		},
+	}
+
+	imaManifest := entity.Manifest{
+		Type: "ima",
+		Items: []entity.ManifestItem{
+			1: imaItem1,
+		},
+	}
+
+	testReport := &entity.Report{
+		PcrInfo: pcrInfo,
+		Manifest: []entity.Manifest{
+			1: biosManifest,
+			2: imaManifest,
+		},
+		ClientID: id,
+		ClientInfo: entity.ClientInfo{
+			Info: map[string]string{
+				"client_name":        "test_client",
+				"client_type":        "test_type",
+				"client_description": "test description",
+			},
+		},
+	}
+
+	for i := 0; i < 3; i++ {
+		psdErr := psd.SaveReport(testReport)
+		if psdErr != nil {
+			fmt.Println(psdErr)
+			t.FailNow()
+		}
+	}
+	reports, err := psd.SelectReportById(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(reports)
+}
+
+func createRandomCert() []byte {
+	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	strBytes := []byte(str)
+	randomCert := []byte{}
+	ra := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < 6; i++ {
+		randomCert = append(randomCert, strBytes[ra.Intn(len(strBytes))])
+	}
+	return randomCert
 }
