@@ -85,8 +85,9 @@ func NewFakeAuthenticator() (*FakeAuthenticator, error) {
 // ValidateJWS ensures that the critical JWT claims needed to ensure that we
 // trust the JWT are present and with the correct values.
 func (f *FakeAuthenticator) ValidateJWS(jwsString string) (jwt.Token, error) {
-	return jwt.Parse([]byte(jwsString), jwt.WithKeySet(f.KeySet),
-		jwt.WithAudience(FakeAudience), jwt.WithIssuer(FakeIssuer))
+	return jwt.Parse([]byte(jwsString), jwt.WithKeySet(f.KeySet))
+	//		return jwt.Parse([]byte(jwsString), jwt.WithKeySet(f.KeySet),
+	//		jwt.WithAudience(FakeAudience), jwt.WithIssuer(FakeIssuer))
 }
 
 // SignToken takes a JWT and signs it with our priviate key, returning a JWS.

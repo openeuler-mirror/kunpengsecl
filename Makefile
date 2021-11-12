@@ -1,14 +1,10 @@
 
-subdir = attestation
+subdir = attestation integration
 
 .PHONY: all build test clean install check vendor ci-check bat prepare
-
 all build test clean install check: vendor
-	for name in $(subdir); do\
-		make -C $$name $@ || exit $$?;\
-	done
 
-vendor:
+all build test clean install check vendor:
 	for name in $(subdir); do\
 		make -C $$name $@ || exit $$?;\
 	done
