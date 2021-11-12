@@ -250,6 +250,9 @@ func TestSaveBaseValue(t *testing.T) {
 
 func TestSelectReportById(t *testing.T) {
 	createConfigFile()
+	defer func() {
+		os.Remove("./config.yaml")
+	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
