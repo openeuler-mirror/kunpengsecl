@@ -19,3 +19,11 @@ prepare:
 	done
 
 ci-check: prepare bat
+
+rpm:
+	/usr/bin/bash ./attestation/quick-scripts/buildrpm.sh
+
+rpm-clean:
+	rm -rf ./rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SRPMS}
+
+
