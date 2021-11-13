@@ -8,6 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math/big"
 	"time"
 
@@ -41,7 +42,7 @@ func DecodeCert(pemCert string) (*x509.Certificate, error) {
 }
 
 //Decode the publicKey from pem PubKey
-func DecodePubkey(pemPubKey string) (interface{}, error) {
+func DecodePubkey(pemPubKey string) (crypto.PublicKey, error) {
 	block, _ := pem.Decode([]byte(pemPubKey))
 	if block == nil || block.Type != "PUBLIC KEY" {
 		return nil, errors.New("failed to decode PEM block containing public key")
@@ -51,6 +52,16 @@ func DecodePubkey(pemPubKey string) (interface{}, error) {
 		return nil, errors.New("failed to parse public key : " + err.Error())
 	}
 	return pub, nil
+}
+
+//Decode the privateKey from pem PrivKey
+func DecodePrivkey(pemPrivKey string) (crypto.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pemPrivKey))
+	if block == nil || block.Type != "PRIVATE KEY" {
+		return nil, errors.New("failed to decode PEM block containing private key")
+	}
+
+	return nil, nil
 }
 
 //生成一个新的pca接口
@@ -117,6 +128,23 @@ func GetSignatureALG(pubKey crypto.PublicKey) (x509.SignatureAlgorithm, error) {
 type IdentityResponse struct {
 }
 
+func getKeybyKDFa(rw io.ReadWriter) ([]byte, []byte, error) {
+
+	//get the seed
+	seed, err := tpm2.GetRandom(rw, 16)
+	if err != nil {
+		return nil, nil, errors.Errorf("failed get seed from TPM")
+	}
+	contextU := []byte{'k', 'e', 'k', 0}
+	contextV := []byte{'y', 'o', 'y', 'o', 0}
+	key, err := tpm2.KDFa(tpm2.AlgSHA256, seed, "IDENTITY", contextU, contextV, 128)
+	if err != nil {
+		return nil, nil, errors.Errorf("failed create key from KDFa")
+	}
+
+	return key, nil, nil
+}
+
 //加密ac
 func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
 	//对传进来的akCert进行加密，使用symKey作为加密密钥
@@ -147,10 +175,20 @@ func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
 	if err != nil {
 		errors.New("failed the MakeCredential")
 	}
-
+	//encrypt the Secret by symkey from KDFa
+	key, encryptSeed, err := getKeybyKDFa(simulator)
+	if err != nil {
+		errors.New("failed get key from KDFa")
+	}
+	encryptSecret, err := SymetricEncrypt(Secret, key, iv, TPM_AES, TPM_CBC) //先用空值和上面生成作为初步过程
+	if err != nil {
+		errors.New("failed encrypt the Secret")
+	}
 	symKeyParams := TPMSymKeyParams{
-		EncryptAC: encryptAC,
-		IV:        iv,
+		EncryptAC:     encryptAC,
+		EncryptSeed:   encryptSeed,
+		EncryptSecret: encryptSecret,
+		IV:            iv,
 	}
 	toACandsymKey := ToACandSymKey{
 		Credential:      credentialSecret,
