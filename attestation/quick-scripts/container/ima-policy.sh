@@ -35,4 +35,16 @@ measure obj_type=container_var_lib_t mask=MAY_EXEC
 measure obj_type=container_runtime_exec_t mask=MAY_EXEC
 measure func=PATH_CHECK mask=MAY_READ uid=0
 EOF
-echo "the ima policy has been written in the file,please restart your device"
+read -p "The ima policy has been written in the file,please restart your device now[y/n] " input
+case $input in
+        [yY]*)
+                reboot
+                ;;
+        [nN]*)
+                exit
+                ;;
+        *)
+                echo "Just enter y or n, please."
+                exit
+                ;;
+esac
