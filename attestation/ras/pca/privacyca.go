@@ -129,10 +129,18 @@ not seeing the actual values.
 package pca
 
 import (
+	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"errors"
 	"io"
 
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
+)
+
+var (
+	ErrUnsupported = errors.New("unsupported parameters")
 )
 
 // GetRandomBytes gets true random bytes form TPM(true) or from simulator(false)
@@ -152,4 +160,64 @@ func GetRandomBytes(size int, fromTPM bool) (b []byte, err error) {
 		return []byte{}, err
 	}
 	return b, nil
+}
+
+func pkcs7Pad(c []byte, n int) []byte {
+	pad := n - len(c)%n
+	pt := bytes.Repeat([]byte{byte(pad)}, pad)
+	return append(c, pt...)
+}
+
+func pkcs7Unpad(d []byte) []byte {
+	n := len(d)
+	pad := int(d[n-1])
+	return d[:n-pad]
+}
+
+func aesCBCEncrypt(key, iv, plaintext []byte) ([]byte, error) {
+	cb, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, err
+	}
+	n := cb.BlockSize()
+	d := pkcs7Pad(plaintext, n)
+	bm := cipher.NewCBCEncrypter(cb, iv)
+	ciphertext := make([]byte, len(d))
+	bm.CryptBlocks(ciphertext, d)
+	return ciphertext, nil
+}
+
+func aesCBCDecrypt(key, iv, ciphertext []byte) ([]byte, error) {
+	cb, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, err
+	}
+	bm := cipher.NewCBCDecrypter(cb, iv)
+	plaintext := make([]byte, len(ciphertext))
+	bm.CryptBlocks(plaintext, ciphertext)
+	return pkcs7Unpad(plaintext), nil
+}
+
+// SymmetricEncrypt uses key/iv to encrypt the plaintext with symmetric algorithm/mode.
+func SymmetricEncrypt(alg, mod tpm2.Algorithm, key, iv, plaintext []byte) ([]byte, error) {
+	switch alg {
+	case tpm2.AlgAES:
+		switch mod {
+		case tpm2.AlgCBC:
+			return aesCBCEncrypt(key, iv, plaintext)
+		}
+	}
+	return []byte{}, ErrUnsupported
+}
+
+// SymmetricDecrypt uses key/iv to decrypt the ciphertext with symmetric algorithm/mode.
+func SymmetricDecrypt(alg, mod tpm2.Algorithm, key, iv, ciphertext []byte) ([]byte, error) {
+	switch alg {
+	case tpm2.AlgAES:
+		switch mod {
+		case tpm2.AlgCBC:
+			return aesCBCDecrypt(key, iv, ciphertext)
+		}
+	}
+	return []byte{}, ErrUnsupported
 }
