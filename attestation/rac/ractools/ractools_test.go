@@ -38,6 +38,32 @@ var (
 	PCRDigest      []byte
 	parentPassword = EmptyPassword
 	ownerPassword  = EmptyPassword
+	ekpem          = `-----BEGIN CERTIFICATE-----
+	MIIEUjCCAjqgAwIBAgIUTPeuiawsSuv0Gs0oAuf/vbRzzYIwDQYJKoZIhvcNAQEL
+	BQAwVTELMAkGA1UEBhMCREUxDzANBgNVBAgMBkJheWVybjERMA8GA1UEBwwITXVl
+	bmNoZW4xFTATBgNVBAoMDE9yZ2FuaXphdGlvbjELMAkGA1UEAwwCQ0EwHhcNMjEx
+	MTExMTE1NTQ4WhcNNDExMTA4MTE1NTQ4WjBdMQswCQYDVQQGEwJERTEPMA0GA1UE
+	CAwGQmF5ZXJuMREwDwYDVQQHDAhNdWVuY2hlbjEVMBMGA1UECgwMT3JnYW5pemF0
+	aW9uMRMwEQYDVQQDDApJQk0gU1cgVFBNMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
+	MIIBCgKCAQEAzrGnWHhXFHU4A0XZSjsoE28i0ZiKJ+tyiH8vIhDaD5QYrLTy/pPr
+	AK7EE3iQ5pY3h5NiGfAnEdFGOx95U9rC3bwIRUat/gqAwjLYReRcN64TshrzbL8t
+	mmzUErfOKuBk6Sfy4A9qTnh9J1sNH5hYSAViYJbUQfvYyjGKVNEd9FN6mJS6iSs8
+	iacIj5gcYiUVnGGj9SC4RhknSQfWtbKgfFwN5Ja79s0xy55j1XG7gIn36OD/w9Tc
+	5mPcQarG3d8spRClcBUXqd7JCub5OmY9fSbBgaiJGjKsS39kz0+A8Y6DW+/LK9+8
+	DG2PNY32yLKm3eT0KJiq4ecW1MhSQ+ZH6wIDAQABoxIwEDAOBgNVHQ8BAf8EBAMC
+	BSAwDQYJKoZIhvcNAQELBQADggIBALLSDDghf6dFEvnet1GhO8mtCXkS12UA6eI6
+	8CM+D/7Q72eez2bUbVIG30F9JFVYlAF3PFG4A2F2cHfmR8JH3LrwCsuf1kqtFgFB
+	tjNHtawyJHoKNaWEPRLfEvwp5fIhWIc7bEkbqzDIErKXAfTpOaJSAHTFpNUuoe6x
+	CUs/xfpNIuhNFWX0hMALHnWQX9tsiyr6q3/WjPucovjvFQv9c9djckdGVohzHCuB
+	W1XrpS1LlTZnoOIrHpDYOkkIkdAGR4Qeyqi+mGovcvkf9/QQsk2MSovGjBiROQ9a
+	zpa3mhiKdCjbvABxRtI94QBeJ0zMRvQXuDIGd2WIgkFqp8tjC7guUx4uSvwlxxO6
+	DtFykLOvb09zJzcyPqzk5HnG8Lp7HGY2/tTcltjs7JNILxL35jIs0hIURAtM0e9r
+	jJyPeuwDcIeYyrohq6FoAPa/z7yK75swWyzCoiisdxOnIUd5V04x5WCl6417kIJ5
+	EPy4v6zH4STVyt010PwL1yJFCEDQgoSVepbKwm9xpPJHC/cV1Y+Jo+Y/ubJjTiwf
+	AEwaHvFqEGmkBVK/dGGJmhSo3h8ohapduWXkLiNI041An5rpTwbwoUF+sxrzn9WC
+	UIp9on4e9ggL7OA2BrfRcfIfyK6LQ+UvnFpufY3hfDxoUuhyvnANfGnbo7d16H1n
+	j0wy1+Fw
+	-----END CERTIFICATE-----`
 )
 
 //if open physical TPM, return true, else return false
@@ -67,7 +93,6 @@ func openDeviceTPM(tb testing.TB) io.ReadWriteCloser {
 func TestCreateTrustReport(t *testing.T) {
 	if tpm.dev == nil {
 		tpm.dev, isPhysicalTpm = openTPM(t)
-		//defer tpm.dev.Close()
 	}
 
 	if isPhysicalTpm {
@@ -135,7 +160,7 @@ func TestCreateAk(t *testing.T) {
 		tpm.dev, isPhysicalTpm = openTPM(t)
 		//defer tpm.dev.Close()
 	}
-
+	t.Helper()
 	parentHandle, _, err := tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement, pcrSelection,
 		ownerPassword, parentPassword, DefaultKeyParams)
 	if err != nil {
@@ -164,5 +189,35 @@ func TestGetTrustReport(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("GetAk failed: %s", err)
+	}
+}
+
+func TestWriteAndGetEkCert(t *testing.T) {
+	if tpm.dev == nil {
+		tpm.dev, isPhysicalTpm = openTPM(t)
+	}
+	ekPath := "./ekce.pem"
+	//generate ek-testfile
+	ioutil.WriteFile(ekPath, ([]byte)(ekpem), 0777)
+	data, err := ioutil.ReadFile(ekPath)
+	if err != nil {
+		t.Errorf("ReadFile failed: %v", err)
+	}
+	WriteEkCert(ekPath)
+	ekCert, err := GetEkCert()
+	if err != nil {
+		t.Errorf("GetEkCert failed: %v", err)
+	}
+
+	if !bytes.Equal(data, ([]byte)(ekCert)) {
+		t.Errorf("data read from NV index does not match, got %x, want %x", ekCert, data)
+	}
+
+	ekCert2, err := GetEkCert()
+	if err != nil {
+		t.Errorf("GetEkCert failed: %v", err)
+	}
+	if ekCert != ekCert2 {
+		t.Errorf("the answers of GetEkCert are not equal")
 	}
 }

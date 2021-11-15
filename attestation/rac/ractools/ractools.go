@@ -3,7 +3,6 @@ package ractools
 import (
 	"crypto"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -114,7 +113,7 @@ func ActivateAC(rw io.ReadWriter, activeHandle, keyHandle tpmutil.Handle, active
 	recoveredCredential, err := tpm2.ActivateCredential(rw, activeHandle, keyHandle, activePassword,
 		protectorPassword, credServer, encryptedSecret)
 	if err != nil {
-		fmt.Printf("ActivateCredential failed: %v \n", err)
+		log.Printf("ActivateCredential failed: %v \n", err)
 	}
 	return recoveredCredential, err
 }
@@ -130,7 +129,7 @@ func GetAk() (*AttestationKey, crypto.PublicKey, error) {
 			tpm.dev, err = simulator.Get()
 			isPhysicalTpm = false
 			if err != nil {
-				fmt.Printf("Simulator initialization failed: %v", err)
+				log.Printf("Simulator initialization failed: %v", err)
 			}
 		}
 	}
@@ -172,7 +171,7 @@ func GetTrustReport(tRepIn TrustReportIn) (*TrustReport, error) {
 			tpm.dev, err = simulator.Get()
 			isPhysicalTpm = false
 			if err != nil {
-				fmt.Printf("Simulator initialization failed: %v", err)
+				log.Printf("Simulator initialization failed: %v", err)
 			}
 		}
 	}
@@ -182,4 +181,73 @@ func GetTrustReport(tRepIn TrustReportIn) (*TrustReport, error) {
 	}
 
 	return CreateTrustReport(tpm.dev, AK, MyPcrSelection, tRepIn)
+}
+
+func WriteEkCert(ekPath string) error {
+
+	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
+
+	data, err := ioutil.ReadFile(ekPath)
+	if err != nil {
+		log.Printf("WriteEkCert failed: %v", err)
+	}
+
+	// Undefine the space, just in case the previous run of this test failed
+	// to clean up.
+	if err := tpm2.NVUndefineSpace(tpm.dev, EmptyPassword, tpm2.HandleOwner, ekidx); err != nil {
+		log.Printf("(not a failure) NVUndefineSpace at index 0x%x failed: %v", ekidx, err)
+	}
+
+	// Define space in NV storage and clean up afterwards or subsequent runs will fail.
+	l := len(data)
+
+	if err := tpm2.NVDefineSpace(tpm.dev,
+		tpm2.HandleOwner,
+		ekidx,
+		EmptyPassword,
+		EmptyPassword,
+		nil,
+		attr,
+		uint16(len(data)),
+	); err != nil {
+		log.Printf("NVDefineSpace failed: %v", err)
+		return err
+	}
+
+	// Write the data
+
+	offset := (uint16)(0)
+	for l > 0 {
+		end := offset + 1024
+		if l < 1024 {
+			end = offset + (uint16)(l)
+		}
+		in := data[offset:end]
+		if err := tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekidx, EmptyPassword, in, offset); err != nil {
+			log.Printf("NVWrite failed: %v", err)
+			return err
+		}
+		offset += 1024
+		l -= 1024
+	}
+	return nil
+}
+
+func GetEkCert() (string, error) {
+	// Make sure the public area of the index can be read
+	_, err := tpm2.NVReadPublic(tpm.dev, ekidx)
+	if err != nil {
+		log.Printf("NVReadPublic failed: %v", err)
+		//if the ekIndex can't be read, write ekCert to the area of the index
+		WriteEkCert("./ekce.pem")
+	}
+
+	// Read all of the data with NVReadEx
+	outdata, err := tpm2.NVReadEx(tpm.dev, ekidx, tpm2.HandleOwner, EmptyPassword, 0)
+	if err != nil {
+		log.Printf("NVReadEx failed: %v", err)
+		return "", err
+	}
+
+	return (string)(outdata), nil
 }

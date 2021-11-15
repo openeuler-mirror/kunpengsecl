@@ -18,7 +18,9 @@ func main() {
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
 	if cid <= 0 {
 		ak, _, err := ractools.GetAk()
-
+		if err != nil {
+			log.Fatal("Client:can't Create EkCert")
+		}
 		req := clientapi.CreateIKCertRequest{
 			EkCert: ractools.CertPEM,
 			IkPub:  ractools.PubPEM,
@@ -48,6 +50,7 @@ func main() {
 
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
 	for {
+		ractools.GetEkCert()
 		rpy, err := clientapi.DoSendHeartbeat(addr, &clientapi.SendHeartbeatRequest{ClientId: cid})
 		if err != nil {
 			log.Fatalf("Client: send heart beat error %v", err)
