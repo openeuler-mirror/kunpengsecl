@@ -24,6 +24,15 @@ func TestSymmetricEncrypt(t *testing.T) {
 		{[]string{"enc", "-d", "-aes-128-cbc", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
 		{[]string{"enc", "-d", "-aes-192-cbc", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
 		{[]string{"enc", "-d", "-aes-256-cbc", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
+		{[]string{"enc", "-d", "-aes-128-cfb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{"enc", "-d", "-aes-192-cfb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{"enc", "-d", "-aes-256-cfb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{"enc", "-d", "-aes-128-ofb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{"enc", "-d", "-aes-192-ofb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{"enc", "-d", "-aes-256-ofb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{"enc", "-d", "-aes-128-ctr", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{"enc", "-d", "-aes-192-ctr", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{"enc", "-d", "-aes-256-ctr", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
 	}
 	defer func() {
 		os.Remove("./test.txt")
@@ -72,6 +81,15 @@ func TestSymmetricDecrypt(t *testing.T) {
 		{[]string{"enc", "-e", "-aes-128-cbc", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
 		{[]string{"enc", "-e", "-aes-192-cbc", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
 		{[]string{"enc", "-e", "-aes-256-cbc", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
+		{[]string{"enc", "-e", "-aes-128-cfb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{"enc", "-e", "-aes-192-cfb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{"enc", "-e", "-aes-256-cfb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{"enc", "-e", "-aes-128-ofb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{"enc", "-e", "-aes-192-ofb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{"enc", "-e", "-aes-256-ofb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{"enc", "-e", "-aes-128-ctr", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{"enc", "-e", "-aes-192-ctr", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{"enc", "-e", "-aes-256-ctr", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
 	}
 	defer func() {
 		os.Remove("./test.txt")
