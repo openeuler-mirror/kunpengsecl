@@ -198,6 +198,50 @@ func aesCBCDecrypt(key, iv, ciphertext []byte) ([]byte, error) {
 	return pkcs7Unpad(plaintext), nil
 }
 
+func aesCFBEncrypt(key, iv, plaintext []byte) ([]byte, error) {
+	cb, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, err
+	}
+	st := cipher.NewCFBEncrypter(cb, iv)
+	ciphertext := make([]byte, len(plaintext))
+	st.XORKeyStream(ciphertext, plaintext)
+	return ciphertext, nil
+}
+
+func aesCFBDecrypt(key, iv, ciphertext []byte) ([]byte, error) {
+	cb, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, err
+	}
+	st := cipher.NewCFBDecrypter(cb, iv)
+	plaintext := make([]byte, len(ciphertext))
+	st.XORKeyStream(plaintext, ciphertext)
+	return plaintext, nil
+}
+
+func aesOFBEncDec(key, iv, in []byte) ([]byte, error) {
+	cb, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, err
+	}
+	st := cipher.NewOFB(cb, iv)
+	out := make([]byte, len(in))
+	st.XORKeyStream(out, in)
+	return out, nil
+}
+
+func aesCTREncDec(key, iv, in []byte) ([]byte, error) {
+	cb, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, err
+	}
+	st := cipher.NewCTR(cb, iv)
+	out := make([]byte, len(in))
+	st.XORKeyStream(out, in)
+	return out, nil
+}
+
 // SymmetricEncrypt uses key/iv to encrypt the plaintext with symmetric algorithm/mode.
 func SymmetricEncrypt(alg, mod tpm2.Algorithm, key, iv, plaintext []byte) ([]byte, error) {
 	switch alg {
@@ -205,6 +249,12 @@ func SymmetricEncrypt(alg, mod tpm2.Algorithm, key, iv, plaintext []byte) ([]byt
 		switch mod {
 		case tpm2.AlgCBC:
 			return aesCBCEncrypt(key, iv, plaintext)
+		case tpm2.AlgCFB:
+			return aesCFBEncrypt(key, iv, plaintext)
+		case tpm2.AlgOFB:
+			return aesOFBEncDec(key, iv, plaintext)
+		case tpm2.AlgCTR:
+			return aesCTREncDec(key, iv, plaintext)
 		}
 	}
 	return []byte{}, ErrUnsupported
@@ -217,6 +267,12 @@ func SymmetricDecrypt(alg, mod tpm2.Algorithm, key, iv, ciphertext []byte) ([]by
 		switch mod {
 		case tpm2.AlgCBC:
 			return aesCBCDecrypt(key, iv, ciphertext)
+		case tpm2.AlgCFB:
+			return aesCFBDecrypt(key, iv, ciphertext)
+		case tpm2.AlgOFB:
+			return aesOFBEncDec(key, iv, ciphertext)
+		case tpm2.AlgCTR:
+			return aesCTREncDec(key, iv, ciphertext)
 		}
 	}
 	return []byte{}, ErrUnsupported
