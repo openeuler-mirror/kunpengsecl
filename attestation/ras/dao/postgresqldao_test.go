@@ -182,7 +182,7 @@ func TestUnRegisterClient(t *testing.T) {
 	assert.NotEqual(t, clientIds[0], 0)
 }
 
-func TestSaveBaseValue(t *testing.T) {
+func TestSaveAndSelectBaseValue(t *testing.T) {
 	pcrInfo := entity.PcrInfo{
 		AlgName: "sha256",
 		Values: map[int]string{
@@ -233,18 +233,33 @@ func TestSaveBaseValue(t *testing.T) {
 	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
-		t.Fatalf("%v", err)
+		t.Fatal(err)
 		return
 	}
 	clientIds, err := psd.SelectAllClientIds()
 	if err != nil {
-		fmt.Println(err)
-		t.FailNow()
+		t.Fatal(err)
 	}
 	err = psd.SaveBaseValue(clientIds[0], pcrInfo, manifest)
 	if err != nil {
-		t.Log(err)
-		t.FailNow()
+		t.Fatal(err)
+	}
+	mea, err := psd.SelectBaseValueById(clientIds[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("measurement info : %v", mea)
+	testCase := []struct {
+		input1 string
+		input2 string
+	}{
+		{mea.PcrInfo.AlgName, pcrInfo.AlgName},
+		{mea.PcrInfo.Values[1], pcrInfo.Values[1]},
+	}
+	for i := 0; i < len(testCase); i++ {
+		if testCase[i].input1 != testCase[i].input2 {
+			t.Errorf("test base value function failed")
+		}
 	}
 }
 
@@ -337,11 +352,20 @@ func TestSelectReportById(t *testing.T) {
 			t.FailNow()
 		}
 	}
-	reports, err := psd.SelectReportById(id)
+	reports, err := psd.SelectReportsById(id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(reports)
+	latestReport, err := psd.SelectLatestReportById(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("the latest report is : %v", latestReport)
+	for _, r := range reports {
+		if latestReport.ReportTime.Before(r.ReportTime) {
+			t.Fatalf("get latest report failed")
+		}
+	}
 }
 
 func createRandomCert() []byte {

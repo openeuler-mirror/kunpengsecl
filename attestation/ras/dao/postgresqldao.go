@@ -251,8 +251,8 @@ func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
 }
 
 // SelectReportById find report by client id
-func (psd *PostgreSqlDAO) SelectReportById(clientId int64) (*[]entity.Report, error) {
-	var reports []entity.Report
+func (psd *PostgreSqlDAO) SelectReportsById(clientId int64) ([]*entity.Report, error) {
+	var reports []*entity.Report
 
 	rRows, err := psd.conn.Query(context.Background(),
 		"SELECT id, client_info_ver, report_time, pcr_quote, verified FROM trust_report WHERE client_id=$1", clientId)
@@ -378,9 +378,92 @@ func (psd *PostgreSqlDAO) SelectReportById(clientId int64) (*[]entity.Report, er
 			ClientInfoVer: clientInfoVer,
 			ReportTime:    reportTime,
 		}
-		reports = append(reports, report)
+		reports = append(reports, &report)
 	}
-	return &reports, nil
+	return reports, nil
+}
+
+func (psd *PostgreSqlDAO) SelectLatestReportById(clientId int64) (*entity.Report, error) {
+	reports, err := psd.SelectReportsById(clientId)
+	if err != nil {
+		return nil, err
+	}
+	if reports == nil {
+		return nil, fmt.Errorf("report of client %v doesn't exist", clientId)
+	}
+	result := reports[0]
+	for _, r := range reports {
+		if r.ReportTime.After(result.ReportTime) {
+			result = r
+		}
+	}
+	return result, nil
+}
+
+func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.MeasurementInfo, error) {
+	var (
+		baseValueVer int
+		meas         []entity.Measurement
+	)
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT base_value_ver FROM register_client WHERE id=$1", clientId).Scan(&baseValueVer)
+	if err != nil {
+		return nil, err
+	}
+
+	pi := entity.PcrInfo{
+		Values: map[int]string{},
+	}
+	pcrRows, err := psd.conn.Query(context.Background(),
+		"SELECT pcr_id, alg_name, pcr_value FROM base_value_pcr_info WHERE client_id=$1 AND base_value_ver=$2", clientId, baseValueVer)
+	if err != nil {
+		return nil, err
+	}
+	for pcrRows.Next() {
+		var (
+			id      int
+			algName string
+			value   string
+		)
+		err = pcrRows.Scan(&id, &algName, &value)
+		if err != nil {
+			return nil, err
+		}
+		pi.AlgName = algName
+		pi.Values[id] = value
+	}
+	pcrRows.Close()
+
+	mRows, err := psd.conn.Query(context.Background(),
+		"SELECT type, name, value FROM base_value_manifest WHERE client_id=$1 AND base_value_ver=$2", clientId, baseValueVer)
+	if err != nil {
+		return nil, err
+	}
+
+	for mRows.Next() {
+		var (
+			mType string
+			name  string
+			value string
+		)
+		err = mRows.Scan(&mType, &name, &value)
+		if err != nil {
+			return nil, err
+		}
+		meas = append(meas, entity.Measurement{
+			Type:  mType,
+			Name:  name,
+			Value: value,
+		})
+	}
+	mRows.Close()
+
+	result := &entity.MeasurementInfo{
+		ClientID: clientId,
+		PcrInfo:  pi,
+		Manifest: meas,
+	}
+	return result, nil
 }
 
 // CreatePostgreSQLDAO creates a postgre database connection to read and store data.
