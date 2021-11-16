@@ -1,9 +1,12 @@
 package main
 
 import (
-	"fmt"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 )
 
+const addrRaHub string = "127.0.0.1:40003"
+const addrRas string = "127.0.0.1:40001"
+
 func main() {
-	fmt.Println("hello, this is rahub!")
+	clientapi.StartRaHub(addrRaHub, addrRas)
 }
