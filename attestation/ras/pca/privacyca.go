@@ -130,8 +130,12 @@ package pca
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"errors"
 	"io"
 
@@ -273,6 +277,34 @@ func SymmetricDecrypt(alg, mod tpm2.Algorithm, key, iv, ciphertext []byte) ([]by
 			return aesOFBEncDec(key, iv, ciphertext)
 		case tpm2.AlgCTR:
 			return aesCTREncDec(key, iv, ciphertext)
+		}
+	}
+	return []byte{}, ErrUnsupported
+}
+
+// AsymmetricEncrypt encrypts a byte array by public key and label using RSA
+func AsymmetricEncrypt(alg, mod tpm2.Algorithm, pubKey crypto.PublicKey, plaintext, label []byte) ([]byte, error) {
+	switch alg {
+	case tpm2.AlgRSA:
+		switch mod {
+		case tpm2.AlgOAEP:
+			return rsa.EncryptOAEP(sha256.New(), rand.Reader, pubKey.(*rsa.PublicKey), plaintext, label)
+		default:
+			return rsa.EncryptPKCS1v15(rand.Reader, pubKey.(*rsa.PublicKey), plaintext)
+		}
+	}
+	return []byte{}, ErrUnsupported
+}
+
+// AsymmetricDecrypt decrypts a byte array by private key and label using RSA
+func AsymmetricDecrypt(alg, mod tpm2.Algorithm, priKey crypto.PrivateKey, ciphertext, label []byte) ([]byte, error) {
+	switch alg {
+	case tpm2.AlgRSA:
+		switch mod {
+		case tpm2.AlgOAEP:
+			return rsa.DecryptOAEP(sha256.New(), rand.Reader, priKey.(*rsa.PrivateKey), ciphertext, label)
+		default:
+			return rsa.DecryptPKCS1v15(rand.Reader, priKey.(*rsa.PrivateKey), ciphertext)
 		}
 	}
 	return []byte{}, ErrUnsupported
