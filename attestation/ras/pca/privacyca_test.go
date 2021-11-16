@@ -1,7 +1,6 @@
 package pca
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"io/ioutil"
@@ -10,6 +9,35 @@ import (
 	"testing"
 
 	"github.com/google/go-tpm/tpm2"
+)
+
+var (
+	cmdEnc        = "enc"
+	decFlag       = "-d"
+	encFlag       = "-e"
+	aes128cbcFlag = "-aes-128-cbc"
+	aes192cbcFlag = "-aes-192-cbc"
+	aes256cbcFlag = "-aes-256-cbc"
+	aes128cfbFlag = "-aes-128-cfb"
+	aes192cfbFlag = "-aes-192-cfb"
+	aes256cfbFlag = "-aes-256-cfb"
+	aes128ofbFlag = "-aes-128-ofb"
+	aes192ofbFlag = "-aes-192-ofb"
+	aes256ofbFlag = "-aes-256-ofb"
+	aes128ctrFlag = "-aes-128-ctr"
+	aes192ctrFlag = "-aes-192-ctr"
+	aes256ctrFlag = "-aes-256-ctr"
+	inFlag        = "-in"
+	decFileFlag   = "./test.txt.dec"
+	encFileFlag   = "./test.txt.enc"
+	outFlag       = "-out"
+	textFileFlag  = "./test.txt"
+	base64Flag    = "-base64"
+	plainText     = "Hello, world!"
+	ivFlag        = "1234567890abcdef"
+	key16Flag     = "1234567890abcdef"
+	key24Flag     = "123456789012345678901234"
+	key32Flag     = "12345678901234567890123456789012"
 )
 
 func TestSymmetricEncrypt(t *testing.T) {
@@ -21,22 +49,22 @@ func TestSymmetricEncrypt(t *testing.T) {
 		alg    tpm2.Algorithm
 		mod    tpm2.Algorithm
 	}{
-		{[]string{"enc", "-d", "-aes-128-cbc", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
-		{[]string{"enc", "-d", "-aes-192-cbc", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
-		{[]string{"enc", "-d", "-aes-256-cbc", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
-		{[]string{"enc", "-d", "-aes-128-cfb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
-		{[]string{"enc", "-d", "-aes-192-cfb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
-		{[]string{"enc", "-d", "-aes-256-cfb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
-		{[]string{"enc", "-d", "-aes-128-ofb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
-		{[]string{"enc", "-d", "-aes-192-ofb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
-		{[]string{"enc", "-d", "-aes-256-ofb", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
-		{[]string{"enc", "-d", "-aes-128-ctr", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
-		{[]string{"enc", "-d", "-aes-192-ctr", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
-		{[]string{"enc", "-d", "-aes-256-ctr", "-in", "test.txt.dec", "-out", "test.txt", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{cmdEnc, decFlag, aes128cbcFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key16Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCBC},
+		{[]string{cmdEnc, decFlag, aes192cbcFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key24Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCBC},
+		{[]string{cmdEnc, decFlag, aes256cbcFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key32Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCBC},
+		{[]string{cmdEnc, decFlag, aes128cfbFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key16Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{cmdEnc, decFlag, aes192cfbFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key24Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{cmdEnc, decFlag, aes256cfbFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key32Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{cmdEnc, decFlag, aes128ofbFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key16Flag, ivFlag, tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{cmdEnc, decFlag, aes192ofbFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key24Flag, ivFlag, tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{cmdEnc, decFlag, aes256ofbFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key32Flag, ivFlag, tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{cmdEnc, decFlag, aes128ctrFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key16Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{cmdEnc, decFlag, aes192ctrFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key24Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{cmdEnc, decFlag, aes256ctrFlag, inFlag, decFileFlag, outFlag, textFileFlag, base64Flag}, plainText, key32Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCTR},
 	}
 	defer func() {
-		os.Remove("./test.txt")
-		os.Remove("./test.txt.dec")
+		os.Remove(textFileFlag)
+		os.Remove(decFileFlag)
 	}()
 	for _, tc := range testCases {
 		ciphertext, err := SymmetricEncrypt(tc.alg, tc.mod, []byte(tc.key), []byte(tc.iv), []byte(tc.text))
@@ -45,7 +73,7 @@ func TestSymmetricEncrypt(t *testing.T) {
 		}
 		// must have the last character "\n", otherwise can't be decrypted by openssl.
 		base64text := base64.StdEncoding.EncodeToString(ciphertext) + "\n"
-		err = ioutil.WriteFile("./test.txt.dec", []byte(base64text), 0644)
+		err = ioutil.WriteFile(decFileFlag, []byte(base64text), 0644)
 		if err != nil {
 			t.Errorf("couldn't write test file %v", err)
 		}
@@ -54,12 +82,10 @@ func TestSymmetricEncrypt(t *testing.T) {
 		params = append(params, "-iv")
 		params = append(params, hex.EncodeToString([]byte(tc.iv)))
 		cmd := exec.Command("openssl", params...)
-		var out bytes.Buffer
-		cmd.Stderr = &out
-		if err = cmd.Run(); err != nil {
-			t.Errorf("couldn't run command %v", out.String())
+		if out, err := cmd.Output(); err != nil {
+			t.Errorf("couldn't run command %v", out)
 		}
-		plaintext, err := ioutil.ReadFile("./test.txt")
+		plaintext, err := ioutil.ReadFile(textFileFlag)
 		if err != nil {
 			t.Errorf("couldn't read test file %v", err)
 		}
@@ -78,25 +104,25 @@ func TestSymmetricDecrypt(t *testing.T) {
 		alg    tpm2.Algorithm
 		mod    tpm2.Algorithm
 	}{
-		{[]string{"enc", "-e", "-aes-128-cbc", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
-		{[]string{"enc", "-e", "-aes-192-cbc", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
-		{[]string{"enc", "-e", "-aes-256-cbc", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCBC},
-		{[]string{"enc", "-e", "-aes-128-cfb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
-		{[]string{"enc", "-e", "-aes-192-cfb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
-		{[]string{"enc", "-e", "-aes-256-cfb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCFB},
-		{[]string{"enc", "-e", "-aes-128-ofb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
-		{[]string{"enc", "-e", "-aes-192-ofb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
-		{[]string{"enc", "-e", "-aes-256-ofb", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgOFB},
-		{[]string{"enc", "-e", "-aes-128-ctr", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "1234567890abcdef", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
-		{[]string{"enc", "-e", "-aes-192-ctr", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "123456789012345678901234", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
-		{[]string{"enc", "-e", "-aes-256-ctr", "-in", "test.txt", "-out", "test.txt.enc", "-base64"}, "Hello, world!", "12345678901234567890123456789012", "1234567890abcdef", tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{cmdEnc, encFlag, aes128cbcFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key16Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCBC},
+		{[]string{cmdEnc, encFlag, aes192cbcFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key24Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCBC},
+		{[]string{cmdEnc, encFlag, aes256cbcFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key32Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCBC},
+		{[]string{cmdEnc, encFlag, aes128cfbFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key16Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{cmdEnc, encFlag, aes192cfbFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key24Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{cmdEnc, encFlag, aes256cfbFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key32Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCFB},
+		{[]string{cmdEnc, encFlag, aes128ofbFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key16Flag, ivFlag, tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{cmdEnc, encFlag, aes192ofbFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key24Flag, ivFlag, tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{cmdEnc, encFlag, aes256ofbFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key32Flag, ivFlag, tpm2.AlgAES, tpm2.AlgOFB},
+		{[]string{cmdEnc, encFlag, aes128ctrFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key16Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{cmdEnc, encFlag, aes192ctrFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key24Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCTR},
+		{[]string{cmdEnc, encFlag, aes256ctrFlag, inFlag, textFileFlag, outFlag, encFileFlag, base64Flag}, plainText, key32Flag, ivFlag, tpm2.AlgAES, tpm2.AlgCTR},
 	}
 	defer func() {
-		os.Remove("./test.txt")
-		os.Remove("./test.txt.enc")
+		os.Remove(textFileFlag)
+		os.Remove(encFileFlag)
 	}()
 	for _, tc := range testCases {
-		err := ioutil.WriteFile("./test.txt", []byte(tc.text), 0644)
+		err := ioutil.WriteFile(textFileFlag, []byte(tc.text), 0644)
 		if err != nil {
 			t.Errorf("couldn't write test file %v", err)
 		}
@@ -105,12 +131,10 @@ func TestSymmetricDecrypt(t *testing.T) {
 		params = append(params, "-iv")
 		params = append(params, hex.EncodeToString([]byte(tc.iv)))
 		cmd := exec.Command("openssl", params...)
-		var out bytes.Buffer
-		cmd.Stderr = &out
-		if err = cmd.Run(); err != nil {
-			t.Errorf("couldn't run command %v", out.String())
+		if out, err := cmd.Output(); err != nil {
+			t.Errorf("couldn't run command %v", out)
 		}
-		base64text, _ := ioutil.ReadFile("./test.txt.enc")
+		base64text, _ := ioutil.ReadFile(encFileFlag)
 		ciphertext, _ := base64.StdEncoding.DecodeString(string(base64text))
 		plaintext, err := SymmetricDecrypt(tc.alg, tc.mod, []byte(tc.key), []byte(tc.iv), ciphertext)
 		if err != nil {
