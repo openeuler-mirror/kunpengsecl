@@ -98,6 +98,7 @@ var (
 			KeyBits: 2048,
 		},
 	}
+	ekidx tpmutil.Handle = 0x01c0000a
 )
 
 type (

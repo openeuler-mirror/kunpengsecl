@@ -26,6 +26,7 @@ import (
 
 var defaultConfigPath = []string{
 	".",
+	"./config",
 	"../config",
 	"$HOME/.config/attestation",
 	"/usr/lib/attestation",
