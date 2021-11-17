@@ -25,7 +25,6 @@ const (
 type PCA struct {
 }
 type PrivacyCA interface {
-	VerifyEkCert(EkCert x509.Certificate) (bool, error)
 }
 
 //Decode the cert from pem cert
@@ -73,19 +72,27 @@ func NewPCA(req Request) (PrivacyCA, error) {
 }
 
 //验证ek证书
-func (pca *PCA) VerifyEkCert(EkCert x509.Certificate) (bool, error) {
+func VerifyEkCert(EkCert *x509.Certificate) bool {
 	//验证Ek证书签名的认证
-	//var opts x509.VerifyOptions
+	//1. Create the set of root certificates
+	roots := x509.NewCertPool()
+	ok := roots.AppendCertsFromPEM([]byte(RootPEM))
+	if !ok {
+		errors.New("failed to parse root certificate")
+		return false
+	}
+	//2. verify the ekcert by the root certificate
+	cert, _ := DecodeCert(CertPEM)
 	opts := x509.VerifyOptions{
-		DNSName:   "DNS",
-		Roots:     nil,
-		KeyUsages: nil,
+		DNSName: "mail.google.com",
+		Roots:   roots,
 	}
-	if _, err := EkCert.Verify(opts); err != nil {
+	if _, err := cert.Verify(opts); err != nil {
 		errors.New("failed to verify certificate")
-		return false, nil
+		return false
 	}
-	return true, nil
+
+	return true
 }
 
 //通过pca的私钥作为签名，颁发Ak证书即生成AC
