@@ -31,15 +31,9 @@ func TestPCAForUnsupportedTpm(t *testing.T) {
 }
 func TestVerifyEkCert(t *testing.T) {
 	fmt.Println("This is a test of VerifyEkCert")
-
-	req := Request{
-		TPMVer: "2.0",
-	}
-	var ekcert x509.Certificate
-	pca, err := NewPCA(req)
+	cert,err := DecodeCert(CertPEM)
 	assert.NoError(t, err)
-
-	success, _ := pca.VerifyEkCert(ekcert)
+	success := VerifyEkCert(cert)
 	assert.False(t, success)
 }
 func TestGenerateAkCert(t *testing.T) {
