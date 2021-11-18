@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	grpc "google.golang.org/grpc"
 )
 
@@ -64,10 +67,33 @@ yecLk/4L1W0l6jQQZnWErXZYe0PNFcmwGXy1Rep83kfBRNKRy5tvocalLlwXLdUk
 AIU+2GKjyT3iMuzZxxFxPFMCAwEAAQ==
 -----END PUBLIC KEY-----`
 
+const testBiosManifest = `0 f797cb88c4b07745a129f35ea01b47c6c309cda9 08
+0 dca68da0707a9a52b24db82def84f26fa463b44d 01
+0 dd9efa31c88f467c3d21d3b28de4c53b8d55f3bc 01
+0 dd261ca7511a7daf9e16cb572318e8e5fbd22963 01
+0 df22cabc0e09aabf938bcb8ff76853dbcaae670d 01
+0 a0d023a7f94efcdbc8bb95ab415d839bdfd73e9e 01
+0 38dd128dc93ff91df1291a1c9008dcf251a0ef39 01
+0 dd261ca7511a7daf9e16cb572318e8e5fbd22963 01
+0 df22cabc0e09aabf938bcb8ff76853dbcaae670d 01
+0 a0d023a7f94efcdbc8bb95ab415d839bdfd73e9e 01`
+
+const testIMAManifest = `10 7971593a7ad22a7cce5b234e4bc5d71b04696af4 ima b5a166c10d153b7cc3e5b4f1eab1f71672b7c524 boot_aggregate
+10 2c7020ad8cab6b7419e4973171cb704bdbf52f77 ima e09e048c48301268ff38645f4c006137e42951d0 /init
+10 ef7a0aff83dd46603ebd13d1d789445365adb3b3 ima 0f8b3432535d5eab912ad3ba744507e35e3617c1 /init
+10 247dba6fc82b346803660382d1973c019243e59f ima 747acb096b906392a62734916e0bb39cef540931 ld-2.9.so
+10 341de30a46fa55976b26e55e0e19ad22b5712dcb ima 326045fc3d74d8c8b23ac8ec0a4d03fdacd9618a ld.so.cache`
+
 func createConfigFile() {
 	ioutil.WriteFile("./config.yaml", []byte(testConfig), 0644)
 }
 
+type testValidator struct {
+}
+
+func (tv *testValidator) Validate(report *entity.Report) error {
+	return nil
+}
 func TestClientAPI(t *testing.T) {
 	const addr string = "127.0.0.1:40001"
 	createConfigFile()
@@ -102,7 +128,7 @@ func TestClientAPI(t *testing.T) {
 		t.Error(err)
 	}
 	r, err := c.RegisterClient(ctx, &RegisterClientRequest{
-		Ic:         &Cert{Cert: []byte("register cert")},
+		Ic:         &Cert{Cert: createRandomCert()},
 		ClientInfo: &ClientInfo{ClientInfo: string(ci)},
 	})
 	if err != nil {
@@ -110,13 +136,35 @@ func TestClientAPI(t *testing.T) {
 	}
 	t.Logf("Client: invoke RegisterClient ok, clientID=%d", r.GetClientId())
 
-	_, err = c.SendHeartbeat(ctx, &SendHeartbeatRequest{ClientId: 1})
+	_, err = c.SendHeartbeat(ctx, &SendHeartbeatRequest{ClientId: r.GetClientId()})
 	if err != nil {
 		t.Errorf("Client: invoke SendHeartbeat error %v", err)
 	}
 	t.Logf("Client: invoke SendHeartbeat ok")
 
-	_, err = c.SendReport(ctx, &SendReportRequest{ClientId: 1})
+	trustmgr.SetValidator(&testValidator{})
+	_, err = c.SendReport(ctx, &SendReportRequest{ClientId: r.GetClientId(), TrustReport: &TrustReport{
+		PcrInfo: &PcrInfo{PcrValues: map[int32]string{
+			1: "pcr value1",
+			2: "pcr value2",
+		},
+			PcrQuote: &PcrQuote{
+				Quoted: []byte("test quote"),
+			},
+			Algorithm: "SHA1",
+		},
+		Manifest: []*Manifest{
+			0: {
+				Type: "bios",
+				Item: []byte(testBiosManifest),
+			},
+			1: {
+				Type: "ima",
+				Item: []byte(testIMAManifest),
+			},
+		},
+		ClientId: r.GetClientId(),
+	}})
 	if err != nil {
 		t.Errorf("Client: invoke SendReport error %v", err)
 	}
@@ -127,6 +175,17 @@ func TestClientAPI(t *testing.T) {
 	if err != nil {
 		t.Errorf("Client: invoke UnregisterClient error %v", err)
 	}
-	t.Logf("Client: invoke UnregisterClient %v", u.Result)
+	t.Logf("Client: invoke UnregisterClient %v", u.GetResult())
 
+}
+
+func createRandomCert() []byte {
+	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	strBytes := []byte(str)
+	randomCert := []byte{}
+	ra := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < 6; i++ {
+		randomCert = append(randomCert, strBytes[ra.Intn(len(strBytes))])
+	}
+	return randomCert
 }
