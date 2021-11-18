@@ -1,6 +1,8 @@
 package entity
 
-import "time"
+import (
+	"time"
+)
 
 /*
 	this package restores struct used in the project
@@ -87,4 +89,18 @@ type PcrRule struct {
 type ManifestRule struct {
 	MType string
 	Name  []string
+}
+
+// for generating detail in ManifestItem
+type BIOSManifestItem struct {
+	Pcr  string
+	Hash string
+	Name string
+}
+type IMAManifestItem struct {
+	Pcr          string
+	TemplateHash string
+	TemplateName string
+	FiledataHash string
+	FilenameHint string
 }

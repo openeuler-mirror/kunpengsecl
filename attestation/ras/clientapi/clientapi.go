@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"log"
 	"net"
@@ -61,7 +62,7 @@ func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*C
 	if err != nil {
 		return &CreateIKCertReply{}, err
 	}
-	fmt.Println(cert)
+	fmt.Println(cert.Version)
 	//get decode pubkey
 	pub, err := pca.DecodePubkey(in.IkPub)
 	if err != nil {
@@ -187,9 +188,74 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 	if ok {
 		log.Printf("report %d", cid)
 		info.cache.UpdateTrustReport()
+		report := in.GetTrustReport()
+		// transform pcr info from struct in grpc to struct in ras
+		opvs := report.GetPcrInfo().GetPcrValues()
+		tpvs := map[int]string{}
+		for k, v := range opvs {
+			tpvs[int(k)] = v
+		}
+		// transfrom manifest from struct in grpc to struct in ras
+		oms := report.GetManifest()
+		var tms []entity.Manifest
+		for _, om := range oms {
+			isTypeExist := false
+			if tms != nil {
+				// if type has existed
+				for _, tm := range tms {
+					if om.Type == tm.Type {
+						isTypeExist = true
+						if strings.ToLower(om.Type) == "bios" {
+							mi, err := unmarshalBIOSManifest(om.Item)
+							if err != nil {
+								return nil, err
+							}
+							tm.Items = append(tm.Items, mi.Items...)
+						}
+						if strings.ToLower(om.Type) == "ima" {
+							mi, err := unmarshalIMAManifest(om.Item)
+							if err != nil {
+								return nil, err
+							}
+							tm.Items = append(tm.Items, mi.Items...)
+						}
+					}
+				}
+			}
+			if !isTypeExist {
+				if strings.ToLower(om.Type) == "bios" {
+					mi, err := unmarshalBIOSManifest(om.Item)
+					if err != nil {
+						return nil, err
+					}
+					tms = append(tms, *mi)
+				}
+				if strings.ToLower(om.Type) == "ima" {
+					mi, err := unmarshalIMAManifest(om.Item)
+					if err != nil {
+						return nil, err
+					}
+					tms = append(tms, *mi)
+				}
+			}
+		}
+		err := trustmgr.RecordReport(&entity.Report{
+			PcrInfo: entity.PcrInfo{
+				AlgName: report.GetPcrInfo().GetAlgorithm(),
+				Values:  tpvs,
+				Quote: entity.PcrQuote{
+					Quoted: report.GetPcrInfo().GetPcrQuote().Quoted,
+				},
+			},
+			Manifest: tms,
+			ClientID: cid,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	s.Unlock()
-	return &SendReportReply{}, nil
+	return &SendReportReply{Result: true}, nil
 }
 
 func (s *service) mustEmbedUnimplementedRasServer() {
@@ -327,4 +393,67 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 	}
 	log.Printf("Client: invoke SendReport ok")
 	return bk, nil
+}
+
+func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
+	result := &entity.Manifest{
+		Type: "bios",
+	}
+	str := string(content)
+	rows := strings.Split(str, "\n")
+	for i, row := range rows {
+		items := strings.Split(row, " ")
+		if len(items) == 3 {
+			name := items[2] + "-" + fmt.Sprintf("%d", i)
+			bmi := entity.BIOSManifestItem{
+				Pcr:  items[0],
+				Hash: items[1],
+				Name: name,
+			}
+			detail, err := json.Marshal(bmi)
+			if err != nil {
+				return nil, err
+			}
+			result.Items = append(result.Items, entity.ManifestItem{
+				Name:   name,
+				Value:  items[1],
+				Detail: string(detail),
+			})
+		} else {
+			return nil, errors.New("bios manifest format is wrong")
+		}
+	}
+	return result, nil
+}
+
+func unmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
+	result := &entity.Manifest{
+		Type: "ima",
+	}
+	str := string(content)
+	rows := strings.Split(str, "\n")
+	for _, row := range rows {
+		items := strings.Split(row, " ")
+		if len(items) == 5 {
+			imi := entity.IMAManifestItem{
+				Pcr:          items[0],
+				TemplateHash: items[1],
+				TemplateName: items[2],
+				FiledataHash: items[3],
+				FilenameHint: items[4],
+			}
+			detail, err := json.Marshal(imi)
+			if err != nil {
+				return nil, err
+			}
+			result.Items = append(result.Items, entity.ManifestItem{
+				Name:   items[4],
+				Value:  items[1],
+				Detail: string(detail),
+			})
+		} else {
+			return nil, errors.New("ima manifest format is wrong")
+		}
+	}
+	return result, nil
 }
