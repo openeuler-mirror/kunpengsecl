@@ -18,7 +18,6 @@ package clientapi
 
 import (
 	"context"
-	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +29,6 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 
@@ -57,28 +55,6 @@ type service struct {
 }
 
 func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
-	//get decode cert
-	cert, err := pca.DecodeCert(in.EkCert)
-	if err != nil {
-		return &CreateIKCertReply{}, err
-	}
-	fmt.Println(cert.Version)
-	//get decode pubkey
-	pub, err := pca.DecodePubkey(in.IkPub)
-	if err != nil {
-		return &CreateIKCertReply{}, err
-	}
-	req := pca.Request{
-		TPMVer: "2.0",
-		AkPub:  nil,
-		AkName: in.IkName,
-	}
-	switch pub := pub.(type) {
-	case *rsa.PublicKey:
-		req.AkPub = pub
-	default:
-		return &CreateIKCertReply{}, errors.New("unknown type public key")
-	}
 
 	return &CreateIKCertReply{
 		IcEncrypted: &CertEncrypted{
