@@ -50,7 +50,6 @@ func RecordReport(report *entity.Report) error {
 		if err != nil {
 			return err
 		}
-		defer psd.Destroy()
 		err = psd.SaveReport(report)
 		if err != nil {
 			return err
