@@ -162,17 +162,8 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic []byt
 
 // UnRegisterClient set only deleted flag in register_client table, but reserves all other client information.
 func (psd *PostgreSqlDAO) UnRegisterClient(clientID int64) error {
-	tx, err := psd.conn.Begin(context.Background())
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(context.Background(),
+	_, err := psd.conn.Exec(context.Background(),
 		"UPDATE register_client SET deleted=$1, online=$2 WHERE id=$3", true, false, clientID)
-	if err != nil {
-		tx.Rollback(context.Background())
-		return err
-	}
-	err = tx.Commit(context.Background())
 	if err != nil {
 		return err
 	}

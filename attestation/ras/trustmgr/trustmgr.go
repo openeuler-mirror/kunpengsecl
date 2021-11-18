@@ -50,7 +50,6 @@ func RecordReport(report *entity.Report) error {
 		if err != nil {
 			return err
 		}
-		defer psd.Destroy()
 		err = psd.SaveReport(report)
 		if err != nil {
 			return err
@@ -81,6 +80,14 @@ func UnRegisterClient(clientId int64) error {
 		return err
 	}
 	return nil
+}
+
+func GetLatestReportById(clientId int64) (*entity.Report, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return nil, err
+	}
+	return psd.SelectLatestReportById(clientId)
 }
 
 func getPostgreSQLDAO() (*dao.PostgreSqlDAO, error) {
