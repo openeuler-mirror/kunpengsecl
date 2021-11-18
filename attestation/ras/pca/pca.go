@@ -22,9 +22,74 @@ const (
 	TPM_CBC = "CBC"
 )
 
+var (
+	rw, err = tpm2.OpenTPM("/dev/tpmrm0")
+)
+
 type PCA struct {
 }
 type PrivacyCA interface {
+}
+
+//GetIkCert
+func GetIkCert(ekCert string, ikPub string, ikName []byte) (*ToICandSymKey, error) {
+	//get decode cert
+	cert, err := DecodeCert(ekCert)
+	if err != nil {
+		return &ToICandSymKey{}, err
+	}
+	fmt.Println(cert.Version)
+	//verify the ekcert
+	VerifyEkCert(cert)
+	//get decode pubkey
+	pub, err := DecodePubkey(ikPub)
+	if err != nil {
+		return &ToICandSymKey{}, err
+	}
+	req := Request{
+		TPMVer: "2.0",
+		IkPub:  nil,
+		IkName: ikName,
+	}
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		req.IkPub = pub
+	default:
+		return &ToICandSymKey{}, errors.New("unknown type public key")
+	}
+	//Examine the Public key
+	ok := ExamineIkPub(pub)
+	if !ok {
+		return &ToICandSymKey{}, errors.New("failed the examine the ikpub")
+	}
+	//Generate the Credential(is the IkCert)
+
+	return &ToICandSymKey{}, nil
+
+}
+
+func newCert(key *rsa.PrivateKey) (*x509.Certificate, error) {
+	template := &x509.Certificate{
+		SerialNumber: new(big.Int).SetInt64(time.Now().UnixNano()),
+		Subject: pkix.Name{
+			CommonName: "privacy ca",
+		},
+		NotBefore:          time.Now().Add(-5 * time.Minute).UTC(),
+		NotAfter:           time.Now().AddDate(1, 0, 0).UTC(),
+		KeyUsage:           x509.KeyUsageKeyEncipherment | x509.KeyUsageDataEncipherment,
+		SignatureAlgorithm: x509.DSAWithSHA256,
+	}
+	Bytes, err := x509.CreateCertificate(rand.Reader, template, template, key.Public(), key)
+	if err != nil {
+		return nil, err
+	}
+	return x509.ParseCertificate(Bytes)
+}
+
+//Examine  IkPub
+func ExamineIkPub(pub crypto.PublicKey) bool {
+
+	return true
 }
 
 //Decode the cert from pem cert
@@ -54,7 +119,7 @@ func DecodePubkey(pemPubKey string) (crypto.PublicKey, error) {
 }
 
 //Decode the privateKey from pem PrivKey
-func DecodePrivkey(pemPrivKey string) (crypto.PublicKey, error) {
+func DecodePrivkey(pemPrivKey string) (crypto.PrivateKey, error) {
 	block, _ := pem.Decode([]byte(pemPrivKey))
 	if block == nil || block.Type != "PRIVATE KEY" {
 		return nil, errors.New("failed to decode PEM block containing private key")
@@ -96,8 +161,7 @@ func VerifyEkCert(EkCert *x509.Certificate) bool {
 }
 
 //通过pca的私钥作为签名，颁发Ak证书即生成AC
-func GenerateAkCert(privacycaKey crypto.PrivateKey, privacycaCert *x509.Certificate, AkPub rsa.PublicKey) ([]byte, error) {
-	//还未确定明白Templte中应该包含哪些
+func GenerateIkCert(privacycaKey crypto.PrivateKey, privacycaCert *x509.Certificate, IkPub rsa.PublicKey) ([]byte, error) {
 	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	if err != nil {
 		errors.New("create the serialNumber failed")
@@ -115,13 +179,13 @@ func GenerateAkCert(privacycaKey crypto.PrivateKey, privacycaCert *x509.Certific
 		IsCA:                  true,
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
-	} //通过x509.CreateCertificate()生成Akcert
-	AkCert, err := x509.CreateCertificate(rand.Reader, &template, privacycaCert, AkPub, privacycaKey)
+	} //通过x509.CreateCertificate()生成Ikcert
+	IkCert, err := x509.CreateCertificate(rand.Reader, &template, privacycaCert, IkPub, privacycaKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "while generate AkCert is error")
+		return nil, errors.Wrap(err, "while generate IkCert is error")
 	}
 
-	return AkCert, err
+	return IkCert, err
 }
 func GetSignatureALG(pubKey crypto.PublicKey) (x509.SignatureAlgorithm, error) {
 	switch pubKey.(type) {
@@ -135,26 +199,26 @@ func GetSignatureALG(pubKey crypto.PublicKey) (x509.SignatureAlgorithm, error) {
 type IdentityResponse struct {
 }
 
-func getKeybyKDFa(rw io.ReadWriter) ([]byte, []byte, error) {
+func getKeybyKDFa(rw io.ReadWriter) ([]byte, error) {
 
 	//get the seed
 	seed, err := tpm2.GetRandom(rw, 16)
 	if err != nil {
-		return nil, nil, errors.Errorf("failed get seed from TPM")
+		return nil, errors.Errorf("failed get seed from TPM")
 	}
 	contextU := []byte{'k', 'e', 'k', 0}
 	contextV := []byte{'y', 'o', 'y', 'o', 0}
 	key, err := tpm2.KDFa(tpm2.AlgSHA256, seed, "IDENTITY", contextU, contextV, 128)
 	if err != nil {
-		return nil, nil, errors.Errorf("failed create key from KDFa")
+		return nil, errors.Errorf("failed create key from KDFa")
 	}
 
-	return key, nil, nil
+	return key, nil
 }
 
 //加密ac
-func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
-	//对传进来的akCert进行加密，使用symKey作为加密密钥
+func EncryptIkcert(IkCert []byte, IkName []byte) (ToICandSymKey, error) {
+	//对传进来的IkCert进行加密，使用symKey作为加密密钥
 	Secret, err := CreateRandomByte(16)
 	if err != nil {
 		errors.New("failed create the symkey of a random byte")
@@ -168,7 +232,7 @@ func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
 	if err != nil {
 		errors.New("failed create the iv of a random byte")
 	}
-	encryptAC, err := SymetricEncrypt(AkCert, Secret, iv, TPM_AES, TPM_CBC)
+	encryptIC, err := SymetricEncrypt(IkCert, Secret, iv, TPM_AES, TPM_CBC)
 
 	if err != nil {
 		errors.New("failed the SymetricEncrypt")
@@ -178,12 +242,12 @@ func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
 		errors.New("failed CreatePrimary")
 	}
 	//generate the credential
-	credentialSecret, credentialBlob, err := tpm2.MakeCredential(simulator, parentHandle, Secret, AkName)
+	credentialSecret, credentialBlob, err := tpm2.MakeCredential(simulator, parentHandle, Secret, IkName)
 	if err != nil {
 		errors.New("failed the MakeCredential")
 	}
 	//encrypt the Secret by symkey from KDFa
-	key, encryptSeed, err := getKeybyKDFa(simulator)
+	key, err := getKeybyKDFa(simulator)
 	if err != nil {
 		errors.New("failed get key from KDFa")
 	}
@@ -192,12 +256,11 @@ func EncryptAkcert(AkCert []byte, AkName []byte) (ToACandSymKey, error) {
 		errors.New("failed encrypt the Secret")
 	}
 	symKeyParams := TPMSymKeyParams{
-		EncryptAC:     encryptAC,
-		EncryptSeed:   encryptSeed,
+		EncryptIC:     encryptIC,
 		EncryptSecret: encryptSecret,
 		IV:            iv,
 	}
-	toACandsymKey := ToACandSymKey{
+	toACandsymKey := ToICandSymKey{
 		Credential:      credentialSecret,
 		SymBlob:         credentialBlob,
 		TPMSymKeyParams: symKeyParams,
