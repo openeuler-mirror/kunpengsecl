@@ -68,7 +68,7 @@ func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*C
 	}, nil
 }
 
-// RegisterClient TODO: need a challenge
+// RegisterClient TODO: need a challenge and some statement for check nil pointer (this package functions all need this)
 func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
 	log.Printf("Server: receive RegisterClient")
 	// register and get clientId
@@ -162,8 +162,6 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 	s.Lock()
 	info, ok := s.cli[cid]
 	if ok {
-		log.Printf("report %d", cid)
-		info.cache.UpdateTrustReport()
 		report := in.GetTrustReport()
 		// transform pcr info from struct in grpc to struct in ras
 		opvs := report.GetPcrInfo().GetPcrValues()
@@ -229,6 +227,10 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 		if err != nil {
 			return nil, err
 		}
+
+		log.Printf("report %d", cid)
+		info.cache.ClearCommands()
+		info.cache.UpdateTrustReport()
 	}
 	s.Unlock()
 	return &SendReportReply{Result: true}, nil
