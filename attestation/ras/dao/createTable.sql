@@ -61,6 +61,5 @@ CREATE TABLE base_value_manifest(
                                       base_value_ver INT,
                                       type VARCHAR(16),
                                       name VARCHAR(128),
-                                      value TEXT,
-                                      detail TEXT
+                                      value TEXT
 );

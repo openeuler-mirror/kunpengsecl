@@ -170,7 +170,7 @@ func (psd *PostgreSqlDAO) UnRegisterClient(clientID int64) error {
 	return nil
 }
 
-func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, info entity.PcrInfo, manifest []entity.Manifest) error {
+func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, meaInfo *entity.MeasurementInfo) error {
 	var baseValueVer int
 	tx, err := psd.conn.Begin(context.Background())
 	if err != nil {
@@ -193,27 +193,26 @@ func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, info entity.PcrInfo, man
 		return err
 	}
 
-	for k, v := range info.Values {
+	for k, v := range meaInfo.PcrInfo.Values {
 		_, err = tx.Exec(context.Background(),
 			"INSERT INTO base_value_pcr_info(client_id, base_value_ver, pcr_id, alg_name, pcr_value) VALUES ($1, $2, $3, $4, $5)",
-			clientID, baseValueVer, k, info.AlgName, v)
+			clientID, baseValueVer, k, meaInfo.PcrInfo.AlgName, v)
 		if err != nil {
 			tx.Rollback(context.Background())
 			return err
 		}
 	}
 
-	for _, mf := range manifest {
-		for _, item := range mf.Items {
-			_, err = tx.Exec(context.Background(),
-				"INSERT INTO base_value_manifest(client_id, base_value_ver, type, name, value, detail) "+
-					"VALUES ($1, $2, $3, $4, $5, $6)",
-				clientID, baseValueVer, mf.Type, item.Name, item.Value, item.Detail)
-			if err != nil {
-				tx.Rollback(context.Background())
-				return err
-			}
+	for _, mf := range meaInfo.Manifest {
+		_, err = tx.Exec(context.Background(),
+			"INSERT INTO base_value_manifest(client_id, base_value_ver, type, name, value) "+
+				"VALUES ($1, $2, $3, $4, $5)",
+			clientID, baseValueVer, mf.Type, mf.Name, mf.Value)
+		if err != nil {
+			tx.Rollback(context.Background())
+			return err
 		}
+
 	}
 
 	err = tx.Commit(context.Background())

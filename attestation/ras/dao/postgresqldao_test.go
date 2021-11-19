@@ -24,7 +24,18 @@ racconfig:
   trustduration: 2m0s
 rasconfig:
   changetime: 2021-09-30T11:53:24.0581136+08:00
-  mgrstrategy: auto`
+  mgrstrategy: auto
+  basevalue-extract-rules:
+    pcrinfo:
+      pcrselection: [1, 2, 3, 4]
+    manifest:
+      -
+        type: bios
+        name: ["name1", "name2"]
+      -
+        type: ima
+        name: ["name1", "name2"] 
+  `
 
 func createConfigFile() {
 	ioutil.WriteFile("./config.yaml", []byte(testConfig), 0644)
@@ -193,40 +204,6 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 			Quoted: []byte("test quote"),
 		},
 	}
-
-	biosItem1 := entity.ManifestItem{
-		Name:   "test bios name1",
-		Value:  "test bios value1",
-		Detail: "test bios detail1",
-	}
-	biosItem2 := entity.ManifestItem{
-		Name:   "test bios name2",
-		Value:  "test bios value2",
-		Detail: "test bios detail2",
-	}
-	imaItem1 := entity.ManifestItem{
-		Name:   "test ima name1",
-		Value:  "test ima value1",
-		Detail: "test ima detail1",
-	}
-	biosManifest := entity.Manifest{
-		Type: "bios",
-		Items: []entity.ManifestItem{
-			0: biosItem1,
-			1: biosItem2,
-		},
-	}
-	imaManifest := entity.Manifest{
-		Type: "ima",
-		Items: []entity.ManifestItem{
-			0: imaItem1,
-		},
-	}
-	manifest := []entity.Manifest{
-		0: biosManifest,
-		1: imaManifest,
-	}
-
 	createConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
@@ -240,7 +217,28 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = psd.SaveBaseValue(clientIds[0], pcrInfo, manifest)
+	testMea := entity.MeasurementInfo{
+		ClientID: clientIds[0],
+		PcrInfo:  pcrInfo,
+		Manifest: []entity.Measurement{
+			0: {
+				Type:  "bios",
+				Name:  "test bios name1",
+				Value: "test bios value1",
+			},
+			1: {
+				Type:  "bios",
+				Name:  "test bios name2",
+				Value: "test bios value2",
+			},
+			2: {
+				Type:  "ima",
+				Name:  "test ima name1",
+				Value: "test ima value1",
+			},
+		},
+	}
+	err = psd.SaveBaseValue(clientIds[0], &testMea)
 	if err != nil {
 		t.Fatal(err)
 	}
