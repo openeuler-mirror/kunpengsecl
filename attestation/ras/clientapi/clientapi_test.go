@@ -3,41 +3,16 @@ package clientapi
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	grpc "google.golang.org/grpc"
 )
-
-const testConfig = `conftype: server
-database:
-  dbname: kunpengsecl
-  host: localhost
-  password: "postgres"
-  port: 5432
-  user: "postgres"
-racconfig:
-  hbduration: 3s
-  trustduration: 2m0s
-rasconfig:
-  changetime: 2021-09-30T11:53:24.0581136+08:00
-  mgrstrategy: auto
-  basevalue-extract-rules:
-    pcrinfo:
-      pcrselection: [1, 2, 3, 4]
-    manifest:
-      -
-        type: bios
-        name: ["name1", "name2"]
-      -
-        type: ima
-        name: ["name1", "name2"] 
-  `
 
 const certPEM = `
 -----BEGIN CERTIFICATE-----
@@ -95,10 +70,6 @@ const testIMAManifest = `10 7971593a7ad22a7cce5b234e4bc5d71b04696af4 ima b5a166c
 10 247dba6fc82b346803660382d1973c019243e59f ima 747acb096b906392a62734916e0bb39cef540931 ld-2.9.so
 10 341de30a46fa55976b26e55e0e19ad22b5712dcb ima 326045fc3d74d8c8b23ac8ec0a4d03fdacd9618a ld.so.cache`
 
-func createConfigFile() {
-	ioutil.WriteFile("./config.yaml", []byte(testConfig), 0644)
-}
-
 type testValidator struct {
 }
 
@@ -107,7 +78,7 @@ func (tv *testValidator) Validate(report *entity.Report) error {
 }
 func TestClientAPI(t *testing.T) {
 	const addr string = "127.0.0.1:40001"
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()

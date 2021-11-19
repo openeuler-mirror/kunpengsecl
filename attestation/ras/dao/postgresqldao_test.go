@@ -2,46 +2,18 @@ package dao
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"github.com/stretchr/testify/assert"
 )
 
-const testConfig = `conftype: server
-database:
-  dbname: kunpengsecl
-  host: localhost
-  password: "postgres"
-  port: 5432
-  user: "postgres"
-racconfig:
-  hbduration: 3s
-  trustduration: 2m0s
-rasconfig:
-  changetime: 2021-09-30T11:53:24.0581136+08:00
-  mgrstrategy: auto
-  basevalue-extract-rules:
-    pcrinfo:
-      pcrselection: [1, 2, 3, 4]
-    manifest:
-      -
-        type: bios
-        name: ["name1", "name2"]
-      -
-        type: ima
-        name: ["name1", "name2"] 
-  `
-
-func createConfigFile() {
-	ioutil.WriteFile("./config.yaml", []byte(testConfig), 0644)
-}
 func TestPostgreSqlDAOSaveReport(t *testing.T) {
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()
@@ -130,7 +102,7 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 }
 
 func TestRegisterClient(t *testing.T) {
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()
@@ -153,7 +125,7 @@ func TestRegisterClient(t *testing.T) {
 }
 
 func TestUnRegisterClient(t *testing.T) {
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()
@@ -204,7 +176,7 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 			Quoted: []byte("test quote"),
 		},
 	}
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()
@@ -262,7 +234,7 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 }
 
 func TestSelectReportById(t *testing.T) {
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()

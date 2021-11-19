@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 )
 
 func TestRaHub(t *testing.T) {
 	const addr string = "127.0.0.1:40004"
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()

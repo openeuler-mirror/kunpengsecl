@@ -134,7 +134,7 @@ func TestCreateTrustReport(t *testing.T) {
 		}
 		pcrValues[key] = value
 	}
-	for i, _ := range pcrmp {
+	for i := range pcrmp {
 		if got.PcrInfo.Values[i] != pcrValues[i] {
 			t.Fatalf("PCRs are not equal, got %v want %v", []byte(got.PcrInfo.Values[i]), pcrValues[i])
 		}
