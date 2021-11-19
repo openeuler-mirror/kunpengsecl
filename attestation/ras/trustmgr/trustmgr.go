@@ -44,7 +44,9 @@ func RecordReport(report *entity.Report) error {
 	} else {
 		err := validator.Validate(report)
 		if err != nil {
-			return err
+			report.Verified = false
+		} else {
+			report.Verified = true
 		}
 		psd, err := getPostgreSQLDAO()
 		if err != nil {
@@ -54,6 +56,17 @@ func RecordReport(report *entity.Report) error {
 		if err != nil {
 			return err
 		}
+		// if this is the first report of this RAC, extract base value
+		isFirstReport, err := isFirstReport(report.ClientID)
+		if err != nil {
+			return err
+		}
+		baseValue := entity.MeasurementInfo{}
+		if isFirstReport {
+			extractor.Extract(report, &baseValue)
+		}
+		psd.SaveBaseValue(report.ClientID, &baseValue)
+
 		return nil
 	}
 }
@@ -99,4 +112,19 @@ func getPostgreSQLDAO() (*dao.PostgreSqlDAO, error) {
 		}
 	}
 	return postgreSqlDAO, nil
+}
+
+func isFirstReport(clientId int64) (bool, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return false, err
+	}
+	reports, err := psd.SelectReportsById(clientId)
+	if err != nil {
+		return false, err
+	}
+	if reports == nil {
+		return true, nil
+	}
+	return false, nil
 }
