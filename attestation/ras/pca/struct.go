@@ -95,7 +95,7 @@ var (
 	}
 )
 
-type ToACandSymKey struct {
+type ToICandSymKey struct {
 	Credential      []byte
 	TPMSymKeyParams TPMSymKeyParams
 	SymBlob         []byte
@@ -105,8 +105,7 @@ type TPMSymKeyParams struct {
 	TPMSymAlgorithm string
 	TPMEncscheme    string
 	EncryptSecret   []byte
-	EncryptSeed     []byte
-	EncryptAC       []byte
+	EncryptIC       []byte
 	IV              []byte
 }
 type TPMAsymKeyParams struct {
@@ -116,8 +115,8 @@ type TPMAsymKeyParams struct {
 type Request struct {
 	//身份请求
 	TPMVer string //TPM版本
-	AkPub  *rsa.PublicKey
-	AkName []byte //ak名字
+	IkPub  *rsa.PublicKey
+	IkName []byte //ak名字
 
 }
 type IdentitySymKey struct {
