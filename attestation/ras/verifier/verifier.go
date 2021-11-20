@@ -133,7 +133,7 @@ func (pv *PCRVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.
 	}
 	for id, bvvalue := range baseValue.PcrInfo.Values {
 		rpvalue, isexist := report.PcrInfo.Values[id]
-		if isexist == false || bvvalue != rpvalue {
+		if !isexist || bvvalue != rpvalue {
 			return fmt.Errorf("PCR verification failed")
 		}
 	}
