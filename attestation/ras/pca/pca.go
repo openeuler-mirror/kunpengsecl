@@ -68,6 +68,46 @@ func GetIkCert(ekCert string, ikPub string, ikName []byte) (*ToICandSymKey, erro
 
 }
 
+// The certificate is signed by parent. If parent is equal to template then the
+// certificate is self-signed. The parameter pub is the public key of the
+// signee and priv is the private key of the signer.
+func GenerateCert(template, parent *x509.Certificate, pub *rsa.PublicKey, priv *rsa.PrivateKey) (*x509.Certificate, []byte, error) {
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
+	if err != nil {
+		return nil, nil, errors.New("Failed to create certificate: " + err.Error())
+	}
+	cert, err := x509.ParseCertificate(certBytes)
+	if err != nil {
+		return nil, nil, errors.New("Failed to parse certificate: " + err.Error())
+	}
+	block := pem.Block{Type: "CERTIFICATE", Bytes: certBytes}
+	certPem := pem.EncodeToMemory(&block)
+	return cert, certPem, nil
+}
+
+//return a root CA and its privateKey
+func GenerateRootCA() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
+	var rootTemplate = x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Country:      []string{"China"},
+			Organization: []string{"Commpany"},
+			CommonName:   "Root CA",
+		},
+		NotBefore:             time.Now().Add(-10 * time.Second),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rootCert, rootPEM, err := GenerateCert(&rootTemplate, &rootTemplate, &priv.PublicKey, priv)
+	return rootCert, rootPEM, priv, nil
+}
 func newCert(key *rsa.PrivateKey) (*x509.Certificate, error) {
 	template := &x509.Certificate{
 		SerialNumber: new(big.Int).SetInt64(time.Now().UnixNano()),
