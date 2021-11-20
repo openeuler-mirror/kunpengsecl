@@ -2,15 +2,39 @@ package pca
 
 import (
 	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 //test
+func TestGenerateCert(t *testing.T) {
+	var template = x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Country:      []string{"test"},
+			Organization: []string{"test"},
+			CommonName:   "test CA",
+		},
+		IsCA: true,
+	}
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		assert.NoError(t, err)
+	}
+	_, _, err = GenerateCert(&template, &template, &priv.PublicKey, priv)
+	assert.NoError(t, err)
+}
+func TestGenerateRootCA(t *testing.T) {
+	_, _, _, err := GenerateRootCA()
+	assert.NoError(t, err)
+}
 func TestGetIkCert(t *testing.T) {
 	_, err := GetIkCert(CertPEM, PubPEM, nil)
 	assert.NoError(t, err)
