@@ -36,15 +36,16 @@ func TestGenerateRootCA(t *testing.T) {
 	assert.NoError(t, err)
 }
 func TestGeneratePCACert(t *testing.T) {
-	rootCert, _, rootKey, err := GenerateRootCA()
+	rootCert, rootPem, rootKey, err := GenerateRootCA()
 	assert.NoError(t, err)
-	_, _, _, err = GeneratePCACert(rootCert, rootKey)
+	fmt.Println("rootCert\n", string(rootPem))
+	_, pem, _, err := GeneratePCACert(rootCert, rootKey)
+	fmt.Println("Cert\n", string(pem))
 	assert.NoError(t, err)
 }
 func TestGetIkCert(t *testing.T) {
 	_, err := GetIkCert(CertPEM, PubPEM, nil)
 	assert.NoError(t, err)
-
 }
 func TestVerifyPCACert(t *testing.T) {
 	rootCert, _, rootKey, err := GenerateRootCA()
@@ -70,13 +71,6 @@ func TestPCAForUnsupportedTpm(t *testing.T) {
 
 	_, err := NewPCA(req)
 	assert.Error(t, err)
-}
-func TestVerifyEkCert(t *testing.T) {
-	fmt.Println("This is a test of VerifyEkCert")
-	cert, err := DecodeCert(CertPEM)
-	assert.NoError(t, err)
-	success := VerifyEkCert(cert)
-	assert.False(t, success)
 }
 func TestGenerateIkCert(t *testing.T) {
 	fmt.Println("This is a test of GenerateIkCert")
