@@ -43,7 +43,8 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 	}
 	configs := []ConfigItem{}
 	for key, val := range cfgMap {
-		configs = append(configs, ConfigItem{&key, &val})
+                k, v := key, val
+		configs = append(configs, ConfigItem{&k, &v})
 	}
 	return ctx.JSON(http.StatusOK, configs)
 }
