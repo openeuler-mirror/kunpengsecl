@@ -2,6 +2,7 @@ package restapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwt"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
 )
 
@@ -21,9 +23,28 @@ type RasServer struct {
 // Return a list of all config items in key:value pair format
 // (GET /config)
 func (s *RasServer) GetConfig(ctx echo.Context) error {
-	name := "version"
-	value := "0.1.0"
-	configs := [...]ConfigItem{{&name, &value}}
+	cfg := config.GetDefault()
+	er := cfg.GetExtractRules()
+	jsonER, err := json.Marshal(er)
+	if err != nil {
+		fmt.Println(err)
+	}
+	strER := string(jsonER)
+	cfgMap := map[string]string{
+		"dbHost":        cfg.GetHost(),
+		"dbName":        cfg.GetDBName(),
+		"dbUser":        cfg.GetUser(),
+		"dbPort":        fmt.Sprint(cfg.GetPort()),
+		"mgrStrategy":   cfg.GetMgrStrategy(),
+		"changeTime":    fmt.Sprint(cfg.GetChangeTime()),
+		"extractRules":  strER,
+		"hbDuration":    fmt.Sprint(cfg.GetHBDuration()),
+		"trustDuration": fmt.Sprint(cfg.GetTrustDuration()),
+	}
+	configs := []ConfigItem{}
+	for key, val := range cfgMap {
+		configs = append(configs, ConfigItem{&key, &val})
+	}
 	return ctx.JSON(http.StatusOK, configs)
 }
 
