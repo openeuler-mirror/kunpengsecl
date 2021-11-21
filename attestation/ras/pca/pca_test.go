@@ -1,7 +1,6 @@
 package pca
 
 import (
-	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -32,13 +31,28 @@ func TestGenerateCert(t *testing.T) {
 	assert.NoError(t, err)
 }
 func TestGenerateRootCA(t *testing.T) {
-	_, _, _, err := GenerateRootCA()
+	_, rootPem, _, err := GenerateRootCA()
+	fmt.Println("rootCert\n", string(rootPem))
+	assert.NoError(t, err)
+}
+func TestGeneratePCACert(t *testing.T) {
+	rootCert, _, rootKey, err := GenerateRootCA()
+	assert.NoError(t, err)
+	_, _, _, err = GeneratePCACert(rootCert, rootKey)
 	assert.NoError(t, err)
 }
 func TestGetIkCert(t *testing.T) {
 	_, err := GetIkCert(CertPEM, PubPEM, nil)
 	assert.NoError(t, err)
 
+}
+func TestVerifyPCACert(t *testing.T) {
+	rootCert, _, rootKey, err := GenerateRootCA()
+	assert.NoError(t, err)
+	pcaCert, _, _, err := GeneratePCACert(rootCert, rootKey)
+	assert.NoError(t, err)
+	_, err = verifyPCACert(rootCert, pcaCert)
+	assert.NoError(t, err)
 }
 func TestDecodeCert(t *testing.T) {
 	_, err := DecodeCert(CertPEM)
@@ -64,15 +78,16 @@ func TestVerifyEkCert(t *testing.T) {
 	success := VerifyEkCert(cert)
 	assert.False(t, success)
 }
-func TestGenerateAkCert(t *testing.T) {
-	fmt.Println("This is a test of GenerateAkCert")
-	//
-	var pcaPriv crypto.PrivateKey
-	//var pcaPub crypto.PublicKey
-	var pcaCert *x509.Certificate
-	var akPub rsa.PublicKey
-	_, err := GenerateIkCert(pcaPriv, pcaCert, akPub)
-	assert.Error(t, err)
+func TestGenerateIkCert(t *testing.T) {
+	fmt.Println("This is a test of GenerateIkCert")
+	rootCert, _, rootKey, err := GenerateRootCA()
+	assert.NoError(t, err)
+	pcaCert, _, pcaPriv, err := GeneratePCACert(rootCert, rootKey)
+	assert.NoError(t, err)
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	assert.NoError(t, err)
+	_, _, err = GenerateIkCert(pcaCert, pcaPriv, &priv.PublicKey)
+	assert.NoError(t, err)
 }
 func TestEncryptAkcert(t *testing.T) {
 	var akCert, _ = CreateRandomByte(16)
