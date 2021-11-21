@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net"
 	"time"
 
 	"github.com/google/go-tpm-tools/simulator"
@@ -20,10 +21,6 @@ import (
 const (
 	TPM_AES = "AES"
 	TPM_CBC = "CBC"
-)
-
-var (
-	rw, err = tpm2.OpenTPM("/dev/tpmrm0")
 )
 
 type PCA struct {
@@ -100,6 +97,8 @@ func GenerateRootCA() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
+		MaxPathLen:            2,
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
 	}
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -108,22 +107,30 @@ func GenerateRootCA() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 	rootCert, rootPEM, err := GenerateCert(&rootTemplate, &rootTemplate, &priv.PublicKey, priv)
 	return rootCert, rootPEM, priv, nil
 }
-func newCert(key *rsa.PrivateKey) (*x509.Certificate, error) {
-	template := &x509.Certificate{
+func GeneratePCACert(RootCert *x509.Certificate, Rootkey *rsa.PrivateKey) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	PCAtemplate := x509.Certificate{
 		SerialNumber: new(big.Int).SetInt64(time.Now().UnixNano()),
 		Subject: pkix.Name{
-			CommonName: "privacy ca",
+			Country:      []string{"China"},
+			Organization: []string{"Company"},
+			CommonName:   "privacy ca",
 		},
-		NotBefore:          time.Now().Add(-5 * time.Minute).UTC(),
-		NotAfter:           time.Now().AddDate(1, 0, 0).UTC(),
-		KeyUsage:           x509.KeyUsageKeyEncipherment | x509.KeyUsageDataEncipherment,
-		SignatureAlgorithm: x509.DSAWithSHA256,
+		NotBefore:             time.Now().Add(-10 * time.Second),
+		NotAfter:              time.Now().AddDate(1, 0, 0),
+		KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		MaxPathLenZero:        false,
+		MaxPathLen:            1,
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
 	}
-	Bytes, err := x509.CreateCertificate(rand.Reader, template, template, key.Public(), key)
-	if err != nil {
-		return nil, err
-	}
-	return x509.ParseCertificate(Bytes)
+	pcaCert, pcaPem, err := GenerateCert(&PCAtemplate, RootCert, &priv.PublicKey, Rootkey)
+	return pcaCert, pcaPem, priv, nil
 }
 
 //Examine  IkPub
@@ -200,32 +207,38 @@ func VerifyEkCert(EkCert *x509.Certificate) bool {
 	return true
 }
 
+//pca's private key and the ikPub are the input
 //通过pca的私钥作为签名，颁发Ak证书即生成AC
-func GenerateIkCert(privacycaKey crypto.PrivateKey, privacycaCert *x509.Certificate, IkPub rsa.PublicKey) ([]byte, error) {
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	if err != nil {
-		errors.New("create the serialNumber failed")
-	}
-	notBefore := time.Now()
-	notAfter := notBefore.Add(8760 * time.Hour)
+func GenerateIkCert(privacycaCert *x509.Certificate, privacycaKey *rsa.PrivateKey, IkPub *rsa.PublicKey) (*x509.Certificate, []byte, error) {
+
 	template := x509.Certificate{
-		Version:      2.0,
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{}, //there is a question
-		},
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-	} //通过x509.CreateCertificate()生成Ikcert
-	IkCert, err := x509.CreateCertificate(rand.Reader, &template, privacycaCert, IkPub, privacycaKey)
+		SerialNumber:   big.NewInt(1),
+		NotBefore:      time.Now().Add(-10 * time.Second),
+		NotAfter:       time.Now().AddDate(10, 0, 0),
+		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		IsCA:           false,
+		MaxPathLenZero: true,
+		IPAddresses:    []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	ikCert, ikPem, err := GenerateCert(&template, privacycaCert, IkPub, privacycaKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "while generate IkCert is error")
+		return nil, nil, errors.Wrap(err, "failed to generate IkCert")
 	}
 
-	return IkCert, err
+	return ikCert, ikPem, err
+}
+
+//verify the pca Cert by root cert pool
+func verifyPCACert(root, cert *x509.Certificate) (bool, error) {
+	roots := x509.NewCertPool()
+	roots.AddCert(root)
+	opts := x509.VerifyOptions{
+		Roots: roots,
+	}
+	if _, err := cert.Verify(opts); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 func GetSignatureALG(pubKey crypto.PublicKey) (x509.SignatureAlgorithm, error) {
 	switch pubKey.(type) {
