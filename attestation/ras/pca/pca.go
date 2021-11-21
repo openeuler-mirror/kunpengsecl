@@ -31,13 +31,20 @@ type PrivacyCA interface {
 //GetIkCert
 func GetIkCert(ekCert string, ikPub string, ikName []byte) (*ToICandSymKey, error) {
 	//get decode cert
+	root, err := DecodeCert(RootPEM)
+	if err != nil {
+		return &ToICandSymKey{}, err
+	}
 	cert, err := DecodeCert(ekCert)
 	if err != nil {
 		return &ToICandSymKey{}, err
 	}
 	fmt.Println(cert.Version)
 	//verify the ekcert
-	VerifyEkCert(cert)
+	ok, err := verifyPCACert(root, cert)
+	if !ok {
+		return &ToICandSymKey{}, err
+	}
 	//get decode pubkey
 	pub, err := DecodePubkey(ikPub)
 	if err != nil {
@@ -55,7 +62,7 @@ func GetIkCert(ekCert string, ikPub string, ikName []byte) (*ToICandSymKey, erro
 		return &ToICandSymKey{}, errors.New("unknown type public key")
 	}
 	//Examine the Public key
-	ok := ExamineIkPub(pub)
+	ok = ExamineIkPub(pub)
 	if !ok {
 		return &ToICandSymKey{}, errors.New("failed the examine the ikpub")
 	}
@@ -133,6 +140,27 @@ func GeneratePCACert(RootCert *x509.Certificate, Rootkey *rsa.PrivateKey) (*x509
 	return pcaCert, pcaPem, priv, nil
 }
 
+//pca's private key and the ikPub are the input
+//通过pca的私钥作为签名，颁发Ak证书即生成AC
+func GenerateIkCert(privacycaCert *x509.Certificate, privacycaKey *rsa.PrivateKey, IkPub *rsa.PublicKey) (*x509.Certificate, []byte, error) {
+
+	template := x509.Certificate{
+		SerialNumber:   big.NewInt(1),
+		NotBefore:      time.Now().Add(-10 * time.Second),
+		NotAfter:       time.Now().AddDate(10, 0, 0),
+		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		IsCA:           false,
+		MaxPathLenZero: true,
+		IPAddresses:    []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	ikCert, ikPem, err := GenerateCert(&template, privacycaCert, IkPub, privacycaKey)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to generate IkCert")
+	}
+
+	return ikCert, ikPem, err
+}
+
 //Examine  IkPub
 func ExamineIkPub(pub crypto.PublicKey) bool {
 
@@ -183,51 +211,6 @@ func NewPCA(req Request) (PrivacyCA, error) {
 	return nil, errors.New("NewPCA() Is a unsupported TPM")
 }
 
-//验证ek证书
-func VerifyEkCert(EkCert *x509.Certificate) bool {
-	//验证Ek证书签名的认证
-	//1. Create the set of root certificates
-	roots := x509.NewCertPool()
-	ok := roots.AppendCertsFromPEM([]byte(RootPEM))
-	if !ok {
-		errors.New("failed to parse root certificate")
-		return false
-	}
-	//2. verify the ekcert by the root certificate
-	cert, _ := DecodeCert(CertPEM)
-	opts := x509.VerifyOptions{
-		DNSName: "mail.google.com",
-		Roots:   roots,
-	}
-	if _, err := cert.Verify(opts); err != nil {
-		errors.New("failed to verify certificate")
-		return false
-	}
-
-	return true
-}
-
-//pca's private key and the ikPub are the input
-//通过pca的私钥作为签名，颁发Ak证书即生成AC
-func GenerateIkCert(privacycaCert *x509.Certificate, privacycaKey *rsa.PrivateKey, IkPub *rsa.PublicKey) (*x509.Certificate, []byte, error) {
-
-	template := x509.Certificate{
-		SerialNumber:   big.NewInt(1),
-		NotBefore:      time.Now().Add(-10 * time.Second),
-		NotAfter:       time.Now().AddDate(10, 0, 0),
-		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
-		IsCA:           false,
-		MaxPathLenZero: true,
-		IPAddresses:    []net.IP{net.ParseIP("127.0.0.1")},
-	}
-	ikCert, ikPem, err := GenerateCert(&template, privacycaCert, IkPub, privacycaKey)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to generate IkCert")
-	}
-
-	return ikCert, ikPem, err
-}
-
 //verify the pca Cert by root cert pool
 func verifyPCACert(root, cert *x509.Certificate) (bool, error) {
 	roots := x509.NewCertPool()
@@ -237,6 +220,28 @@ func verifyPCACert(root, cert *x509.Certificate) (bool, error) {
 	}
 	if _, err := cert.Verify(opts); err != nil {
 		return false, err
+	}
+	return true, nil
+}
+func VerifyIkCert(root, parentCert string, child *x509.Certificate) (bool, error) {
+	rootCert, err := DecodeCert(root)
+	if err != nil {
+		return false, errors.New("failed to decode the root")
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(rootCert)
+	pCert, err := DecodeCert(parentCert)
+	if err != nil {
+		return false, errors.New("failed to decode the parent cert")
+	}
+	inter := x509.NewCertPool()
+	inter.AddCert(pCert)
+	opts := x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: inter,
+	}
+	if _, err = child.Verify(opts); err != nil {
+		return false, errors.New("failed to verify the child cert")
 	}
 	return true, nil
 }
