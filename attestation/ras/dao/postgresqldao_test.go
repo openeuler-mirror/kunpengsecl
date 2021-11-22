@@ -3,7 +3,6 @@ package dao
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
@@ -12,28 +11,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPostgreSqlDAOSaveReport(t *testing.T) {
-	test.CreateConfigFile()
-	defer func() {
-		os.Remove("./config.yaml")
-	}()
-	psd, err := CreatePostgreSQLDAO()
-	if err != nil {
-		t.Fatalf("%v", err)
-		return
-	}
-	ci := &entity.ClientInfo{
+var (
+	ci = &entity.ClientInfo{
 		Info: map[string]string{
 			"info name1": "info value1",
 			"info name2": "info value2",
 		},
 	}
-	ic := createRandomCert()
-	id, err2 := psd.RegisterClient(ci, ic)
-	if err2 != nil {
-		t.FailNow()
+	ci1 = entity.ClientInfo{
+		Info: map[string]string{
+			"client_name":        "test_client",
+			"client_type":        "test_type",
+			"client_description": "test description",
+		},
 	}
-	pcrInfo := entity.PcrInfo{
+	pcrInfo = entity.PcrInfo{
 		AlgName: "sha256",
 		Values: map[int]string{
 			1: "pcr value 1",
@@ -43,38 +35,67 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 			Quoted: []byte("test quote"),
 		},
 	}
-
-	biosItem1 := entity.ManifestItem{
+	biosItem1 = entity.ManifestItem{
 		Name:   "test bios name1",
 		Value:  "test bios value1",
 		Detail: "test bios detail1",
 	}
-
-	biosItem2 := entity.ManifestItem{
+	biosItem2 = entity.ManifestItem{
 		Name:   "test bios name2",
 		Value:  "test bios value2",
 		Detail: "test bios detail2",
 	}
-
-	imaItem1 := entity.ManifestItem{
+	imaItem1 = entity.ManifestItem{
 		Name:   "test ima name1",
 		Value:  "test ima value1",
 		Detail: "test ima detail1",
 	}
-
-	biosManifest := entity.Manifest{
+	biosManifest = entity.Manifest{
 		Type: "bios",
 		Items: []entity.ManifestItem{
 			1: biosItem1,
 			2: biosItem2,
 		},
 	}
-
-	imaManifest := entity.Manifest{
+	imaManifest = entity.Manifest{
 		Type: "ima",
 		Items: []entity.ManifestItem{
 			1: imaItem1,
 		},
+	}
+	baseMeasurements = []entity.Measurement{
+		0: {
+			Type:  "bios",
+			Name:  "test bios name1",
+			Value: "test bios value1",
+		},
+		1: {
+			Type:  "bios",
+			Name:  "test bios name2",
+			Value: "test bios value2",
+		},
+		2: {
+			Type:  "ima",
+			Name:  "test ima name1",
+			Value: "test ima value1",
+		},
+	}
+)
+
+func TestPostgreSqlDAOSaveReport(t *testing.T) {
+	test.CreateConfigFile()
+	defer func() {
+		test.RemoveConfigFile()
+	}()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+		return
+	}
+	ic := createRandomCert()
+	id, err2 := psd.RegisterClient(ci, ic)
+	if err2 != nil {
+		t.FailNow()
 	}
 
 	testReport := &entity.Report{
@@ -83,14 +104,8 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 			1: biosManifest,
 			2: imaManifest,
 		},
-		ClientID: id,
-		ClientInfo: entity.ClientInfo{
-			Info: map[string]string{
-				"client_name":        "test_client",
-				"client_type":        "test_type",
-				"client_description": "test description",
-			},
-		},
+		ClientID:   id,
+		ClientInfo: ci1,
 	}
 
 	psdErr := psd.SaveReport(testReport)
@@ -104,18 +119,12 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 func TestRegisterClient(t *testing.T) {
 	test.CreateConfigFile()
 	defer func() {
-		os.Remove("./config.yaml")
+		test.RemoveConfigFile()
 	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
 		return
-	}
-	ci := &entity.ClientInfo{
-		Info: map[string]string{
-			"info name1": "info value1",
-			"info name2": "info value2",
-		},
 	}
 	ic := []byte("test ic3")
 	_, err2 := psd.RegisterClient(ci, ic)
@@ -127,18 +136,12 @@ func TestRegisterClient(t *testing.T) {
 func TestUnRegisterClient(t *testing.T) {
 	test.CreateConfigFile()
 	defer func() {
-		os.Remove("./config.yaml")
+		test.RemoveConfigFile()
 	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
 		return
-	}
-	ci := &entity.ClientInfo{
-		Info: map[string]string{
-			"info name1": "info value1",
-			"info name2": "info value2",
-		},
 	}
 	ic := []byte("test ic 1")
 	_, err2 := psd.RegisterClient(ci, ic)
@@ -166,19 +169,9 @@ func TestUnRegisterClient(t *testing.T) {
 }
 
 func TestSaveAndSelectBaseValue(t *testing.T) {
-	pcrInfo := entity.PcrInfo{
-		AlgName: "sha256",
-		Values: map[int]string{
-			1: "pcr value 1",
-			2: "pcr value 2",
-		},
-		Quote: entity.PcrQuote{
-			Quoted: []byte("test quote"),
-		},
-	}
 	test.CreateConfigFile()
 	defer func() {
-		os.Remove("./config.yaml")
+		test.RemoveConfigFile()
 	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
@@ -192,23 +185,7 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 	testMea := entity.MeasurementInfo{
 		ClientID: clientIds[0],
 		PcrInfo:  pcrInfo,
-		Manifest: []entity.Measurement{
-			0: {
-				Type:  "bios",
-				Name:  "test bios name1",
-				Value: "test bios value1",
-			},
-			1: {
-				Type:  "bios",
-				Name:  "test bios name2",
-				Value: "test bios value2",
-			},
-			2: {
-				Type:  "ima",
-				Name:  "test ima name1",
-				Value: "test ima value1",
-			},
-		},
+		Manifest: baseMeasurements,
 	}
 	err = psd.SaveBaseValue(clientIds[0], &testMea)
 	if err != nil {
@@ -236,67 +213,17 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 func TestSelectReportById(t *testing.T) {
 	test.CreateConfigFile()
 	defer func() {
-		os.Remove("./config.yaml")
+		test.RemoveConfigFile()
 	}()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
 		return
 	}
-
-	ci := &entity.ClientInfo{
-		Info: map[string]string{
-			"info name1": "info value1",
-			"info name2": "info value2",
-		},
-	}
 	ic := createRandomCert()
 	id, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
 		t.FailNow()
-	}
-	pcrInfo := entity.PcrInfo{
-		AlgName: "sha256",
-		Values: map[int]string{
-			1: "pcr value 1",
-			2: "pcr value 2",
-		},
-		Quote: entity.PcrQuote{
-			Quoted: []byte("test quote"),
-		},
-	}
-
-	biosItem1 := entity.ManifestItem{
-		Name:   "test bios name1",
-		Value:  "test bios value1",
-		Detail: "test bios detail1",
-	}
-
-	biosItem2 := entity.ManifestItem{
-		Name:   "test bios name2",
-		Value:  "test bios value2",
-		Detail: "test bios detail2",
-	}
-
-	imaItem1 := entity.ManifestItem{
-		Name:   "test ima name1",
-		Value:  "test ima value1",
-		Detail: "test ima detail1",
-	}
-
-	biosManifest := entity.Manifest{
-		Type: "bios",
-		Items: []entity.ManifestItem{
-			1: biosItem1,
-			2: biosItem2,
-		},
-	}
-
-	imaManifest := entity.Manifest{
-		Type: "ima",
-		Items: []entity.ManifestItem{
-			1: imaItem1,
-		},
 	}
 
 	testReport := &entity.Report{
@@ -305,14 +232,8 @@ func TestSelectReportById(t *testing.T) {
 			1: biosManifest,
 			2: imaManifest,
 		},
-		ClientID: id,
-		ClientInfo: entity.ClientInfo{
-			Info: map[string]string{
-				"client_name":        "test_client",
-				"client_type":        "test_type",
-				"client_description": "test description",
-			},
-		},
+		ClientID:   id,
+		ClientInfo: ci1,
 	}
 
 	for i := 0; i < 3; i++ {

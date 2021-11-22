@@ -5,8 +5,15 @@ import (
 )
 
 /*
-	dao is an interface for processing data in database
+	DAO is an interface for processing data in database
 */
-type dao interface {
-	SaveReport(report entity.Report) error
+type DAO interface {
+	SaveReport(report *entity.Report) error
+	RegisterClient(clientInfo *entity.ClientInfo, ic []byte) (int64, error)
+	UnRegisterClient(clientID int64) error
+	SaveBaseValue(clientID int64, meaInfo *entity.MeasurementInfo) error
+	SelectAllClientIds() ([]int64, error)
+	SelectReportsById(clientId int64) ([]*entity.Report, error)
+	SelectLatestReportById(clientId int64) (*entity.Report, error)
+	SelectBaseValueById(clientId int64) (*entity.MeasurementInfo, error)
 }

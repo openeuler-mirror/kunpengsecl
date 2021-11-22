@@ -1,6 +1,9 @@
 package test
 
-import "io/ioutil"
+import (
+	"io/ioutil"
+	"os"
+)
 
 const testConfig = `conftype: server
 database:
@@ -25,8 +28,13 @@ rasconfig:
       -
         type: ima
         name: ["name1", "name2"] 
-  `
+`
+const configFilePath = "./config.yaml"
 
 func CreateConfigFile() {
-	ioutil.WriteFile("./config.yaml", []byte(testConfig), 0644)
+	ioutil.WriteFile(configFilePath, []byte(testConfig), 0644)
+}
+
+func RemoveConfigFile() {
+	os.Remove(configFilePath)
 }
