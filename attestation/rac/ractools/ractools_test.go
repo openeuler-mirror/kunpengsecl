@@ -74,7 +74,7 @@ func TestCreateTrustReport(t *testing.T) {
 		}
 		pcrValues[key] = value
 	}
-	for i, _ := range pcrmp {
+	for i := range pcrmp {
 		if got.PcrInfo.Values[(int32)(i)] != pcrValues[i] {
 			t.Fatalf("PCRs are not equal, got %v want %v", []byte(got.PcrInfo.Values[(int32)(i)]), pcrValues[i])
 		}
@@ -90,6 +90,10 @@ func TestCreateTrustReport(t *testing.T) {
 		t.Fatalf("DecodeAttestationData failed: %s", err)
 	}
 
+	err = tpm.Close()
+	if err != nil {
+		t.Errorf("Close tpm failed, err: %v", err)
+	}
 }
 
 func TestRactools(t *testing.T) {

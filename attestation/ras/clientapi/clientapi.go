@@ -50,6 +50,7 @@ type (
 )
 
 type service struct {
+	UnimplementedRasServer
 	sync.Mutex
 	cli map[int64]*clientInfo
 }
@@ -173,44 +174,32 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 		oms := report.GetManifest()
 		var tms []entity.Manifest
 		for _, om := range oms {
-			isTypeExist := false
-			if tms != nil {
-				// if type has existed
-				for _, tm := range tms {
-					if om.Type == tm.Type {
-						isTypeExist = true
-						if strings.ToLower(om.Type) == "bios" {
-							mi, err := unmarshalBIOSManifest(om.Item)
-							if err != nil {
-								return nil, err
-							}
-							tm.Items = append(tm.Items, mi.Items...)
-						}
-						if strings.ToLower(om.Type) == "ima" {
-							mi, err := unmarshalIMAManifest(om.Item)
-							if err != nil {
-								return nil, err
-							}
-							tm.Items = append(tm.Items, mi.Items...)
-						}
-					}
+			handled := false
+			var mi *entity.Manifest
+			var err error
+
+			switch strings.ToLower(om.Type) {
+			case "bios":
+				mi, err = unmarshalBIOSManifest(om.Item)
+			case "ima":
+				mi, err = unmarshalIMAManifest(om.Item)
+			default:
+				err = fmt.Errorf("unsupported manifest type: %s", om.Type)
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			// if type has existed
+			for _, tm := range tms {
+				if om.Type == tm.Type {
+					handled = true
+					tm.Items = append(tm.Items, mi.Items...)
+					break
 				}
 			}
-			if !isTypeExist {
-				if strings.ToLower(om.Type) == "bios" {
-					mi, err := unmarshalBIOSManifest(om.Item)
-					if err != nil {
-						return nil, err
-					}
-					tms = append(tms, *mi)
-				}
-				if strings.ToLower(om.Type) == "ima" {
-					mi, err := unmarshalIMAManifest(om.Item)
-					if err != nil {
-						return nil, err
-					}
-					tms = append(tms, *mi)
-				}
+			if !handled {
+				tms = append(tms, *mi)
 			}
 		}
 		err := trustmgr.RecordReport(&entity.Report{
@@ -234,10 +223,6 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 	}
 	s.Unlock()
 	return &SendReportReply{Result: true}, nil
-}
-
-func (s *service) mustEmbedUnimplementedRasServer() {
-	// match the RasServer interface requirements.
 }
 
 // StartServer starts ras server and provides rpc services.
