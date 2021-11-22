@@ -92,6 +92,8 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 		t.Fatalf("%v", err)
 		return
 	}
+	defer psd.Destroy()
+
 	ic := createRandomCert()
 	id, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
@@ -126,6 +128,8 @@ func TestRegisterClient(t *testing.T) {
 		t.Fatalf("%v", err)
 		return
 	}
+	defer psd.Destroy()
+
 	ic := []byte("test ic3")
 	_, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
@@ -143,6 +147,8 @@ func TestUnRegisterClient(t *testing.T) {
 		t.Fatalf("%v", err)
 		return
 	}
+	defer psd.Destroy()
+
 	ic := []byte("test ic 1")
 	_, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
@@ -178,6 +184,8 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
+	defer psd.Destroy()
+
 	clientIds, err := psd.SelectAllClientIds()
 	if err != nil {
 		t.Fatal(err)
@@ -220,6 +228,8 @@ func TestSelectReportById(t *testing.T) {
 		t.Fatalf("%v", err)
 		return
 	}
+	defer psd.Destroy()
+
 	ic := createRandomCert()
 	id, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
@@ -242,6 +252,7 @@ func TestSelectReportById(t *testing.T) {
 			fmt.Println(psdErr)
 			t.FailNow()
 		}
+		time.Sleep(1 * time.Second)
 	}
 	reports, err := psd.SelectReportsById(id)
 	if err != nil {
@@ -252,7 +263,8 @@ func TestSelectReportById(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("the latest report is : %v", latestReport)
-	for _, r := range reports {
+	for i, r := range reports {
+		t.Logf("report %d: %v", i, r)
 		if latestReport.ReportTime.Before(r.ReportTime) {
 			t.Fatalf("get latest report failed")
 		}
