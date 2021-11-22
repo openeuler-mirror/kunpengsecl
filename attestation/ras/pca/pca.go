@@ -67,7 +67,15 @@ func GetIkCert(ekCert string, ikPub string, ikName []byte) (*ToICandSymKey, erro
 		return &ToICandSymKey{}, errors.New("failed the examine the ikpub")
 	}
 	//Generate the Credential(is the IkCert)
-
+	pcaCert, err := DecodeCert(CertPEM)
+	if err != nil {
+		return &ToICandSymKey{}, errors.New("Failed to decode the pca Cert")
+	}
+	pcaPriv, err := DecodePrivkey(PrivPEM)
+	_, _, err = GenerateIkCert(pcaCert, pcaPriv, req.IkPub)
+	if err != nil {
+		return &ToICandSymKey{}, errors.New("Failed to generate the ikCert")
+	}
 	return &ToICandSymKey{}, nil
 
 }
@@ -194,13 +202,37 @@ func DecodePubkey(pemPubKey string) (crypto.PublicKey, error) {
 }
 
 //Decode the privateKey from pem PrivKey
-func DecodePrivkey(pemPrivKey string) (crypto.PrivateKey, error) {
+func DecodePrivkey(pemPrivKey string) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode([]byte(pemPrivKey))
-	if block == nil || block.Type != "PRIVATE KEY" {
+	if block == nil {
 		return nil, errors.New("failed to decode PEM block containing private key")
 	}
+	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, errors.New("Failed to parse the private key")
+	}
+	return priv, nil
+}
 
-	return nil, nil
+//Generate a rsa key by rsa.generatekey
+func GenerateRsaKey() (*rsa.PrivateKey, *rsa.PublicKey, error) {
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, errors.New("Failed to generate the RSA key")
+	}
+	return privKey, &privKey.PublicKey, nil
+}
+
+//Encode the rsa key
+func EncodePrivKeyAsPemStr(priv *rsa.PrivateKey) (string, error) {
+	privByte := x509.MarshalPKCS1PrivateKey(priv)
+	privPem := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: privByte,
+		},
+	)
+	return string(privPem), nil
 }
 
 //生成一个新的pca接口

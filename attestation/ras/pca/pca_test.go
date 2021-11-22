@@ -63,6 +63,21 @@ func TestDecodePubkey(t *testing.T) {
 	_, err := DecodePubkey(PubPEM)
 	assert.NoError(t, err)
 }
+func TestDecodePrivKey(t *testing.T) {
+	_, err := DecodePrivkey(PrivPEM)
+	assert.NoError(t, err)
+}
+func TestGenerateRsaKey(t *testing.T) {
+	_, _, err := GenerateRsaKey()
+	assert.NoError(t, err)
+}
+func TestEncodePrivKeyAsPemStr(t *testing.T) {
+	priv, _, err := GenerateRsaKey()
+	assert.NoError(t, err)
+	privPem, err := EncodePrivKeyAsPemStr(priv)
+	fmt.Println(privPem)
+	assert.NoError(t, err)
+}
 func TestPCAForUnsupportedTpm(t *testing.T) {
 	//测试TPM的版本
 	req := Request{
