@@ -1,14 +1,8 @@
 package ractools
 
 import (
-	"bytes"
-	"flag"
-	"io"
-	"io/ioutil"
-	"os"
 	"testing"
 
-	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 )
@@ -18,27 +12,10 @@ const (
 )
 
 var (
-	tpmPath = flag.String("tpm-path", "", `Path to TPM character device. Most Linux systems 
-	expose it under /dev/tpm0. Empty value (default) will disable all integration tests.`)
-	pcrSelection = PcrSelection7
-	imaTestInfo  = `10 1d8d532d463c9f8c205d0df7787669a85f93e260 ima-ng 
-		sha1:0000000000000000000000000000000000000000 boot_aggregate`
-	imaInfo = `10 1d8d532d463c9f8c205d0df7787669a85f93e260 ima-ng 
-		sha1:0000000000000000000000000000000000000000 boot_aggregate`
-	imaTestPath        = "./imaTestPath"
-	imaPath            = "./imapath"
-	nonce       uint64 = 1
-	clientId    int64  = 1
-	//TPM simulator PCRDigest
-	PCRDigestS []byte = []byte{222, 71, 201, 178, 126, 184, 211, 0, 219, 181,
-		242, 195, 83, 230, 50, 195, 147, 38, 44, 240, 99, 64, 196, 250, 127, 27, 64, 196, 203, 211, 111, 144}
-	//Physical TPM PCRDigest
-	PCRDigestP []byte = []byte{60, 13, 233, 2, 198, 16, 14, 200, 249, 63, 3,
-		95, 211, 74, 220, 203, 79, 247, 227, 31, 126, 184, 41, 19, 100, 35, 51, 36, 128, 209, 90, 2}
-	PCRDigest      []byte
-	parentPassword = EmptyPassword
-	ownerPassword  = EmptyPassword
-	ekpem          = `-----BEGIN CERTIFICATE-----
+	pcrSelection        = PcrSelection0to7
+	nonce        uint64 = 1
+	clientId     int64  = 1
+	ekPem               = `-----BEGIN CERTIFICATE-----
 	MIIEUjCCAjqgAwIBAgIUTPeuiawsSuv0Gs0oAuf/vbRzzYIwDQYJKoZIhvcNAQEL
 	BQAwVTELMAkGA1UEBhMCREUxDzANBgNVBAgMBkJheWVybjERMA8GA1UEBwwITXVl
 	bmNoZW4xFTATBgNVBAoMDE9yZ2FuaXphdGlvbjELMAkGA1UEAwwCQ0EwHhcNMjEx
@@ -66,60 +43,23 @@ var (
 	-----END CERTIFICATE-----`
 )
 
-//if open physical TPM, return true, else return false
-func openTPM(tb testing.TB) (io.ReadWriteCloser, bool) {
-	tb.Helper()
-	if useDeviceTPM() {
-		return openDeviceTPM(tb), true
-	}
-	simulator, err := simulator.Get()
-	if err != nil {
-		tb.Fatalf("Simulator initialization failed: %v", err)
-	}
-	return simulator, false
-}
-
-func useDeviceTPM() bool { return *tpmPath != "" }
-
-func openDeviceTPM(tb testing.TB) io.ReadWriteCloser {
-	tb.Helper()
-	rw, err := tpm2.OpenTPM(*tpmPath)
-	if err != nil {
-		tb.Fatalf("Open TPM at %s failed: %s\n", *tpmPath, err)
-	}
-	return rw
-}
-
 func TestCreateTrustReport(t *testing.T) {
-	if tpm.dev == nil {
-		tpm.dev, isPhysicalTpm = openTPM(t)
-	}
-
-	if isPhysicalTpm {
-		PCRDigest = PCRDigestP
-	} else {
-		PCRDigest = PCRDigestS
-	}
+	t.Helper()
+	var tpm *TPM
+	tpm, err := OpenTPM(true)
 
 	tRepIn := TrustReportIn{
 		Nonce:      nonce,
 		ClientId:   clientId,
 		ClientInfo: "",
 	}
-	//generate ima-testfile
-	ioutil.WriteFile(imaTestPath, ([]byte)(imaTestInfo), 0777)
-	ioutil.WriteFile(imaPath, ([]byte)(imaInfo), 0777)
-	defer func() {
-		os.Remove(imaTestPath)
-		os.Remove(imaPath)
-	}()
 
 	//create EK,Ak,TrustReport
-	AK, _, err := GetAk()
+	tpm.Prepare(&TPMConfig{})
 	if err != nil {
 		t.Fatalf("CreateAk failed: %s", err)
 	}
-	got, err := CreateTrustReport(tpm.dev, AK, pcrSelection, tRepIn)
+	got, err := CreateTrustReport(tpm.dev, tpm.config.IK, pcrSelection, tRepIn)
 	if err != nil {
 		t.Fatalf("CreateTrustReport failed: %s", err)
 	}
@@ -135,89 +75,51 @@ func TestCreateTrustReport(t *testing.T) {
 		pcrValues[key] = value
 	}
 	for i, _ := range pcrmp {
-		if got.PcrInfo.Values[i] != pcrValues[i] {
-			t.Fatalf("PCRs are not equal, got %v want %v", []byte(got.PcrInfo.Values[i]), pcrValues[i])
+		if got.PcrInfo.Values[(int32)(i)] != pcrValues[i] {
+			t.Fatalf("PCRs are not equal, got %v want %v", []byte(got.PcrInfo.Values[(int32)(i)]), pcrValues[i])
 		}
 	}
 
-	attestation, _, err := tpm2.Quote(tpm.dev, AK.Handle, AK.Password, EmptyPassword,
+	attestation, _, err := tpm2.Quote(tpm.dev, tpm.config.IK.Handle, tpm.config.IK.Password, EmptyPassword,
 		nil, pcrSelection, tpm2.AlgNull)
 	if err != nil {
 		t.Fatalf("Quote failed: %s", err)
 	}
-	decoded, err := tpm2.DecodeAttestationData(attestation)
+	_, err = tpm2.DecodeAttestationData(attestation)
 	if err != nil {
 		t.Fatalf("DecodeAttestationData failed: %s", err)
 	}
-	if !bytes.Equal(decoded.AttestedQuoteInfo.PCRDigest, PCRDigest) {
-		t.Fatalf("PCRDigest are not equal, got %v want %v", decoded.AttestedQuoteInfo.PCRDigest, PCRDigest)
-	}
 
 }
 
-func TestCreateAk(t *testing.T) {
-	if tpm.dev == nil {
-		tpm.dev, isPhysicalTpm = openTPM(t)
-		//defer tpm.dev.Close()
-	}
+func TestRactools(t *testing.T) {
 	t.Helper()
-	parentHandle, _, err := tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement, pcrSelection,
-		ownerPassword, parentPassword, DefaultKeyParams)
-	if err != nil {
-		t.Fatalf("CreatePrimary failed: %s", err)
-	}
-	defer tpm2.FlushContext(tpm.dev, parentHandle)
 
-	_, _, _, err = CreateAk(tpm.dev, parentHandle, parentPassword, EmptyPassword, MyPcrSelection)
+	tpm, err := OpenTPM(true)
 	if err != nil {
-		t.Fatalf("CreateAk failed: %s", err)
-	}
-}
-
-func TestGetAk(t *testing.T) {
-	_, _, err := GetAk()
-	if err != nil {
-		t.Fatalf("GetAk failed: %s", err)
-	}
-}
-
-func TestGetTrustReport(t *testing.T) {
-	_, err := GetTrustReport(TrustReportIn{
-		Nonce:      nonce,
-		ClientId:   clientId,
-		ClientInfo: "",
-	})
-	if err != nil {
-		t.Fatalf("GetAk failed: %s", err)
-	}
-}
-
-func TestWriteAndGetEkCert(t *testing.T) {
-	if tpm.dev == nil {
-		tpm.dev, isPhysicalTpm = openTPM(t)
-	}
-	ekPath := "./ekce.pem"
-	//generate ek-testfile
-	ioutil.WriteFile(ekPath, ([]byte)(ekpem), 0777)
-	data, err := ioutil.ReadFile(ekPath)
-	if err != nil {
-		t.Errorf("ReadFile failed: %v", err)
-	}
-	WriteEkCert(ekPath)
-	ekCert, err := GetEkCert()
-	if err != nil {
-		t.Errorf("GetEkCert failed: %v", err)
+		t.Errorf("OpenTPM failed, err: %v", err)
 	}
 
-	if !bytes.Equal(data, ([]byte)(ekCert)) {
-		t.Errorf("data read from NV index does not match, got %x, want %x", ekCert, data)
+	err = tpm.Prepare(&TPMConfig{})
+	if err != nil {
+		t.Errorf("Prepare failed, err: %v", err)
 	}
 
-	ekCert2, err := GetEkCert()
+	ekCert, err := tpm.GetEKCert()
 	if err != nil {
-		t.Errorf("GetEkCert failed: %v", err)
+		t.Errorf("GetEKCert failed, err: %v", err)
 	}
-	if ekCert != ekCert2 {
-		t.Errorf("the answers of GetEkCert are not equal")
+	if ekCert != ekPem {
+		t.Errorf("EKCert are not equal, got: %v, want: %v \n", ekCert, ekPem)
+	}
+
+	_, err = tpm.GetTrustReport(nonce, clientId)
+	if err != nil {
+		t.Errorf("GetTrustReport failed, err: %v", err)
+	}
+
+	err = tpm.Close()
+	if err != nil {
+		t.Errorf("Close tpm failed, err: %v", err)
 	}
 }
