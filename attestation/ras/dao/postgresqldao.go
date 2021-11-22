@@ -19,6 +19,175 @@ type PostgreSqlDAO struct {
 	conn *pgx.Conn
 }
 
+// If there are name-value pairs in the clientinfo map, save them with a new clientInfoVer.
+func (psd *PostgreSqlDAO) updateClientInfo(tx pgx.Tx, ctx context.Context, report *entity.Report) (clientInfoVer int, err error) {
+	err = tx.QueryRow(ctx,
+		"SELECT client_info_ver FROM register_client WHERE id=$1", report.ClientID).Scan(&clientInfoVer)
+	if err != nil {
+		return -1, err
+	}
+
+	if len(report.ClientInfo.Info) == 0 {
+		return clientInfoVer, nil
+	}
+
+	clientInfoVer++
+	_, err = tx.Exec(ctx,
+		"UPDATE register_client SET client_info_ver=$1 WHERE id=$2", clientInfoVer, report.ClientID)
+	if err != nil {
+		return clientInfoVer, err
+	}
+
+	err = psd.saveClientInfo(tx, ctx, &report.ClientInfo, report.ClientID, clientInfoVer)
+	return clientInfoVer, err
+}
+
+// save report data into client_info table with clientInfoVer.
+func (psd *PostgreSqlDAO) saveClientInfo(tx pgx.Tx, ctx context.Context, clientInfo *entity.ClientInfo, clientID int64, clientInfoVer int) (err error) {
+	for name, value := range clientInfo.Info {
+		_, err = tx.Exec(ctx,
+			"INSERT INTO client_info(client_id, client_info_ver, name, value) VALUES ($1, $2, $3, $4)",
+			clientID, clientInfoVer, name, value)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// insert report data into trust_report table and return reportID
+func (psd *PostgreSqlDAO) saveReportContent(tx pgx.Tx, ctx context.Context, report *entity.Report, clientInfoVer int) (reportID int64, err error) {
+	err = tx.QueryRow(ctx,
+		"INSERT INTO trust_report(client_id, client_info_ver, report_time, pcr_quote, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+		report.ClientID, clientInfoVer, time.Now().Format("2006/01/02 15:04:05"),
+		string(report.PcrInfo.Quote.Quoted), report.Verified).Scan(&reportID)
+	if err != nil {
+		return -1, err
+	}
+
+	return reportID, nil
+}
+
+// insert report data into trust_report_manifest
+func (psd *PostgreSqlDAO) saveReportManifest(tx pgx.Tx, ctx context.Context, report *entity.Report, reportID int64) (err error) {
+	for _, mf := range report.Manifest {
+		for index, item := range mf.Items {
+			_, err = tx.Exec(context.Background(),
+				"INSERT INTO trust_report_manifest(report_id, index, type, name, value, detail) VALUES ($1, $2, $3, $4, $5, $6)",
+				reportID, index, mf.Type, item.Name, item.Value, item.Detail)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// insert report data into trust_report_pcr_info
+func (psd *PostgreSqlDAO) saveReportPCRInfo(tx pgx.Tx, ctx context.Context, report *entity.Report, reportID int64) (err error) {
+	for k, v := range report.PcrInfo.Values {
+		_, err = tx.Exec(context.Background(),
+			"INSERT INTO trust_report_pcr_info(report_id, pcr_id, alg_name, pcr_value) VALUES ($1, $2, $3, $4)",
+			reportID, k, report.PcrInfo.AlgName, v)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// get report data from client_info table with clientInfoVer.
+func (psd *PostgreSqlDAO) getClientInfo(ctx context.Context, clientInfo *entity.ClientInfo, clientID int64, clientInfoVer int) (err error) {
+	ciRows, err := psd.conn.Query(ctx,
+		"SELECT name, value FROM client_info WHERE client_id=$1 AND client_info_ver=$2",
+		clientID, clientInfoVer)
+	if err != nil {
+		return err
+	}
+	defer ciRows.Close()
+
+	for ciRows.Next() {
+		var name string
+		var value string
+		err = ciRows.Scan(&name, &value)
+		if err != nil {
+			return err
+		}
+		clientInfo.Info[name] = value
+	}
+
+	return nil
+}
+
+// get report data from pcr_info table.
+func (psd *PostgreSqlDAO) getPCRInfo(ctx context.Context, pcrInfo *entity.PcrInfo, reportID int64) (err error) {
+	pcrRows, err := psd.conn.Query(context.Background(),
+		"SELECT pcr_id, alg_name, pcr_value FROM trust_report_pcr_info WHERE report_id=$1", reportID)
+	if err != nil {
+		return err
+	}
+	defer pcrRows.Close()
+
+	pcrInfo.Values = map[int]string{}
+	for pcrRows.Next() {
+		var (
+			id      int
+			algName string
+			value   string
+		)
+		err = pcrRows.Scan(&id, &algName, &value)
+		if err != nil {
+			return err
+		}
+		pcrInfo.AlgName = algName
+		pcrInfo.Values[id] = value
+	}
+
+	return nil
+}
+
+// get report data from manifest table.
+func (psd *PostgreSqlDAO) getManifest(ctx context.Context, manifests *[]entity.Manifest, reportID int64) (err error) {
+	// select manifest
+	mRows, err := psd.conn.Query(context.Background(),
+		"SELECT type, name, value, detail FROM trust_report_manifest WHERE report_id=$1", reportID)
+	if err != nil {
+		return err
+	}
+	defer mRows.Close()
+
+	for mRows.Next() {
+		var (
+			mType string
+			mi    entity.ManifestItem
+		)
+		err = mRows.Scan(&mType, &mi.Name, &mi.Value, &mi.Detail)
+		if err != nil {
+			return err
+		}
+		// check if type existed
+		isExisted := false
+		for i, mf := range *manifests {
+			if mf.Type == mType {
+				isExisted = true
+				(*manifests)[i].Items = append(mf.Items, mi)
+				break
+			}
+		}
+		if isExisted {
+			continue
+		}
+		*manifests = append(*manifests, entity.Manifest{
+			Type:  mType,
+			Items: []entity.ManifestItem{mi},
+		})
+	}
+
+	return nil
+}
+
 // SaveReport saves the trust report into database.
 func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 	var reportID int64
@@ -29,71 +198,32 @@ func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 		return err
 	}
 
-	// If there are name-value pairs in the clientinfo map, save them with a new clientInfoVer.
-	if len(report.ClientInfo.Info) > 0 {
-		err = tx.QueryRow(context.Background(),
-			"SELECT client_info_ver FROM register_client WHERE id=$1", report.ClientID).Scan(&clientInfoVer)
-		if err != nil {
-			tx.Rollback(context.Background())
-			return err
-		}
-		clientInfoVer++
-		_, err = tx.Exec(context.Background(),
-			"UPDATE register_client SET client_info_ver=$1 WHERE id=$2", clientInfoVer, report.ClientID)
-		if err != nil {
-			tx.Rollback(context.Background())
-			return err
-		}
-		for name, value := range report.ClientInfo.Info {
-			_, err = tx.Exec(context.Background(),
-				"INSERT INTO client_info(client_id, client_info_ver, name, value) VALUES ($1, $2, $3, $4)",
-				report.ClientID, clientInfoVer, name, value)
-			if err != nil {
-				tx.Rollback(context.Background())
-				return err
-			}
-		}
-	}
-
-	// insert report data into trust_report table and return reportID
-	err = tx.QueryRow(context.Background(),
-		"INSERT INTO trust_report(client_id, client_info_ver, report_time, pcr_quote, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-		report.ClientID, clientInfoVer, time.Now().Format("2006/01/02 15:04:05"),
-		string(report.PcrInfo.Quote.Quoted), report.Verified).Scan(&reportID)
+	clientInfoVer, err = psd.updateClientInfo(tx, context.Background(), report)
 	if err != nil {
 		tx.Rollback(context.Background())
 		return err
 	}
 
-	// insert report data into trust_report_manifest
-	for _, mf := range report.Manifest {
-		for index, item := range mf.Items {
-			_, err = tx.Exec(context.Background(),
-				"INSERT INTO trust_report_manifest(report_id, index, type, name, value, detail) VALUES ($1, $2, $3, $4, $5, $6)",
-				reportID, index, mf.Type, item.Name, item.Value, item.Detail)
-			if err != nil {
-				tx.Rollback(context.Background())
-				return err
-			}
-		}
+	reportID, err = psd.saveReportContent(tx, context.Background(), report, clientInfoVer)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return err
 	}
 
-	// insert report data into trust_report_pcr_info
-	for k, v := range report.PcrInfo.Values {
-		_, err = tx.Exec(context.Background(),
-			"INSERT INTO trust_report_pcr_info(report_id, pcr_id, alg_name, pcr_value) VALUES ($1, $2, $3, $4)",
-			reportID, k, report.PcrInfo.AlgName, v)
-		if err != nil {
-			tx.Rollback(context.Background())
-			return err
-		}
+	err = psd.saveReportManifest(tx, context.Background(), report, reportID)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return err
+	}
+
+	err = psd.saveReportPCRInfo(tx, context.Background(), report, reportID)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return err
 	}
 
 	err = tx.Commit(context.Background())
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // RegisterClient registers a new client and save its information.
@@ -117,40 +247,35 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic []byt
 	// check if client is registered or not
 	err = tx.QueryRow(context.Background(),
 		"SELECT id, client_info_ver, deleted FROM register_client WHERE ak_certificate = $1", ic).Scan(&clientID, &clientInfoVer, &deleted)
+	if err == nil {
+		if deleted {
+			return 0, errors.New("client is deleted")
+		}
+		return 0, errors.New("client is registered")
+	}
+
+	// no client in register_client table, register a new one in it.
+	clientInfoVer = 1
+	deleted = false
+	_, err = tx.Exec(context.Background(),
+		"INSERT INTO register_client(client_info_ver, register_time, ak_certificate, online, deleted) VALUES ($1, $2, $3, $4, $5)",
+		clientInfoVer, time.Now(), ic, true, deleted)
 	if err != nil {
-		// no client in register_client table, register a new one in it.
-		clientInfoVer = 1
-		deleted = false
-		_, err = tx.Exec(context.Background(),
-			"INSERT INTO register_client(client_info_ver, register_time, ak_certificate, online, deleted) VALUES ($1, $2, $3, $4, $5)",
-			clientInfoVer, time.Now(), ic, true, deleted)
-		if err != nil {
-			tx.Rollback(context.Background())
-			return 0, err
-		}
-		err = tx.QueryRow(context.Background(),
-			"SELECT id FROM register_client WHERE ak_certificate = $1", ic).Scan(&clientID)
-		if err != nil {
-			tx.Rollback(context.Background())
-			return 0, err
-		}
-	} else {
+		tx.Rollback(context.Background())
+		return 0, err
+	}
+	err = tx.QueryRow(context.Background(),
+		"SELECT id FROM register_client WHERE ak_certificate = $1", ic).Scan(&clientID)
+	if err != nil {
+		tx.Rollback(context.Background())
 		return 0, err
 	}
 
-	if deleted {
-		return 0, errors.New("client is deleted")
-	}
-
 	// write the client related information into client_info table
-	for name, value := range clientInfo.Info {
-		_, err = tx.Exec(context.Background(),
-			"INSERT INTO client_info(client_id, client_info_ver, name, value) VALUES ($1, $2, $3, $4)",
-			clientID, clientInfoVer, name, value)
-		if err != nil {
-			tx.Rollback(context.Background())
-			return 0, err
-		}
+	err = psd.saveClientInfo(tx, context.Background(), clientInfo, clientID, clientInfoVer)
+	if err != nil {
+		tx.Rollback(context.Background())
+		return 0, err
 	}
 
 	err = tx.Commit(context.Background())
@@ -238,6 +363,45 @@ func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
 		clientIds = append(clientIds, ci)
 	}
 	return clientIds, nil
+}
+
+// SelectReportById find report by client id
+func (psd *PostgreSqlDAO) SelectReportsById2(clientId int64) ([]*entity.Report, error) {
+	var reports []*entity.Report
+
+	rRows, err := psd.conn.Query(context.Background(),
+		"SELECT id, client_info_ver, report_time, pcr_quote, verified FROM trust_report WHERE client_id=$1", clientId)
+	if err != nil {
+		return nil, err
+	}
+	defer rRows.Close()
+
+	for rRows.Next() {
+		r := entity.Report{ClientID: clientId, ClientInfo: entity.ClientInfo{Info: map[string]string{}}}
+		err = rRows.Scan(&r.ReportId, &r.ClientInfoVer, &r.ReportTime, &r.PcrInfo.Quote.Quoted, &r.Verified)
+		if err != nil {
+			return nil, err
+		}
+
+		err = psd.getClientInfo(context.Background(), &r.ClientInfo, r.ClientID, r.ClientInfoVer)
+		if err != nil {
+			return nil, err
+		}
+
+		err = psd.getPCRInfo(context.Background(), &r.PcrInfo, r.ReportId)
+		if err != nil {
+			return nil, err
+		}
+
+		err = psd.getManifest(context.Background(), &r.Manifest, r.ReportId)
+		if err != nil {
+			return nil, err
+		}
+
+		reports = append(reports, &r)
+	}
+
+	return reports, nil
 }
 
 // SelectReportById find report by client id
@@ -457,7 +621,7 @@ func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.Measureme
 }
 
 // CreatePostgreSQLDAO creates a postgre database connection to read and store data.
-func CreatePostgreSQLDAO() (*PostgreSqlDAO, error) {
+func CreatePostgreSQLDAO() (DAO, error) {
 	host := config.GetDefault().GetHost()
 	port := config.GetDefault().GetPort()
 	dbname := config.GetDefault().GetDBName()
