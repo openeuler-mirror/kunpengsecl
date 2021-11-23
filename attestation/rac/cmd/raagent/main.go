@@ -15,16 +15,24 @@ func main() {
 	const addr string = "127.0.0.1:40001"
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
 	cid := config.GetDefault().GetClientId()
+	tpm, err := ractools.OpenTPM(true)
+	if err != nil {
+		log.Printf("OpenTPM failed, error: %s \n", err)
+	}
+	//the input is not be used now
+	//TODO: add tpm config file
+	tpm.Prepare(&ractools.TPMConfig{})
+
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
-	if cid <= 0 {
-		ak, _, err := ractools.GetAk()
+	if cid < 0 {
+		ekCert, err := tpm.GetEKCert()
 		if err != nil {
-			log.Fatal("Client:can't Create EkCert")
+			log.Printf("GetEkCert failed, error: %s \n", err)
 		}
 		req := clientapi.CreateIKCertRequest{
-			EkCert: ractools.CertPEM,
-			IkPub:  ractools.PubPEM,
-			IkName: ak.Name,
+			EkCert: ekCert,
+			IkPub:  tpm.GetIKPub(),
+			IkName: tpm.GetIKName(),
 		}
 		bkk, err := clientapi.DoCreateIKCert(addr, &req)
 		if err != nil {
@@ -50,7 +58,6 @@ func main() {
 
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
 	for {
-		ractools.GetEkCert()
 		rpy, err := clientapi.DoSendHeartbeat(addr, &clientapi.SendHeartbeatRequest{ClientId: cid})
 		if err != nil {
 			log.Fatalf("Client: send heart beat error %v", err)
@@ -58,7 +65,7 @@ func main() {
 		log.Printf("Client: get heart beat back %v", rpy.GetNextAction())
 
 		// step 4. do what ras tells to do by NextAction...
-		DoNextAction(addr, cid, rpy)
+		DoNextAction(tpm, addr, cid, rpy)
 
 		// step 5. what else??
 
@@ -68,13 +75,13 @@ func main() {
 }
 
 // DoNextAction checks the nextAction field and invoke the corresponding handler function.
-func DoNextAction(srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
+func DoNextAction(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
 	action := rpy.GetNextAction()
 	if (action & cache.CMDSENDCONF) == cache.CMDSENDCONF {
 		SetNewConf(srv, id, rpy)
 	}
 	if (action & cache.CMDGETREPORT) == cache.CMDGETREPORT {
-		SendTrustReport(srv, id, rpy)
+		SendTrustReport(tpm, srv, id, rpy)
 	}
 	// add new command handler functions here.
 }
@@ -87,24 +94,40 @@ func SetNewConf(srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
 }
 
 // SendTrustReport sneds a new trust report to RAS.
-func SendTrustReport(srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
-	_, err := ractools.GetTrustReport(ractools.TrustReportIn{
-		Nonce:      rpy.GetActionParameters().GetNonce(),
-		ClientId:   id,
-		ClientInfo: "",
-	})
+func SendTrustReport(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
+	tRep, err := tpm.GetTrustReport(rpy.GetActionParameters().GetNonce(), id)
 	if err != nil {
-		log.Fatalf("Client: create a new trust report failed :%v", err)
-		return
-	}
-
-	srr, _ := clientapi.DoSendReport(srv, &clientapi.SendReportRequest{
-		ClientId:    id,
-		TrustReport: &clientapi.TrustReport{},
-	})
-	if srr.Result {
-		log.Printf("Client: send a new trust report to RAS ok.")
+		log.Printf("Client: create a new trust report failed :%v", err)
 	} else {
-		log.Printf("Client: send a new trust report to RAS failed.")
+		log.Printf("Client: create a new trust report success")
 	}
+	var manifest []*clientapi.Manifest
+	for _, m := range tRep.Manifest {
+		manifest = append(manifest, &clientapi.Manifest{Type: m.Type, Item: m.Content})
+	}
+	/*
+		srr, _ := clientapi.DoSendReport(srv, &clientapi.SendReportRequest{
+			ClientId: id,
+			TrustReport: &clientapi.TrustReport{
+				PcrInfo: &clientapi.PcrInfo{
+					Algorithm: tRep.PcrInfo.AlgName,
+					PcrValues: (map[int32]string)(tRep.PcrInfo.Values),
+					PcrQuote: &clientapi.PcrQuote{
+						Quoted:    tRep.PcrInfo.Quote.Quoted,
+						Signature: tRep.PcrInfo.Quote.Signature,
+					},
+				},
+				ClientId: tRep.ClientID,
+				ClientInfo: &clientapi.ClientInfo{
+					ClientInfo: tRep.ClientInfo,
+				},
+				Manifest: manifest,
+			},
+		})
+		if srr.Result {
+			log.Printf("Client: send a new trust report to RAS ok.")
+		} else {
+			log.Printf("Client: send a new trust report to RAS failed.")
+		}
+	*/
 }

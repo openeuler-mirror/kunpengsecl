@@ -15,7 +15,7 @@ type TrustMgr struct {
 
 var validator Validator
 var extractor Extractor
-var postgreSqlDAO *dao.PostgreSqlDAO
+var dbDAO dao.DAO
 
 // Validator will be implemented to validate integrity of report
 type Validator interface {
@@ -103,15 +103,15 @@ func GetLatestReportById(clientId int64) (*entity.Report, error) {
 	return psd.SelectLatestReportById(clientId)
 }
 
-func getPostgreSQLDAO() (*dao.PostgreSqlDAO, error) {
+func getPostgreSQLDAO() (dao.DAO, error) {
 	var err error
-	if postgreSqlDAO == nil {
-		postgreSqlDAO, err = dao.CreatePostgreSQLDAO()
+	if dbDAO == nil {
+		dbDAO, err = dao.CreatePostgreSQLDAO()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return postgreSqlDAO, nil
+	return dbDAO, nil
 }
 
 func isFirstReport(clientId int64) (bool, error) {

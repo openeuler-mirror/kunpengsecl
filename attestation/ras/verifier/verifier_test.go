@@ -2,41 +2,12 @@ package verifier
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
-
-const testConfig = `conftype: server
-database:
-  dbname: kunpengsecl
-  host: localhost
-  password: "postgres"
-  port: 5432
-  user: "postgres"
-racconfig:
-  hbduration: 3s
-  trustduration: 2m0s
-rasconfig:
-  changetime: 2021-09-30T11:53:24.0581136+08:00
-  mgrstrategy: auto
-  basevalue-extract-rules:
-    pcrinfo:
-      pcrselection: [1, 2, 3, 4]
-    manifest:
-      -
-        type: bios
-        name: ["name1", "name2"]
-      -
-        type: ima
-        name: ["name1", "name2"] 
-  `
-
-func createConfigFile() {
-	ioutil.WriteFile("./config.yaml", []byte(testConfig), 0644)
-}
 
 func TestPCRVerifier_Verify(t *testing.T) {
 	var pv *PCRVerifier
@@ -121,7 +92,7 @@ func TestPCRVerifier_Verify(t *testing.T) {
 }
 
 func TestPCRExtract(t *testing.T) {
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()
@@ -183,7 +154,7 @@ func TestPCRExtract(t *testing.T) {
 }
 
 func TestBIOSExtract(t *testing.T) {
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()
@@ -251,7 +222,7 @@ func TestBIOSExtract(t *testing.T) {
 }
 
 func TestIMAExtract(t *testing.T) {
-	createConfigFile()
+	test.CreateConfigFile()
 	defer func() {
 		os.Remove("./config.yaml")
 	}()

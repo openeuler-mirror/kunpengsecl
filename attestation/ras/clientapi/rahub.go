@@ -27,6 +27,7 @@ import (
 )
 
 type rahub struct {
+	UnimplementedRasServer
 	sync.Mutex
 	rasAddr string
 }
@@ -54,10 +55,6 @@ func (s *rahub) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*S
 func (s *rahub) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
 	log.Printf("Server: receive SendReport")
 	return DoSendReport(s.rasAddr, in)
-}
-
-func (s *rahub) mustEmbedUnimplementedRasServer() {
-	// match the RasServer interface requirements.
 }
 
 // StartServer starts ras server and provides rpc services.
