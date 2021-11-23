@@ -133,11 +133,14 @@ import (
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
@@ -308,4 +311,111 @@ func AsymmetricDecrypt(alg, mod tpm2.Algorithm, priKey crypto.PrivateKey, cipher
 		}
 	}
 	return []byte{}, ErrUnsupported
+}
+
+/*
+Trusted Platform Module Library
+Part 1: Architecture
+Family "2.0"
+Level 00 Revision 01.59
+November 8, 2019
+Published
+  Contact admin@trustedcomputinggroup.org
+  TCG Published
+  Copyright(c) TCG 2006-2020
+
+Page 43
+11.4.10 Key Derivation Function
+11.4.10.1 Introduction
+The TPM uses a hash-based function to generate keys for multiple purposes. This
+specification uses two different schemes: one for ECDH and one for all other
+uses of a KDF.
+The ECDH KDF is from SP800-56A. The Counter mode KDF, from SP800-108, uses HMAC
+as the pseudo-random function (PRF). It is refered to in the specification as
+KDFa().
+
+11.4.10.2 KDFa()
+With the exception of ECDH, KDFa() is used in all cases where a KDF is required.
+KDFa() uses Counter mode from SP800-108, with HMAC as the PRF.
+As defined in SP800-108, the inner loop for building the key stream is:
+        K(i) := HMAC(K, [i] || Label || 00 || Context || [L])           (6)
+where
+    K(i)    the i(th) iteration of the KDF inner loop
+    HMAC()  the HMAC algorithm using an approved hash algorithm
+    K       the secret key material
+    [i]     a 32-bit counter that starts at 1 and increments on each iteration
+    Label   a octet stream indicating the use of the key produced by this KDF
+    00      Added only if Label is not present or if the last octect of Label is not zero
+    Context a binary string containing information relating to the derived keying material
+    [L]     a 32-bit value indicating the number of bits to be returned from the KDF
+NOTE1
+Equation (6) is not KDFa(). KDFa() is the function call defined below.
+
+As shown in equation (6), there is an octet of zero that separates Label from
+Context. In SP800-108, Label is a sequence of octets that may or may not have
+a final octet that is zero. If Label is not present, a zero octet is added.
+If Label is present and the last octet is not zero, a zero octet is added.
+After each iteration, the HMAC digest data is concatenated to the previously
+produced value until the size of the concatenated string is at least as large
+as the requested value. The string is then truncated to the desired size (which
+causes the loss of some of the most recently added bits), and the value is
+returned.
+
+When this specification calls for use of this KDF, it uses a function reference
+to KDFa(). The function prototype is:
+        KDFa(hashAlg, key, label, contextU, contextV, bits)             (7)
+where
+    hashAlg  a TPM_ALG_ID to be used in the HMAC in the KDF
+    key      a variable-sized value used as K
+    label    a variable-sized octet stream used as Label
+    contextU a variable-sized value concatenated with contextV to create the
+             Context parameter used in equation (6) above
+    contextV a variable-sized value concatenated with contextU to create the
+             Context parameter used in equation (6) above
+    bits     a 32-bit value used as [L], and is the number of bits returned
+             by the function
+
+The values of contextU and contextV are passed as sized buffers and only the
+buffer data is used to construct the Context parameter used in equation (6)
+above. The size fields of contextU and contextV are not included in the
+computation. That is:
+        Context := contextU.buffer || contextV.buffer                   (8)
+
+The 32-bit value of bits is in TPM canonical form, with the least significant
+bits of the value in the highest numbered octet.
+
+The implied return from this function is a sequence of octets with a length
+equal to (bits+7)/8. If bits is not an even multiple of 8, then the returned
+value occupies the least significant bits of the returned octet array, and
+the additional, high-order bits in the 0(th) octet are CLEAR.
+The unused bits of the most significant octet(MSO) are masked off and not shifted.
+
+EXAMPLE
+If KDFa() were used to produce a 521-bit ECC private key, the returned value
+would occupy 66 octets, with the upper 7 bits of the octet at offset zero
+set to 0.
+*/
+func KDFa(alg crypto.Hash, key []byte, label string, contextU, contextV []byte, bits int) ([]byte, error) {
+	bufLen := ((bits + 7) / 8)
+	if bufLen > math.MaxInt16 {
+		return []byte{}, ErrUnsupported
+	}
+	buf := []byte{}
+	h := hmac.New(alg.New, key)
+	for i := 1; len(buf) < bufLen; i++ {
+		h.Reset()
+		binary.Write(h, binary.BigEndian, uint32(i))
+		h.Write([]byte(label))
+		h.Write([]byte{0})
+		h.Write(contextU)
+		h.Write(contextV)
+		binary.Write(h, binary.BigEndian, uint32(bits))
+		buf = h.Sum(buf)
+	}
+	buf = buf[:bufLen]
+	mask := uint8(bits % 8)
+	if mask > 0 {
+		buf[0] &= (1 << mask) - 1
+	}
+	return buf, nil
 }
