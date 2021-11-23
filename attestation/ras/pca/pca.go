@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -284,6 +285,31 @@ func GetSignatureALG(pubKey crypto.PublicKey) (x509.SignatureAlgorithm, error) {
 	default:
 		return x509.UnknownSignatureAlgorithm, fmt.Errorf("there is a unknown pubKey type")
 	}
+}
+
+//Generate a signature by private key
+func GenerateSignature(data []byte) ([]byte, [32]byte, *rsa.PublicKey, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic("Failed to generate a key")
+	}
+	pub := &priv.PublicKey
+	digest := sha256.Sum256(data)
+	//generate the signature by priv key
+	signature, err := rsa.SignPKCS1v15(rand.Reader, priv, crypto.SHA256, digest[:])
+	if err != nil {
+		panic("Failed to get a signature")
+	}
+	return signature, digest, pub, err
+}
+
+//Verify a signature by a public key and examine the pub meanwhile
+func VerifySigAndPub(signature []byte, hash [32]byte, pub *rsa.PublicKey) error {
+	err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, hash[:], signature)
+	if err != nil {
+		return errors.New("failed the verify pub")
+	}
+	return err
 }
 
 type IdentityResponse struct {

@@ -43,6 +43,16 @@ func TestGeneratePCACert(t *testing.T) {
 	fmt.Println("Cert\n", string(pem))
 	assert.NoError(t, err)
 }
+func TestGenerateSignature(t *testing.T) {
+	_, _, _, err := GenerateSignature([]byte(CertPEM))
+	assert.NoError(t, err)
+}
+func TestVerifySigAndPub(t *testing.T) {
+	sig, hash, pub, err := GenerateSignature([]byte(CertPEM))
+	assert.NoError(t, err)
+	ok := VerifySigAndPub(sig, hash, pub)
+	assert.NoError(t, ok)
+}
 func TestGetIkCert(t *testing.T) {
 	_, err := GetIkCert(CertPEM, PubPEM, nil)
 	assert.NoError(t, err)
@@ -55,6 +65,7 @@ func TestVerifyPCACert(t *testing.T) {
 	_, err = verifyPCACert(rootCert, pcaCert)
 	assert.NoError(t, err)
 }
+
 func TestDecodeCert(t *testing.T) {
 	_, err := DecodeCert(CertPEM)
 	assert.NoError(t, err)
@@ -83,7 +94,6 @@ func TestPCAForUnsupportedTpm(t *testing.T) {
 	req := Request{
 		TPMVer: "1.0",
 	}
-
 	_, err := NewPCA(req)
 	assert.Error(t, err)
 }
