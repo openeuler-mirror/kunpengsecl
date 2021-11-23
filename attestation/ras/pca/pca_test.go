@@ -99,9 +99,9 @@ func TestGenerateIkCert(t *testing.T) {
 	assert.NoError(t, err)
 }
 func TestEncryptAkcert(t *testing.T) {
-	var akCert, _ = CreateRandomByte(16)
+	var ikCert, _ = CreateRandomByte(16)
 	akName := []byte{0, 11, 63, 66, 56, 152, 253, 128, 164, 49, 231, 162, 169, 14, 118, 72, 248, 151, 117, 166, 215,
 		235, 210, 181, 92, 167, 94, 113, 24, 131, 10, 5, 12, 85, 252}
-	_, err := EncryptIkcert(akCert, akName)
+	_, err := EncryptIkcert(ikCert, akName)
 	assert.NoError(t, err)
 }

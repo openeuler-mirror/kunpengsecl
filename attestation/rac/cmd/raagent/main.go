@@ -25,13 +25,15 @@ func main() {
 
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
 	if cid < 0 {
-		ekCert, err := tpm.GetEKCert()
+		_, err := tpm.GetEKCert()
 		if err != nil {
 			log.Printf("GetEkCert failed, error: %s \n", err)
 		}
 		req := clientapi.CreateIKCertRequest{
-			EkCert: ekCert,
-			IkPub:  tpm.GetIKPub(),
+			// EkCert: ekCert,
+			// IkPub:  tpm.GetIKPub(),
+			EkCert: ractools.CertPEM,
+			IkPub:  ractools.PubPEM,
 			IkName: tpm.GetIKName(),
 		}
 		bkk, err := clientapi.DoCreateIKCert(addr, &req)
