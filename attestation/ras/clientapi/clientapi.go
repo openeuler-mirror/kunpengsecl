@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 
@@ -56,15 +57,18 @@ type service struct {
 }
 
 func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
-
+	to, err := pca.GetIkCert(in.EkCert, in.IkPub, in.IkName)
+	if err != nil {
+		return &CreateIKCertReply{}, errors.New("Failed to get ikCert")
+	}
 	return &CreateIKCertReply{
 		IcEncrypted: &CertEncrypted{
-			EncryptAC: []byte{1, 2, 3},
-			IV:        []byte{1, 2, 3},
+			EncryptAC: to.EnCredential,
+			IV:        to.TPMSymKeyParams.IV,
 		},
 		Challenge: &Challenge{
-			Credential: []byte{1, 2, 3},
-			SymBlob:    []byte{1, 2, 3},
+			Credential: to.TPMSymKeyParams.EnSecret,
+			SymBlob:    to.TPMSymKeyParams.SecretKey,
 		},
 	}, nil
 }

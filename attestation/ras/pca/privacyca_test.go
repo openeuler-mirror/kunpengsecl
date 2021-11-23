@@ -1,6 +1,8 @@
 package pca
 
 import (
+	"bytes"
+	"crypto"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
@@ -473,6 +475,25 @@ func TestAsymDec(t *testing.T) {
 		}
 		if string(plaintext2) != tc.text {
 			t.Errorf(constRESULT, len(plaintext2), string(plaintext2), len(tc.text), tc.text)
+		}
+	}
+}
+
+func TestKDFa(t *testing.T) {
+	var testCases = []struct {
+		key      string
+		label    string
+		contextU string
+		contextV string
+		size     int
+	}{
+		{"123", "abc", "defad", "mmmm", 29},
+	}
+	for _, tc := range testCases {
+		a, _ := KDFa(crypto.SHA256, []byte(tc.key), tc.label, []byte(tc.contextU), []byte(tc.contextV), tc.size)
+		b, _ := tpm2.KDFa(tpm2.AlgSHA256, []byte(tc.key), tc.label, []byte(tc.contextU), []byte(tc.contextV), tc.size)
+		if !bytes.Equal(a, b) {
+			t.Errorf("KDFa can't match, %v, %v\n", a, b)
 		}
 	}
 }

@@ -119,7 +119,7 @@ var (
 )
 
 type ToICandSymKey struct {
-	Credential      []byte
+	EnCredential    []byte
 	TPMSymKeyParams TPMSymKeyParams
 	SymBlob         []byte
 }
@@ -127,8 +127,8 @@ type TPMSymKeyParams struct {
 	//可能还要存放加密的算法等参数
 	TPMSymAlgorithm string
 	TPMEncscheme    string
-	EncryptSecret   []byte
-	EncryptIC       []byte
+	EnSecret        []byte
+	SecretKey       []byte
 	IV              []byte
 }
 type TPMAsymKeyParams struct {

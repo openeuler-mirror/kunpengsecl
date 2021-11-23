@@ -43,6 +43,16 @@ func TestGeneratePCACert(t *testing.T) {
 	fmt.Println("Cert\n", string(pem))
 	assert.NoError(t, err)
 }
+func TestGenerateSignature(t *testing.T) {
+	_, _, _, err := GenerateSignature([]byte(CertPEM))
+	assert.NoError(t, err)
+}
+func TestVerifySigAndPub(t *testing.T) {
+	sig, hash, pub, err := GenerateSignature([]byte(CertPEM))
+	assert.NoError(t, err)
+	ok := VerifySigAndPub(sig, hash, pub)
+	assert.NoError(t, ok)
+}
 func TestGetIkCert(t *testing.T) {
 	_, err := GetIkCert(CertPEM, PubPEM, nil)
 	assert.NoError(t, err)
@@ -55,6 +65,7 @@ func TestVerifyPCACert(t *testing.T) {
 	_, err = verifyPCACert(rootCert, pcaCert)
 	assert.NoError(t, err)
 }
+
 func TestDecodeCert(t *testing.T) {
 	_, err := DecodeCert(CertPEM)
 	assert.NoError(t, err)
@@ -83,7 +94,6 @@ func TestPCAForUnsupportedTpm(t *testing.T) {
 	req := Request{
 		TPMVer: "1.0",
 	}
-
 	_, err := NewPCA(req)
 	assert.Error(t, err)
 }
@@ -99,9 +109,9 @@ func TestGenerateIkCert(t *testing.T) {
 	assert.NoError(t, err)
 }
 func TestEncryptAkcert(t *testing.T) {
-	var akCert, _ = CreateRandomByte(16)
+	var ikCert, _ = CreateRandomByte(16)
 	akName := []byte{0, 11, 63, 66, 56, 152, 253, 128, 164, 49, 231, 162, 169, 14, 118, 72, 248, 151, 117, 166, 215,
 		235, 210, 181, 92, 167, 94, 113, 24, 131, 10, 5, 12, 85, 252}
-	_, err := EncryptIkcert(akCert, akName)
+	_, err := EncryptIkcert(ikCert, akName)
 	assert.NoError(t, err)
 }

@@ -2,51 +2,123 @@ package verifier
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
 
-func TestPCRVerifier_Verify(t *testing.T) {
+const (
+	algSHA1  = "sha1"
+	mtBIOS   = "bios"
+	mtIMA    = "ima"
+	pcrVal1  = "pcr value 1"
+	pcrVal2  = "pcr value 2"
+	pcrVal3  = "pcr value 3"
+	pcrVal4  = "pcr value 4"
+	pcrVal5  = "pcr value 5"
+	quoteVal = "test quote"
+	name1    = "name1"
+	value1   = "name1 value"
+	detail1  = "name1 detail"
+	name2    = "name2"
+	value2   = "name2 value"
+	detail2  = "name2 detail"
+	name3    = "name3"
+	value3   = "name3 value"
+	detail3  = "name3 detail"
+)
+
+var (
+	bvpcrInfo1 = entity.PcrInfo{
+		AlgName: algSHA1,
+		Values: map[int]string{
+			2: pcrVal2,
+			5: pcrVal5,
+		},
+		Quote: entity.PcrQuote{
+			Quoted: []byte(quoteVal),
+		},
+	}
+
+	bvpcrInfo2 = entity.PcrInfo{
+		AlgName: algSHA1,
+		Values: map[int]string{
+			2: pcrVal1,
+			5: pcrVal5,
+		},
+		Quote: entity.PcrQuote{
+			Quoted: []byte(quoteVal),
+		},
+	}
+
+	repopcrInfo = entity.PcrInfo{
+		AlgName: algSHA1,
+		Values: map[int]string{
+			1: pcrVal1,
+			2: pcrVal2,
+			3: pcrVal3,
+			4: pcrVal4,
+			5: pcrVal5,
+		},
+		Quote: entity.PcrQuote{
+			Quoted: []byte(quoteVal),
+		},
+	}
+
+	pi  = repopcrInfo
+	pi2 = entity.PcrInfo{
+		AlgName: algSHA1,
+		Values: map[int]string{
+			1: pcrVal1,
+			4: pcrVal4,
+			5: pcrVal5,
+		},
+		Quote: entity.PcrQuote{
+			Quoted: []byte(quoteVal),
+		},
+	}
+
+	i1 = entity.ManifestItem{
+		Name:   name1,
+		Value:  value1,
+		Detail: detail1,
+	}
+
+	i2 = entity.ManifestItem{
+		Name:   name2,
+		Value:  value2,
+		Detail: detail2,
+	}
+
+	i3 = entity.ManifestItem{
+		Name:   name3,
+		Value:  value3,
+		Detail: detail3,
+	}
+
+	bm = entity.Manifest{
+		Type:  mtBIOS,
+		Items: []entity.ManifestItem{i1, i2},
+	}
+	bm2 = entity.Manifest{
+		Type:  mtBIOS,
+		Items: []entity.ManifestItem{i1, i3},
+	}
+
+	im = entity.Manifest{
+		Type:  mtIMA,
+		Items: []entity.ManifestItem{i1, i2},
+	}
+
+	im2 = entity.Manifest{
+		Type:  mtIMA,
+		Items: []entity.ManifestItem{i1, i3},
+	}
+)
+
+func TestPCRVerifierVerify(t *testing.T) {
 	var pv *PCRVerifier
-
-	bvpcrInfo1 := entity.PcrInfo{
-		AlgName: "sha1",
-		Values: map[int]string{
-			2: "pcr value 2",
-			5: "pcr value 5",
-		},
-		Quote: entity.PcrQuote{
-			Quoted: []byte("test quote"),
-		},
-	}
-
-	bvpcrInfo2 := entity.PcrInfo{
-		AlgName: "sha1",
-		Values: map[int]string{
-			2: "pcr value 1",
-			5: "pcr value 5",
-		},
-		Quote: entity.PcrQuote{
-			Quoted: []byte("test quote"),
-		},
-	}
-
-	repopcrInfo := entity.PcrInfo{
-		AlgName: "sha1",
-		Values: map[int]string{
-			1: "pcr value 1",
-			2: "pcr value 2",
-			3: "pcr value 3",
-			4: "pcr value 4",
-			5: "pcr value 5",
-		},
-		Quote: entity.PcrQuote{
-			Quoted: []byte("test quote"),
-		},
-	}
 
 	baseValue1 := &entity.MeasurementInfo{
 		ClientID: 1,
@@ -93,33 +165,7 @@ func TestPCRVerifier_Verify(t *testing.T) {
 
 func TestPCRExtract(t *testing.T) {
 	test.CreateConfigFile()
-	defer func() {
-		os.Remove("./config.yaml")
-	}()
-	pi := entity.PcrInfo{
-		AlgName: "sha1",
-		Values: map[int]string{
-			1: "pcr value 1",
-			2: "pcr value 2",
-			3: "pcr value 3",
-			4: "pcr value 4",
-			5: "pcr value 5",
-		},
-		Quote: entity.PcrQuote{
-			Quoted: []byte("test quote"),
-		},
-	}
-	pi2 := entity.PcrInfo{
-		AlgName: "sha1",
-		Values: map[int]string{
-			1: "pcr value 1",
-			4: "pcr value 4",
-			5: "pcr value 5",
-		},
-		Quote: entity.PcrQuote{
-			Quoted: []byte("test quote"),
-		},
-	}
+	defer test.RemoveConfigFile()
 	testReport := &entity.Report{
 		PcrInfo: pi,
 	}
@@ -155,39 +201,8 @@ func TestPCRExtract(t *testing.T) {
 
 func TestBIOSExtract(t *testing.T) {
 	test.CreateConfigFile()
-	defer func() {
-		os.Remove("./config.yaml")
-	}()
-	bm := entity.Manifest{
-		Type: "bios",
-		Items: []entity.ManifestItem{
-			{
-				Name:   "name1",
-				Value:  "name1 value",
-				Detail: "name1 detail",
-			},
-			{
-				Name:   "name2",
-				Value:  "name2 value",
-				Detail: "name2 detail",
-			},
-		},
-	}
-	bm2 := entity.Manifest{
-		Type: "bios",
-		Items: []entity.ManifestItem{
-			{
-				Name:   "name1",
-				Value:  "name1 value",
-				Detail: "name1 detail",
-			},
-			{
-				Name:   "name3",
-				Value:  "name3 value",
-				Detail: "name3 detail",
-			},
-		},
-	}
+	defer test.RemoveConfigFile()
+
 	testReport := &entity.Report{
 		Manifest: []entity.Manifest{bm},
 	}
@@ -223,39 +238,8 @@ func TestBIOSExtract(t *testing.T) {
 
 func TestIMAExtract(t *testing.T) {
 	test.CreateConfigFile()
-	defer func() {
-		os.Remove("./config.yaml")
-	}()
-	im := entity.Manifest{
-		Type: "ima",
-		Items: []entity.ManifestItem{
-			{
-				Name:   "name1",
-				Value:  "name1 value",
-				Detail: "name1 detail",
-			},
-			{
-				Name:   "name2",
-				Value:  "name2 value",
-				Detail: "name2 detail",
-			},
-		},
-	}
-	im2 := entity.Manifest{
-		Type: "ima",
-		Items: []entity.ManifestItem{
-			{
-				Name:   "name1",
-				Value:  "name1 value",
-				Detail: "name1 detail",
-			},
-			{
-				Name:   "name3",
-				Value:  "name3 value",
-				Detail: "name3 detail",
-			},
-		},
-	}
+	defer test.RemoveConfigFile()
+
 	testReport := &entity.Report{
 		Manifest: []entity.Manifest{im},
 	}
