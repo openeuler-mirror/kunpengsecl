@@ -1,15 +1,14 @@
 conftype: server
 database:
-  dbname: kunpengsecl
   host: localhost
-  password: ""
+  dbname: kunpengsecl
   port: 5432
   user: ""
-racconfig:
-  hbduration: 5s
-  trustduration: 2m0s
+  password: ""
 rasconfig:
-  changetime: 2021-09-30T11:53:24.0581136+08:00
+  port: 40001
+  rest: 40002
+  changetime: 0
   mgrstrategy: auto
   basevalue-extract-rules:
     pcrinfo:
@@ -21,3 +20,6 @@ rasconfig:
       -
         type: ima
         name: ["name1", "name2"] 
+racconfig:
+  hbduration: 5s
+  trustduration: 2m0s

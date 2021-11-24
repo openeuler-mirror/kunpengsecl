@@ -17,10 +17,12 @@ Description: Store RAS and RAC configurations.
 package config
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -32,33 +34,35 @@ const (
 	ConfServer = "server"
 	ConfClient = "client"
 	// database
-	DbHost        = "database.host"
-	DbName        = "database.dbname"
-	DbUser        = "database.user"
-	DbPassword    = "database.password"
-	DbPort        = "database.port"
-	DbDefaultHost = "localhost"
-	DbDefaultName = "test"
-	DbDefaultNull = ""
-	DbDefaultPort = 5432
+	DbHost     = "database.host"
+	DbName     = "database.dbname"
+	DbUser     = "database.user"
+	DbPassword = "database.password"
+	DbPort     = "database.port"
 	// RAS
-	RasMgrStrategy  = "rasConfig.mgrStrategy"
-	RasAutoStrategy = "auto"
-	RasChangeTime   = "rasConfig.changeTime"
-	RasExtRules     = "rasConfig.basevalue-extract-rules.manifest"
-	RasMfrTypeBios  = "bios"
-	RasMfrTypeIma   = "ima"
-	RasPcrSelection = "rasConfig.basevalue-extract-rules.pcrinfo.pcrselection"
-	RasKsType       = "type"
-	RasKsName       = "name"
+	RasPort              = "rasconfig.port" // server listen port
+	RasPortShortFlag     = "p"
+	RasRestPort          = "rasconfig.rest" // rest listen port
+	RasRestPortShortFlag = "r"
+	RasMgrStrategy       = "rasconfig.mgrStrategy"
+	RasAutoStrategy      = "auto"
+	RasChangeTime        = "rasconfig.changeTime"
+	RasExtRules          = "rasconfig.basevalue-extract-rules.manifest"
+	RasMfrTypeBios       = "bios"
+	RasMfrTypeIma        = "ima"
+	RasPcrSelection      = "rasconfig.basevalue-extract-rules.pcrinfo.pcrselection"
+	RasKsType            = "type"
+	RasKsName            = "name"
 	// RAC
-	RacHbDuration           = "racConfig.hbDuration"
+	RacServerIp             = "server" // client connect to server
+	RacServerIpShortFlag    = "s"
+	RacHbDuration           = "racconfig.hbDuration"
 	RacDefaultHbDuration    = 10 // seconds
-	RacTrustDuration        = "racConfig.trustDuration"
+	RacTrustDuration        = "racconfig.trustDuration"
 	RacDefaultTrustDuration = 120 // seconds
-	RacClientId             = "racConfig.clientId"
+	RacClientId             = "racconfig.clientId"
 	RacNullClientId         = -1
-	RacPassword             = "racConfig.password"
+	RacPassword             = "racconfig.password"
 	RacDefaultPassword      = ""
 )
 
@@ -66,7 +70,7 @@ var (
 	defaultConfigPath = []string{
 		".",
 		"./config",
-		"../config",
+		"../../config",
 		"$HOME/.config/attestation",
 		"/usr/lib/attestation",
 		"/etc/attestation",
@@ -83,11 +87,14 @@ type (
 		port     int
 	}
 	rasConfig struct {
+		servPort     string
+		restPort     string
 		mgrStrategy  string
 		changeTime   time.Time
 		extractRules entity.ExtractRules
 	}
 	racConfig struct {
+		serverIp      string
 		hbDuration    time.Duration // heartbeat duration
 		trustDuration time.Duration // trust state duration
 		clientId      int64
@@ -100,6 +107,13 @@ type (
 		racConfig
 	}
 )
+
+// InitFlags sets the whole command flags.
+func InitFlags() {
+	pflag.StringP(RasPort, RasPortShortFlag, "", "set the attestation server communication listen [IP]:PORT")
+	pflag.StringP(RasRestPort, RasRestPortShortFlag, "", "set the attestation server rest interface listen [IP]:PORT")
+	viper.BindPFlags(pflag.CommandLine)
+}
 
 /*
 GetDefault returns the global default config object.
@@ -120,101 +134,73 @@ func GetDefault() *config {
 		viper.AddConfigPath(s)
 	}
 
+	// set client default configuration into viper
+	viper.SetDefault(ConfType, ConfClient)
+	viper.SetDefault(RacHbDuration, RacDefaultHbDuration)
+	viper.SetDefault(RacTrustDuration, RacDefaultTrustDuration)
+	viper.SetDefault(RacClientId, RacNullClientId)
+	viper.SetDefault(RacPassword, RacDefaultPassword)
+
 	err := viper.ReadInConfig()
-	if err == nil {
-		cfg = &config{}
-		if strings.ToLower(viper.GetString(ConfType)) == ConfServer {
-			cfg.isServer = true
-		} else {
-			cfg.isServer = false
-		}
-		if cfg.isServer {
-			var mRules []entity.ManifestRule
-			mrs, ok := viper.Get(RasExtRules).([]interface{})
-			if ok {
-				for _, mr := range mrs {
-					var mRule entity.ManifestRule
-					if m, ok := mr.(map[interface{}]interface{}); ok {
-						for k, v := range m {
-							if ks, ok := k.(string); ok {
-								if ks == RasKsType {
-									if vs, ok := v.(string); ok {
-										mRule.MType = vs
-									}
+	if err != nil {
+		fmt.Printf("read config file error: %v\n", err)
+	}
+
+	cfg = &config{}
+	if strings.ToLower(viper.GetString(ConfType)) == ConfServer {
+		cfg.isServer = true
+	} else {
+		cfg.isServer = false
+	}
+	if cfg.isServer {
+		var mRules []entity.ManifestRule
+		mrs, ok := viper.Get(RasExtRules).([]interface{})
+		if ok {
+			for _, mr := range mrs {
+				var mRule entity.ManifestRule
+				if m, ok := mr.(map[interface{}]interface{}); ok {
+					for k, v := range m {
+						if ks, ok := k.(string); ok {
+							if ks == RasKsType {
+								if vs, ok := v.(string); ok {
+									mRule.MType = vs
 								}
-								if ks == RasKsName {
-									var names []string
-									if ns, ok := v.([]interface{}); ok {
-										for _, n := range ns {
-											names = append(names, n.(string))
-										}
-										mRule.Name = names
+							}
+							if ks == RasKsName {
+								var names []string
+								if ns, ok := v.([]interface{}); ok {
+									for _, n := range ns {
+										names = append(names, n.(string))
 									}
+									mRule.Name = names
 								}
 							}
 						}
-						mRules = append(mRules, mRule)
 					}
+					mRules = append(mRules, mRule)
 				}
 			}
-			cfg.dbConfig.host = viper.GetString(DbHost)
-			cfg.dbConfig.dbName = viper.GetString(DbName)
-			cfg.dbConfig.user = viper.GetString(DbUser)
-			cfg.dbConfig.password = viper.GetString(DbPassword)
-			cfg.dbConfig.port = viper.GetInt(DbPort)
-			cfg.rasConfig.mgrStrategy = viper.GetString(RasMgrStrategy)
-			cfg.rasConfig.changeTime = viper.GetTime(RasChangeTime)
-			cfg.rasConfig.extractRules.PcrRule.PcrSelection = viper.GetIntSlice(RasPcrSelection)
-			cfg.rasConfig.extractRules.ManifestRules = mRules
-			cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
-			cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
-		} else {
-			cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
-			cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
-			cfg.racConfig.clientId = viper.GetInt64(RacClientId)
-			cfg.racConfig.password = viper.GetString(RacPassword)
 		}
-		return cfg
+		cfg.dbConfig.host = viper.GetString(DbHost)
+		cfg.dbConfig.dbName = viper.GetString(DbName)
+		cfg.dbConfig.user = viper.GetString(DbUser)
+		cfg.dbConfig.password = viper.GetString(DbPassword)
+		cfg.dbConfig.port = viper.GetInt(DbPort)
+		cfg.rasConfig.servPort = viper.GetString(RasPort)
+		cfg.rasConfig.restPort = viper.GetString(RasRestPort)
+		cfg.rasConfig.mgrStrategy = viper.GetString(RasMgrStrategy)
+		cfg.rasConfig.changeTime = viper.GetTime(RasChangeTime)
+		cfg.rasConfig.extractRules.PcrRule.PcrSelection = viper.GetIntSlice(RasPcrSelection)
+		cfg.rasConfig.extractRules.ManifestRules = mRules
+		cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
+		cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
+	} else {
+		cfg.racConfig.serverIp = viper.GetString(RacServerIp)
+		cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
+		cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
+		cfg.racConfig.clientId = viper.GetInt64(RacClientId)
+		cfg.racConfig.password = viper.GetString(RacPassword)
 	}
-
-	if cfg == nil {
-		cfg = &config{
-			isServer: false,
-			dbConfig: dbConfig{
-				host:     DbDefaultHost,
-				dbName:   DbDefaultName,
-				user:     DbDefaultNull,
-				password: DbDefaultNull,
-				port:     DbDefaultPort,
-			},
-			rasConfig: rasConfig{
-				mgrStrategy: RasAutoStrategy,
-				changeTime:  time.Now(),
-				extractRules: entity.ExtractRules{
-					PcrRule: entity.PcrRule{
-						PcrSelection: []int{1},
-					},
-					ManifestRules: []entity.ManifestRule{
-						0: {
-							MType: RasMfrTypeBios,
-							Name:  []string{""},
-						},
-						1: {
-							MType: RasMfrTypeIma,
-							Name:  []string{""},
-						},
-					},
-				},
-			},
-			racConfig: racConfig{
-				hbDuration:    RacDefaultHbDuration * time.Second,
-				trustDuration: RacDefaultTrustDuration * time.Second,
-				clientId:      RacNullClientId,
-				password:      RacDefaultPassword,
-			},
-		}
-	}
-
 	return cfg
 }
 
@@ -225,9 +211,11 @@ func Save() {
 			viper.Set(ConfType, ConfServer)
 			viper.Set(DbHost, cfg.dbConfig.host)
 			viper.Set(DbName, cfg.dbConfig.dbName)
+			viper.Set(DbPort, cfg.dbConfig.port)
 			viper.Set(DbUser, cfg.dbConfig.user)
 			viper.Set(DbPassword, cfg.dbConfig.password)
-			viper.Set(DbPort, cfg.dbConfig.port)
+			viper.Set(RasPort, cfg.rasConfig.servPort)
+			viper.Set(RasRestPort, cfg.rasConfig.restPort)
 			viper.Set(RasMgrStrategy, cfg.rasConfig.mgrStrategy)
 			viper.Set(RasChangeTime, cfg.rasConfig.changeTime)
 			// store common configuration for all client
@@ -236,6 +224,7 @@ func Save() {
 		} else {
 			viper.Set(ConfType, ConfClient)
 			// store common part
+			viper.Set(RacServerIp, cfg.racConfig.serverIp)
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
 			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
 			// store special configuration for this client
@@ -265,6 +254,14 @@ func (c *config) SetDBName(dbName string) {
 	c.dbConfig.dbName = dbName
 }
 
+func (c *config) GetDBPort() int {
+	return c.dbConfig.port
+}
+
+func (c *config) SetDBPort(port int) {
+	c.dbConfig.port = port
+}
+
 func (c *config) GetUser() string {
 	return c.dbConfig.user
 }
@@ -279,14 +276,6 @@ func (c *config) GetPassword() string {
 
 func (c *config) SetPassword(password string) {
 	c.dbConfig.password = password
-}
-
-func (c *config) GetPort() int {
-	return c.dbConfig.port
-}
-
-func (c *config) SetPort(port int) {
-	c.dbConfig.port = port
 }
 
 func (c *config) GetTrustDuration() time.Duration {
@@ -332,4 +321,16 @@ func (c *config) SetExtractRules(e entity.ExtractRules) {
 
 func (c *config) GetExtractRules() entity.ExtractRules {
 	return c.rasConfig.extractRules
+}
+
+func (c *config) GetPort() string {
+	return c.rasConfig.servPort
+}
+
+func (c *config) GetRestPort() string {
+	return c.rasConfig.restPort
+}
+
+func (c *config) GetServerIp() string {
+	return c.racConfig.serverIp
 }

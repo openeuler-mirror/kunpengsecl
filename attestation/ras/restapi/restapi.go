@@ -34,7 +34,7 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 		"dbHost":        cfg.GetHost(),
 		"dbName":        cfg.GetDBName(),
 		"dbUser":        cfg.GetUser(),
-		"dbPort":        fmt.Sprint(cfg.GetPort()),
+		"dbPort":        fmt.Sprint(cfg.GetDBPort()),
 		"mgrStrategy":   cfg.GetMgrStrategy(),
 		"changeTime":    fmt.Sprint(cfg.GetChangeTime()),
 		"extractRules":  strER,
@@ -43,7 +43,7 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 	}
 	configs := []ConfigItem{}
 	for key, val := range cfgMap {
-                k, v := key, val
+		k, v := key, val
 		configs = append(configs, ConfigItem{&k, &v})
 	}
 	return ctx.JSON(http.StatusOK, configs)
