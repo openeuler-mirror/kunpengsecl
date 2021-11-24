@@ -346,6 +346,60 @@ func delRsaKeys() {
 	os.Remove(decPKeyFile)
 }
 
+func testAsymEncSchemeNull(t *testing.T, alg, mod tpm2.Algorithm, text string) {
+	rsaPubKeyPEM, _ := ioutil.ReadFile(rsaPubKeyFile)
+	keyBlock, _ := pem.Decode(rsaPubKeyPEM)
+	if keyBlock == nil || keyBlock.Type != constPUBLIC {
+		t.Errorf(constPUBLICERR)
+	}
+	rsaPubKey, err := x509.ParsePKIXPublicKey(keyBlock.Bytes)
+	if err != nil {
+		t.Errorf(constINVOKE, constPPK, err)
+	}
+	ciphertext, err := AsymmetricEncrypt(alg, mod, rsaPubKey, []byte(text), nil)
+	if err != nil {
+		t.Errorf(constINVOKE, constAE+text, err)
+	}
+	err = ioutil.WriteFile(encFile, ciphertext, 0644)
+	if err != nil {
+		t.Errorf(constINVOKE, constWT+encFile, err)
+	}
+	rsaDecrypt(t)
+	plaintext, _ := ioutil.ReadFile(decFile)
+	if string(plaintext) != text {
+		t.Errorf(constRESULT, len(plaintext), string(plaintext), len(text), text)
+	}
+}
+
+func testAsymEncSchemeAll(t *testing.T, alg, mod tpm2.Algorithm, text string) {
+	pubKeyPEM, _ := ioutil.ReadFile(pubKeyFile)
+	pKeyBlock, _ := pem.Decode(pubKeyPEM)
+	if pKeyBlock == nil || pKeyBlock.Type != constPUBLIC {
+		t.Errorf(constPUBLICERR)
+	}
+	pubKey, err := x509.ParsePKIXPublicKey(pKeyBlock.Bytes)
+	if err != nil {
+		t.Errorf(constINVOKE, constPPK, err)
+	}
+	ciphertext2, err := AsymmetricEncrypt(alg, mod, pubKey, []byte(text), nil)
+	if err != nil {
+		t.Errorf(constINVOKE, constAE+text, err)
+	}
+	err = ioutil.WriteFile(encPKeyFile, ciphertext2, 0644)
+	if err != nil {
+		t.Errorf(constINVOKE, constWT+encPKeyFile, err)
+	}
+	if mod == tpm2.AlgOAEP {
+		pKeyDecOAEP(t)
+	} else {
+		pKeyDecPKCS1(t)
+	}
+	plaintext2, _ := ioutil.ReadFile(decPKeyFile)
+	if string(plaintext2) != text {
+		t.Errorf(constRESULT, len(plaintext2), string(plaintext2), len(text), text)
+	}
+}
+
 func TestAsymEnc(t *testing.T) {
 	var testCases = []struct {
 		text string
@@ -360,56 +414,57 @@ func TestAsymEnc(t *testing.T) {
 	genPKeys(t)
 	for _, tc := range testCases {
 		if tc.mod == tpm2.AlgNull {
-			rsaPubKeyPEM, _ := ioutil.ReadFile(rsaPubKeyFile)
-			keyBlock, _ := pem.Decode(rsaPubKeyPEM)
-			if keyBlock == nil || keyBlock.Type != constPUBLIC {
-				t.Errorf(constPUBLICERR)
-			}
-			rsaPubKey, err := x509.ParsePKIXPublicKey(keyBlock.Bytes)
-			if err != nil {
-				t.Errorf(constINVOKE, constPPK, err)
-			}
-			ciphertext, err := AsymmetricEncrypt(tc.alg, tc.mod, rsaPubKey, []byte(tc.text), nil)
-			if err != nil {
-				t.Errorf(constINVOKE, constAE+tc.text, err)
-			}
-			err = ioutil.WriteFile(encFile, ciphertext, 0644)
-			if err != nil {
-				t.Errorf(constINVOKE, constWT+encFile, err)
-			}
-			rsaDecrypt(t)
-			plaintext, _ := ioutil.ReadFile(decFile)
-			if string(plaintext) != tc.text {
-				t.Errorf(constRESULT, len(plaintext), string(plaintext), len(tc.text), tc.text)
-			}
+			testAsymEncSchemeNull(t, tc.alg, tc.mod, tc.text)
 		}
+		testAsymEncSchemeAll(t, tc.alg, tc.mod, tc.text)
+	}
+}
 
-		pubKeyPEM, _ := ioutil.ReadFile(pubKeyFile)
-		pKeyBlock, _ := pem.Decode(pubKeyPEM)
-		if pKeyBlock == nil || pKeyBlock.Type != constPUBLIC {
-			t.Errorf(constPUBLICERR)
-		}
-		pubKey, err := x509.ParsePKIXPublicKey(pKeyBlock.Bytes)
-		if err != nil {
-			t.Errorf(constINVOKE, constPPK, err)
-		}
-		ciphertext2, err := AsymmetricEncrypt(tc.alg, tc.mod, pubKey, []byte(tc.text), nil)
-		if err != nil {
-			t.Errorf(constINVOKE, constAE+tc.text, err)
-		}
-		err = ioutil.WriteFile(encPKeyFile, ciphertext2, 0644)
-		if err != nil {
-			t.Errorf(constINVOKE, constWT+encPKeyFile, err)
-		}
-		if tc.mod == tpm2.AlgOAEP {
-			pKeyDecOAEP(t)
-		} else {
-			pKeyDecPKCS1(t)
-		}
-		plaintext2, _ := ioutil.ReadFile(decPKeyFile)
-		if string(plaintext2) != tc.text {
-			t.Errorf(constRESULT, len(plaintext2), string(plaintext2), len(tc.text), tc.text)
-		}
+func testAsymDecSchemeNull(t *testing.T, alg, mod tpm2.Algorithm, text string) {
+	rsaEncrypt(t)
+	rsaKeyPEM, _ := ioutil.ReadFile(rsaKeyFile)
+	keyBlock, _ := pem.Decode(rsaKeyPEM)
+	if keyBlock == nil || keyBlock.Type != constRSAPRIVATE {
+		t.Errorf(constPRIVATEERR)
+	}
+	// rsa for PKCS#1
+	rsaPriKey, err1 := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	if err1 != nil {
+		t.Errorf(constINVOKE, constP1K, err1)
+	}
+	ciphertext, _ := ioutil.ReadFile(encFile)
+	plaintext, err1 := AsymmetricDecrypt(alg, mod, rsaPriKey, ciphertext, nil)
+	if err1 != nil {
+		t.Errorf(constINVOKE, constAD, err1)
+	}
+	if string(plaintext) != text {
+		t.Errorf(constRESULT, len(plaintext), string(plaintext), len(text), text)
+	}
+}
+
+func testAsymDecSchemeAll(t *testing.T, alg, mod tpm2.Algorithm, text string) {
+	if mod == tpm2.AlgOAEP {
+		pKeyEncOAEP(t)
+	} else {
+		pKeyEncPKCS1(t)
+	}
+	pKeyPEM, _ := ioutil.ReadFile(pKeyFile)
+	pKeyBlock, _ := pem.Decode(pKeyPEM)
+	if pKeyBlock == nil || pKeyBlock.Type != constPRIVATE {
+		t.Errorf(constPRIVATEERR)
+	}
+	// pkey for PKCS#8
+	priKey, err := x509.ParsePKCS8PrivateKey(pKeyBlock.Bytes)
+	if err != nil {
+		t.Errorf(constINVOKE, constP8K, err)
+	}
+	ciphertext2, _ := ioutil.ReadFile(encPKeyFile)
+	plaintext2, err := AsymmetricDecrypt(alg, mod, priKey, ciphertext2, nil)
+	if err != nil {
+		t.Errorf(constINVOKE, constAD, err)
+	}
+	if string(plaintext2) != text {
+		t.Errorf(constRESULT, len(plaintext2), string(plaintext2), len(text), text)
 	}
 }
 
@@ -432,50 +487,9 @@ func TestAsymDec(t *testing.T) {
 		}
 
 		if tc.mod == tpm2.AlgNull {
-			rsaEncrypt(t)
-			rsaKeyPEM, _ := ioutil.ReadFile(rsaKeyFile)
-			keyBlock, _ := pem.Decode(rsaKeyPEM)
-			if keyBlock == nil || keyBlock.Type != constRSAPRIVATE {
-				t.Errorf(constPRIVATEERR)
-			}
-			// rsa for PKCS#1
-			rsaPriKey, err1 := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
-			if err1 != nil {
-				t.Errorf(constINVOKE, constP1K, err)
-			}
-			ciphertext, _ := ioutil.ReadFile(encFile)
-			plaintext, err1 := AsymmetricDecrypt(tc.alg, tc.mod, rsaPriKey, ciphertext, nil)
-			if err1 != nil {
-				t.Errorf(constINVOKE, constAD, err)
-			}
-			if string(plaintext) != tc.text {
-				t.Errorf(constRESULT, len(plaintext), string(plaintext), len(tc.text), tc.text)
-			}
+			testAsymDecSchemeNull(t, tc.alg, tc.mod, tc.text)
 		}
-
-		if tc.mod == tpm2.AlgOAEP {
-			pKeyEncOAEP(t)
-		} else {
-			pKeyEncPKCS1(t)
-		}
-		pKeyPEM, _ := ioutil.ReadFile(pKeyFile)
-		pKeyBlock, _ := pem.Decode(pKeyPEM)
-		if pKeyBlock == nil || pKeyBlock.Type != constPRIVATE {
-			t.Errorf(constPRIVATEERR)
-		}
-		// pkey for PKCS#8
-		priKey, err := x509.ParsePKCS8PrivateKey(pKeyBlock.Bytes)
-		if err != nil {
-			t.Errorf(constINVOKE, constP8K, err)
-		}
-		ciphertext2, _ := ioutil.ReadFile(encPKeyFile)
-		plaintext2, err := AsymmetricDecrypt(tc.alg, tc.mod, priKey, ciphertext2, nil)
-		if err != nil {
-			t.Errorf(constINVOKE, constAD, err)
-		}
-		if string(plaintext2) != tc.text {
-			t.Errorf(constRESULT, len(plaintext2), string(plaintext2), len(tc.text), tc.text)
-		}
+		testAsymDecSchemeAll(t, tc.alg, tc.mod, tc.text)
 	}
 }
 

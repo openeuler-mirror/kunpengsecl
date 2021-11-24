@@ -100,7 +100,7 @@ iRPpQT815b+A3q4eUAFVBvHtD0R4cpqfAkfigoZtWWVb8onP4MES
 
 var (
 	PcrSelection     = tpm2.PCRSelection{Hash: tpm2.AlgSHA1, PCRs: []int{0}}
-	ParentPassword   = " "
+	ParentPassword   = ""
 	DefaultPassword  = "\x01\x02\x03\x04"
 	DefaultKeyParams = tpm2.Public{
 		Type:       tpm2.AlgRSA,
@@ -118,7 +118,7 @@ var (
 	}
 )
 
-type ToICandSymKey struct {
+type IKCertChallenge struct {
 	EnCredential    []byte
 	TPMSymKeyParams TPMSymKeyParams
 	SymBlob         []byte

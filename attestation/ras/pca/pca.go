@@ -24,32 +24,34 @@ const (
 	TPM_CBC = "CBC"
 )
 
+var caIP = "127.0.0.1"
+
 type PCA struct {
 }
 type PrivacyCA interface {
 }
 
 //GetIkCert
-func GetIkCert(ekCert string, ikPub string, ikName []byte) (*ToICandSymKey, error) {
+func GetIkCert(ekCert string, ikPub string, ikName []byte) (*IKCertChallenge, error) {
 	//get decode cert
 	root, err := DecodeCert(RootPEM)
 	if err != nil {
-		return &ToICandSymKey{}, err
+		return nil, err
 	}
 	cert, err := DecodeCert(ekCert)
 	if err != nil {
-		return &ToICandSymKey{}, err
+		return nil, err
 	}
 	fmt.Println(cert.Version)
 	//verify the ekcert
 	ok, err := verifyPCACert(root, cert)
 	if !ok {
-		return &ToICandSymKey{}, err
+		return nil, err
 	}
 	//get decode pubkey
 	pub, err := DecodePubkey(ikPub)
 	if err != nil {
-		return &ToICandSymKey{}, err
+		return nil, err
 	}
 	req := Request{
 		TPMVer: "2.0",
@@ -60,25 +62,24 @@ func GetIkCert(ekCert string, ikPub string, ikName []byte) (*ToICandSymKey, erro
 	case *rsa.PublicKey:
 		req.IkPub = pub
 	default:
-		return &ToICandSymKey{}, errors.New("unknown type public key")
-	}
-	//Examine the Public key
-	ok = ExamineIkPub(pub)
-	if !ok {
-		return &ToICandSymKey{}, errors.New("failed the examine the ikpub")
+		return nil, errors.New("unknown type public key")
 	}
 	//Generate the Credential(is the IkCert)
 	pcaCert, err := DecodeCert(CertPEM)
 	if err != nil {
-		return &ToICandSymKey{}, errors.New("Failed to decode the pca Cert")
+		return nil, errors.New("Failed to decode the pca Cert")
 	}
 	pcaPriv, err := DecodePrivkey(PrivPEM)
-	_, _, err = GenerateIkCert(pcaCert, pcaPriv, req.IkPub)
 	if err != nil {
-		return &ToICandSymKey{}, errors.New("Failed to generate the ikCert")
+		return nil, errors.New("Failed to decode the private key")
 	}
-	return &ToICandSymKey{}, nil
+	_, ikPerm, err := GenerateIkCert(pcaCert, pcaPriv, req.IkPub)
+	if err != nil {
+		return nil, errors.New("Failed to generate the ikCert")
+	}
 
+	// encrypt the Credential
+	return EncryptIkcert(ikPerm, ikName)
 }
 
 // The certificate is signed by parent. If parent is equal to template then the
@@ -100,7 +101,7 @@ func GenerateCert(template, parent *x509.Certificate, pub *rsa.PublicKey, priv *
 
 //return a root CA and its privateKey
 func GenerateRootCA() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
-	var rootTemplate = x509.Certificate{
+	rootTemplate := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
 			Country:      []string{"China"},
@@ -114,14 +115,14 @@ func GenerateRootCA() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 		MaxPathLen:            2,
-		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		IPAddresses:           []net.IP{net.ParseIP(caIP)},
 	}
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	rootCert, rootPEM, err := GenerateCert(&rootTemplate, &rootTemplate, &priv.PublicKey, priv)
-	return rootCert, rootPEM, priv, nil
+	return rootCert, rootPEM, priv, err
 }
 func GeneratePCACert(RootCert *x509.Certificate, Rootkey *rsa.PrivateKey) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -143,10 +144,10 @@ func GeneratePCACert(RootCert *x509.Certificate, Rootkey *rsa.PrivateKey) (*x509
 		IsCA:                  true,
 		MaxPathLenZero:        false,
 		MaxPathLen:            1,
-		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		IPAddresses:           []net.IP{net.ParseIP(caIP)},
 	}
 	pcaCert, pcaPem, err := GenerateCert(&PCAtemplate, RootCert, &priv.PublicKey, Rootkey)
-	return pcaCert, pcaPem, priv, nil
+	return pcaCert, pcaPem, priv, err
 }
 
 //pca's private key and the ikPub are the input
@@ -160,7 +161,7 @@ func GenerateIkCert(privacycaCert *x509.Certificate, privacycaKey *rsa.PrivateKe
 		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
 		IsCA:           false,
 		MaxPathLenZero: true,
-		IPAddresses:    []net.IP{net.ParseIP("127.0.0.1")},
+		//		IPAddresses:    []net.IP{net.ParseIP("127.0.0.1")},
 	}
 	ikCert, ikPem, err := GenerateCert(&template, privacycaCert, IkPub, privacycaKey)
 	if err != nil {
@@ -168,12 +169,6 @@ func GenerateIkCert(privacycaCert *x509.Certificate, privacycaKey *rsa.PrivateKe
 	}
 
 	return ikCert, ikPem, err
-}
-
-//Examine  IkPub
-func ExamineIkPub(pub crypto.PublicKey) bool {
-
-	return true
 }
 
 //Decode the cert from pem cert
@@ -315,7 +310,7 @@ func VerifySigAndPub(signature []byte, hash [32]byte, pub *rsa.PublicKey) error 
 type IdentityResponse struct {
 }
 
-func getKeybyKDFa(rw io.ReadWriter) ([]byte, error) {
+func GetKeybyKDFa(rw io.ReadWriter) ([]byte, error) {
 
 	//get the seed
 	seed, err := tpm2.GetRandom(rw, 16)
@@ -333,34 +328,36 @@ func getKeybyKDFa(rw io.ReadWriter) ([]byte, error) {
 }
 
 //加密ac
-func EncryptIkcert(IkCert []byte, IkName []byte) (ToICandSymKey, error) {
+func EncryptIkcert(IkCert []byte, IkName []byte) (*IKCertChallenge, error) {
 	//对传进来的IkCert进行加密，使用symKey作为加密密钥
-	Secret, err := CreateRandomByte(16)
+	Secret, err := CreateRandomBytes(16)
 	if err != nil {
-		errors.New("failed create the symkey of a random byte")
+		return nil, errors.New("failed create the symkey of a random byte")
 	}
 	simulator, err := simulator.Get()
 	if err != nil {
-		errors.New("failed get the simulator")
+		return nil, errors.New("failed get the simulator")
 	}
+	defer simulator.Close()
 
-	iv, err := CreateRandomByte(16)
+	iv, err := CreateRandomBytes(16)
 	if err != nil {
-		errors.New("failed create the iv of a random byte")
+		return nil, errors.New("failed create the iv of a random byte")
 	}
 	enCredential, err := SymetricEncrypt(IkCert, Secret, iv, TPM_AES, TPM_CBC)
 
 	if err != nil {
-		errors.New("failed the SymetricEncrypt")
+		return nil, errors.New("failed the SymetricEncrypt")
 	}
+
 	parentHandle, _, err := tpm2.CreatePrimary(simulator, tpm2.HandleOwner, PcrSelection, ParentPassword, DefaultPassword, DefaultKeyParams)
 	if err != nil {
-		errors.New("failed CreatePrimary")
+		return nil, errors.New("failed CreatePrimary")
 	}
 	//generate the credential
 	EnSecret, SecretKey, err := tpm2.MakeCredential(simulator, parentHandle, Secret, IkName)
 	if err != nil {
-		errors.New("failed the MakeCredential")
+		return nil, errors.New("failed the MakeCredential")
 	}
 
 	symKeyParams := TPMSymKeyParams{
@@ -368,13 +365,10 @@ func EncryptIkcert(IkCert []byte, IkName []byte) (ToICandSymKey, error) {
 		SecretKey: SecretKey, //可以解出secret
 		IV:        iv,        //iv  + 上面解出的secret可以解密出ikcret
 	}
-	toACandsymKey := ToICandSymKey{
+	ikCertChallenge := IKCertChallenge{
 		EnCredential:    enCredential, //存放加密后的ikCert
 		TPMSymKeyParams: symKeyParams,
 	}
 
-	return toACandsymKey, nil
-}
-func Test() {
-	fmt.Println("hello, this is pca!")
+	return &ikCertChallenge, nil
 }
