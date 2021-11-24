@@ -139,14 +139,20 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"io"
 	"math"
-
-	"github.com/google/go-tpm-tools/simulator"
-	"github.com/google/go-tpm/tpm2"
 )
 
 const (
+	// algorithms define from tpm2
+	AlgNull = 0x0000
+	AlgRSA  = 0x0001
+	AlgAES  = 0x0006
+	AlgOAEP = 0x0017
+	AlgCTR  = 0x0040
+	AlgOFB  = 0x0041
+	AlgCBC  = 0x0042
+	AlgCFB  = 0x0043
+
 	KEYSIZE   = 32
 	IDENTITY  = "IDENTITY\x00"
 	STORAGE   = "STORAGE"
@@ -157,23 +163,11 @@ var (
 	ErrUnsupported = errors.New("unsupported parameters")
 )
 
-// GetRandomBytes gets true random bytes form TPM(true) or from simulator(false)
-func GetRandomBytes(size int, fromTPM bool) (b []byte, err error) {
-	var rw io.ReadWriteCloser
-	if fromTPM {
-		rw, err = tpm2.OpenTPM("/dev/tpmrm0")
-	} else {
-		rw, err = simulator.Get()
-	}
-	if err != nil {
-		return []byte{}, err
-	}
-	defer rw.Close()
-	b, err = tpm2.GetRandom(rw, uint16(size))
-	if err != nil {
-		return []byte{}, err
-	}
-	return b, nil
+// GetRandomBytes gets random bytes
+func GetRandomBytes(size int) ([]byte, error) {
+	b := make([]byte, size)
+	_, err := rand.Read(b)
+	return b, err
 }
 
 func pkcs7Pad(c []byte, n int) []byte {
@@ -257,17 +251,17 @@ func aesCTREncDec(key, iv, in []byte) ([]byte, error) {
 }
 
 // SymmetricEncrypt uses key/iv to encrypt the plaintext with symmetric algorithm/mode.
-func SymmetricEncrypt(alg, mod tpm2.Algorithm, key, iv, plaintext []byte) ([]byte, error) {
+func SymmetricEncrypt(alg, mod uint16, key, iv, plaintext []byte) ([]byte, error) {
 	switch alg {
-	case tpm2.AlgAES:
+	case AlgAES:
 		switch mod {
-		case tpm2.AlgCBC:
+		case AlgCBC:
 			return aesCBCEncrypt(key, iv, plaintext)
-		case tpm2.AlgCFB:
+		case AlgCFB:
 			return aesCFBEncrypt(key, iv, plaintext)
-		case tpm2.AlgOFB:
+		case AlgOFB:
 			return aesOFBEncDec(key, iv, plaintext)
-		case tpm2.AlgCTR:
+		case AlgCTR:
 			return aesCTREncDec(key, iv, plaintext)
 		}
 	}
@@ -275,17 +269,17 @@ func SymmetricEncrypt(alg, mod tpm2.Algorithm, key, iv, plaintext []byte) ([]byt
 }
 
 // SymmetricDecrypt uses key/iv to decrypt the ciphertext with symmetric algorithm/mode.
-func SymmetricDecrypt(alg, mod tpm2.Algorithm, key, iv, ciphertext []byte) ([]byte, error) {
+func SymmetricDecrypt(alg, mod uint16, key, iv, ciphertext []byte) ([]byte, error) {
 	switch alg {
-	case tpm2.AlgAES:
+	case AlgAES:
 		switch mod {
-		case tpm2.AlgCBC:
+		case AlgCBC:
 			return aesCBCDecrypt(key, iv, ciphertext)
-		case tpm2.AlgCFB:
+		case AlgCFB:
 			return aesCFBDecrypt(key, iv, ciphertext)
-		case tpm2.AlgOFB:
+		case AlgOFB:
 			return aesOFBEncDec(key, iv, ciphertext)
-		case tpm2.AlgCTR:
+		case AlgCTR:
 			return aesCTREncDec(key, iv, ciphertext)
 		}
 	}
@@ -293,11 +287,11 @@ func SymmetricDecrypt(alg, mod tpm2.Algorithm, key, iv, ciphertext []byte) ([]by
 }
 
 // AsymmetricEncrypt encrypts a byte array by public key and label using RSA
-func AsymmetricEncrypt(alg, mod tpm2.Algorithm, pubKey crypto.PublicKey, plaintext, label []byte) ([]byte, error) {
+func AsymmetricEncrypt(alg, mod uint16, pubKey crypto.PublicKey, plaintext, label []byte) ([]byte, error) {
 	switch alg {
-	case tpm2.AlgRSA:
+	case AlgRSA:
 		switch mod {
-		case tpm2.AlgOAEP:
+		case AlgOAEP:
 			return rsa.EncryptOAEP(sha256.New(), rand.Reader, pubKey.(*rsa.PublicKey), plaintext, label)
 		default:
 			return rsa.EncryptPKCS1v15(rand.Reader, pubKey.(*rsa.PublicKey), plaintext)
@@ -307,11 +301,11 @@ func AsymmetricEncrypt(alg, mod tpm2.Algorithm, pubKey crypto.PublicKey, plainte
 }
 
 // AsymmetricDecrypt decrypts a byte array by private key and label using RSA
-func AsymmetricDecrypt(alg, mod tpm2.Algorithm, priKey crypto.PrivateKey, ciphertext, label []byte) ([]byte, error) {
+func AsymmetricDecrypt(alg, mod uint16, priKey crypto.PrivateKey, ciphertext, label []byte) ([]byte, error) {
 	switch alg {
-	case tpm2.AlgRSA:
+	case AlgRSA:
 		switch mod {
-		case tpm2.AlgOAEP:
+		case AlgOAEP:
 			return rsa.DecryptOAEP(sha256.New(), rand.Reader, priKey.(*rsa.PrivateKey), ciphertext, label)
 		default:
 			return rsa.DecryptPKCS1v15(rand.Reader, priKey.(*rsa.PrivateKey), ciphertext)
@@ -584,12 +578,12 @@ func MakeCredential(ekPubKey crypto.PublicKey, credential []byte, name string) (
 	binary.Write(plaintext, binary.BigEndian, uint16(len(credential)))
 	binary.Write(plaintext, binary.BigEndian, credential)
 	// step 2,
-	seed, _ := GetRandomBytes(KEYSIZE, false)
-	encSeed, _ := AsymmetricEncrypt(tpm2.AlgRSA, tpm2.AlgOAEP, ekPubKey, seed, []byte(IDENTITY))
+	seed, _ := GetRandomBytes(KEYSIZE)
+	encSeed, _ := AsymmetricEncrypt(AlgRSA, AlgOAEP, ekPubKey, seed, []byte(IDENTITY))
 	// step 3
 	symKey, _ := KDFa(crypto.SHA256, seed, STORAGE, []byte(name), nil, KEYSIZE*8)
 	// step 4
-	encIdentity, _ := SymmetricEncrypt(tpm2.AlgAES, tpm2.AlgCFB, symKey, []byte{}, plaintext.Bytes())
+	encIdentity, _ := SymmetricEncrypt(AlgAES, AlgCFB, symKey, []byte{}, plaintext.Bytes())
 	// step 5
 	hmacKey, _ := KDFa(crypto.SHA256, seed, INTEGRITY, nil, nil, crypto.SHA256.Size()*8)
 	// step 6
