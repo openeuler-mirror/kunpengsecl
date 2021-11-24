@@ -23,7 +23,7 @@ func (tv *testValidator) Validate(report *entity.Report) error {
 }
 
 func init() {
-	config.InitFlags()
+	config.InitRasFlags()
 }
 
 func main() {

@@ -36,13 +36,15 @@ const (
 	// database
 	DbHost     = "database.host"
 	DbName     = "database.dbname"
+	DbPort     = "database.port"
 	DbUser     = "database.user"
 	DbPassword = "database.password"
-	DbPort     = "database.port"
 	// RAS
 	RasPort              = "rasconfig.port" // server listen port
+	RasPortLongFlag      = "port"
 	RasPortShortFlag     = "p"
 	RasRestPort          = "rasconfig.rest" // rest listen port
+	RasRestPortLongFlag  = "rest"
 	RasRestPortShortFlag = "r"
 	RasMgrStrategy       = "rasconfig.mgrStrategy"
 	RasAutoStrategy      = "auto"
@@ -54,8 +56,9 @@ const (
 	RasKsType            = "type"
 	RasKsName            = "name"
 	// RAC
-	RacServerIp             = "server" // client connect to server
-	RacServerIpShortFlag    = "s"
+	RacServer               = "racconfig.server" // client connect to server
+	RacServerLongFlag       = "server"
+	RacServerShortFlag      = "s"
 	RacHbDuration           = "racconfig.hbDuration"
 	RacDefaultHbDuration    = 10 // seconds
 	RacTrustDuration        = "racconfig.trustDuration"
@@ -70,12 +73,15 @@ var (
 	defaultConfigPath = []string{
 		".",
 		"./config",
-		"../../config",
+		"../config",
 		"$HOME/.config/attestation",
 		"/usr/lib/attestation",
 		"/etc/attestation",
 	}
 	cfg *config
+	servPort *string = nil
+	restPort *string = nil
+	server   *string = nil
 )
 
 type (
@@ -94,7 +100,7 @@ type (
 		extractRules entity.ExtractRules
 	}
 	racConfig struct {
-		serverIp      string
+		server        string
 		hbDuration    time.Duration // heartbeat duration
 		trustDuration time.Duration // trust state duration
 		clientId      int64
@@ -108,10 +114,16 @@ type (
 	}
 )
 
-// InitFlags sets the whole command flags.
-func InitFlags() {
-	pflag.StringP(RasPort, RasPortShortFlag, "", "set the attestation server communication listen [IP]:PORT")
-	pflag.StringP(RasRestPort, RasRestPortShortFlag, "", "set the attestation server rest interface listen [IP]:PORT")
+// InitRasFlags sets the ras server whole command flags.
+func InitRasFlags() {
+	servPort = pflag.StringP(RasPortLongFlag, RasPortShortFlag, "", "this app service listen at [IP]:PORT")
+	restPort = pflag.StringP(RasRestPortLongFlag, RasRestPortShortFlag, "", "this app rest interface listen at [IP]:PORT")
+	viper.BindPFlags(pflag.CommandLine)
+}
+
+// InitRacFlags sets the rac client whole command flags.
+func InitRacFlags() {
+	server = pflag.StringP(RacServerLongFlag, RacServerShortFlag, "", "connect attestation server at IP:PORT")
 	viper.BindPFlags(pflag.CommandLine)
 }
 
@@ -183,9 +195,9 @@ func GetDefault() *config {
 		}
 		cfg.dbConfig.host = viper.GetString(DbHost)
 		cfg.dbConfig.dbName = viper.GetString(DbName)
+		cfg.dbConfig.port = viper.GetInt(DbPort)
 		cfg.dbConfig.user = viper.GetString(DbUser)
 		cfg.dbConfig.password = viper.GetString(DbPassword)
-		cfg.dbConfig.port = viper.GetInt(DbPort)
 		cfg.rasConfig.servPort = viper.GetString(RasPort)
 		cfg.rasConfig.restPort = viper.GetString(RasRestPort)
 		cfg.rasConfig.mgrStrategy = viper.GetString(RasMgrStrategy)
@@ -194,12 +206,23 @@ func GetDefault() *config {
 		cfg.rasConfig.extractRules.ManifestRules = mRules
 		cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
 		cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
+		// set command line input
+		if servPort != nil && *servPort != "" {
+			cfg.rasConfig.servPort = *servPort
+		}
+		if restPort != nil && *restPort != "" {
+			cfg.rasConfig.restPort = *restPort
+		}
 	} else {
-		cfg.racConfig.serverIp = viper.GetString(RacServerIp)
+		cfg.racConfig.server = viper.GetString(RacServer)
 		cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
 		cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
 		cfg.racConfig.clientId = viper.GetInt64(RacClientId)
 		cfg.racConfig.password = viper.GetString(RacPassword)
+		// set command line input
+		if server != nil && *server != "" {
+			cfg.racConfig.server = *server
+		}
 	}
 	return cfg
 }
@@ -224,7 +247,7 @@ func Save() {
 		} else {
 			viper.Set(ConfType, ConfClient)
 			// store common part
-			viper.Set(RacServerIp, cfg.racConfig.serverIp)
+			viper.Set(RacServer, cfg.racConfig.server)
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
 			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
 			// store special configuration for this client
@@ -331,6 +354,6 @@ func (c *config) GetRestPort() string {
 	return c.rasConfig.restPort
 }
 
-func (c *config) GetServerIp() string {
-	return c.racConfig.serverIp
+func (c *config) GetServer() string {
+	return c.racConfig.server
 }

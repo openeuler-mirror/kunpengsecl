@@ -1,5 +1,6 @@
 conftype: client
 racconfig:
+  server: 127.0.0.1:40001
   hbduration: 5s
   trustduration: 2m0s
   clientId: -1

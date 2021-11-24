@@ -9,12 +9,19 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"github.com/spf13/pflag"
 )
 
+func init() {
+	config.InitRacFlags()
+}
+
 func main() {
-	const addr string = "127.0.0.1:40001"
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
-	cid := config.GetDefault().GetClientId()
+	pflag.Parse()
+	cfg := config.GetDefault()
+	server := cfg.GetServer()
+	cid := cfg.GetClientId()
 	tpm, err := ractools.OpenTPM(true)
 	if err != nil {
 		log.Printf("OpenTPM failed, error: %s \n", err)
@@ -36,7 +43,7 @@ func main() {
 			IkPub:  ractools.PubPEM,
 			IkName: tpm.GetIKName(),
 		}
-		bkk, err := clientapi.DoCreateIKCert(addr, &req)
+		bkk, err := clientapi.DoCreateIKCert(server, &req)
 		if err != nil {
 			log.Fatal("Client:can't Create IkCert")
 		}
@@ -44,7 +51,7 @@ func main() {
 		log.Println("Client:get encryptedIC=", eic)
 
 		ci, err := json.Marshal(map[string]string{"test name": "test value"})
-		bk, err := clientapi.DoRegisterClient(addr, &clientapi.RegisterClientRequest{
+		bk, err := clientapi.DoRegisterClient(server, &clientapi.RegisterClientRequest{
 			Ic:         &clientapi.Cert{Cert: []byte{1, 2}},
 			ClientInfo: &clientapi.ClientInfo{ClientInfo: string(ci)},
 		})
@@ -60,14 +67,14 @@ func main() {
 
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
 	for {
-		rpy, err := clientapi.DoSendHeartbeat(addr, &clientapi.SendHeartbeatRequest{ClientId: cid})
+		rpy, err := clientapi.DoSendHeartbeat(server, &clientapi.SendHeartbeatRequest{ClientId: cid})
 		if err != nil {
 			log.Fatalf("Client: send heart beat error %v", err)
 		}
 		log.Printf("Client: get heart beat back %v", rpy.GetNextAction())
 
 		// step 4. do what ras tells to do by NextAction...
-		DoNextAction(tpm, addr, cid, rpy)
+		DoNextAction(tpm, server, cid, rpy)
 
 		// step 5. what else??
 
