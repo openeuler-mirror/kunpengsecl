@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -510,4 +511,8 @@ func TestKDFa(t *testing.T) {
 			t.Errorf("KDFa can't match, %v, %v\n", a, b)
 		}
 	}
+}
+
+func TestTemp(t *testing.T) {
+	fmt.Printf("%s, %v, %d\n", IDENTITY, []byte(IDENTITY), len(IDENTITY))
 }
