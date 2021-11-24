@@ -24,14 +24,55 @@ import (
 	"github.com/spf13/viper"
 )
 
-var defaultConfigPath = []string{
-	".",
-	"./config",
-	"../config",
-	"$HOME/.config/attestation",
-	"/usr/lib/attestation",
-	"/etc/attestation",
-}
+const (
+	// normal
+	ConfName   = "config"
+	ConfExt    = "yaml"
+	ConfType   = "conftype"
+	ConfServer = "server"
+	ConfClient = "client"
+	// database
+	DbHost        = "database.host"
+	DbName        = "database.dbname"
+	DbUser        = "database.user"
+	DbPassword    = "database.password"
+	DbPort        = "database.port"
+	DbDefaultHost = "localhost"
+	DbDefaultName = "test"
+	DbDefaultNull = ""
+	DbDefaultPort = 5432
+	// RAS
+	RasMgrStrategy  = "rasConfig.mgrStrategy"
+	RasAutoStrategy = "auto"
+	RasChangeTime   = "rasConfig.changeTime"
+	RasExtRules     = "rasConfig.basevalue-extract-rules.manifest"
+	RasMfrTypeBios  = "bios"
+	RasMfrTypeIma   = "ima"
+	RasPcrSelection = "rasConfig.basevalue-extract-rules.pcrinfo.pcrselection"
+	RasKsType       = "type"
+	RasKsName       = "name"
+	// RAC
+	RacHbDuration           = "racConfig.hbDuration"
+	RacDefaultHbDuration    = 10 // seconds
+	RacTrustDuration        = "racConfig.trustDuration"
+	RacDefaultTrustDuration = 120 // seconds
+	RacClientId             = "racConfig.clientId"
+	RacNullClientId         = -1
+	RacPassword             = "racConfig.password"
+	RacDefaultPassword      = ""
+)
+
+var (
+	defaultConfigPath = []string{
+		".",
+		"./config",
+		"../config",
+		"$HOME/.config/attestation",
+		"/usr/lib/attestation",
+		"/etc/attestation",
+	}
+	cfg *config
+)
 
 type (
 	dbConfig struct {
@@ -60,8 +101,6 @@ type (
 	}
 )
 
-var cfg *config
-
 /*
 GetDefault returns the global default config object.
 It searches the defaultConfigPath to find the first matched config.yaml.
@@ -75,8 +114,8 @@ func GetDefault() *config {
 		return cfg
 	}
 
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
+	viper.SetConfigName(ConfName)
+	viper.SetConfigType(ConfExt)
 	for _, s := range defaultConfigPath {
 		viper.AddConfigPath(s)
 	}
@@ -84,26 +123,26 @@ func GetDefault() *config {
 	err := viper.ReadInConfig()
 	if err == nil {
 		cfg = &config{}
-		if strings.ToLower(viper.GetString("conftype")) == "server" {
+		if strings.ToLower(viper.GetString(ConfType)) == ConfServer {
 			cfg.isServer = true
 		} else {
 			cfg.isServer = false
 		}
 		if cfg.isServer {
 			var mRules []entity.ManifestRule
-			mrs, ok := viper.Get("rasConfig.basevalue-extract-rules.manifest").([]interface{})
+			mrs, ok := viper.Get(RasExtRules).([]interface{})
 			if ok {
 				for _, mr := range mrs {
 					var mRule entity.ManifestRule
 					if m, ok := mr.(map[interface{}]interface{}); ok {
 						for k, v := range m {
 							if ks, ok := k.(string); ok {
-								if ks == "type" {
+								if ks == RasKsType {
 									if vs, ok := v.(string); ok {
 										mRule.MType = vs
 									}
 								}
-								if ks == "name" {
+								if ks == RasKsName {
 									var names []string
 									if ns, ok := v.([]interface{}); ok {
 										for _, n := range ns {
@@ -118,22 +157,22 @@ func GetDefault() *config {
 					}
 				}
 			}
-			cfg.dbConfig.host = viper.GetString("database.host")
-			cfg.dbConfig.dbName = viper.GetString("database.dbname")
-			cfg.dbConfig.user = viper.GetString("database.user")
-			cfg.dbConfig.password = viper.GetString("database.password")
-			cfg.dbConfig.port = viper.GetInt("database.port")
-			cfg.rasConfig.mgrStrategy = viper.GetString("rasConfig.mgrStrategy")
-			cfg.rasConfig.changeTime = viper.GetTime("rasConfig.changeTime")
-			cfg.rasConfig.extractRules.PcrRule.PcrSelection = viper.GetIntSlice("rasConfig.basevalue-extract-rules.pcrinfo.pcrselection")
+			cfg.dbConfig.host = viper.GetString(DbHost)
+			cfg.dbConfig.dbName = viper.GetString(DbName)
+			cfg.dbConfig.user = viper.GetString(DbUser)
+			cfg.dbConfig.password = viper.GetString(DbPassword)
+			cfg.dbConfig.port = viper.GetInt(DbPort)
+			cfg.rasConfig.mgrStrategy = viper.GetString(RasMgrStrategy)
+			cfg.rasConfig.changeTime = viper.GetTime(RasChangeTime)
+			cfg.rasConfig.extractRules.PcrRule.PcrSelection = viper.GetIntSlice(RasPcrSelection)
 			cfg.rasConfig.extractRules.ManifestRules = mRules
-			cfg.racConfig.hbDuration = viper.GetDuration("racConfig.hbDuration")
-			cfg.racConfig.trustDuration = viper.GetDuration("racConfig.trustDuration")
+			cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
+			cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
 		} else {
-			cfg.racConfig.hbDuration = viper.GetDuration("racConfig.hbDuration")
-			cfg.racConfig.trustDuration = viper.GetDuration("racConfig.trustDuration")
-			cfg.racConfig.clientId = viper.GetInt64("racConfig.clientId")
-			cfg.racConfig.password = viper.GetString("racConfig.password")
+			cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
+			cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
+			cfg.racConfig.clientId = viper.GetInt64(RacClientId)
+			cfg.racConfig.password = viper.GetString(RacPassword)
 		}
 		return cfg
 	}
@@ -142,14 +181,14 @@ func GetDefault() *config {
 		cfg = &config{
 			isServer: false,
 			dbConfig: dbConfig{
-				host:     "localhost",
-				dbName:   "test",
-				user:     "",
-				password: "",
-				port:     5432,
+				host:     DbDefaultHost,
+				dbName:   DbDefaultName,
+				user:     DbDefaultNull,
+				password: DbDefaultNull,
+				port:     DbDefaultPort,
 			},
 			rasConfig: rasConfig{
-				mgrStrategy: "auto",
+				mgrStrategy: RasAutoStrategy,
 				changeTime:  time.Now(),
 				extractRules: entity.ExtractRules{
 					PcrRule: entity.PcrRule{
@@ -157,21 +196,21 @@ func GetDefault() *config {
 					},
 					ManifestRules: []entity.ManifestRule{
 						0: {
-							MType: "bios",
+							MType: RasMfrTypeBios,
 							Name:  []string{""},
 						},
 						1: {
-							MType: "ima",
+							MType: RasMfrTypeIma,
 							Name:  []string{""},
 						},
 					},
 				},
 			},
 			racConfig: racConfig{
-				hbDuration:    10 * time.Second,
-				trustDuration: 120 * time.Second,
-				clientId:      -1,
-				password:      "",
+				hbDuration:    RacDefaultHbDuration * time.Second,
+				trustDuration: RacDefaultTrustDuration * time.Second,
+				clientId:      RacNullClientId,
+				password:      RacDefaultPassword,
 			},
 		}
 	}
@@ -183,25 +222,25 @@ func GetDefault() *config {
 func Save() {
 	if cfg != nil {
 		if cfg.isServer {
-			viper.Set("conftype", "server")
-			viper.Set("database.host", cfg.dbConfig.host)
-			viper.Set("database.dbname", cfg.dbConfig.dbName)
-			viper.Set("database.user", cfg.dbConfig.user)
-			viper.Set("database.password", cfg.dbConfig.password)
-			viper.Set("database.port", cfg.dbConfig.port)
-			viper.Set("rasConfig.mgrStrategy", cfg.rasConfig.mgrStrategy)
-			viper.Set("rasConfig.changeTime", cfg.rasConfig.changeTime)
+			viper.Set(ConfType, ConfServer)
+			viper.Set(DbHost, cfg.dbConfig.host)
+			viper.Set(DbName, cfg.dbConfig.dbName)
+			viper.Set(DbUser, cfg.dbConfig.user)
+			viper.Set(DbPassword, cfg.dbConfig.password)
+			viper.Set(DbPort, cfg.dbConfig.port)
+			viper.Set(RasMgrStrategy, cfg.rasConfig.mgrStrategy)
+			viper.Set(RasChangeTime, cfg.rasConfig.changeTime)
 			// store common configuration for all client
-			viper.Set("racConfig.hbDuration", cfg.racConfig.hbDuration)
-			viper.Set("racConfig.trustDuration", cfg.racConfig.trustDuration)
+			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
+			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
 		} else {
-			viper.Set("conftype", "client")
+			viper.Set(ConfType, ConfClient)
 			// store common part
-			viper.Set("racConfig.hbDuration", cfg.racConfig.hbDuration)
-			viper.Set("racConfig.trustDuration", cfg.racConfig.trustDuration)
+			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
+			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
 			// store special configuration for this client
-			viper.Set("racConfig.clientId", cfg.racConfig.clientId)
-			viper.Set("racConfig.password", cfg.racConfig.password)
+			viper.Set(RacClientId, cfg.racConfig.clientId)
+			viper.Set(RacPassword, cfg.racConfig.password)
 		}
 		err := viper.WriteConfig()
 		if err != nil {
