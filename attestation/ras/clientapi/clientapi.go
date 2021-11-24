@@ -63,12 +63,14 @@ func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*C
 	}
 	return &CreateIKCertReply{
 		IcEncrypted: &CertEncrypted{
-			EncryptAC: to.EnCredential,
-			IV:        to.TPMSymKeyParams.IV,
+			EncryptedIC: to.EncryptedCert,
+			IV:          to.TPMSymKeyParams.IV,
 		},
 		Challenge: &Challenge{
-			Credential: to.TPMSymKeyParams.EnSecret,
-			SymBlob:    to.TPMSymKeyParams.SecretKey,
+			CredBlob:        to.TPMSymKeyParams.CredBlob,
+			EncryptedSecret: to.TPMSymKeyParams.EncryptedSecret,
+			EncryptAlg:      to.TPMSymKeyParams.EncryptAlg,
+			EncryptParam:    to.TPMSymKeyParams.EncryptParam,
 		},
 	}, nil
 }
