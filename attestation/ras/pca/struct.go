@@ -119,17 +119,18 @@ var (
 )
 
 type IKCertChallenge struct {
-	EnCredential    []byte
+	EncryptedCert   []byte
 	TPMSymKeyParams TPMSymKeyParams
-	SymBlob         []byte
 }
 type TPMSymKeyParams struct {
 	//可能还要存放加密的算法等参数
-	TPMSymAlgorithm string
-	TPMEncscheme    string
-	EnSecret        []byte
-	SecretKey       []byte
+	CredBlob        []byte
+	EncryptedSecret []byte
 	IV              []byte
+	EncryptAlg      string // the algorithm & scheme used to encrypt the IK Cert
+	EncryptParam    []byte // the parameter required by the encrypt algorithm to decrypt the IK Cert
+	// if EncryptAlg == "AES128-CBC" then it is the IV used to encrypt IK Cert together with the key recovered from CredBlob & EncryptedSecret
+
 }
 type TPMAsymKeyParams struct {
 	TPMAsymAlgorithm string

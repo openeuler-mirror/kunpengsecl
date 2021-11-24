@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	TPM_AES = "AES"
-	TPM_CBC = "CBC"
+	TPM_AES     = "AES"
+	TPM_CBC     = "CBC"
+	Encrypt_Alg = "AES128-CBC"
 )
 
 var caIP = "127.0.0.1"
@@ -344,7 +345,7 @@ func EncryptIkcert(IkCert []byte, IkName []byte) (*IKCertChallenge, error) {
 	if err != nil {
 		return nil, errors.New("failed create the iv of a random byte")
 	}
-	enCredential, err := SymetricEncrypt(IkCert, Secret, iv, TPM_AES, TPM_CBC)
+	encryptedCert, err := SymetricEncrypt(IkCert, Secret, iv, TPM_AES, TPM_CBC)
 
 	if err != nil {
 		return nil, errors.New("failed the SymetricEncrypt")
@@ -355,18 +356,19 @@ func EncryptIkcert(IkCert []byte, IkName []byte) (*IKCertChallenge, error) {
 		return nil, errors.New("failed CreatePrimary")
 	}
 	//generate the credential
-	EnSecret, SecretKey, err := tpm2.MakeCredential(simulator, parentHandle, Secret, IkName)
+	credBlob, encryptedSecret, err := tpm2.MakeCredential(simulator, parentHandle, Secret, IkName)
 	if err != nil {
 		return nil, errors.New("failed the MakeCredential")
 	}
 
 	symKeyParams := TPMSymKeyParams{
-		EnSecret:  EnSecret,  //前两个参数是makecredential的返回值，通过使用activateCredential
-		SecretKey: SecretKey, //可以解出secret
-		IV:        iv,        //iv  + 上面解出的secret可以解密出ikcret
+		CredBlob:        credBlob,        //前两个参数是makecredential的返回值，通过使用activateCredential
+		EncryptedSecret: encryptedSecret, //可以解出secret
+		EncryptAlg:      Encrypt_Alg,
+		IV:              iv, //iv  + 上面解出的secret可以解密出ikcret
 	}
 	ikCertChallenge := IKCertChallenge{
-		EnCredential:    enCredential, //存放加密后的ikCert
+		EncryptedCert:   encryptedCert, //存放加密后的ikCert
 		TPMSymKeyParams: symKeyParams,
 	}
 
