@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/pem"
-	"io"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -20,12 +19,10 @@ import (
 )
 
 var (
-	tpm     *TPM
 	tpmpath = "/dev/tpm0"
-	TRep    *TrustReport
 )
 
-func GetManifest(imaPath, biosPath string) ([]Manifest, error) {
+func getManifest(imaPath, biosPath string) ([]Manifest, error) {
 	var manifest []Manifest
 	f, err := ioutil.ReadFile(imaPath)
 	if err == nil {
@@ -40,34 +37,42 @@ func GetManifest(imaPath, biosPath string) ([]Manifest, error) {
 	return manifest, err
 }
 
-func CreateIK(rw io.ReadWriter, parentHandle tpmutil.Handle, parentPassword, IKPassword string,
-	IKSel tpm2.PCRSelection) ([]byte, []byte, []byte, error) {
+func (tpm *TPM) createIK(parentHandle tpmutil.Handle, parentPassword, IKPassword string,
+	IKSel tpm2.PCRSelection) error {
 
-	privateIK, publicIK, _, _, _, err := tpm2.CreateKey(rw, parentHandle, IKSel,
+	privateIK, publicIK, _, _, _, err := tpm2.CreateKey(tpm.dev, parentHandle, IKSel,
 		parentPassword, IKPassword, Params)
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
 
-	akHandle, _, err := tpm2.Load(rw, parentHandle, parentPassword, publicIK,
+	akHandle, _, err := tpm2.Load(tpm.dev, parentHandle, parentPassword, publicIK,
 		privateIK)
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
-	defer tpm2.FlushContext(rw, akHandle)
 
-	_, akname, _, err := tpm2.ReadPublic(rw, akHandle)
+	akPub, akName, _, err := tpm2.ReadPublic(tpm.dev, akHandle)
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
 
-	return akname, privateIK, publicIK, nil
+	tpm.config.IK = &AttestationKey{}
+	tpm.config.IK.Password = IKPassword
+	tpm.config.IK.PcrSel = MyPcrSelection
+	tpm.config.IK.Private = privateIK
+	tpm.config.IK.Public = publicIK
+	tpm.config.IK.Pub = akPub
+	tpm.config.IK.Name = akName
+	tpm.config.IK.Handle = akHandle
+
+	return nil
 }
 
-func CreateTrustReport(rw io.ReadWriter, IK *AttestationKey, pcrSelection tpm2.PCRSelection,
+func (tpm *TPM) createTrustReport(IK *AttestationKey, pcrSelection tpm2.PCRSelection,
 	tRepIn TrustReportIn) (*TrustReport, error) {
 
-	pcrmp, err := tpm2.ReadPCRs(rw, pcrSelection)
+	pcrmp, err := tpm2.ReadPCRs(tpm.dev, pcrSelection)
 	if err != nil {
 		return &TrustReport{}, err
 	}
@@ -85,7 +90,7 @@ func CreateTrustReport(rw io.ReadWriter, IK *AttestationKey, pcrSelection tpm2.P
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(tRepIn.Nonce))
 
-	attestation, signature, err := tpm2.Quote(rw, IK.Handle, IK.Password, EmptyPassword,
+	attestation, signature, err := tpm2.Quote(tpm.dev, IK.Handle, IK.Password, EmptyPassword,
 		buf, pcrSelection, tpm2.AlgNull)
 
 	if err != nil {
@@ -93,37 +98,14 @@ func CreateTrustReport(rw io.ReadWriter, IK *AttestationKey, pcrSelection tpm2.P
 	}
 
 	pcrinfo := PcrInfo{"SHA1", pcrValues, PcrQuote{Quoted: attestation, Signature: signature.RSA.Signature}}
-	mainfest, err := GetManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
+	mainfest, err := getManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
 	if err != nil {
 		log.Printf("GetManifest Failed, error: %s", err)
 	}
-	TRep = &TrustReport{pcrinfo, mainfest, tRepIn.ClientId, tRepIn.ClientInfo}
-	return TRep, nil
+	return &TrustReport{pcrinfo, mainfest, tRepIn.ClientId, tRepIn.ClientInfo}, nil
 }
 
-func GetIK() error {
-	var err error
-
-	tpm.config.IK = &AttestationKey{}
-	tpm.config.IK.Password = EmptyPassword
-	tpm.config.IK.PcrSel = MyPcrSelection
-	tpm.config.IK.Name, tpm.config.IK.Private, tpm.config.IK.Public, err = CreateIK(tpm.dev, tpm.config.EK.Handle, EmptyPassword, tpm.config.IK.Password, tpm.config.IK.PcrSel)
-	if err != nil {
-		log.Printf("CreateIK failed, error : %v \n", err)
-		return err
-	}
-
-	tpm.config.IK.Handle, _, err = tpm2.Load(tpm.dev, tpm.config.EK.Handle, EmptyPassword, tpm.config.IK.Public,
-		tpm.config.IK.Private)
-	if err != nil {
-		log.Printf("Load IK failed, error : %v \n", err)
-		return err
-	}
-
-	return nil
-}
-
-func WriteEkCert(ekPem []byte) error {
+func (tpm *TPM) writeEkCert(ekPem []byte) error {
 
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
 
@@ -171,7 +153,7 @@ func WriteEkCert(ekPem []byte) error {
 // OpenTPM create a connection to either a simulator or a physical TPM device, return a TPM object variable
 func OpenTPM(useSimulator bool) (*TPM, error) {
 	var err error
-	tpm = &TPM{
+	tpm := &TPM{
 		config: TPMConfig{
 			IMALogPath:    "/sys/kernel/security/ima/ascii_runtime_measurements",
 			BIOSLogPath:   "/sys/kernel/security/tpm0/binary_bios_measurements",
@@ -211,21 +193,20 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 	//try to get ekPem form nv, if failed ,create ekCert and write it to nv
 	_, err = tpm.GetEKCert()
 	if err != nil {
-		_, ekPem, err := tpm.GenerateEKCert()
+		_, ekPem, err := tpm.generateEKCert()
 		if err != nil {
 			log.Printf("GenerateEKCert failed, error : %v \n", err)
 		}
 
-		WriteEkCert(ekPem)
+		tpm.writeEkCert(ekPem)
 	}
 
 	//Create and save IK
-	err = GetIK()
-
+	err = tpm.createIK(tpm.config.EK.Handle, ekPassword, EmptyPassword, tpm2.PCRSelection{})
 	return err
 }
 
-func (tpm *TPM) GenerateEKCert() (*x509.Certificate, []byte, error) {
+func (tpm *TPM) generateEKCert() (*x509.Certificate, []byte, error) {
 
 	template := x509.Certificate{
 		SerialNumber:   big.NewInt(1),
@@ -272,9 +253,13 @@ func (tpm *TPM) GetEKCert() ([]byte, error) {
 
 // GetIKPub method return the IK pubkey in PEM format
 func (tpm *TPM) GetIKPub() []byte {
+	derPub, err := x509.MarshalPKIXPublicKey(tpm.config.IK.Pub)
+	if err != nil {
+		return []byte{}
+	}
 	block := &pem.Block{
 		Type:  "PUBLIC KEY",
-		Bytes: tpm.config.IK.Public,
+		Bytes: derPub,
 	}
 
 	ans := pem.EncodeToMemory(block)
@@ -313,7 +298,7 @@ func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, erro
 		ClientId:   clientID,
 		ClientInfo: clientInfo,
 	}
-	return CreateTrustReport(tpm.dev, tpm.config.IK, MyPcrSelection, tRepIn)
+	return tpm.createTrustReport(tpm.config.IK, MyPcrSelection, tRepIn)
 }
 
 // Close method close an open tpm device
@@ -333,10 +318,14 @@ func GetClientInfo() (string, error) {
 //暂时放这里，可能没有用后续再调整
 //GetEkPub return EKPub in pem format
 func (tpm *TPM) GetEKPub() string {
+	derPub, err := x509.MarshalPKIXPublicKey(tpm.config.EK.Pub)
+	if err != nil {
+		return ""
+	}
 	block := &pem.Block{
 		Type:    "PUBLIC KEY",
 		Headers: map[string]string{},
-		Bytes:   []byte(tpm.config.EK.Pub.(*rsa.PublicKey).N.Bytes()),
+		Bytes:   derPub,
 	}
 
 	return (string)(pem.EncodeToMemory(block))
