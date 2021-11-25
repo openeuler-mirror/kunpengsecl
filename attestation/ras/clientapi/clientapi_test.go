@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -77,21 +77,21 @@ type testValidator struct {
 func (tv *testValidator) Validate(report *entity.Report) error {
 	return nil
 }
-func TestClientAPI(t *testing.T) {
-	const addr string = "127.0.0.1:40001"
-	test.CreateConfigFile()
-	defer func() {
-		os.Remove("./config.yaml")
-	}()
-	go StartServer(addr)
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
+func TestClientAPI(t *testing.T) {
+	test.CreateServerConfigFile()
+	cfg := config.GetDefault()
+	server := cfg.GetPort()
+	defer test.RemoveConfigFile()
+	go StartServer(server)
+
+	conn, err := grpc.Dial(server, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		t.Errorf("Client: fail to connect %v", err)
 	}
 	defer conn.Close()
 	c := NewRasClient(conn)
-	t.Logf("Client: connect to %s", addr)
+	t.Logf("Client: connect to %s", server)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
