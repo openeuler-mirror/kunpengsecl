@@ -127,6 +127,7 @@ type (
 		Name     []byte
 		Public   []byte
 		Private  []byte
+		Pub      crypto.PublicKey
 		Handle   tpmutil.Handle
 		Password string
 		PcrSel   tpm2.PCRSelection

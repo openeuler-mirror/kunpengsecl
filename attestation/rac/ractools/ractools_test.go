@@ -60,7 +60,7 @@ func TestCreateTrustReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAk failed: %s", err)
 	}
-	got, err := CreateTrustReport(tpm.dev, tpm.config.IK, pcrSelection, tRepIn)
+	got, err := tpm.createTrustReport(tpm.config.IK, pcrSelection, tRepIn)
 	if err != nil {
 		t.Fatalf("CreateTrustReport failed: %s", err)
 	}
