@@ -52,6 +52,29 @@ import (
 	"gitee.com/openeuler/kunpengsecl/integration/sampleauthserver/generates"
 )
 
+const (
+	PrivateKey = `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIN2dALnjdcZaIZg4QuA6Dw+kxiSW502kJfmBN3priIhPoAoGCCqGSM49
+AwEHoUQDQgAE4pPyvrB9ghqkT1Llk0A42lixkugFd/TBdOp6wf69O9Nndnp4+HcR
+s9SlG/8hjB2Hz42v4p3haKWv3uS1C6ahCQ==
+-----END EC PRIVATE KEY-----`
+	KeyID = `fake-key-id`
+	// path string
+	pathLogin     = "/login"
+	pathAuth      = "/auth"
+	pathAuthorize = "/authorize"
+	pathToken     = "/token"
+	pathTest      = "/test"
+	// http string
+	httpPost     = "POST"
+	httpLocation = "Location"
+	// const string
+	constErr            = "error: "
+	constTest           = "test"
+	constReturnUri      = "ReturnUri"
+	constLoggedInUserID = "LoggedInUserID"
+)
+
 var (
 	dumpvar   bool
 	idvar     string
@@ -67,14 +90,6 @@ func init() {
 	flag.StringVar(&domainvar, "r", "http://localhost:5094", "The domain of the redirect url")
 	flag.IntVar(&portvar, "p", 5096, "the base port for the server")
 }
-
-const PrivateKey = `-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIN2dALnjdcZaIZg4QuA6Dw+kxiSW502kJfmBN3priIhPoAoGCCqGSM49
-AwEHoUQDQgAE4pPyvrB9ghqkT1Llk0A42lixkugFd/TBdOp6wf69O9Nndnp4+HcR
-s9SlG/8hjB2Hz42v4p3haKWv3uS1C6ahCQ==
------END EC PRIVATE KEY-----`
-
-const KeyID = `fake-key-id`
 
 func main() {
 	flag.Parse()
@@ -101,8 +116,8 @@ func main() {
 	srv := server.NewServer(server.NewConfig(), manager)
 
 	srv.SetPasswordAuthorizationHandler(func(username, password string) (userID string, err error) {
-		if username == "test" && password == "test" {
-			userID = "test"
+		if username == constTest && password == constTest {
+			userID = constTest
 		}
 		return
 	})
@@ -110,18 +125,18 @@ func main() {
 	srv.SetUserAuthorizationHandler(userAuthorizeHandler)
 
 	srv.SetInternalErrorHandler(func(err error) (re *errors.Response) {
-		log.Println("Internal Error:", err.Error())
+		log.Println(constErr, err.Error())
 		return
 	})
 
 	srv.SetResponseErrorHandler(func(re *errors.Response) {
-		log.Println("Response Error:", re.Error.Error())
+		log.Println(constErr, re.Error.Error())
 	})
 
-	http.HandleFunc("/login", loginHandler)
-	http.HandleFunc("/auth", authHandler)
+	http.HandleFunc(pathLogin, loginHandler)
+	http.HandleFunc(pathAuth, authHandler)
 
-	http.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(pathAuthorize, func(w http.ResponseWriter, r *http.Request) {
 		if dumpvar {
 			dumpRequest(os.Stdout, "authorize", r)
 		}
@@ -133,12 +148,12 @@ func main() {
 		}
 
 		var form url.Values
-		if v, ok := store.Get("ReturnUri"); ok {
+		if v, ok := store.Get(constReturnUri); ok {
 			form = v.(url.Values)
 		}
 		r.Form = form
 
-		store.Delete("ReturnUri")
+		store.Delete(constReturnUri)
 		store.Save()
 
 		err = srv.HandleAuthorizeRequest(w, r)
@@ -147,7 +162,7 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(pathToken, func(w http.ResponseWriter, r *http.Request) {
 		if dumpvar {
 			_ = dumpRequest(os.Stdout, "token", r) // Ignore the error
 		}
@@ -158,9 +173,9 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(pathTest, func(w http.ResponseWriter, r *http.Request) {
 		if dumpvar {
-			_ = dumpRequest(os.Stdout, "test", r) // Ignore the error
+			_ = dumpRequest(os.Stdout, constTest, r) // Ignore the error
 		}
 		token, err := srv.ValidationBearerToken(r)
 		if err != nil {
@@ -179,8 +194,8 @@ func main() {
 	})
 
 	log.Printf("Server is running at %d port.\n", portvar)
-	log.Printf("Point your OAuth client Auth endpoint to %s:%d%s", "http://localhost", portvar, "/authorize")
-	log.Printf("Point your OAuth client Token endpoint to %s:%d%s", "http://localhost", portvar, "/token")
+	log.Printf("Point your OAuth client Auth endpoint to %s:%d%s", "http://localhost", portvar, pathAuthorize)
+	log.Printf("Point your OAuth client Token endpoint to %s:%d%s", "http://localhost", portvar, pathToken)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", portvar), nil))
 }
 
@@ -203,22 +218,22 @@ func userAuthorizeHandler(w http.ResponseWriter, r *http.Request) (userID string
 		return
 	}
 
-	uid, ok := store.Get("LoggedInUserID")
+	uid, ok := store.Get(constLoggedInUserID)
 	if !ok {
 		if r.Form == nil {
 			r.ParseForm()
 		}
 
-		store.Set("ReturnUri", r.Form)
+		store.Set(constReturnUri, r.Form)
 		store.Save()
 
-		w.Header().Set("Location", "/login")
+		w.Header().Set(httpLocation, pathLogin)
 		w.WriteHeader(http.StatusFound)
 		return
 	}
 
 	userID = uid.(string)
-	store.Delete("LoggedInUserID")
+	store.Delete(constLoggedInUserID)
 	store.Save()
 	return
 }
@@ -233,17 +248,17 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method == "POST" {
+	if r.Method == httpPost {
 		if r.Form == nil {
 			if err := r.ParseForm(); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
-		store.Set("LoggedInUserID", r.Form.Get("username"))
+		store.Set(constLoggedInUserID, r.Form.Get("username"))
 		store.Save()
 
-		w.Header().Set("Location", "/auth")
+		w.Header().Set(httpLocation, pathAuth)
 		w.WriteHeader(http.StatusFound)
 		return
 	}
@@ -260,8 +275,8 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ok := store.Get("LoggedInUserID"); !ok {
-		w.Header().Set("Location", "/login")
+	if _, ok := store.Get(constLoggedInUserID); !ok {
+		w.Header().Set(httpLocation, pathLogin)
 		w.WriteHeader(http.StatusFound)
 		return
 	}
