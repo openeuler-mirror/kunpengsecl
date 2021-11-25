@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"net"
 	"time"
@@ -35,7 +36,7 @@ type PrivacyCA interface {
 //GetIkCert
 func GetIkCert(ekCert string, ikPub string, ikName []byte) (*IKCertChallenge, error) {
 	//get decode cert
-	root, err := DecodeCert(RootPEM)
+	root, err := DecodeCert(CertPEM)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +81,7 @@ func GetIkCert(ekCert string, ikPub string, ikName []byte) (*IKCertChallenge, er
 	}
 
 	// encrypt the Credential
-	return EncryptIkcert(ikPerm, ikName)
+	return EncryptIkcert(cert.PublicKey, ikPerm, ikName)
 }
 
 // The certificate is signed by parent. If parent is equal to template then the
@@ -328,8 +329,17 @@ func GetKeybyKDFa(rw io.ReadWriter) ([]byte, error) {
 	return key, nil
 }
 
+func pubKeyToTPMPublic(ekPubKey crypto.PublicKey) *tpm2.Public {
+	pub := DefaultKeyParams
+	pub.RSAParameters.KeyBits = uint16(uint32(ekPubKey.(*rsa.PublicKey).N.BitLen()))
+	pub.RSAParameters.ExponentRaw = uint32(ekPubKey.(*rsa.PublicKey).E)
+	pub.RSAParameters.ModulusRaw = ekPubKey.(*rsa.PublicKey).N.Bytes()
+
+	return &pub
+}
+
 //加密ac
-func EncryptIkcert(IkCert []byte, IkName []byte) (*IKCertChallenge, error) {
+func EncryptIkcert(ekPubKey crypto.PublicKey, IkCert []byte, IkName []byte) (*IKCertChallenge, error) {
 	//对传进来的IkCert进行加密，使用symKey作为加密密钥
 	Secret, err := CreateRandomBytes(16)
 	if err != nil {
@@ -351,12 +361,15 @@ func EncryptIkcert(IkCert []byte, IkName []byte) (*IKCertChallenge, error) {
 		return nil, errors.New("failed the SymetricEncrypt")
 	}
 
-	parentHandle, _, err := tpm2.CreatePrimary(simulator, tpm2.HandleOwner, PcrSelection, ParentPassword, DefaultPassword, DefaultKeyParams)
+	ekPub := pubKeyToTPMPublic(ekPubKey)
+	protectHandle, _, err := tpm2.LoadExternal(simulator, *ekPub, tpm2.Private{}, tpm2.HandleNull)
 	if err != nil {
-		return nil, errors.New("failed CreatePrimary")
+		log.Println(err)
+		return nil, errors.New("failed load ekPub")
 	}
+
 	//generate the credential
-	credBlob, encryptedSecret, err := tpm2.MakeCredential(simulator, parentHandle, Secret, IkName)
+	credBlob, encryptedSecret, err := tpm2.MakeCredential(simulator, protectHandle, Secret, IkName)
 	if err != nil {
 		return nil, errors.New("failed the MakeCredential")
 	}

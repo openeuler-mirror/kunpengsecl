@@ -41,7 +41,7 @@ import (
 
 const (
 	constDEFAULTRAC     int           = 1000
-	constDEFAULTTIMEOUT time.Duration = 10 * time.Second
+	constDEFAULTTIMEOUT time.Duration = 100 * time.Second
 )
 
 type (
