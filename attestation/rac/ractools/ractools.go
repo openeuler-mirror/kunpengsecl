@@ -2,15 +2,21 @@ package ractools
 
 import (
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/binary"
 	"encoding/pem"
 	"io"
 	"io/ioutil"
 	"log"
+	"math/big"
+	"net"
+	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -117,14 +123,9 @@ func GetIK() error {
 	return nil
 }
 
-func WriteEkCert(ekPath string) error {
+func WriteEkCert(ekPem []byte) error {
 
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
-
-	data, err := ioutil.ReadFile(ekPath)
-	if err != nil {
-		log.Printf("WriteEkCert failed, error : %v \n", err)
-	}
 
 	// Undefine the space, just in case the previous run of this test failed
 	// to clean up.
@@ -133,7 +134,7 @@ func WriteEkCert(ekPath string) error {
 	}
 
 	// Define space in NV storage and clean up afterwards or subsequent runs will fail.
-	l := len(data)
+	l := len(ekPem)
 
 	if err := tpm2.NVDefineSpace(tpm.dev,
 		tpm2.HandleOwner,
@@ -142,13 +143,13 @@ func WriteEkCert(ekPath string) error {
 		EmptyPassword,
 		nil,
 		attr,
-		uint16(len(data)),
+		uint16(len(ekPem)),
 	); err != nil {
 		log.Printf("NVDefineSpace failed, error : %v \n", err)
 		return err
 	}
 
-	// Write the data
+	// Write the ekPem
 
 	offset := (uint16)(0)
 	for l > 0 {
@@ -156,7 +157,7 @@ func WriteEkCert(ekPath string) error {
 		if l < 1024 {
 			end = offset + (uint16)(l)
 		}
-		in := data[offset:end]
+		in := ekPem[offset:end]
 		if err := tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekidx, EmptyPassword, in, offset); err != nil {
 			log.Printf("NVWrite failed, error : %v \n", err)
 			return err
@@ -207,46 +208,16 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 		return err
 	}
 
-	//create ekCert
-	/*
-			var cmd *exec.Cmd
-			cmd = exec.Command("openssl", "genrsa", "-out", "key.pem")
-			if err = cmd.Run(); err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
+	//try to get ekPem form nv, if failed ,create ekCert and write it to nv
+	_, err = tpm.GetEKCert()
+	if err != nil {
+		_, ekPem, err := tpm.GenerateEKCert()
+		if err != nil {
+			log.Printf("GenerateEKCert failed, error : %v \n", err)
+		}
 
-		//write ekCert
-		WriteEkCert(ekPath)
-	*/
-	ekPem := `-----BEGIN CERTIFICATE-----
-	MIIEUjCCAjqgAwIBAgIUTPeuiawsSuv0Gs0oAuf/vbRzzYIwDQYJKoZIhvcNAQEL
-	BQAwVTELMAkGA1UEBhMCREUxDzANBgNVBAgMBkJheWVybjERMA8GA1UEBwwITXVl
-	bmNoZW4xFTATBgNVBAoMDE9yZ2FuaXphdGlvbjELMAkGA1UEAwwCQ0EwHhcNMjEx
-	MTExMTE1NTQ4WhcNNDExMTA4MTE1NTQ4WjBdMQswCQYDVQQGEwJERTEPMA0GA1UE
-	CAwGQmF5ZXJuMREwDwYDVQQHDAhNdWVuY2hlbjEVMBMGA1UECgwMT3JnYW5pemF0
-	aW9uMRMwEQYDVQQDDApJQk0gU1cgVFBNMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
-	MIIBCgKCAQEAzrGnWHhXFHU4A0XZSjsoE28i0ZiKJ+tyiH8vIhDaD5QYrLTy/pPr
-	AK7EE3iQ5pY3h5NiGfAnEdFGOx95U9rC3bwIRUat/gqAwjLYReRcN64TshrzbL8t
-	mmzUErfOKuBk6Sfy4A9qTnh9J1sNH5hYSAViYJbUQfvYyjGKVNEd9FN6mJS6iSs8
-	iacIj5gcYiUVnGGj9SC4RhknSQfWtbKgfFwN5Ja79s0xy55j1XG7gIn36OD/w9Tc
-	5mPcQarG3d8spRClcBUXqd7JCub5OmY9fSbBgaiJGjKsS39kz0+A8Y6DW+/LK9+8
-	DG2PNY32yLKm3eT0KJiq4ecW1MhSQ+ZH6wIDAQABoxIwEDAOBgNVHQ8BAf8EBAMC
-	BSAwDQYJKoZIhvcNAQELBQADggIBALLSDDghf6dFEvnet1GhO8mtCXkS12UA6eI6
-	8CM+D/7Q72eez2bUbVIG30F9JFVYlAF3PFG4A2F2cHfmR8JH3LrwCsuf1kqtFgFB
-	tjNHtawyJHoKNaWEPRLfEvwp5fIhWIc7bEkbqzDIErKXAfTpOaJSAHTFpNUuoe6x
-	CUs/xfpNIuhNFWX0hMALHnWQX9tsiyr6q3/WjPucovjvFQv9c9djckdGVohzHCuB
-	W1XrpS1LlTZnoOIrHpDYOkkIkdAGR4Qeyqi+mGovcvkf9/QQsk2MSovGjBiROQ9a
-	zpa3mhiKdCjbvABxRtI94QBeJ0zMRvQXuDIGd2WIgkFqp8tjC7guUx4uSvwlxxO6
-	DtFykLOvb09zJzcyPqzk5HnG8Lp7HGY2/tTcltjs7JNILxL35jIs0hIURAtM0e9r
-	jJyPeuwDcIeYyrohq6FoAPa/z7yK75swWyzCoiisdxOnIUd5V04x5WCl6417kIJ5
-	EPy4v6zH4STVyt010PwL1yJFCEDQgoSVepbKwm9xpPJHC/cV1Y+Jo+Y/ubJjTiwf
-	AEwaHvFqEGmkBVK/dGGJmhSo3h8ohapduWXkLiNI041An5rpTwbwoUF+sxrzn9WC
-	UIp9on4e9ggL7OA2BrfRcfIfyK6LQ+UvnFpufY3hfDxoUuhyvnANfGnbo7d16H1n
-	j0wy1+Fw
-	-----END CERTIFICATE-----`
-	ioutil.WriteFile("ekPem", ([]byte)(ekPem), 0777)
-	WriteEkCert("ekPem")
+		WriteEkCert(ekPem)
+	}
 
 	//Create and save IK
 	err = GetIK()
@@ -254,34 +225,60 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 	return err
 }
 
+func (tpm *TPM) GenerateEKCert() (*x509.Certificate, []byte, error) {
+
+	template := x509.Certificate{
+		SerialNumber:   big.NewInt(1),
+		NotBefore:      time.Now().Add(-10 * time.Second),
+		NotAfter:       time.Now().AddDate(10, 0, 0),
+		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		IsCA:           false,
+		MaxPathLenZero: true,
+		IPAddresses:    []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	pcaCert, err := pca.DecodeCert(pca.CertPEM)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to generate EKCert")
+	}
+	pcaPriv, err := pca.DecodePrivkey(pca.PrivPEM)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to generate EKCert")
+	}
+	ekCert, ekPem, err := pca.GenerateCert(&template, pcaCert, (tpm.config.EK.Pub).(*rsa.PublicKey), pcaPriv)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to generate EKCert")
+	}
+
+	return ekCert, ekPem, err
+}
+
 // GetEKCert method return a EKCert in PEM format
-func (tpm *TPM) GetEKCert() (string, error) {
+func (tpm *TPM) GetEKCert() ([]byte, error) {
 	// Make sure the public area of the index can be read
 	_, err := tpm2.NVReadPublic(tpm.dev, ekidx)
 	if err != nil {
 		log.Printf("NVReadPublic failed, error : %v \n", err)
 	}
 
-	// Read all of the data with NVReadEx
-	outdata, err := tpm2.NVReadEx(tpm.dev, ekidx, tpm2.HandleOwner, EmptyPassword, 0)
+	// Read all of the ekPem with NVReadEx
+	outekPem, err := tpm2.NVReadEx(tpm.dev, ekidx, tpm2.HandleOwner, EmptyPassword, 0)
 	if err != nil {
 		log.Printf("NVReadEx failed, error : %v \n", err)
-		return "", err
+		return nil, err
 	}
 
-	return (string)(outdata), nil
+	return outekPem, nil
 }
 
 // GetIKPub method return the IK pubkey in PEM format
-func (tpm *TPM) GetIKPub() string {
+func (tpm *TPM) GetIKPub() []byte {
 	block := &pem.Block{
-		Type:    "IK PUBLIC KEY",
-		Headers: map[string]string{},
-		Bytes:   tpm.config.IK.Public,
+		Type:  "PUBLIC KEY",
+		Bytes: tpm.config.IK.Public,
 	}
 
 	ans := pem.EncodeToMemory(block)
-	return (string)(ans)
+	return ans
 }
 
 // GetIKName method return the IK Name in bytes
@@ -290,17 +287,19 @@ func (tpm *TPM) GetIKName() []byte {
 }
 
 //ActivateIKCert method decrypted the IkCert from the input, and return it in PEM format
-//func (tpm *TPM) ActivateIKCert(in *IKCertInput) (string, error)
-
-func ActivateAC(rw io.ReadWriter, activeHandle, keyHandle tpmutil.Handle, activePassword, protectorPassword string,
-	credServer, encryptedSecret []byte) (rerecoveredCredential []byte, err error) {
-
-	recoveredCredential, err := tpm2.ActivateCredential(rw, activeHandle, keyHandle, activePassword,
-		protectorPassword, credServer, encryptedSecret)
+func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
+	recoveredCredential, err := tpm2.ActivateCredential(tpm.dev, tpm.config.IK.Handle, tpm.config.EK.Handle, tpm.config.IK.Password,
+		tpm.config.EK.Password, in.CredBlob, in.EncryptedSecret)
 	if err != nil {
 		log.Printf("ActivateCredential failed: %v \n", err)
 	}
-	return recoveredCredential, err
+
+	//
+	IKCert, err := pca.SymetricEncrypt(in.EncryptedCert, recoveredCredential, in.IV, in.DecryptAlg, string(in.DecryptParam))
+	if err != nil {
+		log.Printf("Decode IKCert failed: %v \n", err)
+	}
+	return IKCert, nil
 }
 
 //GetTrustReport method take a nonce input, generate and return the current trust report
@@ -335,7 +334,7 @@ func GetClientInfo() (string, error) {
 //GetEkPub return EKPub in pem format
 func (tpm *TPM) GetEKPub() string {
 	block := &pem.Block{
-		Type:    "EK PUBLIC KEY",
+		Type:    "PUBLIC KEY",
 		Headers: map[string]string{},
 		Bytes:   []byte(tpm.config.EK.Pub.(*rsa.PublicKey).N.Bytes()),
 	}

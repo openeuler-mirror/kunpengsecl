@@ -1,6 +1,7 @@
 package ractools
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/google/go-tpm/tpm2"
@@ -113,7 +114,7 @@ func TestRactools(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetEKCert failed, err: %v", err)
 	}
-	if ekCert != ekPem {
+	if bytes.Equal(ekCert, []byte(ekPem)) {
 		t.Errorf("EKCert are not equal, got: %v, want: %v \n", ekCert, ekPem)
 	}
 

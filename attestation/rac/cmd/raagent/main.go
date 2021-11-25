@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"time"
 
@@ -32,28 +31,40 @@ func main() {
 
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
 	if cid < 0 {
-		_, err := tpm.GetEKCert()
+		ekCert, err := tpm.GetEKCert()
 		if err != nil {
 			log.Printf("GetEkCert failed, error: %s \n", err)
 		}
+
 		req := clientapi.CreateIKCertRequest{
-			// EkCert: ekCert,
-			// IkPub:  tpm.GetIKPub(),
-			EkCert: ractools.CertPEM,
-			IkPub:  ractools.PubPEM,
+			EkCert: string(ekCert),
+			IkPub:  string(tpm.GetIKPub()),
 			IkName: tpm.GetIKName(),
 		}
 		bkk, err := clientapi.DoCreateIKCert(server, &req)
 		if err != nil {
 			log.Fatal("Client:can't Create IkCert")
 		}
-		eic := bkk.GetIcEncrypted()
-		log.Println("Client:get encryptedIC=", eic)
 
-		ci, err := json.Marshal(map[string]string{"test name": "test value"})
+		ic, err := tpm.ActivateIKCert(&ractools.IKCertInput{
+			IV:              bkk.IcEncrypted.IV,
+			CredBlob:        bkk.Challenge.CredBlob,
+			EncryptedSecret: bkk.Challenge.EncryptedSecret,
+			EncryptedCert:   bkk.IcEncrypted.EncryptedIC,
+			DecryptAlg:      bkk.Challenge.EncryptAlg,
+			DecryptParam:    bkk.Challenge.EncryptParam,
+		})
+		if err != nil {
+			log.Fatalf("Client: ActivateIKCert failed, error: %v", err)
+		}
+
+		clientInfo, err := ractools.GetClientInfo()
+		if err != nil {
+			log.Fatalf("Client: GetClientInfo failed, error: %v", err)
+		}
 		bk, err := clientapi.DoRegisterClient(server, &clientapi.RegisterClientRequest{
-			Ic:         &clientapi.Cert{Cert: []byte{1, 2}},
-			ClientInfo: &clientapi.ClientInfo{ClientInfo: string(ci)},
+			Ic:         &clientapi.Cert{Cert: ic},
+			ClientInfo: &clientapi.ClientInfo{ClientInfo: clientInfo},
 		})
 		if err != nil {
 			log.Fatal("Client: can't register rac!")
