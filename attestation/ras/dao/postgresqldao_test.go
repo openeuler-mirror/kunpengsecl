@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"github.com/stretchr/testify/assert"
@@ -83,10 +84,9 @@ var (
 )
 
 func TestPostgreSqlDAOSaveReport(t *testing.T) {
-	test.CreateConfigFile()
-	defer func() {
-		test.RemoveConfigFile()
-	}()
+	test.CreateServerConfigFile()
+	config.GetDefault()
+	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -119,10 +119,9 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 }
 
 func TestRegisterClient(t *testing.T) {
-	test.CreateConfigFile()
-	defer func() {
-		test.RemoveConfigFile()
-	}()
+	test.CreateServerConfigFile()
+	config.GetDefault()
+	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -138,10 +137,9 @@ func TestRegisterClient(t *testing.T) {
 }
 
 func TestUnRegisterClient(t *testing.T) {
-	test.CreateConfigFile()
-	defer func() {
-		test.RemoveConfigFile()
-	}()
+	test.CreateServerConfigFile()
+	config.GetDefault()
+	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -175,10 +173,9 @@ func TestUnRegisterClient(t *testing.T) {
 }
 
 func TestSaveAndSelectBaseValue(t *testing.T) {
-	test.CreateConfigFile()
-	defer func() {
-		test.RemoveConfigFile()
-	}()
+	test.CreateServerConfigFile()
+	config.GetDefault()
+	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatal(err)
@@ -219,10 +216,9 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 }
 
 func TestSelectReportById(t *testing.T) {
-	test.CreateConfigFile()
-	defer func() {
-		test.RemoveConfigFile()
-	}()
+	test.CreateServerConfigFile()
+	config.GetDefault()
+	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
 		t.Fatalf("%v", err)

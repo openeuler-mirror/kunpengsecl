@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
@@ -164,7 +165,8 @@ func TestPCRVerifierVerify(t *testing.T) {
 }
 
 func TestPCRExtract(t *testing.T) {
-	test.CreateConfigFile()
+	test.CreateServerConfigFile()
+	config.GetDefault()
 	defer test.RemoveConfigFile()
 	testReport := &entity.Report{
 		PcrInfo: pi,
@@ -200,7 +202,8 @@ func TestPCRExtract(t *testing.T) {
 }
 
 func TestBIOSExtract(t *testing.T) {
-	test.CreateConfigFile()
+	test.CreateServerConfigFile()
+	config.GetDefault()
 	defer test.RemoveConfigFile()
 
 	testReport := &entity.Report{
@@ -237,7 +240,8 @@ func TestBIOSExtract(t *testing.T) {
 }
 
 func TestIMAExtract(t *testing.T) {
-	test.CreateConfigFile()
+	test.CreateServerConfigFile()
+	config.GetDefault()
 	defer test.RemoveConfigFile()
 
 	testReport := &entity.Report{
