@@ -14,6 +14,12 @@ racconfig:
   password: ""
 `
 
+const hubConfig = `conftype: hub
+hubconfig:
+  server: 127.0.0.1:40001
+  hubport: "127.0.0.1:40003"
+`
+
 const serverConfig = `conftype: server
 database:
   host: localhost
@@ -44,6 +50,10 @@ const configFilePath = "./config.yaml"
 
 func CreateClientConfigFile() {
 	ioutil.WriteFile(configFilePath, []byte(clientConfig), 0644)
+}
+
+func CreateHubConfigFile() {
+	ioutil.WriteFile(configFilePath, []byte(hubConfig), 0644)
 }
 
 func CreateServerConfigFile() {
