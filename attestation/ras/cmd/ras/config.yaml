@@ -1,0 +1,25 @@
+conftype: server
+database:
+  host: localhost
+  dbname: kunpengsecl
+  port: 5432
+  user: postgres
+  password: postgres
+rasconfig:
+  port: "127.0.0.1:40001"
+  rest: "127.0.0.1:40002"
+  changetime: 0
+  mgrstrategy: auto
+  basevalue-extract-rules:
+    pcrinfo:
+      pcrselection: [1, 2, 3, 4]
+    manifest:
+      -
+        type: bios
+        name: ["name1", "name2"]
+      -
+        type: ima
+        name: ["name1", "name2"] 
+racconfig:
+  hbduration: 5s
+  trustduration: 2m0s
