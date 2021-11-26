@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/binary"
+	"encoding/json"
 	"encoding/pem"
 	"io/ioutil"
 	"log"
@@ -57,12 +58,16 @@ func (tpm *TPM) createIK(parentHandle tpmutil.Handle, parentPassword, IKPassword
 		return err
 	}
 
+	pub, err := akPub.Key()
+	if err != nil {
+		return err
+	}
 	tpm.config.IK = &AttestationKey{}
 	tpm.config.IK.Password = IKPassword
 	tpm.config.IK.PcrSel = MyPcrSelection
 	tpm.config.IK.Private = privateIK
 	tpm.config.IK.Public = publicIK
-	tpm.config.IK.Pub = akPub
+	tpm.config.IK.Pub = pub
 	tpm.config.IK.Name = akName
 	tpm.config.IK.Handle = akHandle
 
@@ -279,8 +284,17 @@ func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
 		log.Printf("ActivateCredential failed: %v \n", err)
 	}
 
+	var alg, mode uint16
+	switch in.DecryptAlg {
+	case pca.Encrypt_Alg: //AES128_CBC
+		alg, mode = pca.AlgAES, pca.AlgCBC
+	default:
+		log.Printf("ActivateCredential failed: unsupported algorithm %s\n", in.DecryptAlg)
+		return nil, errors.Errorf("unsupported algorithm: %s", in.DecryptAlg)
+	}
+
 	//
-	IKCert, err := pca.SymetricEncrypt(in.EncryptedCert, recoveredCredential, in.IV, in.DecryptAlg, string(in.DecryptParam))
+	IKCert, err := pca.SymmetricDecrypt(alg, mode, recoveredCredential, in.IV, in.EncryptedCert)
 	if err != nil {
 		log.Printf("Decode IKCert failed: %v \n", err)
 	}
@@ -312,7 +326,9 @@ func (tpm *TPM) Close() error {
 
 // GetClientInfo function return all client information in the format of a json string which is formated from a map[string]string
 func GetClientInfo() (string, error) {
-	return "", nil
+	ci := map[string]string{"version": "1.0.0"}
+	strCI, err := json.Marshal(ci)
+	return string(strCI), err
 }
 
 //暂时放这里，可能没有用后续再调整

@@ -114,6 +114,10 @@ func TestRactools(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetEKCert failed, err: %v", err)
 	}
+	t.Log("ekCert\n", string(ekCert))
+	t.Log("ikPub\n", string(tpm.GetIKPub()))
+	t.Log("ikName\n", tpm.GetIKName())
+
 	if bytes.Equal(ekCert, []byte(ekPem)) {
 		t.Errorf("EKCert are not equal, got: %v, want: %v \n", ekCert, ekPem)
 	}
