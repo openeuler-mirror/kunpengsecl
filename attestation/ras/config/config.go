@@ -133,20 +133,17 @@ type (
 func InitRasFlags() {
 	servPort = pflag.StringP(RasPortLongFlag, RasPortShortFlag, "", "this app service listen at [IP]:PORT")
 	restPort = pflag.StringP(RasRestPortLongFlag, RasRestPortShortFlag, "", "this app rest interface listen at [IP]:PORT")
-	viper.BindPFlags(pflag.CommandLine)
 }
 
 // InitRacFlags sets the rac client whole command flags.
 func InitRacFlags() {
 	racServer = pflag.StringP(RacServerLongFlag, RacServerShortFlag, "", "connect attestation server at IP:PORT")
-	viper.BindPFlags(pflag.CommandLine)
 }
 
 // InitRacFlags sets the rac client whole command flags.
 func InitHubFlags() {
 	hubServer = pflag.StringP(HubServerLongFlag, HubServerShortFlag, "", "connect attestation server at IP:PORT")
 	hubPort = pflag.StringP(HubPortLongFlag, HubPortShortFlag, "", "hub listen at [IP]:PORT")
-	viper.BindPFlags(pflag.CommandLine)
 }
 
 /*
