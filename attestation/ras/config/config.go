@@ -33,6 +33,7 @@ const (
 	ConfType   = "conftype"
 	ConfServer = "server"
 	ConfClient = "client"
+	ConfHub    = "hub"
 	// database
 	DbHost     = "database.host"
 	DbName     = "database.dbname"
@@ -46,9 +47,9 @@ const (
 	RasRestPort          = "rasconfig.rest" // rest listen port
 	RasRestPortLongFlag  = "rest"
 	RasRestPortShortFlag = "r"
-	RasMgrStrategy       = "rasconfig.mgrStrategy"
+	RasMgrStrategy       = "rasconfig.mgrstrategy"
 	RasAutoStrategy      = "auto"
-	RasChangeTime        = "rasconfig.changeTime"
+	RasChangeTime        = "rasconfig.changetime"
 	RasExtRules          = "rasconfig.basevalue-extract-rules.manifest"
 	RasMfrTypeBios       = "bios"
 	RasMfrTypeIma        = "ima"
@@ -59,14 +60,21 @@ const (
 	RacServer               = "racconfig.server" // client connect to server
 	RacServerLongFlag       = "server"
 	RacServerShortFlag      = "s"
-	RacHbDuration           = "racconfig.hbDuration"
+	RacHbDuration           = "racconfig.hbduration"
 	RacDefaultHbDuration    = 10 // seconds
-	RacTrustDuration        = "racconfig.trustDuration"
+	RacTrustDuration        = "racconfig.trustduration"
 	RacDefaultTrustDuration = 120 // seconds
-	RacClientId             = "racconfig.clientId"
+	RacClientId             = "racconfig.clientid"
 	RacNullClientId         = -1
 	RacPassword             = "racconfig.password"
 	RacDefaultPassword      = ""
+	// Hub
+	HubServer          = "hubconfig.server"
+	HubServerLongFlag  = "server"
+	HubServerShortFlag = "s"
+	HubPort            = "hubconfig.hubport"
+	HubPortLongFlag    = "hubport"
+	HubPortShortFlag   = "p"
 )
 
 var (
@@ -78,10 +86,12 @@ var (
 		"/usr/lib/attestation",
 		"/etc/attestation",
 	}
-	cfg *config
-	servPort *string = nil
-	restPort *string = nil
-	server   *string = nil
+	cfg       *config
+	servPort  *string = nil
+	restPort  *string = nil
+	racServer *string = nil
+	hubServer *string = nil
+	hubPort   *string = nil
 )
 
 type (
@@ -106,11 +116,16 @@ type (
 		clientId      int64
 		password      string
 	}
+	hubConfig struct {
+		server  string
+		hubPort string
+	}
 	config struct {
-		isServer bool
+		confType string
 		dbConfig
 		rasConfig
 		racConfig
+		hubConfig
 	}
 )
 
@@ -123,7 +138,14 @@ func InitRasFlags() {
 
 // InitRacFlags sets the rac client whole command flags.
 func InitRacFlags() {
-	server = pflag.StringP(RacServerLongFlag, RacServerShortFlag, "", "connect attestation server at IP:PORT")
+	racServer = pflag.StringP(RacServerLongFlag, RacServerShortFlag, "", "connect attestation server at IP:PORT")
+	viper.BindPFlags(pflag.CommandLine)
+}
+
+// InitRacFlags sets the rac client whole command flags.
+func InitHubFlags() {
+	hubServer = pflag.StringP(HubServerLongFlag, HubServerShortFlag, "", "connect attestation server at IP:PORT")
+	hubPort = pflag.StringP(HubPortLongFlag, HubPortShortFlag, "", "hub listen at [IP]:PORT")
 	viper.BindPFlags(pflag.CommandLine)
 }
 
@@ -159,12 +181,9 @@ func GetDefault() *config {
 	}
 
 	cfg = &config{}
-	if strings.ToLower(viper.GetString(ConfType)) == ConfServer {
-		cfg.isServer = true
-	} else {
-		cfg.isServer = false
-	}
-	if cfg.isServer {
+	cfg.confType = strings.ToLower(viper.GetString(ConfType))
+	switch cfg.confType {
+	case ConfServer:
 		var mRules []entity.ManifestRule
 		mrs, ok := viper.Get(RasExtRules).([]interface{})
 		if ok {
@@ -213,15 +232,25 @@ func GetDefault() *config {
 		if restPort != nil && *restPort != "" {
 			cfg.rasConfig.restPort = *restPort
 		}
-	} else {
+	case ConfClient:
 		cfg.racConfig.server = viper.GetString(RacServer)
 		cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
 		cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
 		cfg.racConfig.clientId = viper.GetInt64(RacClientId)
 		cfg.racConfig.password = viper.GetString(RacPassword)
 		// set command line input
-		if server != nil && *server != "" {
-			cfg.racConfig.server = *server
+		if racServer != nil && *racServer != "" {
+			cfg.racConfig.server = *racServer
+		}
+	case ConfHub:
+		cfg.hubConfig.server = viper.GetString(HubServer)
+		cfg.hubConfig.hubPort = viper.GetString(HubPort)
+		// set command line input
+		if hubServer != nil && *hubServer != "" {
+			cfg.hubConfig.server = *hubServer
+		}
+		if hubPort != nil && *hubPort != "" {
+			cfg.hubConfig.hubPort = *hubPort
 		}
 	}
 	return cfg
@@ -230,7 +259,8 @@ func GetDefault() *config {
 // Save saves all config variables to the config.yaml file.
 func Save() {
 	if cfg != nil {
-		if cfg.isServer {
+		switch cfg.confType {
+		case ConfServer:
 			viper.Set(ConfType, ConfServer)
 			viper.Set(DbHost, cfg.dbConfig.host)
 			viper.Set(DbName, cfg.dbConfig.dbName)
@@ -244,7 +274,7 @@ func Save() {
 			// store common configuration for all client
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
 			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
-		} else {
+		case ConfClient:
 			viper.Set(ConfType, ConfClient)
 			// store common part
 			viper.Set(RacServer, cfg.racConfig.server)
@@ -253,6 +283,10 @@ func Save() {
 			// store special configuration for this client
 			viper.Set(RacClientId, cfg.racConfig.clientId)
 			viper.Set(RacPassword, cfg.racConfig.password)
+		case ConfHub:
+			viper.Set(ConfType, ConfHub)
+			viper.Set(HubServer, cfg.hubConfig.server)
+			viper.Set(HubPort, cfg.hubConfig.hubPort)
 		}
 		err := viper.WriteConfig()
 		if err != nil {
@@ -356,4 +390,12 @@ func (c *config) GetRestPort() string {
 
 func (c *config) GetServer() string {
 	return c.racConfig.server
+}
+
+func (c *config) GetHubServer() string {
+	return c.hubConfig.server
+}
+
+func (c *config) GetHubPort() string {
+	return c.hubConfig.hubPort
 }
