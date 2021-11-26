@@ -3,6 +3,7 @@ package restapi
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -84,4 +85,16 @@ func TestRestAPI(t *testing.T) {
 	time.Sleep(time.Duration(5) * time.Second)
 	t.Log("restapi created client")
 	CreateClient(t)
+}
+func TestGetConfig(t *testing.T) {
+	t.Log("Get config as follows:")
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	s := NewRasServer()
+	err := s.GetConfig(ctx)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+	}
 }
