@@ -1,3 +1,19 @@
+/*
+Copyright (c) Huawei Technologies Co., Ltd. 2021.
+kunpengsecl licensed under the Mulan PSL v2.
+You can use this software according to the terms and conditions of the Mulan PSL v2.
+You may obtain a copy of Mulan PSL v2 at:
+    http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+PURPOSE.
+See the Mulan PSL v2 for more details.
+
+Author: jiayunhao
+Create: 2021-09-17
+Description: Define the structure for the TPM operation.
+*/
+
 package ractools
 
 import (
@@ -11,8 +27,12 @@ import (
 type Algorithm uint16
 type PcrValue string
 
-const EmptyPassword = ""
 const (
+	EmptyPassword                = ""
+	ekIndex       tpmutil.Handle = 0x01C00002
+	//ekIndex tpmutil.Handle = 0x40000006 
+	//ekIndex tpmutil.Handle = 0x1500000 
+
 	CertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIDfDCCAmSgAwIBAgIIFrl/kXlBImAwDQYJKoZIhvcNAQELBQAwNTEOMAwGA1UE
@@ -98,7 +118,6 @@ var (
 			KeyBits: 2048,
 		},
 	}
-	ekidx tpmutil.Handle = 0x01c0000a
 )
 
 type (

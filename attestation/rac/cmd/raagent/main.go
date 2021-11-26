@@ -21,17 +21,19 @@ func main() {
 	cfg := config.GetDefault()
 	server := cfg.GetServer()
 	cid := cfg.GetClientId()
-	tpm, err := ractools.OpenTPM(true)
+	tpm, err := ractools.OpenTPM(false)
 	if err != nil {
 		log.Printf("OpenTPM failed, error: %s \n", err)
+		return
 	}
+	defer tpm.Close()
 	//the input is not be used now
 	//TODO: add tpm config file
 	tpm.Prepare(&ractools.TPMConfig{})
 
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
 	if cid < 0 {
-		ekCert, err := tpm.GetEKCert()
+		ekCert, err := tpm.ReadEKCert()
 		if err != nil {
 			log.Printf("GetEkCert failed, error: %s \n", err)
 		}
@@ -98,7 +100,7 @@ func main() {
 func DoNextAction(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
 	action := rpy.GetNextAction()
 	if (action & cache.CMDSENDCONF) == cache.CMDSENDCONF {
-		SetNewConf(srv, id, rpy)
+		SetNewConf(rpy)
 	}
 	if (action & cache.CMDGETREPORT) == cache.CMDGETREPORT {
 		SendTrustReport(tpm, srv, id, rpy)
@@ -107,7 +109,7 @@ func DoNextAction(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHe
 }
 
 // SetNewConf sets the new configuration values from RAS.
-func SetNewConf(srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
+func SetNewConf(rpy *clientapi.SendHeartbeatReply) {
 	log.Printf("Client: get new configuration from RAS.")
 	config.GetDefault().SetHBDuration(time.Duration(rpy.GetActionParameters().GetClientConfig().HbDurationSeconds))
 	config.GetDefault().SetTrustDuration(time.Duration(rpy.GetActionParameters().GetClientConfig().TrustDurationSeconds))
