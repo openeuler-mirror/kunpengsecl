@@ -164,7 +164,6 @@ type TPMSymKeyParams struct {
 	//可能还要存放加密的算法等参数
 	CredBlob        []byte
 	EncryptedSecret []byte
-	IV              []byte
 	EncryptAlg      string // the algorithm & scheme used to encrypt the IK Cert
 	EncryptParam    []byte // the parameter required by the encrypt algorithm to decrypt the IK Cert
 	// if EncryptAlg == "AES128-CBC" then it is the IV used to encrypt IK Cert together with the key recovered from CredBlob & EncryptedSecret

@@ -49,12 +49,11 @@ func main() {
 		}
 
 		ic, err := tpm.ActivateIKCert(&ractools.IKCertInput{
-			IV:              bkk.IcEncrypted.IV,
-			CredBlob:        bkk.Challenge.CredBlob,
-			EncryptedSecret: bkk.Challenge.EncryptedSecret,
-			EncryptedCert:   bkk.IcEncrypted.EncryptedIC,
-			DecryptAlg:      bkk.Challenge.EncryptAlg,
-			DecryptParam:    bkk.Challenge.EncryptParam,
+			CredBlob:        bkk.CredBlob,
+			EncryptedSecret: bkk.EncryptedSecret,
+			EncryptedCert:   bkk.EncryptedIC,
+			DecryptAlg:      bkk.EncryptAlg,
+			DecryptParam:    bkk.EncryptParam,
 		})
 		if err != nil {
 			log.Fatalf("Client: ActivateIKCert failed, error: %v", err)
@@ -129,29 +128,28 @@ func SendTrustReport(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.Sen
 	for _, m := range tRep.Manifest {
 		manifest = append(manifest, &clientapi.Manifest{Type: m.Type, Item: m.Content})
 	}
-	/*
-		srr, _ := clientapi.DoSendReport(srv, &clientapi.SendReportRequest{
-			ClientId: id,
-			TrustReport: &clientapi.TrustReport{
-				PcrInfo: &clientapi.PcrInfo{
-					Algorithm: tRep.PcrInfo.AlgName,
-					PcrValues: (map[int32]string)(tRep.PcrInfo.Values),
-					PcrQuote: &clientapi.PcrQuote{
-						Quoted:    tRep.PcrInfo.Quote.Quoted,
-						Signature: tRep.PcrInfo.Quote.Signature,
-					},
+
+	srr, _ := clientapi.DoSendReport(srv, &clientapi.SendReportRequest{
+		ClientId: id,
+		TrustReport: &clientapi.TrustReport{
+			PcrInfo: &clientapi.PcrInfo{
+				Algorithm: tRep.PcrInfo.AlgName,
+				PcrValues: (map[int32]string)(tRep.PcrInfo.Values),
+				PcrQuote: &clientapi.PcrQuote{
+					Quoted:    tRep.PcrInfo.Quote.Quoted,
+					Signature: tRep.PcrInfo.Quote.Signature,
 				},
-				ClientId: tRep.ClientID,
-				ClientInfo: &clientapi.ClientInfo{
-					ClientInfo: tRep.ClientInfo,
-				},
-				Manifest: manifest,
 			},
-		})
-		if srr.Result {
-			log.Printf("Client: send a new trust report to RAS ok.")
-		} else {
-			log.Printf("Client: send a new trust report to RAS failed.")
-		}
-	*/
+			ClientId: tRep.ClientID,
+			ClientInfo: &clientapi.ClientInfo{
+				ClientInfo: tRep.ClientInfo,
+			},
+			Manifest: manifest,
+		},
+	})
+	if srr.Result {
+		log.Printf("Client: send a new trust report to RAS ok.")
+	} else {
+		log.Printf("Client: send a new trust report to RAS failed.")
+	}
 }

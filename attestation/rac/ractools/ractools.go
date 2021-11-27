@@ -22,8 +22,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
@@ -165,7 +165,7 @@ func (tpm *TPM) EraseEKCert() {
 func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
 	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, ekIndex,
-				EmptyPassword, EmptyPassword, nil, attr, uint16(len(ekPem)))
+		EmptyPassword, EmptyPassword, nil, attr, uint16(len(ekPem)))
 	if err != nil {
 		log.Printf("define NV space failed, error: %v\n", err)
 		return err
@@ -181,7 +181,7 @@ func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 			end = offset + blockSize
 			l -= blockSize
 		}
-		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, EmptyPassword, ekPem[offset:end], offset); 
+		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, EmptyPassword, ekPem[offset:end], offset)
 		if err != nil {
 			log.Printf("write NV failed, error: %v \n", err)
 			return err
@@ -292,7 +292,7 @@ func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
 	}
 
 	//
-	IKCert, err := pca.SymmetricDecrypt(alg, mode, recoveredCredential, in.IV, in.EncryptedCert)
+	IKCert, err := pca.SymmetricDecrypt(alg, mode, recoveredCredential, in.DecryptParam, in.EncryptedCert)
 	if err != nil {
 		log.Printf("Decode IKCert failed: %v \n", err)
 	}
