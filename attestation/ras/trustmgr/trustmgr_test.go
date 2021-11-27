@@ -67,22 +67,28 @@ func TestRecordReport(t *testing.T) {
 		},
 	}
 
+	clientInfo := entity.ClientInfo{
+		Info: map[string]string{
+			"client_name":        "test_client",
+			"client_type":        "test_type",
+			"client_description": "test description",
+		},
+	}
+	ic := []byte("test ic")
+
+	clientID, err := RegisterClient(&clientInfo, ic)
+	assert.NoError(t, err)
+
 	testReport := &entity.Report{
 		PcrInfo: pcrInfo,
 		Manifest: []entity.Manifest{
 			0: biosManifest,
 			1: imaManifest,
 		},
-		ClientID: 1,
-		ClientInfo: entity.ClientInfo{
-			Info: map[string]string{
-				"client_name":        "test_client",
-				"client_type":        "test_type",
-				"client_description": "test description",
-			},
-		},
+		ClientID:   clientID,
+		ClientInfo: clientInfo,
 	}
 
-	err := RecordReport(testReport)
+	err = RecordReport(testReport)
 	assert.NoError(t, err)
 }
