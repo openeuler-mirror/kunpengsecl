@@ -3,7 +3,10 @@ package trustmgr
 import (
 	"testing"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"github.com/stretchr/testify/assert"
 )
 
 type testValidator struct {
@@ -14,6 +17,9 @@ func (tv *testValidator) Validate(report *entity.Report) error {
 }
 
 func TestRecordReport(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
 	vm := new(testValidator)
 	SetValidator(vm)
 
@@ -77,5 +83,6 @@ func TestRecordReport(t *testing.T) {
 		},
 	}
 
-	RecordReport(testReport)
+	err := RecordReport(testReport)
+	assert.NoError(t, err)
 }

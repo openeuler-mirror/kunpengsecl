@@ -22,8 +22,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
@@ -130,11 +130,11 @@ func (tpm *TPM) generateEKCert() (*x509.Certificate, []byte, error) {
 	}
 	pcaCert, err := pca.DecodeCert(pca.CertPEM)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to generate EKCert")
+		return nil, nil, errors.Wrap(err, "failed to decode cert while generate EKCert")
 	}
 	pcaPriv, err := pca.DecodePrivkey(pca.PrivPEM)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to generate EKCert")
+		return nil, nil, errors.Wrap(err, "failed to decode key while generate EKCert")
 	}
 	ekCert, ekPem, err := pca.GenerateCert(&template, pcaCert, (tpm.config.EK.Pub).(*rsa.PublicKey), pcaPriv)
 	if err != nil {
@@ -165,7 +165,7 @@ func (tpm *TPM) EraseEKCert() {
 func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
 	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, ekIndex,
-				EmptyPassword, EmptyPassword, nil, attr, uint16(len(ekPem)))
+		EmptyPassword, EmptyPassword, nil, attr, uint16(len(ekPem)))
 	if err != nil {
 		log.Printf("define NV space failed, error: %v\n", err)
 		return err
@@ -181,7 +181,7 @@ func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 			end = offset + blockSize
 			l -= blockSize
 		}
-		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, EmptyPassword, ekPem[offset:end], offset); 
+		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, EmptyPassword, ekPem[offset:end], offset)
 		if err != nil {
 			log.Printf("write NV failed, error: %v \n", err)
 			return err
