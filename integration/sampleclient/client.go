@@ -115,18 +115,18 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 func AddAuthReqEditor(jws string) restapi.RequestEditorFn {
 	return func(ctx context.Context, req *http.Request) error {
 		req.Header.Set("Authorization", "Bearer "+jws)
-		return nil
+		return ctx.Err()
 	}
 }
 
-func CreateClient(w http.ResponseWriter, r *http.Request) {
+func CreateClient(w http.ResponseWriter) {
 	c, _ := restapi.NewClientWithResponses(rasServerURL)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	name := "version"
 	value := "0.1.0"
-	body := restapi.PostConfigJSONRequestBody{{&name, &value}}
+	body := restapi.PostConfigJSONRequestBody{{Name: &name, Value: &value}}
 	configResponse, err := c.GetConfigWithResponse(ctx)
 	if err != nil || http.StatusOK != configResponse.StatusCode() {
 		http.Error(w, "failed to get config", http.StatusInternalServerError)
@@ -148,10 +148,11 @@ func tryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	CreateClient(w, r)
+	CreateClient(w)
 }
 
 func pwdHandler(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	token, err := config.PasswordCredentialsToken(context.Background(), "test", "test")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -165,6 +166,7 @@ func pwdHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func clientHandler(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	cfg := clientcredentials.Config{
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,

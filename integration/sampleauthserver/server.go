@@ -91,11 +91,7 @@ func init() {
 	flag.IntVar(&portvar, "p", 5096, "the base port for the server")
 }
 
-func main() {
-	flag.Parse()
-	if dumpvar {
-		log.Println("Dumping requests")
-	}
+func createManager() *manage.Manager {
 	manager := manage.NewDefaultManager()
 	manager.SetAuthorizeCodeTokenCfg(manage.DefaultAuthorizeCodeTokenCfg)
 
@@ -113,6 +109,10 @@ func main() {
 	})
 	manager.MapClientStorage(clientStore)
 
+	return manager
+}
+
+func createServer(manager *manage.Manager) *server.Server {
 	srv := server.NewServer(server.NewConfig(), manager)
 
 	srv.SetPasswordAuthorizationHandler(func(username, password string) (userID string, err error) {
@@ -133,9 +133,18 @@ func main() {
 		log.Println(constErr, re.Error.Error())
 	})
 
+	return srv
+}
+
+func registerHTTPHandlers(srv *server.Server) {
 	http.HandleFunc(pathLogin, loginHandler)
 	http.HandleFunc(pathAuth, authHandler)
+	registerAuthorizeHandler(srv)
+	registerTokenHandler(srv)
+	registerTestHandler(srv)
+}
 
+func registerAuthorizeHandler(srv *server.Server) {
 	http.HandleFunc(pathAuthorize, func(w http.ResponseWriter, r *http.Request) {
 		if dumpvar {
 			dumpRequest(os.Stdout, "authorize", r)
@@ -161,7 +170,9 @@ func main() {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	})
+}
 
+func registerTokenHandler(srv *server.Server) {
 	http.HandleFunc(pathToken, func(w http.ResponseWriter, r *http.Request) {
 		if dumpvar {
 			_ = dumpRequest(os.Stdout, "token", r) // Ignore the error
@@ -172,7 +183,9 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
+}
 
+func registerTestHandler(srv *server.Server) {
 	http.HandleFunc(pathTest, func(w http.ResponseWriter, r *http.Request) {
 		if dumpvar {
 			_ = dumpRequest(os.Stdout, constTest, r) // Ignore the error
@@ -192,11 +205,6 @@ func main() {
 		e.SetIndent("", "  ")
 		e.Encode(data)
 	})
-
-	log.Printf("Server is running at %d port.\n", portvar)
-	log.Printf("Point your OAuth client Auth endpoint to %s:%d%s", "http://localhost", portvar, pathAuthorize)
-	log.Printf("Point your OAuth client Token endpoint to %s:%d%s", "http://localhost", portvar, pathToken)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", portvar), nil))
 }
 
 func dumpRequest(writer io.Writer, header string, r *http.Request) error {
@@ -293,4 +301,19 @@ func outputHTML(w http.ResponseWriter, req *http.Request, filename string) {
 	defer file.Close()
 	fi, _ := file.Stat()
 	http.ServeContent(w, req, file.Name(), fi.ModTime(), file)
+}
+
+func main() {
+	flag.Parse()
+	if dumpvar {
+		log.Println("Dumping requests")
+	}
+	manager := createManager()
+	srv := createServer(manager)
+	registerHTTPHandlers(srv)
+
+	log.Printf("Server is running at %d port.\n", portvar)
+	log.Printf("Point your OAuth client Auth endpoint to %s:%d%s", "http://localhost", portvar, pathAuthorize)
+	log.Printf("Point your OAuth client Token endpoint to %s:%d%s", "http://localhost", portvar, pathToken)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", portvar), nil))
 }
