@@ -292,7 +292,7 @@ func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
 	}
 
 	//
-	IKCert, err := pca.SymmetricDecrypt(alg, mode, recoveredCredential, in.IV, in.EncryptedCert)
+	IKCert, err := pca.SymmetricDecrypt(alg, mode, recoveredCredential, in.DecryptParam, in.EncryptedCert)
 	if err != nil {
 		log.Printf("Decode IKCert failed: %v \n", err)
 	}

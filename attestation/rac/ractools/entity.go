@@ -30,8 +30,8 @@ type PcrValue string
 const (
 	EmptyPassword                = ""
 	ekIndex       tpmutil.Handle = 0x01C00002
-	//ekIndex tpmutil.Handle = 0x40000006 
-	//ekIndex tpmutil.Handle = 0x1500000 
+	//ekIndex tpmutil.Handle = 0x40000006
+	//ekIndex tpmutil.Handle = 0x1500000
 
 	CertPEM = `
 -----BEGIN CERTIFICATE-----
@@ -184,7 +184,6 @@ type (
 
 	IKCertInput struct {
 		// CredBlob & EncryptedSecret are created by MakeCredential, and will be given as input to ActivateCredential
-		IV              []byte //used to encrypt IK Cert
 		CredBlob        []byte // the protected key used to encrypt IK Cert
 		EncryptedSecret []byte // the pretected secret related to protection of CredBlob
 		EncryptedCert   []byte // the encrypted IK Cert, will be decypted with the key recovered from CredBlob & EncryptedSecret, decrypted Cert will be in PEM format

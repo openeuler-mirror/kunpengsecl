@@ -378,7 +378,7 @@ func EncryptIkcert(ekPubKey crypto.PublicKey, IkCert []byte, IkName []byte) (*IK
 		CredBlob:        credBlob,        //前两个参数是makecredential的返回值，通过使用activateCredential
 		EncryptedSecret: encryptedSecret, //可以解出secret
 		EncryptAlg:      Encrypt_Alg,
-		IV:              iv, //iv  + 上面解出的secret可以解密出ikcret
+		EncryptParam:    iv, //iv  + 上面解出的secret可以解密出ikcret
 	}
 	ikCertChallenge := IKCertChallenge{
 		EncryptedCert:   encryptedCert, //存放加密后的ikCert

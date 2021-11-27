@@ -59,19 +59,14 @@ type service struct {
 func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
 	to, err := pca.GetIkCert(in.EkCert, in.IkPub, in.IkName)
 	if err != nil {
-		return &CreateIKCertReply{}, errors.New("Failed to get ikCert")
+		return &CreateIKCertReply{}, errors.New("failed to get ikCert")
 	}
 	return &CreateIKCertReply{
-		IcEncrypted: &CertEncrypted{
-			EncryptedIC: to.EncryptedCert,
-			IV:          to.TPMSymKeyParams.IV,
-		},
-		Challenge: &Challenge{
-			CredBlob:        to.TPMSymKeyParams.CredBlob,
-			EncryptedSecret: to.TPMSymKeyParams.EncryptedSecret,
-			EncryptAlg:      to.TPMSymKeyParams.EncryptAlg,
-			EncryptParam:    to.TPMSymKeyParams.EncryptParam,
-		},
+		EncryptedIC:     to.EncryptedCert,
+		CredBlob:        to.TPMSymKeyParams.CredBlob,
+		EncryptedSecret: to.TPMSymKeyParams.EncryptedSecret,
+		EncryptAlg:      to.TPMSymKeyParams.EncryptAlg,
+		EncryptParam:    to.TPMSymKeyParams.EncryptParam,
 	}, nil
 }
 
