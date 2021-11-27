@@ -93,9 +93,19 @@ type ManifestRule struct {
 
 // for generating detail in ManifestItem
 type BIOSManifestItem struct {
-	Pcr  string
-	Hash string
-	Name string
+	Pcr     uint32
+	BType   uint32
+	Digest  DigestValues
+	DataLen uint32
+	Data    []byte
+}
+type DigestValues struct {
+	Count uint32
+	Item  []DigestItem
+}
+type DigestItem struct {
+	AlgID string
+	Item  string
 }
 type IMAManifestItem struct {
 	Pcr          string
