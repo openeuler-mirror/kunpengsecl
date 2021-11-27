@@ -131,16 +131,7 @@ func TestClientAPI(t *testing.T) {
 			},
 			Algorithm: "SHA1",
 		},
-		Manifest: []*Manifest{
-			0: {
-				Type: "bios",
-				Item: []byte(testBiosManifest),
-			},
-			1: {
-				Type: "ima",
-				Item: []byte(testIMAManifest),
-			},
-		},
+		Manifest: []*Manifest{},
 		ClientId: r.GetClientId(),
 	}})
 	if err != nil {
