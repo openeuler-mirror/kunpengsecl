@@ -145,6 +145,80 @@ func InitHubFlags() {
 	hubPort = pflag.StringP(HubPortLongFlag, HubPortShortFlag, "", "hub listen at [IP]:PORT")
 }
 
+func getManifestRules() []entity.ManifestRule {
+	var mRules []entity.ManifestRule = nil
+	mrs, ok := viper.Get(RasExtRules).([]interface{})
+	if ok {
+		for _, mr := range mrs {
+			var mRule entity.ManifestRule
+			if m, ok := mr.(map[interface{}]interface{}); ok {
+				mRule.MType = m[RasKsType].(string)
+				for _, n := range m[RasKsName].([]interface{}) {
+					mRule.Name = append(mRule.Name, n.(string))
+				}
+				mRules = append(mRules, mRule)
+			}
+		}
+	}
+	return mRules
+}
+
+func getServerConf(c *config) {
+	if c == nil {
+		return
+	}
+	c.dbConfig.host = viper.GetString(DbHost)
+	c.dbConfig.dbName = viper.GetString(DbName)
+	c.dbConfig.port = viper.GetInt(DbPort)
+	c.dbConfig.user = viper.GetString(DbUser)
+	c.dbConfig.password = viper.GetString(DbPassword)
+	c.rasConfig.servPort = viper.GetString(RasPort)
+	c.rasConfig.restPort = viper.GetString(RasRestPort)
+	c.rasConfig.mgrStrategy = viper.GetString(RasMgrStrategy)
+	c.rasConfig.changeTime = viper.GetTime(RasChangeTime)
+	c.rasConfig.extractRules.PcrRule.PcrSelection = viper.GetIntSlice(RasPcrSelection)
+	c.rasConfig.extractRules.ManifestRules = getManifestRules()
+	c.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
+	c.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
+	// set command line input
+	if servPort != nil && *servPort != "" {
+		c.rasConfig.servPort = *servPort
+	}
+	if restPort != nil && *restPort != "" {
+		c.rasConfig.restPort = *restPort
+	}
+}
+
+func getClientConf(c *config) {
+	if c == nil {
+		return
+	}
+	c.racConfig.server = viper.GetString(RacServer)
+	c.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
+	c.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
+	c.racConfig.clientId = viper.GetInt64(RacClientId)
+	c.racConfig.password = viper.GetString(RacPassword)
+	// set command line input
+	if racServer != nil && *racServer != "" {
+		c.racConfig.server = *racServer
+	}
+}
+
+func getHubConf(c *config) {
+	if c == nil {
+		return
+	}
+	c.hubConfig.server = viper.GetString(HubServer)
+	c.hubConfig.hubPort = viper.GetString(HubPort)
+	// set command line input
+	if hubServer != nil && *hubServer != "" {
+		c.hubConfig.server = *hubServer
+	}
+	if hubPort != nil && *hubPort != "" {
+		c.hubConfig.hubPort = *hubPort
+	}
+}
+
 /*
 GetDefault returns the global default config object.
 It searches the defaultConfigPath to find the first matched config.yaml.
@@ -185,74 +259,11 @@ func GetDefault(cfType string) *config {
 	cfg.confType = cf
 	switch cfg.confType {
 	case ConfServer:
-		var mRules []entity.ManifestRule
-		mrs, ok := viper.Get(RasExtRules).([]interface{})
-		if ok {
-			for _, mr := range mrs {
-				var mRule entity.ManifestRule
-				if m, ok := mr.(map[interface{}]interface{}); ok {
-					for k, v := range m {
-						if ks, ok := k.(string); ok {
-							if ks == RasKsType {
-								if vs, ok := v.(string); ok {
-									mRule.MType = vs
-								}
-							}
-							if ks == RasKsName {
-								var names []string
-								if ns, ok := v.([]interface{}); ok {
-									for _, n := range ns {
-										names = append(names, n.(string))
-									}
-									mRule.Name = names
-								}
-							}
-						}
-					}
-					mRules = append(mRules, mRule)
-				}
-			}
-		}
-		cfg.dbConfig.host = viper.GetString(DbHost)
-		cfg.dbConfig.dbName = viper.GetString(DbName)
-		cfg.dbConfig.port = viper.GetInt(DbPort)
-		cfg.dbConfig.user = viper.GetString(DbUser)
-		cfg.dbConfig.password = viper.GetString(DbPassword)
-		cfg.rasConfig.servPort = viper.GetString(RasPort)
-		cfg.rasConfig.restPort = viper.GetString(RasRestPort)
-		cfg.rasConfig.mgrStrategy = viper.GetString(RasMgrStrategy)
-		cfg.rasConfig.changeTime = viper.GetTime(RasChangeTime)
-		cfg.rasConfig.extractRules.PcrRule.PcrSelection = viper.GetIntSlice(RasPcrSelection)
-		cfg.rasConfig.extractRules.ManifestRules = mRules
-		cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
-		cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
-		// set command line input
-		if servPort != nil && *servPort != "" {
-			cfg.rasConfig.servPort = *servPort
-		}
-		if restPort != nil && *restPort != "" {
-			cfg.rasConfig.restPort = *restPort
-		}
+		getServerConf(cfg)
 	case ConfClient:
-		cfg.racConfig.server = viper.GetString(RacServer)
-		cfg.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
-		cfg.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
-		cfg.racConfig.clientId = viper.GetInt64(RacClientId)
-		cfg.racConfig.password = viper.GetString(RacPassword)
-		// set command line input
-		if racServer != nil && *racServer != "" {
-			cfg.racConfig.server = *racServer
-		}
+		getClientConf(cfg)
 	case ConfHub:
-		cfg.hubConfig.server = viper.GetString(HubServer)
-		cfg.hubConfig.hubPort = viper.GetString(HubPort)
-		// set command line input
-		if hubServer != nil && *hubServer != "" {
-			cfg.hubConfig.server = *hubServer
-		}
-		if hubPort != nil && *hubPort != "" {
-			cfg.hubConfig.hubPort = *hubPort
-		}
+		getHubConf(cfg)
 	}
 	return cfg
 }
