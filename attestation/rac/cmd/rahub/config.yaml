@@ -1,4 +1,3 @@
-conftype: hub
 hubconfig:
   server: 127.0.0.1:40001
   hubport: 127.0.0.1:40003

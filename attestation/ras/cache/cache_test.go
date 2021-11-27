@@ -25,7 +25,7 @@ func TestCacheCommand(t *testing.T) {
 }
 
 func TestCacheUpdate(t *testing.T) {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	c := &Cache{
 		command:         0,
 		hbExpiration:    time.Now(),
@@ -57,7 +57,7 @@ func TestCacheUpdate(t *testing.T) {
 }
 
 func TestCacheTrust(t *testing.T) {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	c := &Cache{
 		command:         0,
 		hbExpiration:    time.Now(),

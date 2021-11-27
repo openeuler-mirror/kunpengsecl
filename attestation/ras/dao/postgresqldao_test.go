@@ -85,7 +85,7 @@ var (
 
 func TestPostgreSqlDAOSaveReport(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault()
+	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
@@ -120,7 +120,7 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 
 func TestRegisterClient(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault()
+	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
@@ -138,7 +138,7 @@ func TestRegisterClient(t *testing.T) {
 
 func TestUnRegisterClient(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault()
+	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
@@ -174,7 +174,7 @@ func TestUnRegisterClient(t *testing.T) {
 
 func TestSaveAndSelectBaseValue(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault()
+	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {
@@ -217,7 +217,7 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 
 func TestSelectReportById(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault()
+	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 	psd, err := CreatePostgreSQLDAO()
 	if err != nil {

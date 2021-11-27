@@ -28,7 +28,7 @@ func init() {
 
 func main() {
 	pflag.Parse()
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 
 	// TODO: Wait for completing of validator
 	trustmgr.SetValidator(&testValidator{})

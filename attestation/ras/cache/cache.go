@@ -44,7 +44,7 @@ type (
 
 // UpdateHeartBeat is called when receives heart beat message from RAC.
 func (c *Cache) UpdateHeartBeat() {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	// Once get a heart beat message then extends the expiration.
 	c.hbExpiration = time.Now().Add(cfg.GetHBDuration())
 	// If half past of trust report expiration, we need to get a new trust report.
@@ -55,7 +55,7 @@ func (c *Cache) UpdateHeartBeat() {
 
 // UpdateTrustReport is called when receives trust report message from RAC.
 func (c *Cache) UpdateTrustReport() {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	c.trustExpiration = time.Now().Add(cfg.GetTrustDuration())
 }
 
@@ -85,7 +85,7 @@ func (c *Cache) GetCommands() uint64 {
 
 // IsReportValid checks where the RAC trust report is valid or not.
 func (c *Cache) IsReportValid() bool {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	// After trust report expiration there is no one report received,
 	// the RAC can't be trusted any more and needs to get a new trust report.
 	if time.Now().After(c.trustExpiration) {

@@ -12,7 +12,7 @@ const (
 )
 
 func TestRASConfig(t *testing.T) {
-	config := GetDefault()
+	config := GetDefault(ConfServer)
 
 	testCases1 := []struct {
 		input  string
@@ -31,7 +31,7 @@ func TestRASConfig(t *testing.T) {
 }
 
 func TestRACConfig(t *testing.T) {
-	config := GetDefault()
+	config := GetDefault(ConfClient)
 
 	testCases1 := []struct {
 		input  time.Duration
