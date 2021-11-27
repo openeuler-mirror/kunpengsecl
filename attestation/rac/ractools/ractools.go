@@ -17,9 +17,12 @@ Description: Define the structure for the TPM operation.
 package ractools
 
 import (
+	"bytes"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -82,10 +85,10 @@ func (tpm *TPM) Close() {
 	}
 	//remove ekHandle and ikHandle from tpm
 	if tpm.config.EK.Handle != 0 {
-		tpm2.FlushContext(tpm.dev, tpm.config.EK.Handle)
+		tpm2.FlushContext(tpm.dev, tpmutil.Handle(tpm.config.EK.Handle))
 	}
 	if tpm.config.IK.Handle != 0 {
-		tpm2.FlushContext(tpm.dev, tpm.config.IK.Handle)
+		tpm2.FlushContext(tpm.dev, tpmutil.Handle(tpm.config.IK.Handle))
 	}
 	if err := tpm.dev.Close(); err != nil {
 		log.Printf("close TPM error: %v\n", err)
@@ -96,25 +99,27 @@ func (tpm *TPM) Close() {
 // Prepare method doing preparation steps for all the steps necessary for remote attesation, including prepare EKCert and create IK, according to the requirements given by TPMConfig
 func (tpm *TPM) Prepare(config *TPMConfig) error {
 	//create ek
-	ekPassword := EmptyPassword
-	ekSel := MyPcrSelection
-	var err error
-	tpm.config.EK.Handle, tpm.config.EK.Pub, err = tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement, ekSel,
-		EmptyPassword, ekPassword, DefaultKeyParams)
+	ekPassword := emptyPassword
+	ekSel := pcrSelectionNil
+	ekHandle, ekPub, err := tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement, ekSel,
+		emptyPassword, ekPassword, defaultKeyParams)
 	if err != nil {
 		return err
 	}
+	tpm.config.EK.Handle, tpm.config.EK.Pub = uint32(ekHandle), ekPub
 	//try to get ekPem form nv, if failed ,create ekCert and write it to nv
 	_, err = tpm.ReadEKCert()
 	if err != nil {
 		_, ekPem, e := tpm.generateEKCert()
 		if e != nil {
 			log.Printf("GenerateEKCert failed, error : %v \n", e)
+			return err
 		}
 		tpm.WriteEKCert(ekPem)
 	}
 	//Create and save IK
-	err = tpm.createIK(tpm.config.EK.Handle, ekPassword, EmptyPassword, tpm2.PCRSelection{})
+	err = tpm.createIK(ekHandle, ekPassword, emptyPassword, pcrSelectionNil)
+
 	return err
 }
 
@@ -145,7 +150,7 @@ func (tpm *TPM) generateEKCert() (*x509.Certificate, []byte, error) {
 
 // EraseEKCert erases the EK certificate from NVRAM.
 func (tpm *TPM) EraseEKCert() {
-	if err := tpm2.NVUndefineSpace(tpm.dev, EmptyPassword, tpm2.HandleOwner, ekIndex); err != nil {
+	if err := tpm2.NVUndefineSpace(tpm.dev, emptyPassword, tpm2.HandleOwner, ekIndex); err != nil {
 		switch err := err.(type) {
 		case nil:
 			fmt.Printf("1\n")
@@ -165,7 +170,7 @@ func (tpm *TPM) EraseEKCert() {
 func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
 	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, ekIndex,
-		EmptyPassword, EmptyPassword, nil, attr, uint16(len(ekPem)))
+		emptyPassword, emptyPassword, nil, attr, uint16(len(ekPem)))
 	if err != nil {
 		log.Printf("define NV space failed, error: %v\n", err)
 		return err
@@ -181,7 +186,7 @@ func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 			end = offset + blockSize
 			l -= blockSize
 		}
-		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, EmptyPassword, ekPem[offset:end], offset)
+		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, emptyPassword, ekPem[offset:end], offset)
 		if err != nil {
 			log.Printf("write NV failed, error: %v \n", err)
 			return err
@@ -194,7 +199,7 @@ func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 // ReadEKCert reads the EK certificate from NVRAM with PEM format.
 func (tpm *TPM) ReadEKCert() ([]byte, error) {
 	// Read all of the ekPem with NVReadEx
-	ekPem, err := tpm2.NVReadEx(tpm.dev, ekIndex, tpm2.HandleOwner, EmptyPassword, 0)
+	ekPem, err := tpm2.NVReadEx(tpm.dev, ekIndex, tpm2.HandleOwner, emptyPassword, 0)
 	if err != nil {
 		log.Printf("read NV failed, error: %v\n", err)
 		return nil, err
@@ -233,11 +238,11 @@ func (tpm *TPM) GetIKPub() []byte {
 	return ans
 }
 
-func (tpm *TPM) createIK(parentHandle tpmutil.Handle, parentPassword, IKPassword string,
-	IKSel tpm2.PCRSelection) error {
+func (tpm *TPM) createIK(parentHandle tpmutil.Handle, parentPassword, ikPassword string,
+	ikSel tpm2.PCRSelection) error {
 
-	privateIK, publicIK, _, _, _, err := tpm2.CreateKey(tpm.dev, parentHandle, IKSel,
-		parentPassword, IKPassword, Params)
+	privateIK, publicIK, _, _, _, err := tpm2.CreateKey(tpm.dev, parentHandle, ikSel,
+		parentPassword, ikPassword, params)
 	if err != nil {
 		return err
 	}
@@ -257,14 +262,14 @@ func (tpm *TPM) createIK(parentHandle tpmutil.Handle, parentPassword, IKPassword
 	if err != nil {
 		return err
 	}
-	tpm.config.IK = &AttestationKey{}
-	tpm.config.IK.Password = IKPassword
-	tpm.config.IK.PcrSel = MyPcrSelection
-	tpm.config.IK.Private = privateIK
-	tpm.config.IK.Public = publicIK
-	tpm.config.IK.Pub = pub
-	tpm.config.IK.Name = akName
-	tpm.config.IK.Handle = akHandle
+	tpm.config.IK = &AttestationKey{
+		Password: ikPassword,
+		Private:  privateIK,
+		Public:   publicIK,
+		Pub:      pub,
+		Name:     akName,
+		Handle:   uint32(akHandle),
+	}
 
 	return nil
 }
@@ -276,8 +281,9 @@ func (tpm *TPM) GetIKName() []byte {
 
 //ActivateIKCert method decrypted the IkCert from the input, and return it in PEM format
 func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
-	recoveredCredential, err := tpm2.ActivateCredential(tpm.dev, tpm.config.IK.Handle, tpm.config.EK.Handle, tpm.config.IK.Password,
-		tpm.config.EK.Password, in.CredBlob, in.EncryptedSecret)
+	recoveredCredential, err := tpm2.ActivateCredential(tpm.dev, tpmutil.Handle(tpm.config.IK.Handle),
+		tpmutil.Handle(tpm.config.EK.Handle), tpm.config.IK.Password, tpm.config.EK.Password,
+		in.CredBlob, in.EncryptedSecret)
 	if err != nil {
 		log.Printf("ActivateCredential failed: %v \n", err)
 	}
@@ -321,9 +327,20 @@ func getManifest(imaPath, biosPath string) ([]Manifest, error) {
 	return manifest, err
 }
 
-func (tpm *TPM) createTrustReport(IK *AttestationKey, pcrSelection tpm2.PCRSelection,
-	tRepIn TrustReportIn) (*TrustReport, error) {
+func (t *TrustReportIn) hash() []byte {
+	buf := new(bytes.Buffer)
+	b64 := make([]byte, 8)
+	binary.BigEndian.PutUint64(b64, t.Nonce)
+	buf.Write(b64)
+	binary.BigEndian.PutUint64(b64, uint64(t.ClientId))
+	buf.Write(b64)
+	buf.WriteString(t.ClientInfo)
+	bHash := sha256.New()
+	bHash.Write(buf.Bytes())
+	return bHash.Sum(nil)
+}
 
+func (tpm *TPM) createTrustReport(pcrSelection tpm2.PCRSelection, tRepIn *TrustReportIn) (*TrustReport, error) {
 	pcrmp, err := tpm2.ReadPCRs(tpm.dev, pcrSelection)
 	if err != nil {
 		return &TrustReport{}, err
@@ -331,25 +348,28 @@ func (tpm *TPM) createTrustReport(IK *AttestationKey, pcrSelection tpm2.PCRSelec
 
 	pcrValues := map[int32]string{}
 	for key, pcr := range pcrmp {
-		var value string
-		for _, c := range pcr {
-			value += (string)(c + 48) //invert byte(0) into string(0)
-		}
-		pcrValues[(int32)(key)] = value
+		pcrValues[(int32)(key)] = hex.EncodeToString(pcr)
 	}
 
-	//invert uint64 to []byte
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(tRepIn.Nonce))
-
-	attestation, signature, err := tpm2.Quote(tpm.dev, IK.Handle, IK.Password, EmptyPassword,
-		buf, pcrSelection, tpm2.AlgNull)
-
+	attestation, signature, err := tpm2.Quote(tpm.dev, tpmutil.Handle(tpm.config.IK.Handle),
+		tpm.config.IK.Password, emptyPassword, tRepIn.hash(), pcrSelection, tpm2.AlgNull)
 	if err != nil {
 		return &TrustReport{}, err
 	}
 
-	pcrinfo := PcrInfo{"SHA1", pcrValues, PcrQuote{Quoted: attestation, Signature: signature.RSA.Signature}}
+	jsonSig, err := json.Marshal(signature)
+	if err != nil {
+		return &TrustReport{}, err
+	}
+
+	algStrMap := map[tpm2.Algorithm]string{
+		tpm2.AlgSHA1:   "SHA1",
+		tpm2.AlgSHA256: "SHA256",
+		tpm2.AlgSHA384: "SHA384",
+		tpm2.AlgSHA512: "SHA512",
+	}
+
+	pcrinfo := PcrInfo{algStrMap[pcrSelection.Hash], pcrValues, PcrQuote{Quoted: attestation, Signature: jsonSig}}
 	mainfest, err := getManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
 	if err != nil {
 		log.Printf("GetManifest Failed, error: %s", err)
@@ -368,5 +388,5 @@ func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, erro
 		ClientId:   clientID,
 		ClientInfo: clientInfo,
 	}
-	return tpm.createTrustReport(tpm.config.IK, MyPcrSelection, tRepIn)
+	return tpm.createTrustReport(pcrSelectionAll, &tRepIn)
 }

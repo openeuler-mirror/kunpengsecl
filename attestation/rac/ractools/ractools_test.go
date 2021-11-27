@@ -2,6 +2,7 @@ package ractools
 
 import (
 	"bytes"
+	"encoding/hex"
 	"testing"
 
 	"github.com/google/go-tpm/tpm2"
@@ -13,7 +14,7 @@ const (
 )
 
 var (
-	pcrSelection        = PcrSelection0to7
+	pcrSelection        = pcrSelection0to7
 	nonce        uint64 = 1
 	clientId     int64  = 1
 	ekPem               = `
@@ -64,7 +65,7 @@ func TestCreateTrustReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAk failed: %s", err)
 	}
-	got, err := tpm.createTrustReport(tpm.config.IK, pcrSelection, tRepIn)
+	got, err := tpm.createTrustReport(pcrSelection, &tRepIn)
 	if err != nil {
 		t.Fatalf("CreateTrustReport failed: %s", err)
 	}
@@ -73,19 +74,15 @@ func TestCreateTrustReport(t *testing.T) {
 	pcrmp, _ := tpm2.ReadPCRs(tpm.dev, pcrSelection)
 	pcrValues := map[int]string{}
 	for key, pcr := range pcrmp {
-		var value string
-		for _, c := range pcr {
-			value += (string)(c + 48) //invert byte(0) into string(0)
-		}
-		pcrValues[key] = value
+		pcrValues[key] = hex.EncodeToString(pcr)
 	}
 	for i := range pcrmp {
-		if got.PcrInfo.Values[(int32)(i)] != pcrValues[i] {
+		if got.PcrInfo.Values[int32(i)] != pcrValues[i] {
 			t.Fatalf("PCRs are not equal, got %v want %v", []byte(got.PcrInfo.Values[(int32)(i)]), pcrValues[i])
 		}
 	}
 
-	attestation, _, err := tpm2.Quote(tpm.dev, tpm.config.IK.Handle, tpm.config.IK.Password, EmptyPassword,
+	attestation, _, err := tpm2.Quote(tpm.dev, tpmutil.Handle(tpm.config.IK.Handle), tpm.config.IK.Password, emptyPassword,
 		nil, pcrSelection, tpm2.AlgNull)
 	if err != nil {
 		t.Fatalf("Quote failed: %s", err)
@@ -116,4 +113,3 @@ func TestNVRAM(t *testing.T) {
 	}
 	tpm.EraseEKCert()
 }
-
