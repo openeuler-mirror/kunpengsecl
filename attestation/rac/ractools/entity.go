@@ -30,8 +30,6 @@ type PcrValue string
 const (
 	emptyPassword                = ""
 	ekIndex       tpmutil.Handle = 0x01C00002
-	//ekIndex tpmutil.Handle = 0x40000006
-	//ekIndex tpmutil.Handle = 0x1500000
 )
 
 var (
