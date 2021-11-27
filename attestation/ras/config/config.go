@@ -30,7 +30,6 @@ const (
 	// normal
 	ConfName   = "config"
 	ConfExt    = "yaml"
-	ConfType   = "conftype"
 	ConfServer = "server"
 	ConfClient = "client"
 	ConfHub    = "hub"
@@ -154,7 +153,7 @@ Notice:
   server must has a config.yaml to give the configuration.
   client may not have one.
 */
-func GetDefault() *config {
+func GetDefault(cfType string) *config {
 	if cfg != nil {
 		return cfg
 	}
@@ -165,12 +164,17 @@ func GetDefault() *config {
 		viper.AddConfigPath(s)
 	}
 
-	// set client default configuration into viper
-	viper.SetDefault(ConfType, ConfClient)
-	viper.SetDefault(RacHbDuration, RacDefaultHbDuration)
-	viper.SetDefault(RacTrustDuration, RacDefaultTrustDuration)
-	viper.SetDefault(RacClientId, RacNullClientId)
-	viper.SetDefault(RacPassword, RacDefaultPassword)
+	// set default configuration for different app.
+	cf := strings.ToLower(cfType)
+	switch cf {
+	case ConfServer:
+	case ConfClient:
+		viper.SetDefault(RacHbDuration, RacDefaultHbDuration)
+		viper.SetDefault(RacTrustDuration, RacDefaultTrustDuration)
+		viper.SetDefault(RacClientId, RacNullClientId)
+		viper.SetDefault(RacPassword, RacDefaultPassword)
+	case ConfHub:
+	}
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -178,7 +182,7 @@ func GetDefault() *config {
 	}
 
 	cfg = &config{}
-	cfg.confType = strings.ToLower(viper.GetString(ConfType))
+	cfg.confType = cf
 	switch cfg.confType {
 	case ConfServer:
 		var mRules []entity.ManifestRule
@@ -258,7 +262,6 @@ func Save() {
 	if cfg != nil {
 		switch cfg.confType {
 		case ConfServer:
-			viper.Set(ConfType, ConfServer)
 			viper.Set(DbHost, cfg.dbConfig.host)
 			viper.Set(DbName, cfg.dbConfig.dbName)
 			viper.Set(DbPort, cfg.dbConfig.port)
@@ -272,7 +275,6 @@ func Save() {
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
 			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
 		case ConfClient:
-			viper.Set(ConfType, ConfClient)
 			// store common part
 			viper.Set(RacServer, cfg.racConfig.server)
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
@@ -281,7 +283,6 @@ func Save() {
 			viper.Set(RacClientId, cfg.racConfig.clientId)
 			viper.Set(RacPassword, cfg.racConfig.password)
 		case ConfHub:
-			viper.Set(ConfType, ConfHub)
 			viper.Set(HubServer, cfg.hubConfig.server)
 			viper.Set(HubPort, cfg.hubConfig.hubPort)
 		}

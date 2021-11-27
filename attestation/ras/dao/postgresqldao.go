@@ -491,11 +491,12 @@ func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.Measureme
 
 // CreatePostgreSQLDAO creates a postgre database connection to read and store data.
 func CreatePostgreSQLDAO() (DAO, error) {
-	host := config.GetDefault().GetHost()
-	port := config.GetDefault().GetDBPort()
-	dbname := config.GetDefault().GetDBName()
-	user := config.GetDefault().GetUser()
-	password := config.GetDefault().GetPassword()
+	cfg := config.GetDefault(config.ConfServer)
+	host := cfg.GetHost()
+	port := cfg.GetDBPort()
+	dbname := cfg.GetDBName()
+	user := cfg.GetUser()
+	password := cfg.GetPassword()
 	url := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, password, host, port, dbname)
 	c, err := pgx.Connect(context.Background(), url)
 	if err != nil {

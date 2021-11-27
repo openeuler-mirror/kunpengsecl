@@ -1,4 +1,3 @@
-conftype: client
 racconfig:
   clientid: -1
   hbduration: 5s

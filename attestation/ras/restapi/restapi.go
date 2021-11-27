@@ -26,7 +26,7 @@ type RasServer struct {
 // Return a list of all config items in key:value pair format
 // (GET /config)
 func (s *RasServer) GetConfig(ctx echo.Context) error {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	er := cfg.GetExtractRules()
 	jsonER, err := json.Marshal(er)
 	if err != nil {
@@ -56,7 +56,7 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 // (POST /config)
 func (s *RasServer) PostConfig(ctx echo.Context) error {
 	var configBody PostConfigJSONBody
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	err := ctx.Bind(&configBody)
 	if err != nil {
 		fmt.Print("Bind configBody failed.")
@@ -82,7 +82,7 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 
 //Modify some config information respectively
 func setDBport(val string) error {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	port, err := strconv.Atoi(val)
 	if err != nil {
 		fmt.Print("Convert string to int failed.")
@@ -93,7 +93,7 @@ func setDBport(val string) error {
 }
 
 func setExtractRules(val string) error {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	jsonER := []byte(val)
 	var extractRules entity.ExtractRules
 	err := json.Unmarshal(jsonER, &extractRules)
@@ -106,7 +106,7 @@ func setExtractRules(val string) error {
 }
 
 func setHBDuration(val string) error {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	duration, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
 		fmt.Print("Convert string to int64 failed.")
@@ -117,7 +117,7 @@ func setHBDuration(val string) error {
 }
 
 func setTDuration(val string) error {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	duration, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
 		fmt.Print("Convert string to int64 failed.")

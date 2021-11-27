@@ -141,7 +141,7 @@ func (pv *PCRVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.
 }
 
 func (pv *PCRVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
-	config := config.GetDefault()
+	config := config.GetDefault(config.ConfServer)
 	pcrSelection := config.GetExtractRules().PcrRule.PcrSelection
 	rpv := report.PcrInfo.Values
 	if mInfo.PcrInfo.Values == nil {
@@ -158,7 +158,7 @@ func (pv *PCRVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 }
 
 func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
-	config := config.GetDefault()
+	config := config.GetDefault(config.ConfServer)
 	var biosNames []string
 	var biosManifest entity.Manifest
 	mRule := config.GetExtractRules().ManifestRules
@@ -195,7 +195,7 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 }
 
 func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
-	config := config.GetDefault()
+	config := config.GetDefault(config.ConfServer)
 	var imaNames []string
 	var imaManifest entity.Manifest
 	for _, rule := range config.GetExtractRules().ManifestRules {

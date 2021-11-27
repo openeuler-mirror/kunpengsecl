@@ -18,7 +18,7 @@ func init() {
 func main() {
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
 	pflag.Parse()
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfClient)
 	server := cfg.GetServer()
 	cid := cfg.GetClientId()
 	tpm, err := ractools.OpenTPM(false)
@@ -72,8 +72,8 @@ func main() {
 			log.Fatal("Client: can't register rac!")
 		}
 		cid = bk.GetClientId()
-		config.GetDefault().SetClientId(cid)
-		config.GetDefault().SetHBDuration(time.Duration((int64)(time.Second) * bk.GetClientConfig().HbDurationSeconds))
+		cfg.SetClientId(cid)
+		cfg.SetHBDuration(time.Duration((int64)(time.Second) * bk.GetClientConfig().HbDurationSeconds))
 		log.Printf("Client: get clientId=%d", cid)
 		config.Save()
 	}
@@ -92,7 +92,7 @@ func main() {
 		// step 5. what else??
 
 		// step n. sleep and wait.
-		time.Sleep(config.GetDefault().GetHBDuration())
+		time.Sleep(cfg.GetHBDuration())
 	}
 }
 
@@ -111,8 +111,10 @@ func DoNextAction(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHe
 // SetNewConf sets the new configuration values from RAS.
 func SetNewConf(rpy *clientapi.SendHeartbeatReply) {
 	log.Printf("Client: get new configuration from RAS.")
-	config.GetDefault().SetHBDuration(time.Duration(rpy.GetActionParameters().GetClientConfig().HbDurationSeconds))
-	config.GetDefault().SetTrustDuration(time.Duration(rpy.GetActionParameters().GetClientConfig().TrustDurationSeconds))
+	cfg := config.GetDefault(config.ConfClient)
+	conf := rpy.GetActionParameters().GetClientConfig()
+	cfg.SetHBDuration(time.Duration(conf.HbDurationSeconds))
+	cfg.SetTrustDuration(time.Duration(conf.TrustDurationSeconds))
 }
 
 // SendTrustReport sneds a new trust report to RAS.

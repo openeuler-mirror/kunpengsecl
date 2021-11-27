@@ -1,4 +1,3 @@
-conftype: server
 database:
   host: localhost
   dbname: kunpengsecl

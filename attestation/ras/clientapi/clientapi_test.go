@@ -75,7 +75,7 @@ func (tv *testValidator) Validate(report *entity.Report) error {
 
 func TestClientAPI(t *testing.T) {
 	test.CreateServerConfigFile()
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	server := cfg.GetPort()
 	defer test.RemoveConfigFile()
 	go StartServer(server)

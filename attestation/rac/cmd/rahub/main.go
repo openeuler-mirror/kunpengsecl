@@ -12,7 +12,7 @@ func init() {
 
 func main() {
 	pflag.Parse()
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfHub)
 	rasServer := cfg.GetHubServer()
 	listenPort := cfg.GetHubPort()
 	clientapi.StartRaHub(listenPort, rasServer)

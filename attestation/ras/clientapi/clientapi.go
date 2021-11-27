@@ -105,9 +105,9 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 	info.cache.UpdateHeartBeat()
 	info.cache.GetTrustReport()
 	s.Unlock()
-
-	hd := config.GetDefault().GetHBDuration()
-	td := config.GetDefault().GetTrustDuration()
+	cfg := config.GetDefault(config.ConfServer)
+	hd := cfg.GetHBDuration()
+	td := cfg.GetTrustDuration()
 
 	return &RegisterClientReply{
 		ClientId: clientID,

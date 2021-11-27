@@ -166,7 +166,7 @@ func TestPCRVerifierVerify(t *testing.T) {
 
 func TestPCRExtract(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault()
+	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 	testReport := &entity.Report{
 		PcrInfo: pi,
@@ -203,7 +203,7 @@ func TestPCRExtract(t *testing.T) {
 
 func TestBIOSExtract(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault()
+	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 
 	testReport := &entity.Report{
@@ -241,7 +241,7 @@ func TestBIOSExtract(t *testing.T) {
 
 func TestIMAExtract(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault()
+	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 
 	testReport := &entity.Report{
