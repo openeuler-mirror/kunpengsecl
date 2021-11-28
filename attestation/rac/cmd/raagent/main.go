@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"time"
 
@@ -9,70 +8,90 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"github.com/spf13/pflag"
 )
 
+func init() {
+	config.InitRacFlags()
+}
+
 func main() {
-	const addr string = "127.0.0.1:40001"
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
-	cid := config.GetDefault().GetClientId()
-	tpm, err := ractools.OpenTPM(true)
+	pflag.Parse()
+	cfg := config.GetDefault(config.ConfClient)
+	server := cfg.GetServer()
+	cid := cfg.GetClientId()
+	tpm, err := ractools.OpenTPM(false)
 	if err != nil {
 		log.Printf("OpenTPM failed, error: %s \n", err)
+		return
 	}
+	defer tpm.Close()
 	//the input is not be used now
 	//TODO: add tpm config file
 	tpm.Prepare(&ractools.TPMConfig{})
 
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
 	if cid < 0 {
-		_, err := tpm.GetEKCert()
+		ekCert, err := tpm.ReadEKCert()
 		if err != nil {
 			log.Printf("GetEkCert failed, error: %s \n", err)
 		}
+
 		req := clientapi.CreateIKCertRequest{
-			// EkCert: ekCert,
-			// IkPub:  tpm.GetIKPub(),
-			EkCert: ractools.CertPEM,
-			IkPub:  ractools.PubPEM,
+			EkCert: string(ekCert),
+			IkPub:  string(tpm.GetIKPub()),
 			IkName: tpm.GetIKName(),
 		}
-		bkk, err := clientapi.DoCreateIKCert(addr, &req)
+		bkk, err := clientapi.DoCreateIKCert(server, &req)
 		if err != nil {
 			log.Fatal("Client:can't Create IkCert")
 		}
-		eic := bkk.GetIcEncrypted()
-		log.Println("Client:get encryptedIC=", eic)
 
-		ci, err := json.Marshal(map[string]string{"test name": "test value"})
-		bk, err := clientapi.DoRegisterClient(addr, &clientapi.RegisterClientRequest{
-			Ic:         &clientapi.Cert{Cert: []byte{1, 2}},
-			ClientInfo: &clientapi.ClientInfo{ClientInfo: string(ci)},
+		ic, err := tpm.ActivateIKCert(&ractools.IKCertInput{
+			CredBlob:        bkk.CredBlob,
+			EncryptedSecret: bkk.EncryptedSecret,
+			EncryptedCert:   bkk.EncryptedIC,
+			DecryptAlg:      bkk.EncryptAlg,
+			DecryptParam:    bkk.EncryptParam,
+		})
+		if err != nil {
+			log.Fatalf("Client: ActivateIKCert failed, error: %v", err)
+		}
+
+		clientInfo, err := ractools.GetClientInfo()
+		if err != nil {
+			log.Fatalf("Client: GetClientInfo failed, error: %v", err)
+		}
+		bk, err := clientapi.DoRegisterClient(server, &clientapi.RegisterClientRequest{
+			Ic:         &clientapi.Cert{Cert: ic},
+			ClientInfo: &clientapi.ClientInfo{ClientInfo: clientInfo},
 		})
 		if err != nil {
 			log.Fatal("Client: can't register rac!")
 		}
 		cid = bk.GetClientId()
-		config.GetDefault().SetClientId(cid)
-		config.GetDefault().SetHBDuration(time.Duration((int64)(time.Second) * bk.GetClientConfig().HbDurationSeconds))
+		cfg.SetClientId(cid)
+		cfg.SetHBDuration(time.Duration((int64)(time.Second) * bk.GetClientConfig().HbDurationSeconds))
 		log.Printf("Client: get clientId=%d", cid)
 		config.Save()
 	}
 
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
 	for {
-		rpy, err := clientapi.DoSendHeartbeat(addr, &clientapi.SendHeartbeatRequest{ClientId: cid})
+		rpy, err := clientapi.DoSendHeartbeat(server, &clientapi.SendHeartbeatRequest{ClientId: cid})
 		if err != nil {
 			log.Fatalf("Client: send heart beat error %v", err)
 		}
 		log.Printf("Client: get heart beat back %v", rpy.GetNextAction())
 
 		// step 4. do what ras tells to do by NextAction...
-		DoNextAction(tpm, addr, cid, rpy)
+		DoNextAction(tpm, server, cid, rpy)
 
 		// step 5. what else??
 
 		// step n. sleep and wait.
-		time.Sleep(config.GetDefault().GetHBDuration())
+		time.Sleep(cfg.GetHBDuration())
 	}
 }
 
@@ -80,7 +99,7 @@ func main() {
 func DoNextAction(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
 	action := rpy.GetNextAction()
 	if (action & cache.CMDSENDCONF) == cache.CMDSENDCONF {
-		SetNewConf(srv, id, rpy)
+		SetNewConf(rpy)
 	}
 	if (action & cache.CMDGETREPORT) == cache.CMDGETREPORT {
 		SendTrustReport(tpm, srv, id, rpy)
@@ -89,10 +108,12 @@ func DoNextAction(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHe
 }
 
 // SetNewConf sets the new configuration values from RAS.
-func SetNewConf(srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
+func SetNewConf(rpy *clientapi.SendHeartbeatReply) {
 	log.Printf("Client: get new configuration from RAS.")
-	config.GetDefault().SetHBDuration(time.Duration(rpy.GetActionParameters().GetClientConfig().HbDurationSeconds))
-	config.GetDefault().SetTrustDuration(time.Duration(rpy.GetActionParameters().GetClientConfig().TrustDurationSeconds))
+	cfg := config.GetDefault(config.ConfClient)
+	conf := rpy.GetActionParameters().GetClientConfig()
+	cfg.SetHBDuration(time.Duration(conf.HbDurationSeconds))
+	cfg.SetTrustDuration(time.Duration(conf.TrustDurationSeconds))
 }
 
 // SendTrustReport sneds a new trust report to RAS.
@@ -107,29 +128,28 @@ func SendTrustReport(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.Sen
 	for _, m := range tRep.Manifest {
 		manifest = append(manifest, &clientapi.Manifest{Type: m.Type, Item: m.Content})
 	}
-	/*
-		srr, _ := clientapi.DoSendReport(srv, &clientapi.SendReportRequest{
-			ClientId: id,
-			TrustReport: &clientapi.TrustReport{
-				PcrInfo: &clientapi.PcrInfo{
-					Algorithm: tRep.PcrInfo.AlgName,
-					PcrValues: (map[int32]string)(tRep.PcrInfo.Values),
-					PcrQuote: &clientapi.PcrQuote{
-						Quoted:    tRep.PcrInfo.Quote.Quoted,
-						Signature: tRep.PcrInfo.Quote.Signature,
-					},
+
+	srr, _ := clientapi.DoSendReport(srv, &clientapi.SendReportRequest{
+		ClientId: id,
+		TrustReport: &clientapi.TrustReport{
+			PcrInfo: &clientapi.PcrInfo{
+				Algorithm: tRep.PcrInfo.AlgName,
+				PcrValues: (map[int32]string)(tRep.PcrInfo.Values),
+				PcrQuote: &clientapi.PcrQuote{
+					Quoted:    tRep.PcrInfo.Quote.Quoted,
+					Signature: tRep.PcrInfo.Quote.Signature,
 				},
-				ClientId: tRep.ClientID,
-				ClientInfo: &clientapi.ClientInfo{
-					ClientInfo: tRep.ClientInfo,
-				},
-				Manifest: manifest,
 			},
-		})
-		if srr.Result {
-			log.Printf("Client: send a new trust report to RAS ok.")
-		} else {
-			log.Printf("Client: send a new trust report to RAS failed.")
-		}
-	*/
+			ClientId: tRep.ClientID,
+			ClientInfo: &clientapi.ClientInfo{
+				ClientInfo: tRep.ClientInfo,
+			},
+			Manifest: manifest,
+		},
+	})
+	if srr.Result {
+		log.Printf("Client: send a new trust report to RAS ok.")
+	} else {
+		log.Printf("Client: send a new trust report to RAS failed.")
+	}
 }

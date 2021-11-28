@@ -1,6 +1,6 @@
-conftype: client
 racconfig:
+  clientid: -1
   hbduration: 5s
-  trustduration: 2m0s
-  clientId: -1
   password: ""
+  server: :40001
+  trustduration: 2m0s

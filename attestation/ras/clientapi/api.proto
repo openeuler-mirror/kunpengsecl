@@ -17,18 +17,11 @@ message CreateIKCertRequest {
 }
 
 message CreateIKCertReply {
-  CertEncrypted icEncrypted = 1;
-  Challenge challenge = 2;
-}
-
-message CertEncrypted {
-  bytes EncryptAC = 1;
-  bytes IV = 2;
-}
-
-message Challenge {
-  bytes Credential = 1;
-  bytes SymBlob = 2;
+  bytes EncryptedIC = 1;
+  bytes CredBlob = 2;
+  bytes EncryptedSecret = 3;
+  string EncryptAlg = 4;
+  bytes EncryptParam = 5;
 }
 
 message RegisterClientRequest {

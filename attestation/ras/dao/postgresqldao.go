@@ -61,7 +61,7 @@ func (psd *PostgreSqlDAO) saveReportContent(tx pgx.Tx, ctx context.Context, repo
 	err = tx.QueryRow(ctx,
 		"INSERT INTO trust_report(client_id, client_info_ver, report_time, pcr_quote, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id",
 		report.ClientID, clientInfoVer, time.Now().Format("2006/01/02 15:04:05"),
-		string(report.PcrInfo.Quote.Quoted), report.Verified).Scan(&reportID)
+		report.PcrInfo.Quote.Quoted, report.Verified).Scan(&reportID)
 	if err != nil {
 		return -1, err
 	}
@@ -491,11 +491,12 @@ func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.Measureme
 
 // CreatePostgreSQLDAO creates a postgre database connection to read and store data.
 func CreatePostgreSQLDAO() (DAO, error) {
-	host := config.GetDefault().GetHost()
-	port := config.GetDefault().GetPort()
-	dbname := config.GetDefault().GetDBName()
-	user := config.GetDefault().GetUser()
-	password := config.GetDefault().GetPassword()
+	cfg := config.GetDefault(config.ConfServer)
+	host := cfg.GetHost()
+	port := cfg.GetDBPort()
+	dbname := cfg.GetDBName()
+	user := cfg.GetUser()
+	password := cfg.GetPassword()
 	url := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, password, host, port, dbname)
 	c, err := pgx.Connect(context.Background(), url)
 	if err != nil {

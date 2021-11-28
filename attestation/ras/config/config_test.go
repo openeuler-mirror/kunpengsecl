@@ -5,16 +5,22 @@ import (
 	"time"
 )
 
+const (
+	testString1 = "abcdef12345"
+	testString2 = "123#$%^&*()!@#"
+	testString3 = "zxcdfeaonasdfasdf"
+)
+
 func TestRASConfig(t *testing.T) {
-	config := GetDefault()
+	config := GetDefault(ConfServer)
 
 	testCases1 := []struct {
 		input  string
 		result string
 	}{
-		{"abcdef12345", "abcdef12345"},
-		{"123#$%^&*()!@#", "123#$%^&*()!@#"},
-		{"zxcdfeaonasdfasdf", "zxcdfeaonasdfasdf"},
+		{testString1, testString1},
+		{testString2, testString2},
+		{testString3, testString3},
 	}
 	for i := 0; i < len(testCases1); i++ {
 		config.SetMgrStrategy(testCases1[i].input)
@@ -25,7 +31,7 @@ func TestRASConfig(t *testing.T) {
 }
 
 func TestRACConfig(t *testing.T) {
-	config := GetDefault()
+	config := GetDefault(ConfClient)
 
 	testCases1 := []struct {
 		input  time.Duration

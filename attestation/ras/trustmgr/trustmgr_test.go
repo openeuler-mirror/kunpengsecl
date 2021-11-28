@@ -3,7 +3,10 @@ package trustmgr
 import (
 	"testing"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"github.com/stretchr/testify/assert"
 )
 
 type testValidator struct {
@@ -14,6 +17,9 @@ func (tv *testValidator) Validate(report *entity.Report) error {
 }
 
 func TestRecordReport(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
 	vm := new(testValidator)
 	SetValidator(vm)
 
@@ -61,21 +67,28 @@ func TestRecordReport(t *testing.T) {
 		},
 	}
 
+	clientInfo := entity.ClientInfo{
+		Info: map[string]string{
+			"client_name":        "test_client",
+			"client_type":        "test_type",
+			"client_description": "test description",
+		},
+	}
+	ic := []byte("test ic")
+
+	clientID, err := RegisterClient(&clientInfo, ic)
+	assert.NoError(t, err)
+
 	testReport := &entity.Report{
 		PcrInfo: pcrInfo,
 		Manifest: []entity.Manifest{
 			0: biosManifest,
 			1: imaManifest,
 		},
-		ClientID: 1,
-		ClientInfo: entity.ClientInfo{
-			Info: map[string]string{
-				"client_name":        "test_client",
-				"client_type":        "test_type",
-				"client_description": "test description",
-			},
-		},
+		ClientID:   clientID,
+		ClientInfo: clientInfo,
 	}
 
-	RecordReport(testReport)
+	err = RecordReport(testReport)
+	assert.NoError(t, err)
 }

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -14,6 +16,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwt"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
 )
 
@@ -23,7 +26,7 @@ type RasServer struct {
 // Return a list of all config items in key:value pair format
 // (GET /config)
 func (s *RasServer) GetConfig(ctx echo.Context) error {
-	cfg := config.GetDefault()
+	cfg := config.GetDefault(config.ConfServer)
 	er := cfg.GetExtractRules()
 	jsonER, err := json.Marshal(er)
 	if err != nil {
@@ -34,7 +37,7 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 		"dbHost":        cfg.GetHost(),
 		"dbName":        cfg.GetDBName(),
 		"dbUser":        cfg.GetUser(),
-		"dbPort":        fmt.Sprint(cfg.GetPort()),
+		"dbPort":        fmt.Sprint(cfg.GetDBPort()),
 		"mgrStrategy":   cfg.GetMgrStrategy(),
 		"changeTime":    fmt.Sprint(cfg.GetChangeTime()),
 		"extractRules":  strER,
@@ -43,7 +46,7 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 	}
 	configs := []ConfigItem{}
 	for key, val := range cfgMap {
-                k, v := key, val
+		k, v := key, val
 		configs = append(configs, ConfigItem{&k, &v})
 	}
 	return ctx.JSON(http.StatusOK, configs)
@@ -53,8 +56,74 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 // (POST /config)
 func (s *RasServer) PostConfig(ctx echo.Context) error {
 	var configBody PostConfigJSONBody
-	_ = ctx.Bind(&configBody)
+	cfg := config.GetDefault(config.ConfServer)
+	err := ctx.Bind(&configBody)
+	if err != nil {
+		fmt.Print("Bind configBody failed.")
+		return err
+	}
 	fmt.Println(configBody)
+	postCfgMap := map[string]func(string){
+		"dbHost":        func(s string) { cfg.SetHost(s) },
+		"dbName":        func(s string) { cfg.SetDBName(s) },
+		"dbUser":        func(s string) { cfg.SetUser(s) },
+		"dbPort":        func(s string) { setDBport(s) },
+		"dbPassword":    func(s string) { cfg.SetPassword(s) },
+		"mgrStrategy":   func(s string) { cfg.SetMgrStrategy(s) },
+		"extractRules":  func(s string) { setExtractRules(s) },
+		"hbDuration":    func(s string) { setHBDuration(s) },
+		"trustDuration": func(s string) { setTDuration(s) },
+	}
+	for i := range configBody {
+		_ = postCfgMap[*configBody[i].Name]
+	}
+	return nil
+}
+
+//Modify some config information respectively
+func setDBport(val string) error {
+	cfg := config.GetDefault(config.ConfServer)
+	port, err := strconv.Atoi(val)
+	if err != nil {
+		fmt.Print("Convert string to int failed.")
+		return err
+	}
+	cfg.SetDBPort(port)
+	return nil
+}
+
+func setExtractRules(val string) error {
+	cfg := config.GetDefault(config.ConfServer)
+	jsonER := []byte(val)
+	var extractRules entity.ExtractRules
+	err := json.Unmarshal(jsonER, &extractRules)
+	if err != nil {
+		fmt.Print("Unmarshal byte to struct failed.")
+		return err
+	}
+	cfg.SetExtractRules(extractRules)
+	return nil
+}
+
+func setHBDuration(val string) error {
+	cfg := config.GetDefault(config.ConfServer)
+	duration, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		fmt.Print("Convert string to int64 failed.")
+		return err
+	}
+	cfg.SetHBDuration(time.Duration(duration))
+	return nil
+}
+
+func setTDuration(val string) error {
+	cfg := config.GetDefault(config.ConfServer)
+	duration, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		fmt.Print("Convert string to int64 failed.")
+		return err
+	}
+	cfg.SetTrustDuration(time.Duration(duration))
 	return nil
 }
 

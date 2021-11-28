@@ -2,22 +2,25 @@ package clientapi
 
 import (
 	"encoding/json"
-	"os"
 	"testing"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 )
 
 func TestRaHub(t *testing.T) {
-	const addr string = "127.0.0.1:40004"
-	test.CreateConfigFile()
-	defer func() {
-		os.Remove("./config.yaml")
-	}()
-	go StartServer(addr)
+	test.CreateServerConfigFile()
+	// We can't use this default config, because the go test
+	// will run TestRaHub and TestClientAPI parallelly, so
+	// it can't bind the same port on the same host.
+	// Here we just use another port to bind.
+	//cfg := config.GetDefault()
+	//server := cfg.GetPort()
+	server := ":40004"
+	defer test.RemoveConfigFile()
+	go StartServer(server)
 
-	const addrRaHub string = "127.0.0.1:40003"
-	go StartRaHub(addrRaHub, addr)
+	const addrRaHub string = ":40003"
+	go StartRaHub(addrRaHub, server)
 
 	_, err := DoCreateIKCert(addrRaHub, &CreateIKCertRequest{
 		EkCert: certPEM,
@@ -34,7 +37,7 @@ func TestRaHub(t *testing.T) {
 		t.Error(err)
 	}
 	r, err := DoRegisterClient(addrRaHub, &RegisterClientRequest{
-		Ic:         &Cert{Cert: []byte("register cert")},
+		Ic:         &Cert{Cert: createRandomCert()},
 		ClientInfo: &ClientInfo{ClientInfo: string(ci)},
 	})
 	if err != nil {

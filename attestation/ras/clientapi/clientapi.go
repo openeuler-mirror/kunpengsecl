@@ -17,14 +17,16 @@ Description: Using grpc to implement the service API.
 package clientapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
-
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,7 +43,7 @@ import (
 
 const (
 	constDEFAULTRAC     int           = 1000
-	constDEFAULTTIMEOUT time.Duration = 10 * time.Second
+	constDEFAULTTIMEOUT time.Duration = 100 * time.Second
 )
 
 type (
@@ -59,17 +61,14 @@ type service struct {
 func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
 	to, err := pca.GetIkCert(in.EkCert, in.IkPub, in.IkName)
 	if err != nil {
-		return &CreateIKCertReply{}, errors.New("Failed to get ikCert")
+		return &CreateIKCertReply{}, errors.New("failed to get ikCert")
 	}
 	return &CreateIKCertReply{
-		IcEncrypted: &CertEncrypted{
-			EncryptAC: to.EnCredential,
-			IV:        to.TPMSymKeyParams.IV,
-		},
-		Challenge: &Challenge{
-			Credential: to.TPMSymKeyParams.EnSecret,
-			SymBlob:    to.TPMSymKeyParams.SecretKey,
-		},
+		EncryptedIC:     to.EncryptedCert,
+		CredBlob:        to.TPMSymKeyParams.CredBlob,
+		EncryptedSecret: to.TPMSymKeyParams.EncryptedSecret,
+		EncryptAlg:      to.TPMSymKeyParams.EncryptAlg,
+		EncryptParam:    to.TPMSymKeyParams.EncryptParam,
 	}, nil
 }
 
@@ -103,9 +102,9 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 	info.cache.UpdateHeartBeat()
 	info.cache.GetTrustReport()
 	s.Unlock()
-
-	hd := config.GetDefault().GetHBDuration()
-	td := config.GetDefault().GetTrustDuration()
+	cfg := config.GetDefault(config.ConfServer)
+	hd := cfg.GetHBDuration()
+	td := cfg.GetTrustDuration()
 
 	return &RegisterClientReply{
 		ClientId: clientID,
@@ -363,34 +362,7 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 }
 
 func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
-	result := &entity.Manifest{
-		Type: "bios",
-	}
-	str := string(content)
-	rows := strings.Split(str, "\n")
-	for i, row := range rows {
-		items := strings.Split(row, " ")
-		if len(items) == 3 {
-			name := items[2] + "-" + fmt.Sprintf("%d", i)
-			bmi := entity.BIOSManifestItem{
-				Pcr:  items[0],
-				Hash: items[1],
-				Name: name,
-			}
-			detail, err := json.Marshal(bmi)
-			if err != nil {
-				return nil, err
-			}
-			result.Items = append(result.Items, entity.ManifestItem{
-				Name:   name,
-				Value:  items[1],
-				Detail: string(detail),
-			})
-		} else {
-			return nil, errors.New("bios manifest format is wrong")
-		}
-	}
-	return result, nil
+	return nil, nil
 }
 
 func unmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
@@ -422,5 +394,174 @@ func unmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
 			return nil, errors.New("ima manifest format is wrong")
 		}
 	}
+	return result, nil
+}
+
+const (
+	SHA1_Alg_ID   = "0400"
+	SHA256_Alg_ID = "0b00"
+)
+
+func readSHA1BIOSEventLog(origin []byte, point *int64) (*entity.BIOSManifestItem, error) {
+	const (
+		PCR_LEN       int8 = 4
+		BIOS_TYPE_LEN int8 = 4
+		DIGEST_LEN    int8 = 20
+		// DATA_LEN_LEN is bytes length of bios manifest item value bytes length
+		DATA_LEN_LEN int8 = 4
+	)
+
+	pcrBytes := make([]byte, PCR_LEN)
+	bTypeBytes := make([]byte, BIOS_TYPE_LEN)
+	digestBytes := make([]byte, DIGEST_LEN)
+	dataLengthBytes := make([]byte, DATA_LEN_LEN)
+
+	pcr, err := readUint32(pcrBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+
+	bType, err := readUint32(bTypeBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+
+	err = readBytes(digestBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+
+	dataLength, err := readUint32(dataLengthBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+
+	dataBytes := make([]byte, dataLength)
+	err = readBytes(dataBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+
+	// real SHA1 BIOS event log in TPM1.2 doesn't have digest count and item. see detail in the doc
+	result := &entity.BIOSManifestItem{
+		Pcr:   pcr,
+		BType: bType,
+		Digest: entity.DigestValues{
+			Count: 1,
+			Item: []entity.DigestItem{
+				{
+					AlgID: SHA1_Alg_ID,
+					Item:  hex.EncodeToString(dataBytes),
+				},
+			},
+		},
+		DataLen: dataLength,
+		Data:    dataBytes,
+	}
+	return result, nil
+
+}
+
+func readBIOSEvent2Log(origin []byte, point *int64) (*entity.BIOSManifestItem, error) {
+	const (
+		PCR_LEN           int8 = 4
+		BIOS_TYPE_LEN     int8 = 4
+		DATA_LEN_LEN      int8 = 4
+		Digest_Count_LEN  int8 = 4
+		Digest_Alg_ID_LEN int8 = 2
+		SHA1_Digest_LEN   int8 = 20
+		SHA256_Digest_LEN int8 = 32
+	)
+
+	pcrBytes := make([]byte, PCR_LEN)
+	bTypeBytes := make([]byte, BIOS_TYPE_LEN)
+	dataLengthBytes := make([]byte, DATA_LEN_LEN)
+	dCountBytes := make([]byte, Digest_Count_LEN)
+	dAlgIDBytes := make([]byte, Digest_Alg_ID_LEN)
+
+	pcr, err := readUint32(pcrBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+
+	bType, err := readUint32(bTypeBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+
+	dCount, err := readUint32(dCountBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+
+	dv := entity.DigestValues{Count: dCount}
+	for i := 0; i < int(dCount); i++ {
+		err = readBytes(dAlgIDBytes, origin, point)
+		if err != nil {
+			return nil, err
+		}
+		algIdStr := hex.EncodeToString(dAlgIDBytes)
+		if algIdStr == SHA1_Alg_ID {
+			dBytes := make([]byte, SHA1_Digest_LEN)
+			err = readBytes(dBytes, origin, point)
+			if err != nil {
+				return nil, err
+			}
+			dv.Item = append(dv.Item, entity.DigestItem{
+				AlgID: SHA1_Alg_ID,
+				Item:  hex.EncodeToString(dBytes),
+			})
+		}
+		if algIdStr == SHA256_Alg_ID {
+			dBytes := make([]byte, SHA256_Digest_LEN)
+			err = readBytes(dBytes, origin, point)
+			if err != nil {
+				return nil, err
+			}
+			dv.Item = append(dv.Item, entity.DigestItem{
+				AlgID: SHA256_Alg_ID,
+				Item:  hex.EncodeToString(dBytes),
+			})
+		}
+	}
+
+	dataLength, err := readUint32(dataLengthBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+
+	dataBytes := make([]byte, dataLength)
+	err = readBytes(dataBytes, origin, point)
+	if err != nil {
+		return nil, err
+	}
+	result := &entity.BIOSManifestItem{
+		Pcr:   pcr,
+		BType: bType,
+		Digest: entity.DigestValues{
+			Count: dv.Count,
+			Item:  dv.Item,
+		},
+		DataLen: dataLength,
+		Data:    dataBytes,
+	}
+	return result, nil
+}
+
+func readBytes(target []byte, origin []byte, point *int64) error {
+	copy(target, origin)
+	*point += int64(len(target))
+	return nil
+}
+
+func readUint32(target []byte, origin []byte, point *int64) (uint32, error) {
+	copy(target, origin)
+	bb := bytes.NewBuffer(target)
+	var result uint32
+	err := binary.Read(bb, binary.LittleEndian, &result)
+	if err != nil {
+		return 0, err
+	}
+	*point += int64(len(target))
 	return result, nil
 }

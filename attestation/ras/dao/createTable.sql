@@ -13,7 +13,7 @@ CREATE TABLE trust_report (
     client_id BIGINT NOT NULL REFERENCES register_client(id),
     client_info_ver INT,
     report_time TIMESTAMPTZ,
-    pcr_quote TEXT,
+    pcr_quote BYTEA,
     verified BOOLEAN
 );
 

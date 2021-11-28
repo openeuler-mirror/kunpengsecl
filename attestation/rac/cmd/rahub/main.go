@@ -2,11 +2,18 @@ package main
 
 import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"github.com/spf13/pflag"
 )
 
-const addrRaHub string = "127.0.0.1:40003"
-const addrRas string = "127.0.0.1:40001"
+func init() {
+	config.InitHubFlags()
+}
 
 func main() {
-	clientapi.StartRaHub(addrRaHub, addrRas)
+	pflag.Parse()
+	cfg := config.GetDefault(config.ConfHub)
+	rasServer := cfg.GetHubServer()
+	listenPort := cfg.GetHubPort()
+	clientapi.StartRaHub(listenPort, rasServer)
 }

@@ -5,18 +5,32 @@ import (
 	"os"
 )
 
-const testConfig = `conftype: server
+const clientConfig = `conftype: client
+racconfig:
+  server: 127.0.0.1:40001
+  hbduration: 5s
+  trustduration: 2m0s
+  clientId: -1
+  password: ""
+`
+
+const hubConfig = `conftype: hub
+hubconfig:
+  server: 127.0.0.1:40001
+  hubport: "127.0.0.1:40003"
+`
+
+const serverConfig = `conftype: server
 database:
-  dbname: kunpengsecl
   host: localhost
-  password: "postgres"
+  dbname: kunpengsecl
   port: 5432
   user: "postgres"
-racconfig:
-  hbduration: 3s
-  trustduration: 2m0s
+  password: "postgres"
 rasconfig:
-  changetime: 2021-09-30T11:53:24.0581136+08:00
+  port: "127.0.0.1:40001"
+  rest: "127.0.0.1:40002"
+  changetime: 0
   mgrstrategy: auto
   basevalue-extract-rules:
     pcrinfo:
@@ -28,11 +42,22 @@ rasconfig:
       -
         type: ima
         name: ["name1", "name2"] 
+racconfig:
+  hbduration: 5s
+  trustduration: 2m0s
 `
 const configFilePath = "./config.yaml"
 
-func CreateConfigFile() {
-	ioutil.WriteFile(configFilePath, []byte(testConfig), 0644)
+func CreateClientConfigFile() {
+	ioutil.WriteFile(configFilePath, []byte(clientConfig), 0644)
+}
+
+func CreateHubConfigFile() {
+	ioutil.WriteFile(configFilePath, []byte(hubConfig), 0644)
+}
+
+func CreateServerConfigFile() {
+	ioutil.WriteFile(configFilePath, []byte(serverConfig), 0644)
 }
 
 func RemoveConfigFile() {
