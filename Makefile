@@ -1,7 +1,7 @@
 
 subdir = attestation integration
 
-.PHONY: all build test clean install check vendor ci-check bat prepare
+.PHONY: all build test clean install check vendor ci-check bat prepare sim-test sim-clean rpm rpm-clean
 all build test clean install check: vendor
 
 all build test clean install check vendor:
@@ -20,8 +20,19 @@ prepare:
 
 ci-check: prepare bat
 
+
+# run one ras and some racs to do the simulation test.
+sim-test: build
+	/bin/bash ./attestation/quick-scripts/test.sh
+
+sim-clean: clean
+	-@pkill ras || true
+	-@pkill raagent || true
+	-@pkill rahub || true
+
+
 rpm:
-	/usr/bin/bash ./attestation/quick-scripts/buildrpm.sh
+	/bin/bash ./attestation/quick-scripts/buildrpm.sh
 
 rpm-clean:
 	rm -rf ./rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SRPMS}
