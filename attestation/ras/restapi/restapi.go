@@ -15,12 +15,15 @@ import (
 	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwt"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 )
 
 type RasServer struct {
+	cm *cache.CacheMgr
 }
 
 // Return a list of all config items in key:value pair format
@@ -148,11 +151,21 @@ func (s *RasServer) PutServer(ctx echo.Context) error {
 	return nil
 }
 
+type ServerTrustStatus struct {
+	ClientID int64
+	Status   string
+}
+
 // Return a list of trust status for all servers
 // (GET /status)
 func (s *RasServer) GetStatus(ctx echo.Context) error {
-
-	return ctx.JSON(http.StatusOK, nil)
+	// get server status list from cache
+	ts := s.cm.GetAllTrustStatus()
+	status := make([]ServerTrustStatus, 0, len(ts))
+	for key, s := range ts {
+		status = append(status, ServerTrustStatus{ClientID: key, Status: s})
+	}
+	return ctx.JSON(http.StatusOK, status)
 }
 
 // Return the version of current API
@@ -162,8 +175,8 @@ func (s *RasServer) GetVersion(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, "0.1.0")
 }
 
-func NewRasServer() *RasServer {
-	return &RasServer{}
+func NewRasServer(cm *cache.CacheMgr) *RasServer {
+	return &RasServer{cm: cm}
 }
 
 // getJWS fetch the JWS string from an Authorization header
@@ -293,7 +306,13 @@ func StartServer(addr string) {
 	router.Use(echomiddleware.Logger())
 	router.Use(av)
 
-	server := NewRasServer()
+	vm, err := verifier.CreateVerifierMgr()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	cm := cache.CreateCacheMgr(100, vm)
+	server := NewRasServer(cm)
 	RegisterHandlers(router, server)
 
 	router.Logger.Fatal(router.Start(addr))
