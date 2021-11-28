@@ -19,7 +19,7 @@ var verifierMgr *VerifierMgr
 var create []func() (interface{}, error)
 
 type Verifier interface {
-	Verify(baseValue *entity.MeasurementInfo, report *entity.Report)
+	Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error
 }
 
 /*
@@ -119,6 +119,16 @@ func (vm *VerifierMgr) Validate(report *entity.Report) error {
 func (vm *VerifierMgr) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
 	for i := range extractors {
 		err := extractors[i].Extract(report, mInfo)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (vm *VerifierMgr) Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error {
+	for i := range verifiers {
+		err := verifiers[i].Verify(baseValue, report)
 		if err != nil {
 			return err
 		}

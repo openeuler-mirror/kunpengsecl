@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +29,11 @@ func CreateServer(t *testing.T) {
 	router.Use(middleware.Logger())
 	router.Use(av)
 
-	server := NewRasServer()
+	vm, err := verifier.CreateVerifierMgr()
+	require.NoError(t, err)
+
+	cm := cache.CreateCacheMgr(100, vm)
+	server := NewRasServer(cm)
 	RegisterHandlers(router, server)
 
 	router.Logger.Fatal(router.Start("127.0.0.1:5098"))
@@ -86,15 +92,33 @@ func TestRestAPI(t *testing.T) {
 	t.Log("restapi created client")
 	CreateClient(t)
 }
+
 func TestGetConfig(t *testing.T) {
 	t.Log("Get config as follows:")
 	e := echo.New()
 	req := httptest.NewRequest(echo.GET, "/", nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	s := NewRasServer()
+	s := NewRasServer(nil)
 	err := s.GetConfig(ctx)
 	if assert.NoError(t, err) {
 		assert.Equal(t, http.StatusOK, rec.Code)
+	}
+}
+
+func TestGetStatus(t *testing.T) {
+	t.Log("Get Status:")
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	vm, err := verifier.CreateVerifierMgr()
+	require.NoError(t, err)
+	cm := cache.CreateCacheMgr(100, vm)
+	s := NewRasServer(cm)
+	err = s.GetStatus(ctx)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		t.Log(rec.Body)
 	}
 }
