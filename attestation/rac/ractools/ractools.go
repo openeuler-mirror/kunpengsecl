@@ -30,6 +30,8 @@ import (
 	"log"
 	"math/big"
 	"net"
+	"os/exec"
+	"strings"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
@@ -305,10 +307,68 @@ func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
 	return IKCert, nil
 }
 
-// GetClientInfo function return all client information in the format of a json string which is formated from a map[string]string
+//getIp function return the local IP address
+//this function can only support ipv4
+func getIp() (string, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+	for _, address := range addrs {
+		// Check whether the IP address is a loopback address
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String(), nil
+			}
+		}
+	}
+	return "", errors.New("Can't fint ip")
+}
+
+// getClientInfo function return all client information in the format of a json string which is formated from a map[string]string
+//TODO:fix values of version
 func GetClientInfo() (string, error) {
-	ci := map[string]string{"version": "1.0.0"}
-	strCI, err := json.Marshal(ci)
+	//Execute dmidecode shell-commands to acquire information
+	//remind: need sudo permission
+	var err error
+	var out0 bytes.Buffer
+	var out1 bytes.Buffer
+	var out2 bytes.Buffer
+	cmd0 := exec.Command("dmidecode", "-t", "0")
+	cmd0.Stdout = &out0
+	if err = cmd0.Run(); err != nil {
+		return "", err
+	}
+
+	cmd1 := exec.Command("dmidecode", "-t", "1")
+	cmd1.Stdout = &out1
+	if err = cmd1.Run(); err != nil {
+		return "", err
+	}
+
+	cmd2 := exec.Command("uname", "-a")
+	cmd2.Stdout = &out2
+	if err = cmd2.Run(); err != nil {
+		return "", err
+	}
+
+	ip, err := getIp()
+	if err != nil {
+		return "", err
+	}
+
+	clientInfo := map[string]string{}
+	//Intercept the information we need
+	start0 := strings.Index(out0.String(), "BIOS Information")
+	start1 := strings.Index(out1.String(), "System Information")
+	clientInfo["bios"] = out0.String()[start0:]
+	clientInfo["system"] = out1.String()[start1:]
+	clientInfo["os"] = out2.String()
+	clientInfo["ip"] = ip
+	clientInfo["version"] = "1.0.0"
+
+	fmt.Println(clientInfo)
+	strCI, err := json.Marshal(clientInfo)
 	return string(strCI), err
 }
 
