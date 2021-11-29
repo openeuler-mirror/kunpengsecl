@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -103,6 +104,42 @@ func TestGetConfig(t *testing.T) {
 	err := s.GetConfig(ctx)
 	if assert.NoError(t, err) {
 		assert.Equal(t, http.StatusOK, rec.Code)
+		t.Log(rec.Body)
+	}
+}
+
+func TestPostConfig(t *testing.T) {
+	var configJSON0 = `[{"name":"dbName", "value":"kpSecl"}, {"name":"dbPort", "value":"1234"}]`
+	var configJSON1 = `[{"name":"port", "value":"1000"}]`
+	e := echo.New()
+	req := httptest.NewRequest(echo.POST, "/", strings.NewReader(configJSON0))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	s := NewRasServer(nil)
+	t.Log("The former config is: ")
+	_ = s.GetConfig(ctx)
+	t.Log(rec.Body)
+	err := s.PostConfig(ctx)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		t.Log("The modified config is: ")
+		rec = httptest.NewRecorder()
+		ctx = e.NewContext(req, rec)
+		_ = s.GetConfig(ctx)
+		t.Log(rec.Body)
+	}
+	req = httptest.NewRequest(echo.POST, "/", strings.NewReader(configJSON1))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	ctx = e.NewContext(req, rec)
+	err = s.PostConfig(ctx)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		t.Log("The current config is: ")
+		rec = httptest.NewRecorder()
+		ctx = e.NewContext(req, rec)
+		_ = s.GetConfig(ctx)
+		t.Log(rec.Body)
 	}
 }
 

@@ -66,7 +66,7 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 		return err
 	}
 	fmt.Println(configBody)
-	postCfgMap := map[string]func(string){
+	postCfgMap := map[string]func(s string){
 		"dbHost":        func(s string) { cfg.SetHost(s) },
 		"dbName":        func(s string) { cfg.SetDBName(s) },
 		"dbUser":        func(s string) { cfg.SetUser(s) },
@@ -77,8 +77,17 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 		"hbDuration":    func(s string) { setHBDuration(s) },
 		"trustDuration": func(s string) { setTDuration(s) },
 	}
+	if len(configBody) == 0 {
+		fmt.Print("Not have specification about the config items that need modified.\n")
+		return nil
+	}
 	for i := range configBody {
-		_ = postCfgMap[*configBody[i].Name]
+		doFunc, ok := postCfgMap[*configBody[i].Name]
+		if ok {
+			doFunc(*configBody[i].Value)
+		} else {
+			fmt.Print("Modify config failed.\n")
+		}
 	}
 	return nil
 }
