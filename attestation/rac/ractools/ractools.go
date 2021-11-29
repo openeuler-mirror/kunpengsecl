@@ -18,6 +18,7 @@ package ractools
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
@@ -140,9 +141,10 @@ func (tpm *TPM) Close() {
 	tpm = nil
 }
 
-// Prepare method doing preparation steps for all the steps necessary for remote attesation, including prepare EKCert and create IK, according to the requirements given by TPMConfig
+// Prepare method doing preparation steps for all the steps necessary for remote attesation,
+// including prepare EKCert and create IK, according to the requirements given by TPMConfig
 func (tpm *TPM) Prepare(config *TPMConfig) error {
-	//create ek
+	// create ek
 	ekPassword := emptyPassword
 	ekSel := pcrSelectionNil
 	ekHandle, ekPub, err := tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement, ekSel,
@@ -151,23 +153,25 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 		return err
 	}
 	tpm.config.EK.Handle, tpm.config.EK.Pub = uint32(ekHandle), ekPub
-	//try to get ekPem form nv, if failed ,create ekCert and write it to nv
+	// try to get ekCert form nv, if failed ,create ekCert and write it to nv
 	_, err = tpm.ReadEKCert()
 	if err != nil {
-		_, ekPem, e := tpm.generateEKCert()
-		if e != nil {
-			log.Printf("GenerateEKCert failed, error : %v \n", e)
+		ekDer, err := tpm.generateEKCert()
+		if err != nil {
+			log.Printf("GenerateEKCert failed, error : %v \n", err)
 			return err
 		}
-		tpm.WriteEKCert(ekPem)
+		tpm.WriteEKCert(ekDer)
 	}
-	//Create and save IK
+	// Create and save IK
 	err = tpm.createIK(ekHandle, ekPassword, emptyPassword, pcrSelectionNil)
 
 	return err
 }
 
-func (tpm *TPM) generateEKCert() (*x509.Certificate, []byte, error) {
+// Generate an ek certificate based on the ek public key, and return the .der format of the certificate
+// The certificate is signed by PCA.
+func (tpm *TPM) generateEKCert() ([]byte, error) {
 	template := x509.Certificate{
 		SerialNumber:   big.NewInt(1),
 		NotBefore:      time.Now().Add(-10 * time.Second),
@@ -179,17 +183,22 @@ func (tpm *TPM) generateEKCert() (*x509.Certificate, []byte, error) {
 	}
 	pcaCert, err := pca.DecodeCert(pca.CertPEM)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to decode cert while generate EKCert")
+		return nil, errors.Wrap(err, "failed to decode cert while generate EKCert")
 	}
 	pcaPriv, err := pca.DecodePrivkey(pca.PrivPEM)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to decode key while generate EKCert")
+		return nil, errors.Wrap(err, "failed to decode key while generate EKCert")
 	}
-	ekCert, ekPem, err := pca.GenerateCert(&template, pcaCert, (tpm.config.EK.Pub).(*rsa.PublicKey), pcaPriv)
+
+	ekCertDer, err := x509.CreateCertificate(rand.Reader, &template, pcaCert, (tpm.config.EK.Pub).(*rsa.PublicKey), pcaPriv)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to generate EKCert")
+		return nil, errors.New("Failed to create certificate: " + err.Error())
 	}
-	return ekCert, ekPem, err
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate EKCert")
+	}
+	return ekCertDer, err
 }
 
 // EraseEKCert erases the EK certificate from NVRAM.
@@ -227,15 +236,15 @@ func (tpm *TPM) EraseEKCert() {
 //      0x01C0001A      ECC SM2_P256 EK Certificate (H-5)
 //      0x01C0001C      RSA 3072 EK Certificate (H-6)
 //      0x01C0001E      RSA 4096 EK Certificate (H-7)
-func (tpm *TPM) WriteEKCert(ekPem []byte) error {
+func (tpm *TPM) WriteEKCert(ekDer []byte) error {
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
 	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, ekIndex,
-		emptyPassword, emptyPassword, nil, attr, uint16(len(ekPem)))
+		emptyPassword, emptyPassword, nil, attr, uint16(len(ekDer)))
 	if err != nil {
 		log.Printf("define NV space failed, error: %v", err)
 		return err
 	}
-	l := uint16(len(ekPem))
+	l := uint16(len(ekDer))
 	offset := uint16(0)
 	end := uint16(0)
 	for l > 0 {
@@ -246,7 +255,7 @@ func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 			end = offset + blockSize
 			l -= blockSize
 		}
-		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, emptyPassword, ekPem[offset:end], offset)
+		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, emptyPassword, ekDer[offset:end], offset)
 		if err != nil {
 			log.Printf("write NV failed, error: %v", err)
 			return err
@@ -258,11 +267,27 @@ func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 
 // ReadEKCert reads the EK certificate(DER) from tpm NVRAM.
 func (tpm *TPM) ReadEKCert() ([]byte, error) {
-	ekPem, err := tpm2.NVReadEx(tpm.dev, ekIndex, tpm2.HandleOwner, emptyPassword, 0)
+	ekDer, err := tpm2.NVReadEx(tpm.dev, ekIndex, tpm2.HandleOwner, emptyPassword, 0)
 	if err != nil {
 		log.Printf("read NV failed, error: %v", err)
 		return nil, err
 	}
+
+	return ekDer, nil
+}
+
+// GetEKCert invoke ReadEKCert return with PEM format.
+func (tpm *TPM) GetEKCert() ([]byte, error) {
+	// Read all of the ekDer with NVReadEx
+	ekDer, err := tpm.ReadEKCert()
+	if err != nil {
+		log.Printf("read NV failed, error: %v\n", err)
+		return nil, err
+	}
+
+	//Convert the certificate in .der format to .pem format
+	block := pem.Block{Type: "CERTIFICATE", Bytes: ekDer}
+	ekPem := pem.EncodeToMemory(&block)
 	return ekPem, nil
 }
 
