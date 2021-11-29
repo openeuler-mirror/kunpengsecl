@@ -487,7 +487,7 @@ func readSHA1BIOSEventLog(origin []byte, point *int64) (*entity.BIOSManifestItem
 			},
 		},
 		DataLen: dataLength,
-		Data:    dataBytes,
+		Data:    hex.EncodeToString(dataBytes),
 	}
 	return result, nil
 
@@ -574,7 +574,7 @@ func readBIOSEvent2Log(origin []byte, point *int64) (*entity.BIOSManifestItem, e
 			Item:  dv.Item,
 		},
 		DataLen: dataLength,
-		Data:    dataBytes,
+		Data:    hex.EncodeToString(dataBytes),
 	}
 	return result, nil
 }
