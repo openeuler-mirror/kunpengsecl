@@ -227,6 +227,10 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 	return &SendReportReply{Result: true}, nil
 }
 
+func NewServer(cm *cache.CacheMgr) *service {
+	return &service{cm: cm}
+}
+
 // StartServer starts ras server and provides rpc services.
 func StartServer(addr string, cm *cache.CacheMgr) {
 	lis, err := net.Listen("tcp", addr)
@@ -235,8 +239,7 @@ func StartServer(addr string, cm *cache.CacheMgr) {
 		return
 	}
 	s := grpc.NewServer()
-	svc := &service{}
-	svc.cm = cm
+	svc := NewServer(cm)
 	RegisterRasServer(s, svc)
 	log.Printf("Server: listen at %s", addr)
 	if err := s.Serve(lis); err != nil {
