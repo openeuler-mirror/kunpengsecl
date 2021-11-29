@@ -49,12 +49,7 @@ const (
 	RasMgrStrategy       = "rasconfig.mgrstrategy"
 	RasAutoStrategy      = "auto"
 	RasChangeTime        = "rasconfig.changetime"
-	RasExtRules          = "rasconfig.basevalue-extract-rules.manifest"
-	RasMfrTypeBios       = "bios"
-	RasMfrTypeIma        = "ima"
-	RasPcrSelection      = "rasconfig.basevalue-extract-rules.pcrinfo.pcrselection"
-	RasKsType            = "type"
-	RasKsName            = "name"
+	RasExtRules          = "rasconfig.basevalue-extract-rules"
 	// RAC
 	RacServer               = "racconfig.server" // client connect to server
 	RacServerLongFlag       = "server"
@@ -145,24 +140,6 @@ func InitHubFlags() {
 	hubPort = pflag.StringP(HubPortLongFlag, HubPortShortFlag, "", "hub listen at [IP]:PORT")
 }
 
-func getManifestRules() []entity.ManifestRule {
-	var mRules []entity.ManifestRule = nil
-	mrs, ok := viper.Get(RasExtRules).([]interface{})
-	if ok {
-		for _, mr := range mrs {
-			var mRule entity.ManifestRule
-			if m, ok := mr.(map[interface{}]interface{}); ok {
-				mRule.MType = m[RasKsType].(string)
-				for _, n := range m[RasKsName].([]interface{}) {
-					mRule.Name = append(mRule.Name, n.(string))
-				}
-				mRules = append(mRules, mRule)
-			}
-		}
-	}
-	return mRules
-}
-
 func getServerConf(c *config) {
 	if c == nil {
 		return
@@ -176,8 +153,12 @@ func getServerConf(c *config) {
 	c.rasConfig.restPort = viper.GetString(RasRestPort)
 	c.rasConfig.mgrStrategy = viper.GetString(RasMgrStrategy)
 	c.rasConfig.changeTime = viper.GetTime(RasChangeTime)
-	c.rasConfig.extractRules.PcrRule.PcrSelection = viper.GetIntSlice(RasPcrSelection)
-	c.rasConfig.extractRules.ManifestRules = getManifestRules()
+	var ers entity.ExtractRules
+	if viper.UnmarshalKey(RasExtRules, &ers) == nil {
+		c.rasConfig.extractRules = ers
+	} else {
+		c.rasConfig.extractRules = entity.ExtractRules{}
+	}
 	c.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
 	c.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
 	// set command line input
