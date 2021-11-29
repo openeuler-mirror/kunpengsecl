@@ -3,14 +3,17 @@ package clientapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 	"google.golang.org/grpc"
 )
 
@@ -87,7 +90,14 @@ func TestClientAPI(t *testing.T) {
 	cfg := config.GetDefault(config.ConfServer)
 	server := cfg.GetPort()
 	defer test.RemoveConfigFile()
-	go StartServer(server)
+
+	vm, err := verifier.CreateVerifierMgr()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	cm := cache.CreateCacheMgr(cache.DEFAULTRACNUM, vm)
+	go StartServer(server, cm)
 
 	conn, err := grpc.Dial(server, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {

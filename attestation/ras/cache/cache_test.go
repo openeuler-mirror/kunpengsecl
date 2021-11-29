@@ -11,14 +11,14 @@ import (
 func TestCacheCommand(t *testing.T) {
 	c := &Cache{command: 0}
 
-	c.SendConfigure()
+	c.SetCMDSendConfigure()
 	if (c.command & CMDSENDCONF) != CMDSENDCONF {
 		t.Errorf("test cache command error at send configure\n")
 	}
 
 	c.ClearCommands()
 
-	c.GetTrustReport()
+	c.SetCMDGetTrustReport()
 	if (c.command & CMDGETREPORT) != CMDGETREPORT {
 		t.Errorf("test cache command error at get trust report\n")
 	}
