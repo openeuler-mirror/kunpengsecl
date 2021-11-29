@@ -80,15 +80,15 @@ type Measurement struct {
 }
 
 type ExtractRules struct {
-	PcrRule       PcrRule
-	ManifestRules []ManifestRule
+	PcrRule       PcrRule        `mapstructure:"pcrinfo"`
+	ManifestRules []ManifestRule `mapstructure:"manifest"`
 }
 type PcrRule struct {
-	PcrSelection []int
+	PcrSelection []int `mapstructure:"pcrselection"`
 }
 type ManifestRule struct {
-	MType string
-	Name  []string
+	MType string   `mapstructure:"type"`
+	Name  []string `mapstructure:"name"`
 }
 
 // for generating detail in ManifestItem

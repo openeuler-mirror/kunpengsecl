@@ -13,12 +13,10 @@ rasconfig:
     pcrinfo:
       pcrselection: [1, 2, 3, 4]
     manifest:
-      -
-        type: bios
+      - type: bios
         name: ["name1", "name2"]
-      -
-        type: ima
-        name: ["name1", "name2"] 
+      - type: ima
+        name: ["name1", "name2"]
 racconfig:
   hbduration: 5s
   trustduration: 2m0s
