@@ -19,6 +19,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
 
 type RasServer struct {
@@ -141,8 +142,20 @@ func setTDuration(val string) error {
 // Return the trust report for the given server
 // (GET /report/{serverId})
 func (s *RasServer) GetReportServerId(ctx echo.Context, serverId int64) error {
+	s.cm.Lock()
+	c := s.cm.GetCache(serverId)
+	s.cm.Unlock()
 
-	return ctx.JSON(http.StatusOK, nil)
+	if c == nil {
+		return ctx.JSON(http.StatusNotFound, nil)
+	}
+
+	report, err := trustmgr.GetLatestReportById(serverId)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, nil)
+	}
+
+	return ctx.JSON(http.StatusOK, *report)
 }
 
 // Return a list of briefing info for all servers

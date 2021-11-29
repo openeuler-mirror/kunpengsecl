@@ -2,6 +2,8 @@ package restapi
 
 import (
 	"context"
+	"encoding/json"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,7 +11,12 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -87,6 +94,10 @@ func CreateClient(t *testing.T) {
 }
 
 func TestRestAPI(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
 	t.Log("restapi created server")
 	go CreateServer(t)
 	time.Sleep(time.Duration(5) * time.Second)
@@ -96,6 +107,10 @@ func TestRestAPI(t *testing.T) {
 
 func TestGetConfig(t *testing.T) {
 	t.Log("Get config as follows:")
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
 	e := echo.New()
 	req := httptest.NewRequest(echo.GET, "/", nil)
 	rec := httptest.NewRecorder()
@@ -109,7 +124,11 @@ func TestGetConfig(t *testing.T) {
 }
 
 func TestPostConfig(t *testing.T) {
-	var configJSON0 = `[{"name":"dbName", "value":"kpSecl"}, {"name":"dbPort", "value":"1234"}]`
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	var configJSON0 = `[{"name":"dbName", "value":"kunpengsecl"}, {"name":"dbPort", "value":"5432"}]`
 	var configJSON1 = `[{"name":"port", "value":"1000"}]`
 	e := echo.New()
 	req := httptest.NewRequest(echo.POST, "/", strings.NewReader(configJSON0))
@@ -145,17 +164,105 @@ func TestPostConfig(t *testing.T) {
 
 func TestGetStatus(t *testing.T) {
 	t.Log("Get Status:")
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
 	e := echo.New()
 	req := httptest.NewRequest(echo.GET, "/", nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	vm, err := verifier.CreateVerifierMgr()
-	require.NoError(t, err)
-	cm := cache.CreateCacheMgr(100, vm)
-	s := NewRasServer(cm)
-	err = s.GetStatus(ctx)
+	s, cid := prepareServers(t)
+
+	err := s.GetStatus(ctx)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		t.Log(cid, rec.Body)
+	}
+}
+
+func TestGetReportServerId(t *testing.T) {
+	t.Log("Get server report:")
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, cid := prepareServers(t)
+
+	err := s.GetReportServerId(ctx, cid)
 	if assert.NoError(t, err) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		t.Log(rec.Body)
 	}
+}
+
+type testValidator struct {
+}
+
+func (tv *testValidator) Validate(report *entity.Report) error {
+	return nil
+}
+
+func createRandomCert() []byte {
+	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	strBytes := []byte(str)
+	randomCert := []byte{}
+	ra := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < 6; i++ {
+		randomCert = append(randomCert, strBytes[ra.Intn(len(strBytes))])
+	}
+	return randomCert
+}
+
+func prepareServers(t *testing.T) (*RasServer, int64) {
+	vm, err := verifier.CreateVerifierMgr()
+	require.NoError(t, err)
+	cm := cache.CreateCacheMgr(cache.DEFAULTRACNUM, vm)
+	s := NewRasServer(cm)
+	sc := clientapi.NewServer(cm)
+
+	ci, err := json.Marshal(map[string]string{"test name": "test value"})
+	if err != nil {
+		t.Error(err)
+	}
+
+	r, err := sc.RegisterClient(context.Background(),
+		&clientapi.RegisterClientRequest{
+			Ic:         &clientapi.Cert{Cert: createRandomCert()},
+			ClientInfo: &clientapi.ClientInfo{ClientInfo: string(ci)},
+		})
+	if err != nil {
+		t.Errorf("Client: invoke RegisterClient error %v", err)
+	}
+	t.Logf("Client: invoke RegisterClient ok, clientID=%d", r.GetClientId())
+
+	trustmgr.SetValidator(&testValidator{})
+	_, err = sc.SendReport(context.Background(),
+		&clientapi.SendReportRequest{
+			ClientId: r.GetClientId(),
+			TrustReport: &clientapi.TrustReport{
+				PcrInfo: &clientapi.PcrInfo{
+					PcrValues: map[int32]string{
+						1: "pcr value1",
+						2: "pcr value2",
+					},
+					PcrQuote: &clientapi.PcrQuote{
+						Quoted: []byte("test quote"),
+					},
+					Algorithm: "SHA1",
+				},
+				Manifest: []*clientapi.Manifest{},
+				ClientId: r.GetClientId(),
+			}})
+	if err != nil {
+		t.Errorf("Client: invoke SendReport error %v", err)
+	}
+	t.Logf("Client: invoke SendReport ok")
+
+	return s, r.GetClientId()
 }
