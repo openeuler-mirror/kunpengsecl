@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 )
 
 /*
@@ -31,16 +33,97 @@ const (
 	CMDSENDCONF  uint64 = 1 << iota // send new configuration to RAC.
 	CMDGETREPORT                    // get a new trust report from RAC.
 	CMDNONE      uint64 = 0         // clear all pending commands.
+	STSUNKOWN           = "unkown"
+	STSTRUSTED          = "trusted"
+	STSUNTRUSTED        = "untrusted"
 )
 
 type (
 	// Cache stores the latest status of one RAC target.
 	Cache struct {
+		cm              *CacheMgr
+		cid             int64
 		command         uint64
 		hbExpiration    time.Time
 		trustExpiration time.Time
 	}
+
+	// manager of the caches for all registered RACs
+	CacheMgr struct {
+		caches map[int64]*Cache
+		vm     *verifier.VerifierMgr
+	}
 )
+
+// CreateCacheMgr creates a new CacheMgr with given initCap as the initial capacity of the supported RAC number
+func CreateCacheMgr(initCap int, vm *verifier.VerifierMgr) *CacheMgr {
+	return &CacheMgr{
+		caches: make(map[int64]*Cache, initCap),
+		vm:     vm,
+	}
+}
+
+// Initialize fills CacheMgr with all caches of clients synced with trustmgr
+func (cm *CacheMgr) Initialize() error {
+	ids, err := trustmgr.GetAllClientID()
+	if err != nil {
+		return err
+	}
+
+	for _, id := range ids {
+		cm.caches[id] = &Cache{
+			cm:      cm,
+			cid:     id,
+			command: CMDNONE,
+		}
+		cm.caches[id].UpdateHeartBeat()
+		cm.caches[id].UpdateTrustReport()
+	}
+
+	return nil
+}
+
+// GetCache returns the cache for client with the given cid
+func (cm *CacheMgr) GetCache(cid int64) *Cache {
+	return cm.caches[cid]
+}
+
+// GetAllClientID returns the slice of all availabe client id
+func (cm *CacheMgr) GetAllClientID() []int64 {
+	ids := make([]int64, 0, len(cm.caches))
+	for key := range cm.caches {
+		ids = append(ids, key)
+	}
+	return ids
+}
+
+// GetAllTrustStatus returns the trust status of all the clients
+func (cm *CacheMgr) GetAllTrustStatus() map[int64]string {
+	m := make(map[int64]string, len(cm.caches))
+	for k, c := range cm.caches {
+		m[k] = c.GetTrustStatus()
+	}
+
+	return m
+}
+
+// GetTrustStatus returns the trust status of the corresponding client
+func (c *Cache) GetTrustStatus() string {
+	bv, err := trustmgr.GetBaseValueById(c.cid)
+	if err != nil {
+		return STSUNKOWN
+	}
+	report, err := trustmgr.GetLatestReportById(c.cid)
+	if err != nil {
+		return STSUNKOWN
+	}
+
+	if err = c.cm.vm.Verify(bv, report); err == nil {
+		return STSTRUSTED
+	}
+
+	return STSUNTRUSTED
+}
 
 // UpdateHeartBeat is called when receives heart beat message from RAC.
 func (c *Cache) UpdateHeartBeat() {

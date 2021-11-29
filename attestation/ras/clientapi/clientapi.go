@@ -362,7 +362,37 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 }
 
 func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
-	return nil, nil
+	result := &entity.Manifest{
+		Type:  "bios",
+		Items: []entity.ManifestItem{},
+	}
+	var point int64 = 0
+
+	_, err := readSHA1BIOSEventLog(content, &point)
+	if err != nil {
+		return nil, err
+	}
+	SpecID := getSpecID(content)
+	// if SpecID is "Spec ID Event03", this is a event2 log bytes stream
+	// TODO: getSpecID return "Spec ID Event03\x00", reason is unknown
+	if strings.Contains(SpecID, EVENT2_SPEC_ID) {
+		for {
+			event2Log, err := readBIOSEvent2Log(content, &point)
+			if err != nil {
+				break
+			}
+			detail, err := json.Marshal(event2Log)
+			if err != nil {
+				break
+			}
+			result.Items = append(result.Items, entity.ManifestItem{
+				Name:   fmt.Sprint(event2Log.BType),
+				Value:  string(event2Log.Data),
+				Detail: string(detail),
+			})
+		}
+	}
+	return result, nil
 }
 
 func unmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
@@ -398,8 +428,9 @@ func unmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
 }
 
 const (
-	SHA1_Alg_ID   = "0400"
-	SHA256_Alg_ID = "0b00"
+	SHA1_ALG_ID    = "0400"
+	SHA256_ALG_ID  = "0b00"
+	EVENT2_SPEC_ID = "Spec ID Event03"
 )
 
 func readSHA1BIOSEventLog(origin []byte, point *int64) (*entity.BIOSManifestItem, error) {
@@ -426,7 +457,7 @@ func readSHA1BIOSEventLog(origin []byte, point *int64) (*entity.BIOSManifestItem
 		return nil, err
 	}
 
-	err = readBytes(digestBytes, origin, point)
+	digestBytes, err = readBytes(digestBytes, origin, point)
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +468,7 @@ func readSHA1BIOSEventLog(origin []byte, point *int64) (*entity.BIOSManifestItem
 	}
 
 	dataBytes := make([]byte, dataLength)
-	err = readBytes(dataBytes, origin, point)
+	dataBytes, err = readBytes(dataBytes, origin, point)
 	if err != nil {
 		return nil, err
 	}
@@ -450,8 +481,8 @@ func readSHA1BIOSEventLog(origin []byte, point *int64) (*entity.BIOSManifestItem
 			Count: 1,
 			Item: []entity.DigestItem{
 				{
-					AlgID: SHA1_Alg_ID,
-					Item:  hex.EncodeToString(dataBytes),
+					AlgID: SHA1_ALG_ID,
+					Item:  hex.EncodeToString(digestBytes),
 				},
 			},
 		},
@@ -467,17 +498,17 @@ func readBIOSEvent2Log(origin []byte, point *int64) (*entity.BIOSManifestItem, e
 		PCR_LEN           int8 = 4
 		BIOS_TYPE_LEN     int8 = 4
 		DATA_LEN_LEN      int8 = 4
-		Digest_Count_LEN  int8 = 4
-		Digest_Alg_ID_LEN int8 = 2
-		SHA1_Digest_LEN   int8 = 20
-		SHA256_Digest_LEN int8 = 32
+		DIGEST_COUNT_LEN  int8 = 4
+		DIGEST_ALG_ID_LEN int8 = 2
+		SHA1_DIGEST_LEN   int8 = 20
+		SHA256_DIGEST_LEN int8 = 32
 	)
 
 	pcrBytes := make([]byte, PCR_LEN)
 	bTypeBytes := make([]byte, BIOS_TYPE_LEN)
 	dataLengthBytes := make([]byte, DATA_LEN_LEN)
-	dCountBytes := make([]byte, Digest_Count_LEN)
-	dAlgIDBytes := make([]byte, Digest_Alg_ID_LEN)
+	dCountBytes := make([]byte, DIGEST_COUNT_LEN)
+	dAlgIDBytes := make([]byte, DIGEST_ALG_ID_LEN)
 
 	pcr, err := readUint32(pcrBytes, origin, point)
 	if err != nil {
@@ -496,30 +527,30 @@ func readBIOSEvent2Log(origin []byte, point *int64) (*entity.BIOSManifestItem, e
 
 	dv := entity.DigestValues{Count: dCount}
 	for i := 0; i < int(dCount); i++ {
-		err = readBytes(dAlgIDBytes, origin, point)
+		dAlgIDBytes, err = readBytes(dAlgIDBytes, origin, point)
 		if err != nil {
 			return nil, err
 		}
 		algIdStr := hex.EncodeToString(dAlgIDBytes)
-		if algIdStr == SHA1_Alg_ID {
-			dBytes := make([]byte, SHA1_Digest_LEN)
-			err = readBytes(dBytes, origin, point)
+		if algIdStr == SHA1_ALG_ID {
+			dBytes := make([]byte, SHA1_DIGEST_LEN)
+			dBytes, err = readBytes(dBytes, origin, point)
 			if err != nil {
 				return nil, err
 			}
 			dv.Item = append(dv.Item, entity.DigestItem{
-				AlgID: SHA1_Alg_ID,
+				AlgID: SHA1_ALG_ID,
 				Item:  hex.EncodeToString(dBytes),
 			})
 		}
-		if algIdStr == SHA256_Alg_ID {
-			dBytes := make([]byte, SHA256_Digest_LEN)
-			err = readBytes(dBytes, origin, point)
+		if algIdStr == SHA256_ALG_ID {
+			dBytes := make([]byte, SHA256_DIGEST_LEN)
+			dBytes, err = readBytes(dBytes, origin, point)
 			if err != nil {
 				return nil, err
 			}
 			dv.Item = append(dv.Item, entity.DigestItem{
-				AlgID: SHA256_Alg_ID,
+				AlgID: SHA256_ALG_ID,
 				Item:  hex.EncodeToString(dBytes),
 			})
 		}
@@ -531,7 +562,7 @@ func readBIOSEvent2Log(origin []byte, point *int64) (*entity.BIOSManifestItem, e
 	}
 
 	dataBytes := make([]byte, dataLength)
-	err = readBytes(dataBytes, origin, point)
+	dataBytes, err = readBytes(dataBytes, origin, point)
 	if err != nil {
 		return nil, err
 	}
@@ -548,14 +579,22 @@ func readBIOSEvent2Log(origin []byte, point *int64) (*entity.BIOSManifestItem, e
 	return result, nil
 }
 
-func readBytes(target []byte, origin []byte, point *int64) error {
-	copy(target, origin)
+func readBytes(target []byte, origin []byte, point *int64) ([]byte, error) {
+	end := *point + int64(len(target))
+	if *point > int64(len(origin)) || end > int64(len(origin)) {
+		return nil, errors.New("end of file")
+	}
+	copy(target, origin[*point:end])
 	*point += int64(len(target))
-	return nil
+	return target, nil
 }
 
 func readUint32(target []byte, origin []byte, point *int64) (uint32, error) {
-	copy(target, origin)
+	end := *point + int64(len(target))
+	if *point > int64(len(origin)) || end > int64(len(origin)) {
+		return 0, errors.New("end of file")
+	}
+	copy(target, origin[*point:end])
 	bb := bytes.NewBuffer(target)
 	var result uint32
 	err := binary.Read(bb, binary.LittleEndian, &result)
@@ -564,4 +603,15 @@ func readUint32(target []byte, origin []byte, point *int64) (uint32, error) {
 	}
 	*point += int64(len(target))
 	return result, nil
+}
+
+func getSpecID(origin []byte) string {
+	const (
+		Spec_Len         = 16
+		Spec_Start_Index = 32
+		Spec_End_Index   = 48
+	)
+	result := make([]byte, Spec_Len)
+	copy(result, origin[Spec_Start_Index:Spec_End_Index])
+	return string(result)
 }
