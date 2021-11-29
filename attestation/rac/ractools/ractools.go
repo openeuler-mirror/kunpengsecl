@@ -169,6 +169,10 @@ func (tpm *TPM) EraseEKCert() {
 }
 
 // WriteEKCert writes the EK certificate into NVRAM.
+//An EK Certificate is stored in an NV Index as an X.509 certificate encoded in DER format. The NV
+//Index data contains only the DER certificate data.
+//According to TCG EK Credential Profile For TPM Family 2.0; Level 0 Version 2.4 Revision 3
+//RSA 2048 EK Certificate shoulded be stored at NV Index of 0x01c00002
 func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
 	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, ekIndex,
@@ -240,6 +244,7 @@ func (tpm *TPM) GetIKPub() []byte {
 	return ans
 }
 
+//Generate an attestation key (IK) with the given options under the endorsement hierarchy.
 func (tpm *TPM) createIK(parentHandle tpmutil.Handle, parentPassword, ikPassword string,
 	ikSel tpm2.PCRSelection) error {
 
@@ -249,18 +254,20 @@ func (tpm *TPM) createIK(parentHandle tpmutil.Handle, parentPassword, ikPassword
 		return err
 	}
 
-	akHandle, _, err := tpm2.Load(tpm.dev, parentHandle, parentPassword, publicIK,
+	//get IK handle
+	ikHandle, _, err := tpm2.Load(tpm.dev, parentHandle, parentPassword, publicIK,
 		privateIK)
 	if err != nil {
 		return err
 	}
 
-	akPub, akName, _, err := tpm2.ReadPublic(tpm.dev, akHandle)
+	//get IK name
+	ikPub, akName, _, err := tpm2.ReadPublic(tpm.dev, ikHandle)
 	if err != nil {
 		return err
 	}
 
-	pub, err := akPub.Key()
+	pub, err := ikPub.Key()
 	if err != nil {
 		return err
 	}
@@ -270,7 +277,7 @@ func (tpm *TPM) createIK(parentHandle tpmutil.Handle, parentPassword, ikPassword
 		Public:   publicIK,
 		Pub:      pub,
 		Name:     akName,
-		Handle:   uint32(akHandle),
+		Handle:   uint32(ikHandle),
 	}
 
 	return nil
@@ -299,7 +306,6 @@ func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
 		return nil, errors.Errorf("unsupported algorithm: %s", in.DecryptAlg)
 	}
 
-	//
 	IKCert, err := pca.SymmetricDecrypt(alg, mode, recoveredCredential, in.DecryptParam, in.EncryptedCert)
 	if err != nil {
 		log.Printf("Decode IKCert failed: %v \n", err)
@@ -387,6 +393,7 @@ func getManifest(imaPath, biosPath string) ([]Manifest, error) {
 	return manifest, err
 }
 
+//Get the hash value of TrustReportIn, as user data of Quote
 func (t *TrustReportIn) hash() []byte {
 	buf := new(bytes.Buffer)
 	b64 := make([]byte, 8)
@@ -400,6 +407,7 @@ func (t *TrustReportIn) hash() []byte {
 	return bHash.Sum(nil)
 }
 
+//createTrustReport function collect some information, then return the TrustReport
 func (tpm *TPM) createTrustReport(pcrSelection tpm2.PCRSelection, tRepIn *TrustReportIn) (*TrustReport, error) {
 	pcrmp, err := tpm2.ReadPCRs(tpm.dev, pcrSelection)
 	if err != nil {
@@ -411,6 +419,7 @@ func (tpm *TPM) createTrustReport(pcrSelection tpm2.PCRSelection, tRepIn *TrustR
 		pcrValues[(int32)(key)] = hex.EncodeToString(pcr)
 	}
 
+	//we use TrustReportIn as user data of Quote to guarantee its integrity
 	attestation, signature, err := tpm2.Quote(tpm.dev, tpmutil.Handle(tpm.config.IK.Handle),
 		tpm.config.IK.Password, emptyPassword, tRepIn.hash(), pcrSelection, tpm2.AlgNull)
 	if err != nil {
