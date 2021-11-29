@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#set -eux
+set -eux
 DST=/tmp/kunpengsecl-test
 RACPKG=./attestation/rac/pkg
 RAAGENT=${RACPKG}/raagent
@@ -31,6 +31,6 @@ done
 ( cd ${DST}/ras ; ./ras &>${DST}/ras/log.txt ; )&
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ./raagent &>${DST}/rac-${i}/log.txt ; )&
+    ( cd ${DST}/rac-${i} ; ./raagent -t &>${DST}/rac-${i}/log.txt ; )&
 done
 

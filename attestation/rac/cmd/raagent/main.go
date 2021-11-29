@@ -19,9 +19,10 @@ func main() {
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
 	pflag.Parse()
 	cfg := config.GetDefault(config.ConfClient)
+	testMode := cfg.GetTestMode()
 	server := cfg.GetServer()
 	cid := cfg.GetClientId()
-	tpm, err := ractools.OpenTPM(false)
+	tpm, err := ractools.OpenTPM(!testMode)
 	if err != nil {
 		log.Printf("OpenTPM failed, error: %s \n", err)
 		return
@@ -59,7 +60,7 @@ func main() {
 			log.Fatalf("Client: ActivateIKCert failed, error: %v", err)
 		}
 
-		clientInfo, err := ractools.GetClientInfo()
+		clientInfo, err := ractools.GetClientInfo(!testMode)
 		if err != nil {
 			log.Fatalf("Client: GetClientInfo failed, error: %v", err)
 		}

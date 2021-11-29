@@ -42,10 +42,52 @@ import (
 )
 
 const (
-	imaLogPath  = "/sys/kernel/security/ima/ascii_runtime_measurements"
-	biosLogPath = "/sys/kernel/security/tpm0/binary_bios_measurements"
-	tpmDevPath  = "/dev/tpm0"
-	blockSize   = 1024
+	imaLogPath   = "/sys/kernel/security/ima/ascii_runtime_measurements"
+	biosLogPath  = "/sys/kernel/security/tpm0/binary_bios_measurements"
+	tpmDevPath   = "/dev/tpm0"
+	blockSize    = 1024
+	constDIMBIOS = `# dmidecode 3.2
+Getting SMBIOS data from sysfs.
+SMBIOS 2.7 present.
+
+Handle 0x0000, DMI type 0, 24 bytes
+BIOS Information
+	Vendor: American Megatrends Inc.
+	Version: 4.6.5
+	Release Date: 09/26/2013
+	Address: 0xF0000
+	Runtime Size: 64 kB
+	ROM Size: 4096 kB
+	Characteristics:
+		PCI is supported
+		BIOS is upgradeable
+		BIOS shadowing is allowed
+		Boot from CD is supported
+		Selectable boot is supported
+		EDD is supported
+		Print screen service is supported (int 5h)
+		8042 keyboard services are supported (int 9h)
+		Printer services are supported (int 17h)
+		ACPI is supported
+		USB legacy is supported
+		BIOS boot specification is supported
+		Targeted content distribution is supported
+		UEFI is supported
+	BIOS Revision: 4.6`
+	constDIMSYSTEM = `# dmidecode 3.2
+Getting SMBIOS data from sysfs.
+SMBIOS 2.7 present.
+
+Handle 0x0001, DMI type 1, 27 bytes
+System Information
+	Manufacturer: Hasee Computer
+	Product Name: CW35S
+	Version: Not Applicable
+	Serial Number: Not Applicable
+	UUID: f0f59000-7a0a-0000-0000-000000000000
+	Wake-up Type: Power Switch
+	SKU Number: Not Applicable
+	Family: Not Applicable`
 )
 
 var (
@@ -333,32 +375,36 @@ func getIp() (string, error) {
 
 // getClientInfo function return all client information in the format of a json string which is formated from a map[string]string
 //TODO:fix values of version
-func GetClientInfo() (string, error) {
+func GetClientInfo(useHW bool) (string, error) {
 	//Execute dmidecode shell-commands to acquire information
 	//remind: need sudo permission
 	var err error
 	var out0 bytes.Buffer
 	var out1 bytes.Buffer
 	var out2 bytes.Buffer
-	cmd0 := exec.Command("dmidecode", "-t", "0")
-	cmd0.Stdout = &out0
-	if err = cmd0.Run(); err != nil {
-		return "", err
-	}
+	var ip string
+	if useHW {
+		cmd0 := exec.Command("dmidecode", "-t", "0")
+		cmd0.Stdout = &out0
+		if err = cmd0.Run(); err != nil {
+			return "", err
+		}
 
-	cmd1 := exec.Command("dmidecode", "-t", "1")
-	cmd1.Stdout = &out1
-	if err = cmd1.Run(); err != nil {
-		return "", err
+		cmd1 := exec.Command("dmidecode", "-t", "1")
+		cmd1.Stdout = &out1
+		if err = cmd1.Run(); err != nil {
+			return "", err
+		}
+	} else {
+		out0.WriteString(constDIMBIOS)
+		out1.WriteString(constDIMSYSTEM)
 	}
-
 	cmd2 := exec.Command("uname", "-a")
 	cmd2.Stdout = &out2
 	if err = cmd2.Run(); err != nil {
 		return "", err
 	}
-
-	ip, err := getIp()
+	ip, err = getIp()
 	if err != nil {
 		return "", err
 	}
@@ -448,7 +494,7 @@ func (tpm *TPM) createTrustReport(pcrSelection tpm2.PCRSelection, tRepIn *TrustR
 
 //GetTrustReport method take a nonce input, generate and return the current trust report
 func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, error) {
-	clientInfo, err := GetClientInfo()
+	clientInfo, err := GetClientInfo(tpm.config.isPhysicalTpm)
 	if err != nil {
 		log.Printf("GetClientInfo failed, error : %v \n", err)
 	}
