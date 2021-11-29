@@ -54,6 +54,8 @@ const (
 	RacServer               = "racconfig.server" // client connect to server
 	RacServerLongFlag       = "server"
 	RacServerShortFlag      = "s"
+	RacTestModeLongFlag     = "test"
+	RacTestModeShortFlag    = "t"
 	RacHbDuration           = "racconfig.hbduration"
 	RacDefaultHbDuration    = 10 // seconds
 	RacTrustDuration        = "racconfig.trustduration"
@@ -80,10 +82,14 @@ var (
 		"/usr/lib/attestation",
 		"/etc/attestation",
 	}
-	cfg       *config
-	servPort  *string = nil
-	restPort  *string = nil
-	racServer *string = nil
+	cfg *config
+	// for RAS command line parameters
+	servPort *string = nil
+	restPort *string = nil
+	// for RAC command line parameters
+	racServer   *string = nil
+	racTestMode *bool   = nil
+	// for HUB command line parameters
 	hubServer *string = nil
 	hubPort   *string = nil
 )
@@ -105,6 +111,7 @@ type (
 	}
 	racConfig struct {
 		server        string
+		testMode      bool
 		hbDuration    time.Duration // heartbeat duration
 		trustDuration time.Duration // trust state duration
 		clientId      int64
@@ -132,6 +139,7 @@ func InitRasFlags() {
 // InitRacFlags sets the rac client whole command flags.
 func InitRacFlags() {
 	racServer = pflag.StringP(RacServerLongFlag, RacServerShortFlag, "", "connect attestation server at IP:PORT")
+	racTestMode = pflag.BoolP(RacTestModeLongFlag, RacTestModeShortFlag, false, "run in test mode[true] or not[false/default]")
 }
 
 // InitRacFlags sets the rac client whole command flags.
@@ -182,6 +190,9 @@ func getClientConf(c *config) {
 	// set command line input
 	if racServer != nil && *racServer != "" {
 		c.racConfig.server = *racServer
+	}
+	if racTestMode != nil {
+		c.racConfig.testMode = *racTestMode
 	}
 }
 
@@ -325,6 +336,14 @@ func (c *config) SetPassword(password string) {
 	c.dbConfig.password = password
 }
 
+func (c *config) GetServer() string {
+	return c.racConfig.server
+}
+
+func (c *config) GetTestMode() bool {
+	return c.racConfig.testMode
+}
+
 func (c *config) GetTrustDuration() time.Duration {
 	return c.racConfig.trustDuration
 }
@@ -376,10 +395,6 @@ func (c *config) GetPort() string {
 
 func (c *config) GetRestPort() string {
 	return c.rasConfig.restPort
-}
-
-func (c *config) GetServer() string {
-	return c.racConfig.server
 }
 
 func (c *config) GetHubServer() string {
