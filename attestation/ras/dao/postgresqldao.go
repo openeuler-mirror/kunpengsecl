@@ -407,20 +407,28 @@ func (psd *PostgreSqlDAO) SelectReportsById(clientId int64) ([]*entity.Report, e
 }
 
 func (psd *PostgreSqlDAO) SelectLatestReportById(clientId int64) (*entity.Report, error) {
-	reports, err := psd.SelectReportsById(clientId)
+	r := entity.Report{ClientID: clientId, ClientInfo: entity.ClientInfo{Info: map[string]string{}}}
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT id, client_info_ver, report_time, pcr_quote, verified FROM trust_report WHERE client_id=$1 ORDER BY report_time DESC LIMIT 1", clientId).
+		Scan(&r.ReportId, &r.ClientInfoVer, &r.ReportTime, &r.PcrInfo.Quote.Quoted, &r.Verified)
 	if err != nil {
 		return nil, err
 	}
-	if reports == nil {
-		return nil, fmt.Errorf("report of client %v doesn't exist", clientId)
+	err = psd.getClientInfo(context.Background(), &r.ClientInfo, r.ClientID, r.ClientInfoVer)
+	if err != nil {
+		return nil, err
 	}
-	result := reports[0]
-	for _, r := range reports {
-		if r.ReportTime.After(result.ReportTime) {
-			result = r
-		}
+
+	err = psd.getPCRInfo(context.Background(), &r.PcrInfo, r.ReportId)
+	if err != nil {
+		return nil, err
 	}
-	return result, nil
+
+	err = psd.getManifest(context.Background(), &r.Manifest, r.ReportId)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.MeasurementInfo, error) {

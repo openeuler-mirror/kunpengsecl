@@ -97,7 +97,7 @@ type BIOSManifestItem struct {
 	BType   uint32
 	Digest  DigestValues
 	DataLen uint32
-	Data    []byte
+	Data    string
 }
 type DigestValues struct {
 	Count uint32
