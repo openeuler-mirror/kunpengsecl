@@ -210,17 +210,29 @@ func (tpm *TPM) EraseEKCert() {
 	}
 }
 
-// WriteEKCert writes the EK certificate into NVRAM.
-//An EK Certificate is stored in an NV Index as an X.509 certificate encoded in DER format. The NV
-//Index data contains only the DER certificate data.
-//According to TCG EK Credential Profile For TPM Family 2.0; Level 0 Version 2.4 Revision 3
-//RSA 2048 EK Certificate shoulded be stored at NV Index of 0x01c00002
+// WriteEKCert writes the EK certificate(DER) into tpm NVRAM.
+//   on TCG EK Credential Profile For TPM Family 2.0
+//   Level 0 Version 2.4 Revision 3
+//   https://trustedcomputinggroup.org/resource/tcg-ek-credential-profile-for-tpm-family-2-0/
+//      0x01C00002      RSA 2048 EK Certificate
+//      0x01C00003      RSA 2048 EK Nonce
+//      0x01C00004      RSA 2048 EK Template
+//      0x01C0000A      ECC NIST P256 EK Certificate
+//      0x01C0000B      ECC NIST P256 EK Nonce
+//      0x01C0000C      ECC NIST P256 EK Template
+//      0x01C00012      RSA 2048 EK Certificate (H-1)
+//      0x01C00014      ECC NIST P256 EK Certificate (H-2)
+//      0x01C00016      ECC NIST P384 EK Certificate (H-3)
+//      0x01C00018      ECC NIST P512 EK Certificate (H-4)
+//      0x01C0001A      ECC SM2_P256 EK Certificate (H-5)
+//      0x01C0001C      RSA 3072 EK Certificate (H-6)
+//      0x01C0001E      RSA 4096 EK Certificate (H-7)
 func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
 	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, ekIndex,
 		emptyPassword, emptyPassword, nil, attr, uint16(len(ekPem)))
 	if err != nil {
-		log.Printf("define NV space failed, error: %v\n", err)
+		log.Printf("define NV space failed, error: %v", err)
 		return err
 	}
 	l := uint16(len(ekPem))
@@ -236,7 +248,7 @@ func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 		}
 		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, emptyPassword, ekPem[offset:end], offset)
 		if err != nil {
-			log.Printf("write NV failed, error: %v \n", err)
+			log.Printf("write NV failed, error: %v", err)
 			return err
 		}
 		offset = end
@@ -244,12 +256,11 @@ func (tpm *TPM) WriteEKCert(ekPem []byte) error {
 	return nil
 }
 
-// ReadEKCert reads the EK certificate from NVRAM with PEM format.
+// ReadEKCert reads the EK certificate(DER) from tpm NVRAM.
 func (tpm *TPM) ReadEKCert() ([]byte, error) {
-	// Read all of the ekPem with NVReadEx
 	ekPem, err := tpm2.NVReadEx(tpm.dev, ekIndex, tpm2.HandleOwner, emptyPassword, 0)
 	if err != nil {
-		log.Printf("read NV failed, error: %v\n", err)
+		log.Printf("read NV failed, error: %v", err)
 		return nil, err
 	}
 	return ekPem, nil
