@@ -19,6 +19,7 @@ package cache
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"sync"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
@@ -30,12 +31,13 @@ import (
  In the heartbeat reply message, it will send some commands to RAC.
 */
 const (
-	CMDSENDCONF  uint64 = 1 << iota // send new configuration to RAC.
-	CMDGETREPORT                    // get a new trust report from RAC.
-	CMDNONE      uint64 = 0         // clear all pending commands.
-	STSUNKOWN           = "unkown"
-	STSTRUSTED          = "trusted"
-	STSUNTRUSTED        = "untrusted"
+	CMDSENDCONF   uint64 = 1 << iota // send new configuration to RAC.
+	CMDGETREPORT                     // get a new trust report from RAC.
+	CMDNONE       uint64 = 0         // clear all pending commands.
+	STSUNKOWN            = "unkown"
+	STSTRUSTED           = "trusted"
+	STSUNTRUSTED         = "untrusted"
+	DEFAULTRACNUM int    = 1000
 )
 
 type (
@@ -50,6 +52,7 @@ type (
 
 	// manager of the caches for all registered RACs
 	CacheMgr struct {
+		sync.Mutex
 		caches map[int64]*Cache
 		vm     *verifier.VerifierMgr
 	}
@@ -86,6 +89,27 @@ func (cm *CacheMgr) Initialize() error {
 // GetCache returns the cache for client with the given cid
 func (cm *CacheMgr) GetCache(cid int64) *Cache {
 	return cm.caches[cid]
+}
+
+// CreateCache create a cache for given client and returns the cache
+func (cm *CacheMgr) CreateCache(cid int64) *Cache {
+	if cm.caches[cid] != nil {
+		return nil
+	}
+
+	cm.caches[cid] = &Cache{
+		cm:      cm,
+		cid:     cid,
+		command: CMDNONE,
+	}
+	cm.caches[cid].UpdateHeartBeat()
+	cm.caches[cid].UpdateTrustReport()
+	return cm.caches[cid]
+}
+
+// RemoveCache delete cache for client with the given cid
+func (cm *CacheMgr) RemoveCache(cid int64) {
+	delete(cm.caches, cid)
 }
 
 // GetAllClientID returns the slice of all availabe client id
@@ -132,7 +156,7 @@ func (c *Cache) UpdateHeartBeat() {
 	c.hbExpiration = time.Now().Add(cfg.GetHBDuration())
 	// If half past of trust report expiration, we need to get a new trust report.
 	if time.Now().After(c.trustExpiration.Add(-cfg.GetTrustDuration() / 2)) {
-		c.GetTrustReport()
+		c.SetCMDGetTrustReport()
 	}
 }
 
@@ -154,11 +178,11 @@ func (c *Cache) ClearCommands() {
 	c.command = CMDNONE
 }
 
-func (c *Cache) SendConfigure() {
+func (c *Cache) SetCMDSendConfigure() {
 	c.command |= CMDSENDCONF
 }
 
-func (c *Cache) GetTrustReport() {
+func (c *Cache) SetCMDGetTrustReport() {
 	c.command |= CMDGETREPORT
 }
 
@@ -172,13 +196,13 @@ func (c *Cache) IsReportValid() bool {
 	// After trust report expiration there is no one report received,
 	// the RAC can't be trusted any more and needs to get a new trust report.
 	if time.Now().After(c.trustExpiration) {
-		c.GetTrustReport()
+		c.SetCMDGetTrustReport()
 		return false
 	}
 	// Even half past of trust report expiration we still trust the report
 	// of this RAC, but we need to get a new trust report.
 	if time.Now().After(c.trustExpiration.Add(-cfg.GetTrustDuration() / 2)) {
-		c.GetTrustReport()
+		c.SetCMDGetTrustReport()
 	}
 	return true
 }

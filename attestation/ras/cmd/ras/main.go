@@ -7,11 +7,15 @@ For test purpose, do the following steps:
 package main
 
 import (
+	"fmt"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 	"github.com/spf13/pflag"
 )
 
@@ -32,6 +36,14 @@ func main() {
 
 	// TODO: Wait for completing of validator
 	trustmgr.SetValidator(&testValidator{})
-	go clientapi.StartServer(cfg.GetPort())
-	restapi.StartServer(cfg.GetRestPort())
+
+	vm, err := verifier.CreateVerifierMgr()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	cm := cache.CreateCacheMgr(cache.DEFAULTRACNUM, vm)
+
+	go clientapi.StartServer(cfg.GetPort(), cm)
+	restapi.StartServer(cfg.GetRestPort(), cm)
 }

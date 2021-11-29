@@ -19,7 +19,6 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 )
 
 type RasServer struct {
@@ -169,7 +168,9 @@ type ServerTrustStatus struct {
 // (GET /status)
 func (s *RasServer) GetStatus(ctx echo.Context) error {
 	// get server status list from cache
+	s.cm.Lock()
 	ts := s.cm.GetAllTrustStatus()
+	s.cm.Unlock()
 	status := make([]ServerTrustStatus, 0, len(ts))
 	for key, s := range ts {
 		status = append(status, ServerTrustStatus{ClientID: key, Status: s})
@@ -295,7 +296,7 @@ func CreateAuthValidator(v JWSValidator) (echo.MiddlewareFunc, error) {
 	return validator, nil
 }
 
-func StartServer(addr string) {
+func StartServer(addr string, cm *cache.CacheMgr) {
 	router := echo.New()
 
 	// FIXME: need to be replaced with a formal authenticator implementation
@@ -315,12 +316,6 @@ func StartServer(addr string) {
 	router.Use(echomiddleware.Logger())
 	router.Use(av)
 
-	vm, err := verifier.CreateVerifierMgr()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	cm := cache.CreateCacheMgr(100, vm)
 	server := NewRasServer(cm)
 	RegisterHandlers(router, server)
 

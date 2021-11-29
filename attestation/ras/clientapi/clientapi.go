@@ -27,7 +27,6 @@ import (
 	"log"
 	"net"
 	"strings"
-	"sync"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
@@ -42,20 +41,12 @@ import (
 )
 
 const (
-	constDEFAULTRAC     int           = 1000
 	constDEFAULTTIMEOUT time.Duration = 100 * time.Second
-)
-
-type (
-	clientInfo struct {
-		cache cache.Cache
-	}
 )
 
 type service struct {
 	UnimplementedRasServer
-	sync.Mutex
-	cli map[int64]*clientInfo
+	cm *cache.CacheMgr
 }
 
 func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
@@ -91,20 +82,18 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 		return nil, err
 	}
 
-	s.Lock()
-	info, ok := s.cli[clientID]
-	if !ok {
-		info = &clientInfo{}
-		s.cli[clientID] = info
-		log.Printf("reg %d", clientID)
-	}
-	info.cache.ClearCommands()
-	info.cache.UpdateHeartBeat()
-	info.cache.GetTrustReport()
-	s.Unlock()
 	cfg := config.GetDefault(config.ConfServer)
 	hd := cfg.GetHBDuration()
 	td := cfg.GetTrustDuration()
+
+	s.cm.Lock()
+	defer s.cm.Unlock()
+
+	c := s.cm.CreateCache(clientID)
+	if c == nil {
+		return nil, fmt.Errorf("client %d failed to create cache", clientID)
+	}
+	log.Printf("reg %d", clientID)
 
 	return &RegisterClientReply{
 		ClientId: clientID,
@@ -118,16 +107,18 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
 	log.Printf("Server: receive UnregisterClient")
 	cid := in.GetClientId()
-	s.Lock()
 	result := false
-	_, ok := s.cli[cid]
-	if ok {
+
+	s.cm.Lock()
+	defer s.cm.Unlock()
+
+	c := s.cm.GetCache(in.ClientId)
+	if c != nil {
 		log.Printf("delete %d", cid)
-		delete(s.cli, cid)
+		s.cm.RemoveCache(cid)
 		trustmgr.UnRegisterClient(cid)
 		result = true
 	}
-	defer s.Unlock()
 	return &UnregisterClientReply{Result: result}, nil
 }
 
@@ -136,21 +127,24 @@ func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (
 	var nextAction uint64
 	var nonce uint64
 	cid := in.GetClientId()
-	s.Lock()
-	info, ok := s.cli[cid]
-	if ok {
+
+	s.cm.Lock()
+	c := s.cm.GetCache(cid)
+	s.cm.Unlock()
+
+	if c != nil {
 		var err error
 		log.Printf("hb %d", cid)
-		info.cache.UpdateHeartBeat()
-		if info.cache.HasCommands() {
-			nextAction = info.cache.GetCommands()
-			nonce, err = info.cache.CreateNonce()
+		c.UpdateHeartBeat()
+		if c.HasCommands() {
+			nextAction = c.GetCommands()
+			nonce, err = c.CreateNonce()
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
-	s.Unlock()
+
 	return &SendHeartbeatReply{
 		NextAction: nextAction,
 		ActionParameters: &ActionParameters{
@@ -163,73 +157,78 @@ func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (
 func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
 	log.Printf("Server: receive SendReport")
 	cid := in.GetClientId()
-	s.Lock()
-	info, ok := s.cli[cid]
-	if ok {
-		report := in.GetTrustReport()
-		// transform pcr info from struct in grpc to struct in ras
-		opvs := report.GetPcrInfo().GetPcrValues()
-		tpvs := map[int]string{}
-		for k, v := range opvs {
-			tpvs[int(k)] = v
-		}
-		// transfrom manifest from struct in grpc to struct in ras
-		oms := report.GetManifest()
-		var tms []entity.Manifest
-		for _, om := range oms {
-			handled := false
-			var mi *entity.Manifest
-			var err error
 
-			switch strings.ToLower(om.Type) {
-			case "bios":
-				mi, err = unmarshalBIOSManifest(om.Item)
-			case "ima":
-				mi, err = unmarshalIMAManifest(om.Item)
-			default:
-				err = fmt.Errorf("unsupported manifest type: %s", om.Type)
-			}
-			if err != nil {
-				return nil, err
-			}
+	s.cm.Lock()
+	c := s.cm.GetCache(cid)
+	s.cm.Unlock()
 
-			// if type has existed
-			for _, tm := range tms {
-				if om.Type == tm.Type {
-					handled = true
-					tm.Items = append(tm.Items, mi.Items...)
-					break
-				}
-			}
-			if !handled {
-				tms = append(tms, *mi)
-			}
+	if c == nil {
+		return nil, fmt.Errorf("unregisted client: %d", cid)
+	}
+
+	report := in.GetTrustReport()
+	// transform pcr info from struct in grpc to struct in ras
+	opvs := report.GetPcrInfo().GetPcrValues()
+	tpvs := map[int]string{}
+	for k, v := range opvs {
+		tpvs[int(k)] = v
+	}
+	// transfrom manifest from struct in grpc to struct in ras
+	oms := report.GetManifest()
+	var tms []entity.Manifest
+	for _, om := range oms {
+		handled := false
+		var mi *entity.Manifest
+		var err error
+
+		switch strings.ToLower(om.Type) {
+		case "bios":
+			mi, err = unmarshalBIOSManifest(om.Item)
+		case "ima":
+			mi, err = unmarshalIMAManifest(om.Item)
+		default:
+			err = fmt.Errorf("unsupported manifest type: %s", om.Type)
 		}
-		err := trustmgr.RecordReport(&entity.Report{
-			PcrInfo: entity.PcrInfo{
-				AlgName: report.GetPcrInfo().GetAlgorithm(),
-				Values:  tpvs,
-				Quote: entity.PcrQuote{
-					Quoted: report.GetPcrInfo().GetPcrQuote().Quoted,
-				},
-			},
-			Manifest: tms,
-			ClientID: cid,
-		})
 		if err != nil {
 			return nil, err
 		}
 
-		log.Printf("report %d", cid)
-		info.cache.ClearCommands()
-		info.cache.UpdateTrustReport()
+		// if type has existed
+		for _, tm := range tms {
+			if om.Type == tm.Type {
+				handled = true
+				tm.Items = append(tm.Items, mi.Items...)
+				break
+			}
+		}
+		if !handled {
+			tms = append(tms, *mi)
+		}
 	}
-	s.Unlock()
+	err := trustmgr.RecordReport(&entity.Report{
+		PcrInfo: entity.PcrInfo{
+			AlgName: report.GetPcrInfo().GetAlgorithm(),
+			Values:  tpvs,
+			Quote: entity.PcrQuote{
+				Quoted: report.GetPcrInfo().GetPcrQuote().Quoted,
+			},
+		},
+		Manifest: tms,
+		ClientID: cid,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("report %d", cid)
+	c.ClearCommands()
+	c.UpdateTrustReport()
+
 	return &SendReportReply{Result: true}, nil
 }
 
 // StartServer starts ras server and provides rpc services.
-func StartServer(addr string) {
+func StartServer(addr string, cm *cache.CacheMgr) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Server: fail to listen at %v", err)
@@ -237,7 +236,7 @@ func StartServer(addr string) {
 	}
 	s := grpc.NewServer()
 	svc := &service{}
-	svc.cli = make(map[int64]*clientInfo, constDEFAULTRAC)
+	svc.cm = cm
 	RegisterRasServer(s, svc)
 	log.Printf("Server: listen at %s", addr)
 	if err := s.Serve(lis); err != nil {
