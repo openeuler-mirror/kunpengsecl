@@ -152,7 +152,7 @@ func TestUnRegisterClient(t *testing.T) {
 	if err2 != nil {
 		t.FailNow()
 	}
-	clientIds, err := psd.SelectAllClientIds()
+	clientIds, err := psd.SelectAllRegisteredClientIds()
 	if err != nil {
 		fmt.Println(err)
 		t.FailNow()
@@ -183,7 +183,7 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 	}
 	defer psd.Destroy()
 
-	clientIds, err := psd.SelectAllClientIds()
+	clientIds, err := psd.SelectAllRegisteredClientIds()
 	if err != nil {
 		t.Fatal(err)
 	}

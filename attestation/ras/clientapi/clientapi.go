@@ -118,6 +118,9 @@ func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequ
 	log.Printf("Server: receive UnregisterClient")
 	cid := in.GetClientId()
 	result := false
+	if cid <= 0 {
+		return &UnregisterClientReply{Result: result}, fmt.Errorf("client id %v is illegal", cid)
+	}
 
 	s.cm.Lock()
 	defer s.cm.Unlock()
@@ -126,7 +129,10 @@ func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequ
 	if c != nil {
 		log.Printf("delete %d", cid)
 		s.cm.RemoveCache(cid)
-		trustmgr.UnRegisterClient(cid)
+		err := trustmgr.UnRegisterClient(cid)
+		if err != nil {
+			return &UnregisterClientReply{Result: result}, fmt.Errorf("unregister failed. err: %v", err)
+		}
 		result = true
 	}
 	return &UnregisterClientReply{Result: result}, nil
@@ -173,7 +179,7 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 	s.cm.Unlock()
 
 	if c == nil {
-		return nil, fmt.Errorf("unregisted client: %d", cid)
+		return &SendReportReply{Result: false}, fmt.Errorf("unregisted client: %d", cid)
 	}
 
 	report := in.GetTrustReport()
@@ -200,7 +206,7 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 			err = fmt.Errorf("unsupported manifest type: %s", om.Type)
 		}
 		if err != nil {
-			return nil, err
+			return &SendReportReply{Result: false}, err
 		}
 
 		// if type has existed
@@ -227,7 +233,7 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 		ClientID: cid,
 	})
 	if err != nil {
-		return nil, err
+		return &SendReportReply{Result: false}, err
 	}
 
 	log.Printf("report %d", cid)
@@ -249,6 +255,11 @@ func StartServer(addr string, cm *cache.CacheMgr) {
 		return
 	}
 	s := grpc.NewServer()
+	err = cm.Initialize()
+	if err != nil {
+		log.Fatalf("Server: initialize cache failed. err: %v", err)
+		return
+	}
 	svc := NewServer(cm)
 	RegisterRasServer(s, svc)
 	log.Printf("Server: listen at %s", addr)
@@ -281,7 +292,7 @@ func makesock(addr string) (*rasConn, error) {
 func DoCreateIKCert(addr string, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
 	ras, err := makesock(addr)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -289,7 +300,7 @@ func DoCreateIKCert(addr string, in *CreateIKCertRequest) (*CreateIKCertReply, e
 
 	bk, err := ras.c.CreateIKCert(ras.ctx, in)
 	if err != nil {
-		log.Fatalf("Client: invoke CreateIKCert error %v", err)
+		log.Printf("Client: invoke CreateIKCert error %v", err)
 		return nil, err
 	}
 	log.Printf("Client: invoke CreateIKCert ok")
@@ -300,7 +311,7 @@ func DoCreateIKCert(addr string, in *CreateIKCertRequest) (*CreateIKCertReply, e
 func DoRegisterClient(addr string, in *RegisterClientRequest) (*RegisterClientReply, error) {
 	ras, err := makesock(addr)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -308,7 +319,7 @@ func DoRegisterClient(addr string, in *RegisterClientRequest) (*RegisterClientRe
 
 	bk, err := ras.c.RegisterClient(ras.ctx, in)
 	if err != nil {
-		log.Fatalf("Client: invoke RegisterClient error %v", err)
+		log.Printf("Client: invoke RegisterClient error %v", err)
 		return nil, err
 	}
 	log.Printf("Client: invoke RegisterClient ok, clientID=%d", bk.GetClientId())
@@ -319,7 +330,7 @@ func DoRegisterClient(addr string, in *RegisterClientRequest) (*RegisterClientRe
 func DoUnregisterClient(addr string, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
 	ras, err := makesock(addr)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -327,7 +338,7 @@ func DoUnregisterClient(addr string, in *UnregisterClientRequest) (*UnregisterCl
 
 	bk, err := ras.c.UnregisterClient(ras.ctx, in)
 	if err != nil {
-		log.Fatalf("Client: invoke UnregisterClient error %v", err)
+		log.Printf("Client: invoke UnregisterClient error %v", err)
 		return nil, err
 	}
 	log.Printf("Client: invoke UnregisterClient %v", bk.Result)
@@ -338,7 +349,7 @@ func DoUnregisterClient(addr string, in *UnregisterClientRequest) (*UnregisterCl
 func DoSendHeartbeat(addr string, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
 	ras, err := makesock(addr)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -346,7 +357,7 @@ func DoSendHeartbeat(addr string, in *SendHeartbeatRequest) (*SendHeartbeatReply
 
 	bk, err := ras.c.SendHeartbeat(ras.ctx, in)
 	if err != nil {
-		log.Fatalf("Client: invoke SendHeartbeat error %v", err)
+		log.Printf("Client: invoke SendHeartbeat error %v", err)
 		return nil, err
 	}
 	log.Printf("Client: invoke SendHeartbeat ok")
@@ -358,7 +369,7 @@ func DoSendHeartbeat(addr string, in *SendHeartbeatRequest) (*SendHeartbeatReply
 func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) {
 	ras, err := makesock(addr)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -366,7 +377,7 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 
 	bk, err := ras.c.SendReport(ras.ctx, in)
 	if err != nil {
-		log.Fatalf("Client: invoke SendReport error %v", err)
+		log.Printf("Client: invoke SendReport error %v", err)
 		return nil, err
 	}
 	log.Printf("Client: invoke SendReport ok")

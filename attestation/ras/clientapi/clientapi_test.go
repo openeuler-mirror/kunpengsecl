@@ -14,6 +14,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 )
 
@@ -124,6 +125,14 @@ func TestClientAPI(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	// test empty clientInfo
+	_, err = c.RegisterClient(ctx, &RegisterClientRequest{
+		Ic: &Cert{Cert: createRandomCert()},
+	})
+	assert.Error(t, err)
+	// test empty request
+	_, err = c.RegisterClient(ctx, &RegisterClientRequest{})
+	assert.Error(t, err)
 	r, err := c.RegisterClient(ctx, &RegisterClientRequest{
 		Ic:         &Cert{Cert: createRandomCert()},
 		ClientInfo: &ClientInfo{ClientInfo: string(ci)},
@@ -133,6 +142,12 @@ func TestClientAPI(t *testing.T) {
 	}
 	t.Logf("Client: invoke RegisterClient ok, clientID=%d", r.GetClientId())
 
+	// test empty clientId
+	hbReply, err := c.SendHeartbeat(ctx, &SendHeartbeatRequest{})
+	if err != nil {
+		t.Errorf("empty clientId test failed")
+	}
+	assert.Equal(t, uint64(0), hbReply.NextAction)
 	_, err = c.SendHeartbeat(ctx, &SendHeartbeatRequest{ClientId: r.GetClientId()})
 	if err != nil {
 		t.Errorf("Client: invoke SendHeartbeat error %v", err)
@@ -140,6 +155,10 @@ func TestClientAPI(t *testing.T) {
 	t.Logf("Client: invoke SendHeartbeat ok")
 
 	trustmgr.SetValidator(&testValidator{})
+	// test empty report
+	srRep, err := c.SendReport(ctx, &SendReportRequest{})
+	assert.Equal(t, false, srRep.GetResult())
+	assert.Error(t, err)
 	_, err = c.SendReport(ctx, &SendReportRequest{ClientId: r.GetClientId(), TrustReport: &TrustReport{
 		PcrInfo: &PcrInfo{PcrValues: map[int32]string{
 			1: "pcr value1",
@@ -157,7 +176,10 @@ func TestClientAPI(t *testing.T) {
 		t.Errorf("Client: invoke SendReport error %v", err)
 	}
 	t.Logf("Client: invoke SendReport ok")
-
+	// test empty clientId
+	ucRep, err := c.UnregisterClient(ctx, &UnregisterClientRequest{})
+	assert.Equal(t, false, ucRep.GetResult())
+	assert.Error(t, err)
 	u, err := c.UnregisterClient(ctx,
 		&UnregisterClientRequest{ClientId: r.GetClientId()})
 	if err != nil {
