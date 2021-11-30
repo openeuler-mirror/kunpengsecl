@@ -391,26 +391,24 @@ func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
 	return IKCert, nil
 }
 
-//getIp function return the local IP address
-//this function can only support ipv4
-func getIp() (string, error) {
+// getIp returns the local IPv4 address.
+func getIP() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		return "", err
+		return ""
 	}
 	for _, address := range addrs {
 		// Check whether the IP address is a loopback address
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String(), nil
-			}
+		ipnet, ok := address.(*net.IPNet)
+		if ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+			return ipnet.IP.String()
 		}
 	}
-	return "", errors.New("Can't fint ip")
+	return ""
 }
 
-// getClientInfo function return all client information in the format of a json string which is formated from a map[string]string
-//TODO:fix values of version
+// GetClientInfo returns json format client information.
+// TODO: add some other information
 func GetClientInfo(useHW bool) (string, error) {
 	//Execute dmidecode shell-commands to acquire information
 	//remind: need sudo permission
@@ -440,10 +438,7 @@ func GetClientInfo(useHW bool) (string, error) {
 	if err = cmd2.Run(); err != nil {
 		return "", err
 	}
-	ip, err = getIp()
-	if err != nil {
-		return "", err
-	}
+	ip = getIP()
 
 	clientInfo := map[string]string{}
 	//Intercept the information we need
