@@ -115,7 +115,10 @@ func OpenTPM(useHW bool) (*TPM, error) {
 	if useHW {
 		tpm.dev, err = tpm2.OpenTPM(tpmDevPath)
 	} else {
-		tpm.dev, err = simulator.Get()
+		// GetWithFixedSeedInsecure behaves like Get() expect that all of the internal hierarchy
+		// seeds are derived from the input seed. So every time we reopen the simulator,
+		// we can always get the same ek for the same input
+		tpm.dev, err = simulator.GetWithFixedSeedInsecure(int64(0))
 	}
 	if err != nil {
 		tpm = nil

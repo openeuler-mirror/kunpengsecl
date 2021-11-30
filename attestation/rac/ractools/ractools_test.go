@@ -3,6 +3,7 @@ package ractools
 import (
 	"bytes"
 	"encoding/hex"
+	"io/ioutil"
 	"testing"
 
 	"github.com/google/go-tpm/tpm2"
@@ -20,6 +21,7 @@ var (
 	ekDer               = ([]byte)(`0��0��0
 		*�H��
 	`)
+	istestMode = false
 )
 
 func TestCreateTrustReport(t *testing.T) {
@@ -85,7 +87,35 @@ func TestNVRAM(t *testing.T) {
 		t.Errorf("ReadEKCert failed, err: %v", err)
 	}
 	if !bytes.Equal(ekCert, []byte(ekDer)) {
-		t.Errorf("EKCert are not equal, \n got: %v, \n want: %v \n", ekCert, ekDer)
+		t.Errorf("EKCert are not equal, got: %v, want: %v \n", ekCert, ekDer)
 	}
 	tpm.EraseEKCert()
+}
+
+// Test that we are using the simulator tpm, every time we reopen the simulator,
+// we can always get the same ek for the same input
+func TestEKUnderTestmode(t *testing.T) {
+	tpm, err := OpenTPM(istestMode)
+	if err != nil {
+		t.Errorf("OpenTPM failed, error: %v \n", err)
+	}
+	tpm.Prepare(&TPMConfig{})
+	ioutil.WriteFile("ekpub1", ([]byte)(tpm.GetEKPub()), 0777)
+	tpm.Close()
+
+	ekpub1, err := ioutil.ReadFile("ekpub1")
+	if err != nil {
+		t.Errorf("Read ekpub1 failed, error: %v \n", err)
+	}
+	tpm, err = OpenTPM(istestMode)
+	if err != nil {
+		t.Errorf("OpenTPM failed, error: %v \n", err)
+	}
+	tpm.Prepare(&TPMConfig{})
+	ekpub2 := ([]byte)(tpm.GetEKPub())
+	tpm.Close()
+
+	if !bytes.Equal(ekpub1, ekpub2) {
+		t.Errorf("EKpub are not equal, first: %v, second: %v \n", ekpub1, ekpub2)
+	}
 }
