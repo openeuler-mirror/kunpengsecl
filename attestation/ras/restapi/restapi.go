@@ -165,9 +165,23 @@ func (s *RasServer) GetServer(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, nil)
 }
 
-// put a list of servers into regitered status
+// put a list of servers into given status
 // (PUT /server)
 func (s *RasServer) PutServer(ctx echo.Context) error {
+
+	return nil
+}
+
+// Return the base value of a given server
+// (GET /server/basevalue/{serverId})
+func (s *RasServer) GetServerBasevalueServerId(ctx echo.Context, serverId int64) error {
+
+	return nil
+}
+
+// create/update the base value of the given server
+// (PUT /server/basevalue/{serverId})
+func (s *RasServer) PutServerBasevalueServerId(ctx echo.Context, serverId int64) error {
 
 	return nil
 }
@@ -189,6 +203,12 @@ func (s *RasServer) GetStatus(ctx echo.Context) error {
 		status = append(status, ServerTrustStatus{ClientID: key, Status: s})
 	}
 	return ctx.JSON(http.StatusOK, status)
+}
+
+// Return a trust status for given server
+// (GET /status/{serverId})
+func (s *RasServer) GetStatusServerId(ctx echo.Context, serverId int64) error {
+	return nil
 }
 
 // Return the version of current API
