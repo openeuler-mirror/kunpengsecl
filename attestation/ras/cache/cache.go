@@ -68,7 +68,7 @@ func CreateCacheMgr(initCap int, vm *verifier.VerifierMgr) *CacheMgr {
 
 // Initialize fills CacheMgr with all caches of clients synced with trustmgr
 func (cm *CacheMgr) Initialize() error {
-	ids, err := trustmgr.GetAllClientID()
+	ids, err := trustmgr.GetAllRegisteredClientID()
 	if err != nil {
 		return err
 	}

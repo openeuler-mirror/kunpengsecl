@@ -348,9 +348,9 @@ func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, meaInfo *entity.Measurem
 }
 
 // SelectAllClientIds finds all registered clients and returns their ids.
-func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
+func (psd *PostgreSqlDAO) SelectAllRegisteredClientIds() ([]int64, error) {
 	var clientIds []int64
-	rows, err := psd.conn.Query(context.Background(), "SELECT id FROM register_client")
+	rows, err := psd.conn.Query(context.Background(), "SELECT id FROM register_client WHERE deleted=false")
 	if err != nil {
 		return nil, err
 	}
@@ -362,6 +362,7 @@ func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
 		}
 		clientIds = append(clientIds, ci)
 	}
+	rows.Close()
 	return clientIds, nil
 }
 

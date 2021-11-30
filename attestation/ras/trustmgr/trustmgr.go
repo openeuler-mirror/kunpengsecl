@@ -129,12 +129,12 @@ func isFirstReport(clientId int64) (bool, error) {
 	return false, nil
 }
 
-func GetAllClientID() ([]int64, error) {
+func GetAllRegisteredClientID() ([]int64, error) {
 	psd, err := getPostgreSQLDAO()
 	if err != nil {
 		return nil, err
 	}
-	return psd.SelectAllClientIds()
+	return psd.SelectAllRegisteredClientIds()
 }
 
 func GetBaseValueById(clientId int64) (*entity.MeasurementInfo, error) {
