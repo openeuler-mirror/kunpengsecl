@@ -61,19 +61,58 @@ paths:
       - servermgt_auth:
         - read:servers
     put:
-      summary: put a list of servers into regitered status
+      summary: put a list of servers into given status
       requestBody:
-        description: servers identified by clientids to be put into registered status
+        description: servers identified by clientids to be put into given status
         content:
           application/json:
             schema:
-              type: array
-              items:
-                type: integer
-                format: int64
+              $ref: '#/components/schemas/ServerRegistryStatus'
       responses:
         '200':
-          description: Given servers registered
+          description: Given servers registry status updated
+          content: {}
+      security:
+      - servermgt_auth:
+        - write:servers
+  /server/basevalue/{serverId}:
+    get:
+      summary: Return the base value of a given server
+      parameters:
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      response:
+        '200':
+          description: the base value info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerBaseValue'
+      security:
+      - servermgt_auth:
+        - read:servers
+    put:
+      summary: create/update the base value of the given server
+      parameters:
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        description: the base value info to be set for given server
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerBaseValue'
+      responses:
+        '200':
+          description: the base value of given server updated
           content: {}
       security:
       - servermgt_auth:
@@ -90,6 +129,31 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ServerTrustStatus'
+      security:
+      - servermgt_auth:
+        - read:servers
+  /status/{serverId}:
+    get:
+      summary: Return a trust status for given server
+      parameters:
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      response:
+        '200':
+          description: trust status of the given server
+          content:
+            application/json:
+              schema:
+                type: string
+                default: unkown
+                enum:
+                - unkown
+                - untrusted
+                - trusted
       security:
       - servermgt_auth:
         - read:servers
@@ -134,6 +198,17 @@ components:
         registered:
           type: boolean
           default: false
+    ServerRegistryStatus:
+      type: object
+      properties:
+        registered:
+          type: boolean
+          default: false
+        clientids:
+          type: array
+          items:
+            type: integer
+            format: int64
     ServerTrustStatus:
       type: object
       properties:
@@ -164,6 +239,25 @@ components:
               type: string
             quote:
               type: string
+    ServerBaseValue:
+      type: object
+      properties:
+        algorithm:
+          type: string
+          default: sha256
+          enum:
+          - sha1
+          - sha256
+          - sha384
+          - sha512
+        pcrvalues:
+          type: array
+          items:
+            $ref: '#/components/schemas/PcrValue'
+        measurements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Measurement'
     PcrValue:
       type: object
       properties:
@@ -173,7 +267,19 @@ components:
           minimum: 0
         value:
           type: string
-          format: binary
+    Measurement:
+      type: object
+      properties:
+        type:
+          type: string
+          default: ima
+          enum:
+          - bios
+          - ima
+        name:
+          type: string
+        value:
+          type: string
   securitySchemes:
     servermgt_auth:
       type: oauth2

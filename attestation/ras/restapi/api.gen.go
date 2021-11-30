@@ -26,23 +26,79 @@ const (
 	Servermgt_authScopes = "servermgt_auth.Scopes"
 )
 
+// Defines values for MeasurementType.
+const (
+	MeasurementTypeBios MeasurementType = "bios"
+
+	MeasurementTypeIma MeasurementType = "ima"
+)
+
+// Defines values for ServerBaseValueAlgorithm.
+const (
+	ServerBaseValueAlgorithmSha1 ServerBaseValueAlgorithm = "sha1"
+
+	ServerBaseValueAlgorithmSha256 ServerBaseValueAlgorithm = "sha256"
+
+	ServerBaseValueAlgorithmSha384 ServerBaseValueAlgorithm = "sha384"
+
+	ServerBaseValueAlgorithmSha512 ServerBaseValueAlgorithm = "sha512"
+)
+
 // ConfigItem defines model for ConfigItem.
 type ConfigItem struct {
 	Name  *string `json:"name,omitempty"`
 	Value *string `json:"value,omitempty"`
 }
 
+// Measurement defines model for Measurement.
+type Measurement struct {
+	Name  *string          `json:"name,omitempty"`
+	Type  *MeasurementType `json:"type,omitempty"`
+	Value *string          `json:"value,omitempty"`
+}
+
+// MeasurementType defines model for Measurement.Type.
+type MeasurementType string
+
+// PcrValue defines model for PcrValue.
+type PcrValue struct {
+	Index *int    `json:"index,omitempty"`
+	Value *string `json:"value,omitempty"`
+}
+
+// ServerBaseValue defines model for ServerBaseValue.
+type ServerBaseValue struct {
+	Algorithm    *ServerBaseValueAlgorithm `json:"algorithm,omitempty"`
+	Measurements *[]Measurement            `json:"measurements,omitempty"`
+	Pcrvalues    *[]PcrValue               `json:"pcrvalues,omitempty"`
+}
+
+// ServerBaseValueAlgorithm defines model for ServerBaseValue.Algorithm.
+type ServerBaseValueAlgorithm string
+
+// ServerRegistryStatus defines model for ServerRegistryStatus.
+type ServerRegistryStatus struct {
+	Clientids  *[]int64 `json:"clientids,omitempty"`
+	Registered *bool    `json:"registered,omitempty"`
+}
+
 // PostConfigJSONBody defines parameters for PostConfig.
 type PostConfigJSONBody []ConfigItem
 
 // PutServerJSONBody defines parameters for PutServer.
-type PutServerJSONBody []int64
+type PutServerJSONBody ServerRegistryStatus
+
+// PutServerBasevalueServerIdJSONBody defines parameters for PutServerBasevalueServerId.
+type PutServerBasevalueServerIdJSONBody ServerBaseValue
 
 // PostConfigJSONRequestBody defines body for PostConfig for application/json ContentType.
 type PostConfigJSONRequestBody PostConfigJSONBody
 
 // PutServerJSONRequestBody defines body for PutServer for application/json ContentType.
 type PutServerJSONRequestBody PutServerJSONBody
+
+// PutServerBasevalueServerIdJSONRequestBody defines body for PutServerBasevalueServerId for application/json ContentType.
+type PutServerBasevalueServerIdJSONRequestBody PutServerBasevalueServerIdJSONBody
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -136,8 +192,19 @@ type ClientInterface interface {
 
 	PutServer(ctx context.Context, body PutServerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetServerBasevalueServerId request
+	GetServerBasevalueServerId(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutServerBasevalueServerId request  with any body
+	PutServerBasevalueServerIdWithBody(ctx context.Context, serverId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutServerBasevalueServerId(ctx context.Context, serverId int64, body PutServerBasevalueServerIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetStatus request
 	GetStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetStatusServerId request
+	GetStatusServerId(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetVersion request
 	GetVersion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -227,8 +294,56 @@ func (c *Client) PutServer(ctx context.Context, body PutServerJSONRequestBody, r
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetServerBasevalueServerId(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServerBasevalueServerIdRequest(c.Server, serverId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutServerBasevalueServerIdWithBody(ctx context.Context, serverId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutServerBasevalueServerIdRequestWithBody(c.Server, serverId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutServerBasevalueServerId(ctx context.Context, serverId int64, body PutServerBasevalueServerIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutServerBasevalueServerIdRequest(c.Server, serverId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetStatusServerId(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetStatusServerIdRequest(c.Server, serverId)
 	if err != nil {
 		return nil, err
 	}
@@ -419,6 +534,87 @@ func NewPutServerRequestWithBody(server string, contentType string, body io.Read
 	return req, nil
 }
 
+// NewGetServerBasevalueServerIdRequest generates requests for GetServerBasevalueServerId
+func NewGetServerBasevalueServerIdRequest(server string, serverId int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "serverId", runtime.ParamLocationPath, serverId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/server/basevalue/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutServerBasevalueServerIdRequest calls the generic PutServerBasevalueServerId builder with application/json body
+func NewPutServerBasevalueServerIdRequest(server string, serverId int64, body PutServerBasevalueServerIdJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutServerBasevalueServerIdRequestWithBody(server, serverId, "application/json", bodyReader)
+}
+
+// NewPutServerBasevalueServerIdRequestWithBody generates requests for PutServerBasevalueServerId with any type of body
+func NewPutServerBasevalueServerIdRequestWithBody(server string, serverId int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "serverId", runtime.ParamLocationPath, serverId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/server/basevalue/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetStatusRequest generates requests for GetStatus
 func NewGetStatusRequest(server string) (*http.Request, error) {
 	var err error
@@ -429,6 +625,40 @@ func NewGetStatusRequest(server string) (*http.Request, error) {
 	}
 
 	operationPath := fmt.Sprintf("/status")
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetStatusServerIdRequest generates requests for GetStatusServerId
+func NewGetStatusServerIdRequest(server string, serverId int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "serverId", runtime.ParamLocationPath, serverId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/status/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = operationPath[1:]
 	}
@@ -535,8 +765,19 @@ type ClientWithResponsesInterface interface {
 
 	PutServerWithResponse(ctx context.Context, body PutServerJSONRequestBody, reqEditors ...RequestEditorFn) (*PutServerResponse, error)
 
+	// GetServerBasevalueServerId request
+	GetServerBasevalueServerIdWithResponse(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*GetServerBasevalueServerIdResponse, error)
+
+	// PutServerBasevalueServerId request  with any body
+	PutServerBasevalueServerIdWithBodyWithResponse(ctx context.Context, serverId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutServerBasevalueServerIdResponse, error)
+
+	PutServerBasevalueServerIdWithResponse(ctx context.Context, serverId int64, body PutServerBasevalueServerIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PutServerBasevalueServerIdResponse, error)
+
 	// GetStatus request
 	GetStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetStatusResponse, error)
+
+	// GetStatusServerId request
+	GetStatusServerIdWithResponse(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*GetStatusServerIdResponse, error)
 
 	// GetVersion request
 	GetVersionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVersionResponse, error)
@@ -647,6 +888,48 @@ func (r PutServerResponse) StatusCode() int {
 	return 0
 }
 
+type GetServerBasevalueServerIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServerBasevalueServerIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServerBasevalueServerIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutServerBasevalueServerIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PutServerBasevalueServerIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutServerBasevalueServerIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -662,6 +945,27 @@ func (r GetStatusResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetStatusServerIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetStatusServerIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetStatusServerIdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -750,6 +1054,32 @@ func (c *ClientWithResponses) PutServerWithResponse(ctx context.Context, body Pu
 	return ParsePutServerResponse(rsp)
 }
 
+// GetServerBasevalueServerIdWithResponse request returning *GetServerBasevalueServerIdResponse
+func (c *ClientWithResponses) GetServerBasevalueServerIdWithResponse(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*GetServerBasevalueServerIdResponse, error) {
+	rsp, err := c.GetServerBasevalueServerId(ctx, serverId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServerBasevalueServerIdResponse(rsp)
+}
+
+// PutServerBasevalueServerIdWithBodyWithResponse request with arbitrary body returning *PutServerBasevalueServerIdResponse
+func (c *ClientWithResponses) PutServerBasevalueServerIdWithBodyWithResponse(ctx context.Context, serverId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutServerBasevalueServerIdResponse, error) {
+	rsp, err := c.PutServerBasevalueServerIdWithBody(ctx, serverId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutServerBasevalueServerIdResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutServerBasevalueServerIdWithResponse(ctx context.Context, serverId int64, body PutServerBasevalueServerIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PutServerBasevalueServerIdResponse, error) {
+	rsp, err := c.PutServerBasevalueServerId(ctx, serverId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutServerBasevalueServerIdResponse(rsp)
+}
+
 // GetStatusWithResponse request returning *GetStatusResponse
 func (c *ClientWithResponses) GetStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetStatusResponse, error) {
 	rsp, err := c.GetStatus(ctx, reqEditors...)
@@ -757,6 +1087,15 @@ func (c *ClientWithResponses) GetStatusWithResponse(ctx context.Context, reqEdit
 		return nil, err
 	}
 	return ParseGetStatusResponse(rsp)
+}
+
+// GetStatusServerIdWithResponse request returning *GetStatusServerIdResponse
+func (c *ClientWithResponses) GetStatusServerIdWithResponse(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*GetStatusServerIdResponse, error) {
+	rsp, err := c.GetStatusServerId(ctx, serverId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetStatusServerIdResponse(rsp)
 }
 
 // GetVersionWithResponse request returning *GetVersionResponse
@@ -863,6 +1202,44 @@ func ParsePutServerResponse(rsp *http.Response) (*PutServerResponse, error) {
 	return response, nil
 }
 
+// ParseGetServerBasevalueServerIdResponse parses an HTTP response from a GetServerBasevalueServerIdWithResponse call
+func ParseGetServerBasevalueServerIdResponse(rsp *http.Response) (*GetServerBasevalueServerIdResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServerBasevalueServerIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParsePutServerBasevalueServerIdResponse parses an HTTP response from a PutServerBasevalueServerIdWithResponse call
+func ParsePutServerBasevalueServerIdResponse(rsp *http.Response) (*PutServerBasevalueServerIdResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutServerBasevalueServerIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
 // ParseGetStatusResponse parses an HTTP response from a GetStatusWithResponse call
 func ParseGetStatusResponse(rsp *http.Response) (*GetStatusResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -872,6 +1249,25 @@ func ParseGetStatusResponse(rsp *http.Response) (*GetStatusResponse, error) {
 	}
 
 	response := &GetStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetStatusServerIdResponse parses an HTTP response from a GetStatusServerIdWithResponse call
+func ParseGetStatusServerIdResponse(rsp *http.Response) (*GetStatusServerIdResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetStatusServerIdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -915,12 +1311,21 @@ type ServerInterface interface {
 	// Return a list of briefing info for all servers
 	// (GET /server)
 	GetServer(ctx echo.Context) error
-	// put a list of servers into regitered status
+	// put a list of servers into given status
 	// (PUT /server)
 	PutServer(ctx echo.Context) error
+	// Return the base value of a given server
+	// (GET /server/basevalue/{serverId})
+	GetServerBasevalueServerId(ctx echo.Context, serverId int64) error
+	// create/update the base value of the given server
+	// (PUT /server/basevalue/{serverId})
+	PutServerBasevalueServerId(ctx echo.Context, serverId int64) error
 	// Return a list of trust status for all servers
 	// (GET /status)
 	GetStatus(ctx echo.Context) error
+	// Return a trust status for given server
+	// (GET /status/{serverId})
+	GetStatusServerId(ctx echo.Context, serverId int64) error
 	// Return the version of current API
 	// (GET /version)
 	GetVersion(ctx echo.Context) error
@@ -991,6 +1396,42 @@ func (w *ServerInterfaceWrapper) PutServer(ctx echo.Context) error {
 	return err
 }
 
+// GetServerBasevalueServerId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetServerBasevalueServerId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "serverId" -------------
+	var serverId int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "serverId", runtime.ParamLocationPath, ctx.Param("serverId"), &serverId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter serverId: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetServerBasevalueServerId(ctx, serverId)
+	return err
+}
+
+// PutServerBasevalueServerId converts echo context to params.
+func (w *ServerInterfaceWrapper) PutServerBasevalueServerId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "serverId" -------------
+	var serverId int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "serverId", runtime.ParamLocationPath, ctx.Param("serverId"), &serverId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter serverId: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PutServerBasevalueServerId(ctx, serverId)
+	return err
+}
+
 // GetStatus converts echo context to params.
 func (w *ServerInterfaceWrapper) GetStatus(ctx echo.Context) error {
 	var err error
@@ -999,6 +1440,24 @@ func (w *ServerInterfaceWrapper) GetStatus(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetStatus(ctx)
+	return err
+}
+
+// GetStatusServerId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetStatusServerId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "serverId" -------------
+	var serverId int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "serverId", runtime.ParamLocationPath, ctx.Param("serverId"), &serverId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter serverId: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetStatusServerId(ctx, serverId)
 	return err
 }
 
@@ -1044,7 +1503,10 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/report/:serverId", wrapper.GetReportServerId)
 	router.GET(baseURL+"/server", wrapper.GetServer)
 	router.PUT(baseURL+"/server", wrapper.PutServer)
+	router.GET(baseURL+"/server/basevalue/:serverId", wrapper.GetServerBasevalueServerId)
+	router.PUT(baseURL+"/server/basevalue/:serverId", wrapper.PutServerBasevalueServerId)
 	router.GET(baseURL+"/status", wrapper.GetStatus)
+	router.GET(baseURL+"/status/:serverId", wrapper.GetStatusServerId)
 	router.GET(baseURL+"/version", wrapper.GetVersion)
 
 }
@@ -1052,21 +1514,26 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"H4sIAAAAAAAC/9xY23LbNhD9Fcy2j6ypOE2m5ZuTdjLuLRnLzYvH04HIlYSYBFhgYUf16N87uPAmSpZs",
+	"V820TwKhxWJxzu5ZkPfwjdUlZLAkqk2WpqXKeblUhiCBKepb1AYyacsygVxVtZIoyUB2DyZfYsX98K2S",
+	"c7E4J6zcU61VjZoE+v8kr9D90qpGyMCQFnIB6wRueWm3/bNOmhk1+4Q5OdtfkRursUJJj9ghTNxDgXNu",
+	"S4IMRMUhAZS2guwKZkIZSPzkdfK8AD/k+mNjPoxOyAI/u0HFP4vKbXz6MoFKyPAwaZ0JSbhA/didA0dv",
+	"uMEdAfByobSgZTWEwiz56avXPTTMkr+ApJs3S/7yu2/D4NWL060QVR0v4bCElR98rXEOGXyVdjmTxoRJ",
+	"+2R2J+Ja85V7rnPtz3+4wxb8kbfdgF3gQhjSqylxsmaMWl4KlCSKYRRzpStOgazXDpsxd5vH0X4j1FgM",
+	"8J/z0mBrPVOqRC63BbxOwGButaDV1J03hGf8IaoF/cEtLX1opboLfFtaKi3+4iSUfKsKHE3+3hZ8v96z",
+	"V5PvX6cDQ0d+ruqwpUZeZKZRBP/IwiMTMgAjlHQFdacFYZZ7UYAMKlWI+YppbliYs7rxHiw7p9GUuF4g",
+	"Nd4Hi4zHWN3gg6fwBgM03blOYe2mXLSBC5NrUftQMrh8/8N7R6ig0i342coa5WKK+S/sAitFyM6I0JCP",
+	"gl38OL2M8UECLvrgZXLy4mTiQlQ1Sl4LyODlyeTEFVbNaemBTBtk7mGBXs9c4nm/5wVk8A4pCCq47DG1",
+	"ksZzeDqZ+MxUkqIO8rouRe5Xpp+MC6CR5YNrpyfd4+pZJxsgnbGfpu9/Y/5/puaRGhZ2Wq+7eNueYWxV",
+	"cb2CDC6QrJaMs1IYcot5WQ4cMCHZDa4yX/2s5kKzWG9OFVxHGkH1QZk+Vn9aNPRGFasvjdPgWKTYDFmu",
+	"kRMWTGlm68INYYhXS/DQ1Ttxi3KIU3Q10AbIrsaqcDUsxev1dZ+Qt95Nj5ARm6nGWmlK74Pj82L9UNJe",
+	"eONpNPUZr3mF5Ev7ynVCyHwVQBJ7NpjO2LEnvEqStpj0+Nkruu5YzymUh3gPx7nU1sTzbS+LKFXk7Jhu",
+	"DLfVw8N8DUR2g69YQLTEwT6uSPzkwmdKFCVPXxw/wNm0kbCjC028p2iB83MnwE9QmwjyzPkQcuHbzrFQ",
+	"7qpisJ0H2wlXs9pJk92mTLaP7dOEaT+cG7eYLRjGOJko3HVmLrBgsxVrbzdRnGpLTEhSTQ5Fd4frU7ON",
+	"jgFFF53UHSpVO1hxAXaUtIcah9ylfTrjBn0vOVC/upu0X/W/FLLuPWFLrjgRcaCx0IGPWV4bW7nbwIZ+",
+	"7aurL8/TsYr6sRzFGjYYWsEmjPtLeExG38c/VsPh2pIGd1syYEcPa1/QdtZtsPjXepi/DExbiXxiFwst",
+	"vCdbR21i/d3GPazD+VCp9Mb/QYXsvn9YeaPuZO/7RzthpUcLXajNaPzxY0tp9jHelc9HYXnE7riM2lfU",
+	"3aR+jCbPQ3gvTGcsxsJ6n7X2vzc6NJuF7l3Fao2S2NmHc7fJ+u8AAAD//+2UheTIFAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
