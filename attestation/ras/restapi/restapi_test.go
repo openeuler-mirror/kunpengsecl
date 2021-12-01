@@ -180,7 +180,25 @@ func TestGetStatus(t *testing.T) {
 		t.Log(cid, rec.Body)
 	}
 }
+func TestGetServer(t *testing.T) {
+	t.Log("Get server:")
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
 
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, _ := prepareServers(t)
+	err := s.GetServer(ctx)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		t.Log(rec.Body)
+	}
+
+}
 func TestGetReportServerId(t *testing.T) {
 	t.Log("Get server report:")
 	test.CreateServerConfigFile()
