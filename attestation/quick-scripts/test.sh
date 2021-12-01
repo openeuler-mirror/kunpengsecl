@@ -20,17 +20,18 @@ cp ${RAS} ${DST}/ras
 cp ${RASCONF} ${DST}/ras
 mkdir -p ${DST}/hub
 cp ${RAHUB} ${DST}/hub
+mkdir -p ${DST}/rac
+cp ${RAAGENT} ${DST}/rac
 for (( i=1; i<=${NUM}; i++ ))
 do
     RACDIR=${DST}/rac-${i}
     mkdir -p ${RACDIR}
-    cp ${RAAGENT} ${RACDIR}
     cp ${RACCONF} ${RACDIR}
 done
 
 ( cd ${DST}/ras ; ./ras &>${DST}/ras/log.txt ; )&
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ./raagent -t &>${DST}/rac-${i}/log.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/log.txt ; )&
 done
 
