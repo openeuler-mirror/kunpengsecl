@@ -22,12 +22,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
@@ -62,7 +63,7 @@ type service struct {
 func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
 	to, err := pca.GetIkCert(in.GetEkCert(), in.GetIkPub(), in.GetIkName())
 	if err != nil {
-		return &CreateIKCertReply{}, errors.New("failed to get ikCert")
+		return &CreateIKCertReply{}, errors.Wrap(err, "failed to get ikCert")
 	}
 	return &CreateIKCertReply{
 		EncryptedIC:     to.EncryptedCert,

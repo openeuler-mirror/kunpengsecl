@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
@@ -16,6 +17,7 @@ import (
 	conn is a connection initialized in CreatePostgreSqlDAO() and destroyed in Destroy()
 */
 type PostgreSqlDAO struct {
+	sync.Mutex
 	conn *pgx.Conn
 }
 
@@ -190,6 +192,9 @@ func (psd *PostgreSqlDAO) getManifest(ctx context.Context, manifests *[]entity.M
 
 // SaveReport saves the trust report into database.
 func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
+	psd.Lock()
+	defer psd.Unlock()
+
 	var reportID int64
 	var clientInfoVer int
 
@@ -228,6 +233,9 @@ func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 
 // RegisterClient registers a new client and save its information.
 func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic []byte) (int64, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
 	var clientID int64
 	var clientInfoVer int
 	var deleted bool
@@ -287,6 +295,9 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic []byt
 
 // UnRegisterClient set only deleted flag in register_client table, but reserves all other client information.
 func (psd *PostgreSqlDAO) UnRegisterClient(clientID int64) error {
+	psd.Lock()
+	defer psd.Unlock()
+
 	_, err := psd.conn.Exec(context.Background(),
 		"UPDATE register_client SET deleted=$1, online=$2 WHERE id=$3", true, false, clientID)
 	if err != nil {
@@ -296,6 +307,9 @@ func (psd *PostgreSqlDAO) UnRegisterClient(clientID int64) error {
 }
 
 func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, meaInfo *entity.MeasurementInfo) error {
+	psd.Lock()
+	defer psd.Unlock()
+
 	var baseValueVer int
 	tx, err := psd.conn.Begin(context.Background())
 	if err != nil {
@@ -349,6 +363,9 @@ func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, meaInfo *entity.Measurem
 
 // SelectAllClientIds finds all registered clients and returns their ids.
 func (psd *PostgreSqlDAO) SelectAllRegisteredClientIds() ([]int64, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
 	var clientIds []int64
 	rows, err := psd.conn.Query(context.Background(), "SELECT id FROM register_client WHERE deleted=false")
 	if err != nil {
@@ -367,6 +384,9 @@ func (psd *PostgreSqlDAO) SelectAllRegisteredClientIds() ([]int64, error) {
 }
 
 func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
 	var clientIds []int64
 	rows, err := psd.conn.Query(context.Background(), "SELECT id FROM register_client")
 	if err != nil {
@@ -386,6 +406,9 @@ func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
 
 // SelectReportById find report by client id
 func (psd *PostgreSqlDAO) SelectReportsById(clientId int64) ([]*entity.Report, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
 	var reports []*entity.Report
 
 	rRows, err := psd.conn.Query(context.Background(),
@@ -426,6 +449,9 @@ func (psd *PostgreSqlDAO) SelectReportsById(clientId int64) ([]*entity.Report, e
 }
 
 func (psd *PostgreSqlDAO) SelectLatestReportById(clientId int64) (*entity.Report, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
 	r := entity.Report{ClientID: clientId, ClientInfo: entity.ClientInfo{Info: map[string]string{}}}
 	err := psd.conn.QueryRow(context.Background(),
 		"SELECT id, client_info_ver, report_time, pcr_quote, verified FROM trust_report WHERE client_id=$1 ORDER BY report_time DESC LIMIT 1", clientId).
@@ -451,6 +477,9 @@ func (psd *PostgreSqlDAO) SelectLatestReportById(clientId int64) (*entity.Report
 }
 
 func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.MeasurementInfo, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
 	var (
 		baseValueVer int
 		meas         []entity.Measurement
@@ -517,6 +546,9 @@ func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.Measureme
 }
 
 func (psd *PostgreSqlDAO) SelectClientById(clientId int64) (*entity.RegisterClient, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
 	result := entity.RegisterClient{}
 
 	err := psd.conn.QueryRow(context.Background(),
@@ -546,5 +578,8 @@ func CreatePostgreSQLDAO() (DAO, error) {
 
 // Destroy closes the database connection.
 func (psd *PostgreSqlDAO) Destroy() {
+	psd.Lock()
+	defer psd.Unlock()
+
 	psd.conn.Close(context.Background())
 }

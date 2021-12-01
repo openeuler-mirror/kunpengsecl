@@ -13,6 +13,7 @@ import (
 	"log"
 	"math/big"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/google/go-tpm-tools/simulator"
@@ -338,6 +339,10 @@ func pubKeyToTPMPublic(ekPubKey crypto.PublicKey) *tpm2.Public {
 	return &pub
 }
 
+var (
+	simulatorMutex sync.Mutex
+)
+
 //加密ac
 func EncryptIkcert(ekPubKey crypto.PublicKey, IkCert []byte, IkName []byte) (*IKCertChallenge, error) {
 	//对传进来的IkCert进行加密，使用symKey作为加密密钥
@@ -345,12 +350,6 @@ func EncryptIkcert(ekPubKey crypto.PublicKey, IkCert []byte, IkName []byte) (*IK
 	if err != nil {
 		return nil, errors.New("failed create the symkey of a random byte")
 	}
-	simulator, err := simulator.Get()
-	if err != nil {
-		return nil, errors.New("failed get the simulator")
-	}
-	defer simulator.Close()
-
 	iv, err := CreateRandomBytes(16)
 	if err != nil {
 		return nil, errors.New("failed create the iv of a random byte")
@@ -362,6 +361,16 @@ func EncryptIkcert(ekPubKey crypto.PublicKey, IkCert []byte, IkName []byte) (*IK
 	}
 
 	ekPub := pubKeyToTPMPublic(ekPubKey)
+
+	simulatorMutex.Lock()
+	defer simulatorMutex.Unlock()
+
+	simulator, err := simulator.Get()
+	if err != nil {
+		return nil, errors.New("failed get the simulator")
+	}
+	defer simulator.Close()
+
 	protectHandle, _, err := tpm2.LoadExternal(simulator, *ekPub, tpm2.Private{}, tpm2.HandleNull)
 	if err != nil {
 		log.Println(err)
