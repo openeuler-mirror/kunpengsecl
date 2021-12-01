@@ -144,3 +144,11 @@ func GetBaseValueById(clientId int64) (*entity.MeasurementInfo, error) {
 	}
 	return psd.SelectBaseValueById(clientId)
 }
+
+func GetRegisterClientById(clientId int64) (*entity.RegisterClient, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return nil, err
+	}
+	return psd.SelectClientById(clientId)
+}

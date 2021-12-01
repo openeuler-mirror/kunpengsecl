@@ -60,7 +60,7 @@ type service struct {
 }
 
 func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
-	to, err := pca.GetIkCert(in.EkCert, in.IkPub, in.IkName)
+	to, err := pca.GetIkCert(in.GetEkCert(), in.GetIkPub(), in.GetIkName())
 	if err != nil {
 		return &CreateIKCertReply{}, errors.New("failed to get ikCert")
 	}
@@ -125,7 +125,7 @@ func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequ
 	s.cm.Lock()
 	defer s.cm.Unlock()
 
-	c := s.cm.GetCache(in.ClientId)
+	c := s.cm.GetCache(in.GetClientId())
 	if c != nil {
 		log.Printf("delete %d", cid)
 		s.cm.RemoveCache(cid)
@@ -197,13 +197,13 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 		var mi *entity.Manifest
 		var err error
 
-		switch strings.ToLower(om.Type) {
+		switch strings.ToLower(om.GetType()) {
 		case "bios":
-			mi, err = unmarshalBIOSManifest(om.Item)
+			mi, err = unmarshalBIOSManifest(om.GetItem())
 		case "ima":
-			mi, err = unmarshalIMAManifest(om.Item)
+			mi, err = unmarshalIMAManifest(om.GetItem())
 		default:
-			err = fmt.Errorf("unsupported manifest type: %s", om.Type)
+			err = fmt.Errorf("unsupported manifest type: %s", om.GetType())
 		}
 		if err != nil {
 			return &SendReportReply{Result: false}, err
@@ -211,7 +211,7 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 
 		// if type has existed
 		for _, tm := range tms {
-			if om.Type == tm.Type {
+			if om.GetType() == tm.Type {
 				handled = true
 				tm.Items = append(tm.Items, mi.Items...)
 				break
@@ -226,7 +226,7 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 			AlgName: report.GetPcrInfo().GetAlgorithm(),
 			Values:  tpvs,
 			Quote: entity.PcrQuote{
-				Quoted: report.GetPcrInfo().GetPcrQuote().Quoted,
+				Quoted: report.GetPcrInfo().GetPcrQuote().GetQuoted(),
 			},
 		},
 		Manifest: tms,

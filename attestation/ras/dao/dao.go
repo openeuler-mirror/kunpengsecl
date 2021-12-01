@@ -16,5 +16,6 @@ type DAO interface {
 	SelectReportsById(clientId int64) ([]*entity.Report, error)
 	SelectLatestReportById(clientId int64) (*entity.Report, error)
 	SelectBaseValueById(clientId int64) (*entity.MeasurementInfo, error)
+	SelectClientById(clientId int64) (*entity.RegisterClient, error)
 	Destroy()
 }
