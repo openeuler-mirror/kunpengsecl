@@ -239,15 +239,15 @@ func (tpm *TPM) EraseEKCert() {
 //      0x01C0001A      ECC SM2_P256 EK Certificate (H-5)
 //      0x01C0001C      RSA 3072 EK Certificate (H-6)
 //      0x01C0001E      RSA 4096 EK Certificate (H-7)
-func (tpm *TPM) WriteEKCert(ekDer []byte) error {
+func (tpm *TPM) WriteEKCert(ekCert []byte) error {
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
 	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, ekIndex,
-		emptyPassword, emptyPassword, nil, attr, uint16(len(ekDer)))
+		emptyPassword, emptyPassword, nil, attr, uint16(len(ekCert)))
 	if err != nil {
 		log.Printf("define NV space failed, error: %v", err)
 		return err
 	}
-	l := uint16(len(ekDer))
+	l := uint16(len(ekCert))
 	offset := uint16(0)
 	end := uint16(0)
 	for l > 0 {
@@ -258,7 +258,7 @@ func (tpm *TPM) WriteEKCert(ekDer []byte) error {
 			end = offset + blockSize
 			l -= blockSize
 		}
-		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, emptyPassword, ekDer[offset:end], offset)
+		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, emptyPassword, ekCert[offset:end], offset)
 		if err != nil {
 			log.Printf("write NV failed, error: %v", err)
 			return err
@@ -268,7 +268,7 @@ func (tpm *TPM) WriteEKCert(ekDer []byte) error {
 	return nil
 }
 
-// ReadEKCert reads the EK certificate(DER) from tpm NVRAM.
+// ReadEKCert reads the EK certificate from tpm NVRAM.
 func (tpm *TPM) ReadEKCert() ([]byte, error) {
 	ekDer, err := tpm2.NVReadEx(tpm.dev, ekIndex, tpm2.HandleOwner, emptyPassword, 0)
 	if err != nil {
@@ -279,7 +279,9 @@ func (tpm *TPM) ReadEKCert() ([]byte, error) {
 	return ekDer, nil
 }
 
-// GetEKCert invoke ReadEKCert return with PEM format.
+// GetEKCert invoke ReadEKCert to get ekCertDer and convert it to PEM format.
+// Note: Ensure that the read certificate is in der format,
+// otherwise an error will be reported when calling this function.
 func (tpm *TPM) GetEKCert() ([]byte, error) {
 	// Read all of the ekDer with NVReadEx
 	ekDer, err := tpm.ReadEKCert()
