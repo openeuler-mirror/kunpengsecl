@@ -168,7 +168,29 @@ func (s *RasServer) GetServer(ctx echo.Context) error {
 // put a list of servers into given status
 // (PUT /server)
 func (s *RasServer) PutServer(ctx echo.Context) error {
-
+	var serverBody PutServerJSONBody
+	err := ctx.Bind(&serverBody)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, nil)
+	}
+	cids := *serverBody.Clientids
+	if *serverBody.Registered {
+		for i := range cids {
+			regClient, err := trustmgr.GetRegisterClientById(cids[i])
+			if err != nil {
+				return ctx.JSON(http.StatusNotFound, nil)
+			}
+			regClient.IsDeleted = false
+		}
+	} else {
+		for i := range cids {
+			regClient, err := trustmgr.GetRegisterClientById(cids[i])
+			if err != nil {
+				return ctx.JSON(http.StatusNotFound, nil)
+			}
+			regClient.IsDeleted = true
+		}
+	}
 	return nil
 }
 
