@@ -129,7 +129,7 @@ func TestRegisterClient(t *testing.T) {
 	}
 	defer psd.Destroy()
 
-	ic := []byte("test ic3")
+	ic := createRandomCert()
 	_, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
 		t.FailNow()
@@ -265,6 +265,28 @@ func TestSelectReportById(t *testing.T) {
 			t.Fatalf("get latest report failed")
 		}
 	}
+}
+
+func TestSelectClientById(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer psd.Destroy()
+
+	ic := createRandomCert()
+	cid, err := psd.RegisterClient(ci, ic)
+	if err != nil {
+		t.FailNow()
+	}
+	rc, err := psd.SelectClientById(cid)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	assert.Equal(t, string(ic), rc.AkCertificate)
 }
 
 func createRandomCert() []byte {

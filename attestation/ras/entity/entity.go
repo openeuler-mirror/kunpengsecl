@@ -22,6 +22,16 @@ type Report struct {
 	ReportTime    time.Time
 }
 
+type RegisterClient struct {
+	ClientID      int64
+	ClientInfoVer int
+	RegisterTime  time.Time
+	AkCertificate string
+	IsOnline      bool
+	IsDeleted     bool
+	BaseValueVer  int
+}
+
 /*
 	TransformReport is used when receiving data from rac and after validate process,
 	it will be converted to Report

@@ -254,12 +254,12 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic []byt
 		return 0, errors.New("client is registered")
 	}
 
-	// no client in register_client table, register a new one in it.
+	// no client in register_client table, register a new one in it. set base_value_ver = 0
 	clientInfoVer = 1
 	deleted = false
 	_, err = tx.Exec(context.Background(),
-		"INSERT INTO register_client(client_info_ver, register_time, ak_certificate, online, deleted) VALUES ($1, $2, $3, $4, $5)",
-		clientInfoVer, time.Now(), ic, true, deleted)
+		"INSERT INTO register_client(client_info_ver, register_time, ak_certificate, online, deleted, base_value_ver) VALUES ($1, $2, $3, $4, $5, $6)",
+		clientInfoVer, time.Now(), ic, true, deleted, 0)
 	if err != nil {
 		tx.Rollback(context.Background())
 		return 0, err
@@ -496,6 +496,18 @@ func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.Measureme
 		Manifest: meas,
 	}
 	return result, nil
+}
+
+func (psd *PostgreSqlDAO) SelectClientById(clientId int64) (*entity.RegisterClient, error) {
+	result := entity.RegisterClient{}
+
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT * FROM register_client WHERE id=$1", clientId).Scan(&result.ClientID, &result.ClientInfoVer, &result.RegisterTime,
+		&result.AkCertificate, &result.IsOnline, &result.IsDeleted, &result.BaseValueVer)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 // CreatePostgreSQLDAO creates a postgre database connection to read and store data.
