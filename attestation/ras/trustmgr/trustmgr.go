@@ -137,6 +137,14 @@ func GetAllRegisteredClientID() ([]int64, error) {
 	return psd.SelectAllRegisteredClientIds()
 }
 
+func GetAllClientID() ([]int64, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return nil, err
+	}
+	return psd.SelectAllClientIds()
+}
+
 func GetBaseValueById(clientId int64) (*entity.MeasurementInfo, error) {
 	psd, err := getPostgreSQLDAO()
 	if err != nil {
@@ -151,4 +159,12 @@ func GetRegisterClientById(clientId int64) (*entity.RegisterClient, error) {
 		return nil, err
 	}
 	return psd.SelectClientById(clientId)
+}
+
+func SaveBaseValueById(clientId int64, meaInfo *entity.MeasurementInfo) error {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	return psd.SaveBaseValue(clientId, meaInfo)
 }
