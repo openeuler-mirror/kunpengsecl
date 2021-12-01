@@ -583,3 +583,6 @@ func (psd *PostgreSqlDAO) Destroy() {
 
 	psd.conn.Close(context.Background())
 }
+func (psd *PostgreSqlDAO) SelectInfobyId(clientId int64, infoNames []string) (map[string]string, error) {
+	return map[string]string{}, nil
+}

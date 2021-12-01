@@ -168,3 +168,13 @@ func SaveBaseValueById(clientId int64, meaInfo *entity.MeasurementInfo) error {
 	}
 	return psd.SaveBaseValue(clientId, meaInfo)
 }
+
+//return the name & type & time stamp of the id
+
+func GetInfoByID(clientId int64, infoNames []string) (map[string]string, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return psd.SelectInfobyId(clientId, infoNames)
+}

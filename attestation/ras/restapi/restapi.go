@@ -158,11 +158,34 @@ func (s *RasServer) GetReportServerId(ctx echo.Context, serverId int64) error {
 	return ctx.JSON(http.StatusOK, *report)
 }
 
+type ServerBriefInfo struct {
+	clientId   int64
+	clientName string
+	ip         string
+	registered bool
+}
+
 // Return a list of briefing info for all servers
 // (GET /server)
 func (s *RasServer) GetServer(ctx echo.Context) error {
+	//get server briefing info from sql
+	id, err := trustmgr.GetAllClientID()
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
+	briefinfo := []ServerBriefInfo{}
+	for _, v := range id {
+		var info []string
+		in, err := trustmgr.GetInfoByID(v, info)
+		if err != nil {
+			return ctx.JSON(http.StatusNoContent, err)
+		}
+		fmt.Println(in)
+		briefinfo = append(briefinfo, ServerBriefInfo{})
 
-	return ctx.JSON(http.StatusOK, nil)
+	}
+
+	return ctx.JSON(http.StatusOK, briefinfo)
 }
 
 // put a list of servers into given status
