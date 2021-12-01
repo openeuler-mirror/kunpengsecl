@@ -13,6 +13,7 @@ type DAO interface {
 	UnRegisterClient(clientID int64) error
 	SaveBaseValue(clientID int64, meaInfo *entity.MeasurementInfo) error
 	SelectAllRegisteredClientIds() ([]int64, error)
+	SelectAllClientIds() ([]int64, error)
 	SelectReportsById(clientId int64) ([]*entity.Report, error)
 	SelectLatestReportById(clientId int64) (*entity.Report, error)
 	SelectBaseValueById(clientId int64) (*entity.MeasurementInfo, error)

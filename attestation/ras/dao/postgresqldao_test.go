@@ -289,6 +289,39 @@ func TestSelectClientById(t *testing.T) {
 	assert.Equal(t, string(ic), rc.AkCertificate)
 }
 
+func TestSelectClientIds(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer psd.Destroy()
+
+	cids := []int64{}
+	const registerClientCount = 1
+	for i := 0; i <= registerClientCount; i++ {
+		ic := createRandomCert()
+		cid, err := psd.RegisterClient(ci, ic)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		cids = append(cids, cid)
+	}
+	psd.UnRegisterClient(cids[0])
+	allCids, err := psd.SelectAllClientIds()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	registeredCids, err := psd.SelectAllRegisteredClientIds()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	assert.Contains(t, allCids, cids[0])
+	assert.NotContains(t, registeredCids, cids[0])
+}
+
 func createRandomCert() []byte {
 	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	strBytes := []byte(str)

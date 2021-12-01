@@ -366,6 +366,24 @@ func (psd *PostgreSqlDAO) SelectAllRegisteredClientIds() ([]int64, error) {
 	return clientIds, nil
 }
 
+func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
+	var clientIds []int64
+	rows, err := psd.conn.Query(context.Background(), "SELECT id FROM register_client")
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var ci int64
+		err = rows.Scan(&ci)
+		if err != nil {
+			return nil, err
+		}
+		clientIds = append(clientIds, ci)
+	}
+	rows.Close()
+	return clientIds, nil
+}
+
 // SelectReportById find report by client id
 func (psd *PostgreSqlDAO) SelectReportsById(clientId int64) ([]*entity.Report, error) {
 	var reports []*entity.Report
