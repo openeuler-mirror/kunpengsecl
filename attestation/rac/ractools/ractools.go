@@ -18,8 +18,6 @@ package ractools
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/binary"
@@ -29,12 +27,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/big"
 	"net"
 	"os/exec"
 	"strings"
-	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
@@ -96,6 +93,7 @@ var (
 )
 
 // OpenTPM creates a connection to either a simulator or a physical TPM device, returns a TPM object variable
+// If useHW is true, use physical tpm, otherwise use simulator
 func OpenTPM(useHW bool) (*TPM, error) {
 	var err error
 	if tpm != nil {
@@ -103,12 +101,13 @@ func OpenTPM(useHW bool) (*TPM, error) {
 	}
 	tpm = &TPM{
 		config: TPMConfig{
-			isPhysicalTpm: useHW,
-			IMALogPath:    imaLogPath,
-			BIOSLogPath:   biosLogPath,
-			ReportHashAlg: "",
-			EK:            &EndorsementKey{},
-			IK:            &AttestationKey{},
+			IstestMode:      !useHW,
+			IMALogPath:      imaLogPath,
+			BIOSLogPath:     biosLogPath,
+			ReportHashAlg:   "",
+			EK:              &EndorsementKey{},
+			IK:              &AttestationKey{},
+			IsUseTestEKCert: false,
 		},
 		dev: nil,
 	}
@@ -146,7 +145,10 @@ func (tpm *TPM) Close() {
 
 // Prepare method doing preparation steps for all the steps necessary for remote attesation,
 // including prepare EKCert and create IK, according to the requirements given by TPMConfig
+// TODO:fix use of config
 func (tpm *TPM) Prepare(config *TPMConfig) error {
+	tpm.config.IsUseTestEKCert = config.IsUseTestEKCert
+	tpm.config.Server = config.Server
 	// create ek
 	ekPassword := emptyPassword
 	ekSel := pcrSelectionNil
@@ -158,50 +160,28 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 	tpm.config.EK.Handle, tpm.config.EK.Pub = uint32(ekHandle), ekPub
 	// try to get ekCert form nv, if failed ,create ekCert and write it to nv
 	_, err = tpm.ReadEKCert()
+	var ekCert []byte
 	if err != nil {
-		ekDer, err := tpm.generateEKCert()
-		if err != nil {
-			log.Printf("GenerateEKCert failed, error : %v \n", err)
-			return err
+		if tpm.config.IsUseTestEKCert {
+			result, _ := pem.Decode([]byte(ekPemTest))
+			ekCert = result.Bytes
+		} else {
+			req := clientapi.GenerateEKCertRequest{
+				EkPub: tpm.GetEKPub(),
+			}
+			bk, err2 := clientapi.DoGenerateEKCert(tpm.config.Server, &req)
+			if err2 != nil {
+				log.Printf("GenerateEKCert failed, error : %v \n", err2)
+				return err2
+			}
+			ekCert = bk.EkCert
 		}
-		tpm.WriteEKCert(ekDer)
+		tpm.WriteEKCert(ekCert)
 	}
 	// Create and save IK
 	err = tpm.createIK(ekHandle, ekPassword, emptyPassword, pcrSelectionNil)
 
 	return err
-}
-
-// Generate an ek certificate based on the ek public key, and return the .der format of the certificate
-// The certificate is signed by PCA.
-func (tpm *TPM) generateEKCert() ([]byte, error) {
-	template := x509.Certificate{
-		SerialNumber:   big.NewInt(1),
-		NotBefore:      time.Now().Add(-10 * time.Second),
-		NotAfter:       time.Now().AddDate(10, 0, 0),
-		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
-		IsCA:           false,
-		MaxPathLenZero: true,
-		IPAddresses:    []net.IP{net.ParseIP("127.0.0.1")},
-	}
-	pcaCert, err := pca.DecodeCert(pca.CertPEM)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to decode cert while generate EKCert")
-	}
-	pcaPriv, err := pca.DecodePrivkey(pca.PrivPEM)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to decode key while generate EKCert")
-	}
-
-	ekCertDer, err := x509.CreateCertificate(rand.Reader, &template, pcaCert, (tpm.config.EK.Pub).(*rsa.PublicKey), pcaPriv)
-	if err != nil {
-		return nil, errors.New("Failed to create certificate: " + err.Error())
-	}
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate EKCert")
-	}
-	return ekCertDer, err
 }
 
 // EraseEKCert erases the EK certificate from NVRAM.
@@ -296,20 +276,15 @@ func (tpm *TPM) GetEKCert() ([]byte, error) {
 	return ekPem, nil
 }
 
-//暂时放这里，可能没有用后续再调整
-//GetEkPub return EKPub in pem format
-func (tpm *TPM) GetEKPub() string {
+//GetEkPub return EKPub in der format
+func (tpm *TPM) GetEKPub() []byte {
 	derPub, err := x509.MarshalPKIXPublicKey(tpm.config.EK.Pub)
 	if err != nil {
-		return ""
-	}
-	block := &pem.Block{
-		Type:    "PUBLIC KEY",
-		Headers: map[string]string{},
-		Bytes:   derPub,
+		log.Printf("GetEKPub failed, error: %v\n", err)
+		return nil
 	}
 
-	return (string)(pem.EncodeToMemory(block))
+	return derPub
 }
 
 // GetIKPub method return the IK pubkey in PEM format
@@ -530,7 +505,7 @@ func (tpm *TPM) createTrustReport(pcrSelection tpm2.PCRSelection, tRepIn *TrustR
 
 //GetTrustReport method take a nonce input, generate and return the current trust report
 func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, error) {
-	clientInfo, err := GetClientInfo(tpm.config.isPhysicalTpm)
+	clientInfo, err := GetClientInfo(tpm.config.IstestMode)
 	if err != nil {
 		log.Printf("GetClientInfo failed, error : %v \n", err)
 	}

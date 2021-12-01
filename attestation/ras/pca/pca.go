@@ -396,3 +396,35 @@ func EncryptIkcert(ekPubKey crypto.PublicKey, IkCert []byte, IkName []byte) (*IK
 
 	return &ikCertChallenge, nil
 }
+
+// Generate an ek certificate based on the ek public key, and return the .der format of the certificate
+// The certificate is signed by PCA.
+func GenerateEKCert(ekPub *rsa.PublicKey) ([]byte, error) {
+	template := x509.Certificate{
+		SerialNumber:   big.NewInt(1),
+		NotBefore:      time.Now().Add(-10 * time.Second),
+		NotAfter:       time.Now().AddDate(10, 0, 0),
+		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		IsCA:           false,
+		MaxPathLenZero: true,
+		IPAddresses:    []net.IP{net.ParseIP(caIP)},
+	}
+	pcaCert, err := DecodeCert(CertPEM)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to decode cert while generate EKCert")
+	}
+	pcaPriv, err := DecodePrivkey(PrivPEM)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to decode key while generate EKCert")
+	}
+
+	ekCertDer, err := x509.CreateCertificate(rand.Reader, &template, pcaCert, ekPub, pcaPriv)
+	if err != nil {
+		return nil, errors.New("Failed to create certificate: " + err.Error())
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate EKCert")
+	}
+	return ekCertDer, err
+}
