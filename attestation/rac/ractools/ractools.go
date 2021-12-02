@@ -40,6 +40,36 @@ import (
 )
 
 const (
+	//   on TCG EK Credential Profile For TPM Family 2.0
+	//   Level 0 Version 2.4 Revision 3
+	//   https://trustedcomputinggroup.org/resource/tcg-ek-credential-profile-for-tpm-family-2-0/
+	//      0x01C00002      RSA 2048 EK Certificate
+	//      0x01C00003      RSA 2048 EK Nonce
+	//      0x01C00004      RSA 2048 EK Template
+	//      0x01C0000A      ECC NIST P256 EK Certificate
+	//      0x01C0000B      ECC NIST P256 EK Nonce
+	//      0x01C0000C      ECC NIST P256 EK Template
+	//      0x01C00012      RSA 2048 EK Certificate (H-1)
+	//      0x01C00014      ECC NIST P256 EK Certificate (H-2)
+	//      0x01C00016      ECC NIST P384 EK Certificate (H-3)
+	//      0x01C00018      ECC NIST P512 EK Certificate (H-4)
+	//      0x01C0001A      ECC SM2_P256 EK Certificate (H-5)
+	//      0x01C0001C      RSA 3072 EK Certificate (H-6)
+	//      0x01C0001E      RSA 4096 EK Certificate (H-7)
+	IndexRsa2048EKCert     uint32 = 0x01C00002
+	IndexRsa2048EKNonce    uint32 = 0x01C00003
+	IndexRsa2048EKTemplate uint32 = 0x01C00004
+	IndexECCP256EKCert     uint32 = 0x01C0000A
+	IndexECCP256EKNonce    uint32 = 0x01C0000B
+	IndexECCP256EKTemplate uint32 = 0x01C0000C
+	IndexRsa2048EKCertH1   uint32 = 0x01C00012
+	IndexECCP256EKCertH2   uint32 = 0x01C00014
+	IndexECCP384EKCertH3   uint32 = 0x01C00016
+	IndexECCP512EKCertH4   uint32 = 0x01C00018
+	IndexSM2P256EKCertH5   uint32 = 0x01C0001A
+	IndexRsa3072EKCertH6   uint32 = 0x01C0001C
+	IndexRsa4096EKCertH7   uint32 = 0x01C0001E
+
 	imaLogPath   = "/sys/kernel/security/ima/ascii_runtime_measurements"
 	biosLogPath  = "/sys/kernel/security/tpm0/binary_bios_measurements"
 	tpmDevPath   = "/dev/tpm0"
@@ -159,7 +189,7 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 	}
 	tpm.config.EK.Handle, tpm.config.EK.Pub = uint32(ekHandle), ekPub
 	// try to get ekCert form nv, if failed ,create ekCert and write it to nv
-	_, err = tpm.ReadEKCert()
+	_, err = tpm.ReadEKCert(IndexRsa2048EKCert)
 	var ekCert []byte
 	if err != nil {
 		if tpm.config.IsUseTestEKCert {
@@ -186,42 +216,14 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 
 // EraseEKCert erases the EK certificate from NVRAM.
 func (tpm *TPM) EraseEKCert() {
-	if err := tpm2.NVUndefineSpace(tpm.dev, emptyPassword, tpm2.HandleOwner, ekIndex); err != nil {
-		switch err := err.(type) {
-		case nil:
-			fmt.Printf("1\n")
-		case tpm2.Error:
-			fmt.Printf("2. %v\n", err)
-			if err.Code != tpm2.RCNVLocked {
-				fmt.Printf("3. %v\n", err)
-			}
-		default:
-			fmt.Printf("4. %v\n", err)
-		}
-		log.Printf("erase EK Certificate at index 0x%x failed, error: %v\n", ekIndex, err)
-	}
+	tpm2.NVUndefineSpace(tpm.dev, emptyPassword, tpm2.HandleOwner,
+		tpmutil.Handle(IndexRsa2048EKCert))
 }
 
 // WriteEKCert writes the EK certificate(DER) into tpm NVRAM.
-//   on TCG EK Credential Profile For TPM Family 2.0
-//   Level 0 Version 2.4 Revision 3
-//   https://trustedcomputinggroup.org/resource/tcg-ek-credential-profile-for-tpm-family-2-0/
-//      0x01C00002      RSA 2048 EK Certificate
-//      0x01C00003      RSA 2048 EK Nonce
-//      0x01C00004      RSA 2048 EK Template
-//      0x01C0000A      ECC NIST P256 EK Certificate
-//      0x01C0000B      ECC NIST P256 EK Nonce
-//      0x01C0000C      ECC NIST P256 EK Template
-//      0x01C00012      RSA 2048 EK Certificate (H-1)
-//      0x01C00014      ECC NIST P256 EK Certificate (H-2)
-//      0x01C00016      ECC NIST P384 EK Certificate (H-3)
-//      0x01C00018      ECC NIST P512 EK Certificate (H-4)
-//      0x01C0001A      ECC SM2_P256 EK Certificate (H-5)
-//      0x01C0001C      RSA 3072 EK Certificate (H-6)
-//      0x01C0001E      RSA 4096 EK Certificate (H-7)
 func (tpm *TPM) WriteEKCert(ekCert []byte) error {
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
-	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, ekIndex,
+	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(IndexRsa2048EKCert),
 		emptyPassword, emptyPassword, nil, attr, uint16(len(ekCert)))
 	if err != nil {
 		log.Printf("define NV space failed, error: %v", err)
@@ -238,7 +240,8 @@ func (tpm *TPM) WriteEKCert(ekCert []byte) error {
 			end = offset + blockSize
 			l -= blockSize
 		}
-		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, ekIndex, emptyPassword, ekCert[offset:end], offset)
+		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(IndexRsa2048EKCert),
+			emptyPassword, ekCert[offset:end], offset)
 		if err != nil {
 			log.Printf("write NV failed, error: %v", err)
 			return err
@@ -249,13 +252,11 @@ func (tpm *TPM) WriteEKCert(ekCert []byte) error {
 }
 
 // ReadEKCert reads the EK certificate from tpm NVRAM.
-func (tpm *TPM) ReadEKCert() ([]byte, error) {
-	ekDer, err := tpm2.NVReadEx(tpm.dev, ekIndex, tpm2.HandleOwner, emptyPassword, 0)
+func (tpm *TPM) ReadEKCert(idx uint32) ([]byte, error) {
+	ekDer, err := tpm2.NVReadEx(tpm.dev, tpmutil.Handle(idx), tpm2.HandleOwner, emptyPassword, 0)
 	if err != nil {
-		log.Printf("read NV failed, error: %v", err)
 		return nil, err
 	}
-
 	return ekDer, nil
 }
 
@@ -264,7 +265,7 @@ func (tpm *TPM) ReadEKCert() ([]byte, error) {
 // otherwise an error will be reported when calling this function.
 func (tpm *TPM) GetEKCert() ([]byte, error) {
 	// Read all of the ekDer with NVReadEx
-	ekDer, err := tpm.ReadEKCert()
+	ekDer, err := tpm.ReadEKCert(IndexRsa2048EKCert)
 	if err != nil {
 		log.Printf("read NV failed, error: %v\n", err)
 		return nil, err

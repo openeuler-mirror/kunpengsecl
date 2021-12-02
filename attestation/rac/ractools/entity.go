@@ -21,16 +21,14 @@ import (
 	"io"
 
 	"github.com/google/go-tpm/tpm2"
-	"github.com/google/go-tpm/tpmutil"
 )
 
 type Algorithm uint16
 type PcrValue string
 
 const (
-	emptyPassword                = ""
-	ekIndex       tpmutil.Handle = 0x01C00002
-	ekPemTest                    = `
+	emptyPassword = ""
+	ekPemTest     = `
 -----BEGIN CERTIFICATE-----
 MIIEUjCCAjqgAwIBAgIUTPeuiawsSuv0Gs0oAuf/vbRzzYIwDQYJKoZIhvcNAQEL
 BQAwVTELMAkGA1UEBhMCREUxDzANBgNVBAgMBkJheWVybjERMA8GA1UEBwwITXVl
