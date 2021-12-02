@@ -19,5 +19,7 @@ type DAO interface {
 	SelectBaseValueById(clientId int64) (*entity.MeasurementInfo, error)
 	SelectClientById(clientId int64) (*entity.RegisterClient, error)
 	Destroy()
-	SelectInfobyId(clientId int64, infoNames []string) (map[string]string, error)
+	SelectAllClientInfobyId(clientId int64) (map[string]string, error)
+	SelectClientInfobyId(clientId int64, infoNames []string) (map[string]string, error)
+	UpdateRegisterStatusById(clientId int64, isDeleted bool) error
 }

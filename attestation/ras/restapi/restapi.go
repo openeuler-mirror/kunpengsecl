@@ -179,7 +179,6 @@ func (s *RasServer) GetServer(ctx echo.Context) error {
 			return ctx.JSON(http.StatusNoContent, err)
 		}
 		briefinfo = append(briefinfo, ServerBriefInfo{clientId: rc.ClientID, registered: rc.IsDeleted})
-
 	}
 
 	return ctx.JSON(http.StatusOK, briefinfo)
