@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RasClient interface {
 	CreateIKCert(ctx context.Context, in *CreateIKCertRequest, opts ...grpc.CallOption) (*CreateIKCertReply, error)
+	GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest, opts ...grpc.CallOption) (*GenerateEKCertReply, error)
 	RegisterClient(ctx context.Context, in *RegisterClientRequest, opts ...grpc.CallOption) (*RegisterClientReply, error)
 	UnregisterClient(ctx context.Context, in *UnregisterClientRequest, opts ...grpc.CallOption) (*UnregisterClientReply, error)
 	SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest, opts ...grpc.CallOption) (*SendHeartbeatReply, error)
@@ -36,6 +37,15 @@ func NewRasClient(cc grpc.ClientConnInterface) RasClient {
 func (c *rasClient) CreateIKCert(ctx context.Context, in *CreateIKCertRequest, opts ...grpc.CallOption) (*CreateIKCertReply, error) {
 	out := new(CreateIKCertReply)
 	err := c.cc.Invoke(ctx, "/Ras/CreateIKCert", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rasClient) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest, opts ...grpc.CallOption) (*GenerateEKCertReply, error) {
+	out := new(GenerateEKCertReply)
+	err := c.cc.Invoke(ctx, "/Ras/GenerateEKCert", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +93,7 @@ func (c *rasClient) SendReport(ctx context.Context, in *SendReportRequest, opts 
 // for forward compatibility
 type RasServer interface {
 	CreateIKCert(context.Context, *CreateIKCertRequest) (*CreateIKCertReply, error)
+	GenerateEKCert(context.Context, *GenerateEKCertRequest) (*GenerateEKCertReply, error)
 	RegisterClient(context.Context, *RegisterClientRequest) (*RegisterClientReply, error)
 	UnregisterClient(context.Context, *UnregisterClientRequest) (*UnregisterClientReply, error)
 	SendHeartbeat(context.Context, *SendHeartbeatRequest) (*SendHeartbeatReply, error)
@@ -96,6 +107,9 @@ type UnimplementedRasServer struct {
 
 func (UnimplementedRasServer) CreateIKCert(context.Context, *CreateIKCertRequest) (*CreateIKCertReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateIKCert not implemented")
+}
+func (UnimplementedRasServer) GenerateEKCert(context.Context, *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateEKCert not implemented")
 }
 func (UnimplementedRasServer) RegisterClient(context.Context, *RegisterClientRequest) (*RegisterClientReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterClient not implemented")
@@ -136,6 +150,24 @@ func _Ras_CreateIKCert_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RasServer).CreateIKCert(ctx, req.(*CreateIKCertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Ras_GenerateEKCert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateEKCertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RasServer).GenerateEKCert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Ras/GenerateEKCert",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RasServer).GenerateEKCert(ctx, req.(*GenerateEKCertRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -222,6 +254,10 @@ var Ras_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateIKCert",
 			Handler:    _Ras_CreateIKCert_Handler,
+		},
+		{
+			MethodName: "GenerateEKCert",
+			Handler:    _Ras_GenerateEKCert_Handler,
 		},
 		{
 			MethodName: "RegisterClient",

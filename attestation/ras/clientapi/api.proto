@@ -4,6 +4,7 @@ option go_package = "gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi";
 
 service Ras {
   rpc CreateIKCert (CreateIKCertRequest) returns (CreateIKCertReply) {}
+  rpc GenerateEKCert(GenerateEKCertRequest) returns (GenerateEKCertReply) {}
   rpc RegisterClient (RegisterClientRequest) returns (RegisterClientReply) {}
   rpc UnregisterClient (UnregisterClientRequest) returns (UnregisterClientReply) {}
   rpc SendHeartbeat (SendHeartbeatRequest) returns (SendHeartbeatReply) {}
