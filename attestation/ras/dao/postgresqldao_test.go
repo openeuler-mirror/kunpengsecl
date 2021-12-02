@@ -303,9 +303,9 @@ func TestSelectClientIds(t *testing.T) {
 	const registerClientCount = 1
 	for i := 0; i <= registerClientCount; i++ {
 		ic := createRandomCert()
-		cid, err := psd.RegisterClient(ci, ic)
-		if err != nil {
-			t.Fatalf("%v", err)
+		cid, err2 := psd.RegisterClient(ci, ic)
+		if err2 != nil {
+			t.Fatalf("%v", err2)
 		}
 		cids = append(cids, cid)
 	}
@@ -320,6 +320,85 @@ func TestSelectClientIds(t *testing.T) {
 	}
 	assert.Contains(t, allCids, cids[0])
 	assert.NotContains(t, registeredCids, cids[0])
+}
+
+func TestSelectClientInfobyId(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer psd.Destroy()
+
+	ic := createRandomCert()
+	cid, err := psd.RegisterClient(&ci1, ic)
+	if err != nil {
+		t.FailNow()
+	}
+	result, err := psd.SelectAllClientInfobyId(cid)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	for k, v := range result {
+		assert.Equal(t, v, ci1.Info[k])
+	}
+	keys := make([]string, 0, len(ci1.Info))
+	for k := range ci1.Info {
+		keys = append(keys, k)
+	}
+	result2, err := psd.SelectClientInfobyId(cid, keys[:len(keys)-1])
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	for k, v := range result2 {
+		assert.Equal(t, v, ci1.Info[k])
+	}
+
+}
+
+func TestUpdateRegisterStatusById(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer psd.Destroy()
+
+	ic := createRandomCert()
+	cid, err := psd.RegisterClient(ci, ic)
+	if err != nil {
+		t.FailNow()
+	}
+
+	c1, err := psd.SelectClientById(cid)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	assert.False(t, c1.IsDeleted)
+
+	err = psd.UpdateRegisterStatusById(cid, true)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	c2, err := psd.SelectClientById(cid)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	assert.True(t, c2.IsDeleted)
+
+	err = psd.UpdateRegisterStatusById(cid, false)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	c3, err := psd.SelectClientById(cid)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	assert.False(t, c3.IsDeleted)
 }
 
 func createRandomCert() []byte {

@@ -170,8 +170,27 @@ func SaveBaseValueById(clientId int64, meaInfo *entity.MeasurementInfo) error {
 }
 
 //return the name & type & time stamp of the id
-func GetInfoByID(clientId int64, infoNames []string) (map[string]string, error) {
 
-	return map[string]string{}, nil
+func GetAllClientInfoByID(clientId int64) (map[string]string, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return psd.SelectAllClientInfobyId(clientId)
+}
 
+func UpdateRegisterStatusById(clientId int64, isDeleted bool) error {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	return psd.UpdateRegisterStatusById(clientId, isDeleted)
+}
+
+func GetClientInfoByID(clientId int64, infoNames []string) (map[string]string, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return psd.SelectClientInfobyId(clientId, infoNames)
 }

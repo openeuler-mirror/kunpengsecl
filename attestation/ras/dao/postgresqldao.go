@@ -21,10 +21,14 @@ type PostgreSqlDAO struct {
 	conn *pgx.Conn
 }
 
+const (
+	sqlSelectClientInfoVerById = "SELECT client_info_ver FROM register_client WHERE id=$1"
+)
+
 // If there are name-value pairs in the clientinfo map, save them with a new clientInfoVer.
 func (psd *PostgreSqlDAO) updateClientInfo(tx pgx.Tx, ctx context.Context, report *entity.Report) (clientInfoVer int, err error) {
 	err = tx.QueryRow(ctx,
-		"SELECT client_info_ver FROM register_client WHERE id=$1", report.ClientID).Scan(&clientInfoVer)
+		sqlSelectClientInfoVerById, report.ClientID).Scan(&clientInfoVer)
 	if err != nil {
 		return -1, err
 	}
@@ -583,6 +587,56 @@ func (psd *PostgreSqlDAO) Destroy() {
 
 	psd.conn.Close(context.Background())
 }
-func (psd *PostgreSqlDAO) SelectInfobyId(clientId int64, infoNames []string) (map[string]string, error) {
-	return map[string]string{}, nil
+
+func (psd *PostgreSqlDAO) SelectAllClientInfobyId(clientId int64) (map[string]string, error) {
+	psd.Lock()
+	defer psd.Unlock()
+	result := entity.ClientInfo{Info: map[string]string{}}
+	var clientInfoVer int
+	err := psd.conn.QueryRow(context.Background(),
+		sqlSelectClientInfoVerById, clientId).
+		Scan(&clientInfoVer)
+	if err != nil {
+		return nil, err
+	}
+	err = psd.getClientInfo(context.Background(), &result, clientId, clientInfoVer)
+	if err != nil {
+		return nil, err
+	}
+	return result.Info, nil
+}
+
+func (psd *PostgreSqlDAO) SelectClientInfobyId(clientId int64, infoNames []string) (map[string]string, error) {
+	psd.Lock()
+	defer psd.Unlock()
+	var clientInfoVer int
+	err := psd.conn.QueryRow(context.Background(),
+		sqlSelectClientInfoVerById, clientId).
+		Scan(&clientInfoVer)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]string{}
+	for _, in := range infoNames {
+		var infoValue string
+		err := psd.conn.QueryRow(context.Background(),
+			"SELECT value FROM client_info WHERE client_id=$1 AND client_info_ver=$2 AND name=$3",
+			clientId, clientInfoVer, in).Scan(&infoValue)
+		if err != nil {
+			return nil, err
+		}
+		result[in] = infoValue
+	}
+	return result, nil
+}
+
+func (psd *PostgreSqlDAO) UpdateRegisterStatusById(clientId int64, isDeleted bool) error {
+	psd.Lock()
+	defer psd.Unlock()
+	_, err := psd.conn.Exec(context.Background(),
+		"UPDATE register_client SET deleted=$1 WHERE id=$2", isDeleted, clientId)
+	if err != nil {
+		return err
+	}
+	return nil
 }
