@@ -26,7 +26,7 @@ var (
 )
 
 func TestCreateTrustReport(t *testing.T) {
-	tpm, err := OpenTPM(false)
+	tpm, err := OpenTPM(testMode)
 	if err != nil {
 		t.Errorf("OpenTPM failed, err: %v", err)
 		return
@@ -44,7 +44,7 @@ func TestCreateTrustReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAk failed: %s", err)
 	}
-	got, err := tpm.createTrustReport(pcrSelection, &tRepIn)
+	got, err := tpm.createTrustReport(testMode, pcrSelection, &tRepIn)
 	if err != nil {
 		t.Fatalf("CreateTrustReport failed: %s", err)
 	}
@@ -73,7 +73,7 @@ func TestCreateTrustReport(t *testing.T) {
 }
 
 func TestNVRAM(t *testing.T) {
-	tpm, err := OpenTPM(false)
+	tpm, err := OpenTPM(testMode)
 	if err != nil {
 		t.Errorf("OpenTPM failed, err: %v", err)
 		return
