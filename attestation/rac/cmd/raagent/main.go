@@ -22,7 +22,7 @@ func main() {
 	testMode := cfg.GetTestMode()
 	server := cfg.GetServer()
 	cid := cfg.GetClientId()
-	tpm, err := ractools.OpenTPM(!testMode)
+	tpm, err := ractools.OpenTPM(testMode)
 	if err != nil {
 		log.Printf("OpenTPM failed, error: %s \n", err)
 		return
@@ -30,7 +30,7 @@ func main() {
 	defer tpm.Close()
 	//the input is not be used now
 	//TODO: add tpm config file
-	tpm.Prepare(&ractools.TPMConfig{})
+	tpm.Prepare(&ractools.TPMConfig{Server: server})
 
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
 	if cid < 0 {

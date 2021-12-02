@@ -59,6 +59,14 @@ message SendHeartbeatRequest {
   int64 clientId = 1;
 }
 
+message GenerateEKCertRequest {
+  bytes ekPub = 1;
+}
+
+message GenerateEKCertReply {
+  bytes ekCert = 1;
+}
+
 message SendHeartbeatReply {
   uint64 nextAction = 1;
   ActionParameters actionParameters = 2;

@@ -19,6 +19,8 @@ package clientapi
 import (
 	"bytes"
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -383,6 +385,30 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 	}
 	log.Printf("Client: invoke SendReport ok")
 	return bk, nil
+}
+
+// DoSendReport sends a trust report message to the ras server.
+func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
+	ras, err := makesock(addr)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+
+	ekPub, err := x509.ParsePKIXPublicKey(in.EkPub)
+	if err != nil {
+		return nil, errors.New("failed to parse ekPub : " + err.Error())
+	}
+
+	ekcert, err := pca.GenerateEKCert((ekPub).(*rsa.PublicKey))
+	if err != nil {
+		log.Printf("Client: invoke GenerateEKCert error %v", err)
+		return nil, err
+	}
+	log.Printf("Client: invoke GenerateEKCert ok")
+	return &GenerateEKCertReply{EkCert: ekcert}, nil
 }
 
 func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
