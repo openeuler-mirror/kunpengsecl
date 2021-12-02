@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -70,11 +69,13 @@ const (
 	IndexRsa3072EKCertH6   uint32 = 0x01C0001C
 	IndexRsa4096EKCertH7   uint32 = 0x01C0001E
 
-	imaLogPath   = "/sys/kernel/security/ima/ascii_runtime_measurements"
-	biosLogPath  = "/sys/kernel/security/tpm0/binary_bios_measurements"
-	tpmDevPath   = "/dev/tpm0"
-	blockSize    = 1024
-	constDIMBIOS = `# dmidecode 3.2
+	imaLogPath      = "/sys/kernel/security/ima/ascii_runtime_measurements"
+	biosLogPath     = "/sys/kernel/security/tpm0/binary_bios_measurements"
+	testImaLogPath  = "./ascii_runtime_measurements"
+	testBiosLogPath = "./binary_bios_measurements"
+	tpmDevPath      = "/dev/tpm0"
+	blockSize       = 1024
+	constDIMBIOS    = `# dmidecode 3.2
 Getting SMBIOS data from sysfs.
 SMBIOS 2.7 present.
 
@@ -123,7 +124,7 @@ var (
 )
 
 // OpenTPM creates a connection to either a simulator or a physical TPM device, returns a TPM object variable
-// If useHW is true, use physical tpm, otherwise use simulator
+// If useHW(use Hardware) is true, use physical tpm, otherwise use simulator
 func OpenTPM(useHW bool) (*TPM, error) {
 	var err error
 	if tpm != nil {
@@ -131,7 +132,7 @@ func OpenTPM(useHW bool) (*TPM, error) {
 	}
 	tpm = &TPM{
 		config: TPMConfig{
-			IstestMode:      !useHW,
+			useHW:           useHW,
 			IMALogPath:      imaLogPath,
 			BIOSLogPath:     biosLogPath,
 			ReportHashAlg:   "",
@@ -387,6 +388,7 @@ func getIP() string {
 }
 
 // GetClientInfo returns json format client information.
+// If useHW is false, use testfile
 // TODO: add some other information
 func GetClientInfo(useHW bool) (string, error) {
 	//Execute dmidecode shell-commands to acquire information
@@ -429,7 +431,6 @@ func GetClientInfo(useHW bool) (string, error) {
 	clientInfo["ip"] = ip
 	clientInfo["version"] = "1.0.0"
 
-	fmt.Println(clientInfo)
 	strCI, err := json.Marshal(clientInfo)
 	return string(strCI), err
 }
@@ -464,7 +465,7 @@ func (t *TrustReportIn) hash() []byte {
 }
 
 //createTrustReport function collect some information, then return the TrustReport
-func (tpm *TPM) createTrustReport(pcrSelection tpm2.PCRSelection, tRepIn *TrustReportIn) (*TrustReport, error) {
+func (tpm *TPM) createTrustReport(useHW bool, pcrSelection tpm2.PCRSelection, tRepIn *TrustReportIn) (*TrustReport, error) {
 	pcrmp, err := tpm2.ReadPCRs(tpm.dev, pcrSelection)
 	if err != nil {
 		return &TrustReport{}, err
@@ -495,16 +496,26 @@ func (tpm *TPM) createTrustReport(pcrSelection tpm2.PCRSelection, tRepIn *TrustR
 	}
 
 	pcrinfo := PcrInfo{algStrMap[pcrSelection.Hash], pcrValues, PcrQuote{Quoted: attestation, Signature: jsonSig}}
-	mainfest, err := getManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
-	if err != nil {
-		log.Printf("GetManifest Failed, error: %s", err)
+
+	var manifest []Manifest
+	if useHW {
+		manifest, err = getManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
+		if err != nil {
+			log.Printf("GetManifest Failed, error: %s", err)
+		}
+	} else {
+		manifest, err = getManifest(testImaLogPath, testBiosLogPath)
+		if err != nil {
+			log.Printf("GetManifest Failed, error: %s", err)
+		}
 	}
-	return &TrustReport{pcrinfo, mainfest, tRepIn.ClientId, tRepIn.ClientInfo}, nil
+
+	return &TrustReport{pcrinfo, manifest, tRepIn.ClientId, tRepIn.ClientInfo}, nil
 }
 
 //GetTrustReport method take a nonce input, generate and return the current trust report
 func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, error) {
-	clientInfo, err := GetClientInfo(tpm.config.IstestMode)
+	clientInfo, err := GetClientInfo(tpm.config.useHW)
 	if err != nil {
 		log.Printf("GetClientInfo failed, error : %v \n", err)
 	}
@@ -513,5 +524,5 @@ func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, erro
 		ClientId:   clientID,
 		ClientInfo: clientInfo,
 	}
-	return tpm.createTrustReport(pcrSelectionAll, &tRepIn)
+	return tpm.createTrustReport(tpm.config.useHW, pcrSelectionAll, &tRepIn)
 }
