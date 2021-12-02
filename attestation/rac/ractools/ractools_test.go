@@ -88,7 +88,7 @@ func TestNVRAM(t *testing.T) {
 	ekDer := result.Bytes
 
 	tpm.WriteEKCert(ekDer)
-	ekCert, err := tpm.ReadEKCert()
+	ekCert, err := tpm.ReadEKCert(IndexRsa2048EKCert)
 	if err != nil {
 		t.Errorf("ReadEKCert failed, err: %v", err)
 	}
