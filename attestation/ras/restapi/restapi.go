@@ -193,21 +193,10 @@ func (s *RasServer) PutServer(ctx echo.Context) error {
 		return ctx.JSON(http.StatusNoContent, nil)
 	}
 	cids := *serverBody.Clientids
-	if *serverBody.Registered {
-		for i := range cids {
-			regClient, err := trustmgr.GetRegisterClientById(cids[i])
-			if err != nil {
-				return ctx.JSON(http.StatusNotFound, nil)
-			}
-			regClient.IsDeleted = false
-		}
-	} else {
-		for i := range cids {
-			regClient, err := trustmgr.GetRegisterClientById(cids[i])
-			if err != nil {
-				return ctx.JSON(http.StatusNotFound, nil)
-			}
-			regClient.IsDeleted = true
+	for _, cid := range cids {
+		err = trustmgr.UpdateRegisterStatusById(cid, !*serverBody.Registered)
+		if err != nil {
+			return ctx.JSON(http.StatusForbidden, nil)
 		}
 	}
 	return nil

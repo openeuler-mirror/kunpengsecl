@@ -199,6 +199,40 @@ func TestGetServer(t *testing.T) {
 	}
 
 }
+
+func TestPutServer(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	s, _ := prepareServers(t)
+	var serverJSON0 = `{"clientids":[1], "registered":false}`
+	var serverJSON1 = `{"clientids":[1], "registered":true}`
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.POST, "/", strings.NewReader(serverJSON0))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	err := s.PutServer(ctx)
+	regClient, _ := trustmgr.GetRegisterClientById(1)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		t.Logf("Get the current server registered status as follows:%v", !regClient.IsDeleted)
+	}
+
+	req = httptest.NewRequest(echo.POST, "/", strings.NewReader(serverJSON1))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+	ctx = e.NewContext(req, rec)
+	err = s.PutServer(ctx)
+	regClient, _ = trustmgr.GetRegisterClientById(1)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		t.Logf("Get the current server registered status as follows:%v", !regClient.IsDeleted)
+	}
+}
+
 func TestGetServerBasevalue(t *testing.T) {
 	t.Log("Get Server Basevalue by server id:")
 	test.CreateServerConfigFile()
