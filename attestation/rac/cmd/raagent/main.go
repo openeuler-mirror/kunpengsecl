@@ -22,7 +22,7 @@ func main() {
 	testMode := cfg.GetTestMode()
 	server := cfg.GetServer()
 	cid := cfg.GetClientId()
-	tpm, err := ractools.OpenTPM(testMode)
+	tpm, err := ractools.OpenTPM(!testMode)
 	if err != nil {
 		log.Printf("OpenTPM failed, error: %s \n", err)
 		return

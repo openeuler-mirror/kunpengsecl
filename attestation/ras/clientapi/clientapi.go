@@ -76,6 +76,20 @@ func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*C
 	}, nil
 }
 
+func (s *service) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
+	log.Printf("Server: receive GenerateEKCert")
+	ekPub, err := x509.ParsePKIXPublicKey(in.GetEkPub())
+	if err != nil {
+		return &GenerateEKCertReply{}, errors.New("failed to parse ekPub : " + err.Error())
+	}
+
+	ekcert, err := pca.GenerateEKCert((ekPub).(*rsa.PublicKey))
+	if err != nil {
+		return &GenerateEKCertReply{}, errors.New("failed to GenerateEKCert : " + err.Error())
+	}
+	return &GenerateEKCertReply{EkCert: ekcert}, nil
+}
+
 // RegisterClient TODO: need a challenge and some statement for check nil pointer (this package functions all need this)
 func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
 	log.Printf("Server: receive RegisterClient")
@@ -397,18 +411,13 @@ func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertRe
 	defer ras.conn.Close()
 	defer ras.cancel()
 
-	ekPub, err := x509.ParsePKIXPublicKey(in.EkPub)
-	if err != nil {
-		return nil, errors.New("failed to parse ekPub : " + err.Error())
-	}
-
-	ekcert, err := pca.GenerateEKCert((ekPub).(*rsa.PublicKey))
+	bk, err := ras.c.GenerateEKCert(ras.ctx, in)
 	if err != nil {
 		log.Printf("Client: invoke GenerateEKCert error %v", err)
 		return nil, err
 	}
 	log.Printf("Client: invoke GenerateEKCert ok")
-	return &GenerateEKCertReply{EkCert: ekcert}, nil
+	return bk, nil
 }
 
 func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
