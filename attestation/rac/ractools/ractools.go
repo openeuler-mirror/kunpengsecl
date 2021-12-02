@@ -206,7 +206,7 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 			}
 			ekCert = bk.EkCert
 		}
-		tpm.WriteEKCert(ekCert)
+		tpm.WriteEKCert(IndexRsa2048EKCert, ekCert)
 	}
 	// Create and save IK
 	err = tpm.createIK(ekHandle, ekPassword, emptyPassword, pcrSelectionNil)
@@ -215,18 +215,17 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 }
 
 // EraseEKCert erases the EK certificate from NVRAM.
-func (tpm *TPM) EraseEKCert() {
+func (tpm *TPM) EraseEKCert(idx uint32) {
 	tpm2.NVUndefineSpace(tpm.dev, emptyPassword, tpm2.HandleOwner,
-		tpmutil.Handle(IndexRsa2048EKCert))
+		tpmutil.Handle(idx))
 }
 
 // WriteEKCert writes the EK certificate(DER) into tpm NVRAM.
-func (tpm *TPM) WriteEKCert(ekCert []byte) error {
+func (tpm *TPM) WriteEKCert(idx uint32, ekCert []byte) error {
 	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
-	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(IndexRsa2048EKCert),
+	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
 		emptyPassword, emptyPassword, nil, attr, uint16(len(ekCert)))
 	if err != nil {
-		log.Printf("define NV space failed, error: %v", err)
 		return err
 	}
 	l := uint16(len(ekCert))
@@ -240,10 +239,9 @@ func (tpm *TPM) WriteEKCert(ekCert []byte) error {
 			end = offset + blockSize
 			l -= blockSize
 		}
-		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(IndexRsa2048EKCert),
+		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
 			emptyPassword, ekCert[offset:end], offset)
 		if err != nil {
-			log.Printf("write NV failed, error: %v", err)
 			return err
 		}
 		offset = end

@@ -81,13 +81,13 @@ func TestNVRAM(t *testing.T) {
 	defer tpm.Close()
 
 	// use this will have "error code 0xb : the handle is not correct for the use"
-	tpm.EraseEKCert()
+	tpm.EraseEKCert(IndexRsa2048EKCert)
 
 	// concert ekPem to ekDer
 	result, _ := pem.Decode([]byte(ekPemTest))
 	ekDer := result.Bytes
 
-	tpm.WriteEKCert(ekDer)
+	tpm.WriteEKCert(IndexRsa2048EKCert, ekDer)
 	ekCert, err := tpm.ReadEKCert(IndexRsa2048EKCert)
 	if err != nil {
 		t.Errorf("ReadEKCert failed, err: %v", err)
@@ -95,7 +95,7 @@ func TestNVRAM(t *testing.T) {
 	if !bytes.Equal(ekCert, []byte(ekDer)) {
 		t.Errorf("EKCert are not equal, got: %v, want: %v \n", ekCert, ekDer)
 	}
-	tpm.EraseEKCert()
+	tpm.EraseEKCert(IndexRsa2048EKCert)
 }
 
 // Test that we are using the simulator tpm, every time we reopen the simulator,
