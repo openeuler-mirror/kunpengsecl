@@ -118,7 +118,6 @@ type (
 		IK              *AttestationKey
 		EK              *EndorsementKey
 		useHW           bool
-		Server          string
 		IsUseTestEKCert bool //If true, use ek test case. Not used by default
 	}
 

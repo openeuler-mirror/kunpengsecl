@@ -40,7 +40,7 @@ func TestCreateTrustReport(t *testing.T) {
 	}
 
 	//create EK,Ak,TrustReport
-	tpm.Prepare(&TPMConfig{IsUseTestEKCert: useTestEKCert})
+	tpm.Prepare(&TPMConfig{IsUseTestEKCert: useTestEKCert}, "", nil)
 	if err != nil {
 		t.Fatalf("CreateAk failed: %s", err)
 	}
@@ -105,7 +105,7 @@ func TestEKUnderTestmode(t *testing.T) {
 	if err != nil {
 		t.Errorf("OpenTPM failed, error: %v \n", err)
 	}
-	tpm.Prepare(&TPMConfig{IsUseTestEKCert: useTestEKCert})
+	tpm.Prepare(&TPMConfig{IsUseTestEKCert: useTestEKCert}, "", nil)
 	ioutil.WriteFile(ekPubPath, ([]byte)(tpm.GetEKPub()), 0644)
 	defer os.Remove(ekPubPath)
 	tpm.Close()
@@ -118,7 +118,7 @@ func TestEKUnderTestmode(t *testing.T) {
 	if err != nil {
 		t.Errorf("OpenTPM failed, error: %v \n", err)
 	}
-	tpm.Prepare(&TPMConfig{})
+	tpm.Prepare(&TPMConfig{IsUseTestEKCert: useTestEKCert}, "", nil)
 	ekpub2 := ([]byte)(tpm.GetEKPub())
 	tpm.Close()
 

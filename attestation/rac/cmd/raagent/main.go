@@ -30,7 +30,7 @@ func main() {
 	defer tpm.Close()
 	//the input is not be used now
 	//TODO: add tpm config file
-	tpm.Prepare(&ractools.TPMConfig{Server: server})
+	tpm.Prepare(&ractools.TPMConfig{}, server, generateEKCert)
 
 	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
 	if cid < 0 {
@@ -94,6 +94,18 @@ func main() {
 		// step n. sleep and wait.
 		time.Sleep(cfg.GetHBDuration())
 	}
+}
+
+// Generate EKCert through grpc call clientapi.DoGenerateEKCert
+func generateEKCert(ekPub []byte, server string) ([]byte, error) {
+	req := clientapi.GenerateEKCertRequest{
+		EkPub: ekPub,
+	}
+	bk, err := clientapi.DoGenerateEKCert(server, &req)
+	if err != nil {
+		return nil, err
+	}
+	return bk.EkCert, nil
 }
 
 // DoNextAction checks the nextAction field and invoke the corresponding handler function.
