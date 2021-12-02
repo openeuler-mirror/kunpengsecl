@@ -199,6 +199,23 @@ func TestGetServer(t *testing.T) {
 	}
 
 }
+func TestGetServerBasevalue(t *testing.T) {
+	t.Log("Get Server Basevalue by server id:")
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	s, cid := prepareServers(t)
+	err := s.GetServerBasevalueServerId(ctx, cid)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		t.Log((rec.Body))
+	}
+}
 func TestGetReportServerId(t *testing.T) {
 	t.Log("Get server report:")
 	test.CreateServerConfigFile()

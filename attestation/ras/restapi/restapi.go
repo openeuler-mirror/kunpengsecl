@@ -160,7 +160,6 @@ func (s *RasServer) GetReportServerId(ctx echo.Context, serverId int64) error {
 
 type ServerBriefInfo struct {
 	clientId   int64
-	clientName string
 	ip         string
 	registered bool
 }
@@ -169,19 +168,17 @@ type ServerBriefInfo struct {
 // (GET /server)
 func (s *RasServer) GetServer(ctx echo.Context) error {
 	//get server briefing info from sql
-	id, err := trustmgr.GetAllClientID()
+	cids, err := trustmgr.GetAllClientID()
 	if err != nil {
 		return ctx.JSON(http.StatusNoContent, err)
 	}
 	briefinfo := []ServerBriefInfo{}
-	for _, v := range id {
-		var info []string
-		in, err := trustmgr.GetInfoByID(v, info)
+	for _, v := range cids {
+		rc, err := trustmgr.GetRegisterClientById(v)
 		if err != nil {
 			return ctx.JSON(http.StatusNoContent, err)
 		}
-		fmt.Println(in)
-		briefinfo = append(briefinfo, ServerBriefInfo{})
+		briefinfo = append(briefinfo, ServerBriefInfo{clientId: rc.ClientID, registered: rc.IsDeleted})
 
 	}
 
@@ -220,8 +217,11 @@ func (s *RasServer) PutServer(ctx echo.Context) error {
 // Return the base value of a given server
 // (GET /server/basevalue/{serverId})
 func (s *RasServer) GetServerBasevalueServerId(ctx echo.Context, serverId int64) error {
-
-	return nil
+	meInfo, err := trustmgr.GetBaseValueById(serverId)
+	if err != nil {
+		return ctx.JSON(http.StatusNotFound, nil)
+	}
+	return ctx.JSON(http.StatusOK, meInfo)
 }
 
 // create/update the base value of the given server
