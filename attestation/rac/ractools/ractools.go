@@ -30,7 +30,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
@@ -177,9 +176,8 @@ func (tpm *TPM) Close() {
 // Prepare method doing preparation steps for all the steps necessary for remote attesation,
 // including prepare EKCert and create IK, according to the requirements given by TPMConfig
 // TODO:fix use of config
-func (tpm *TPM) Prepare(config *TPMConfig) error {
+func (tpm *TPM) Prepare(config *TPMConfig, server string, generateEKCert func([]byte, string) ([]byte, error)) error {
 	tpm.config.IsUseTestEKCert = config.IsUseTestEKCert
-	tpm.config.Server = config.Server
 	// create ek
 	ekPassword := emptyPassword
 	ekSel := pcrSelectionNil
@@ -197,15 +195,12 @@ func (tpm *TPM) Prepare(config *TPMConfig) error {
 			result, _ := pem.Decode([]byte(ekPemTest))
 			ekCert = result.Bytes
 		} else {
-			req := clientapi.GenerateEKCertRequest{
-				EkPub: tpm.GetEKPub(),
-			}
-			bk, err2 := clientapi.DoGenerateEKCert(tpm.config.Server, &req)
+			ekCert2, err2 := generateEKCert(tpm.GetEKPub(), server)
 			if err2 != nil {
 				log.Printf("GenerateEKCert failed, error : %v \n", err2)
 				return err2
 			}
-			ekCert = bk.EkCert
+			ekCert = ekCert2
 		}
 		tpm.WriteEKCert(IndexRsa2048EKCert, ekCert)
 	}
