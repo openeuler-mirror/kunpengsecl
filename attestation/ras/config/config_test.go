@@ -3,6 +3,9 @@ package config
 import (
 	"testing"
 	"time"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -28,6 +31,16 @@ func TestRASConfig(t *testing.T) {
 			t.Errorf("test mgrStrategy error at case %d\n", i)
 		}
 	}
+
+	test1 := true
+	test2 := []int64{1, 4, 5}
+	config.SetAutoUpdateConfig(entity.AutoUpdateConfig{
+		IsAllUpdate:   test1,
+		UpdateClients: test2,
+	})
+	auc := config.GetAutoUpdateConfig()
+	assert.Equal(t, test1, auc.IsAllUpdate)
+	assert.Equal(t, test2, auc.UpdateClients)
 }
 
 func TestRACConfig(t *testing.T) {

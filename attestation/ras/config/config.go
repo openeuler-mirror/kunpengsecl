@@ -40,16 +40,18 @@ const (
 	DbUser     = "database.user"
 	DbPassword = "database.password"
 	// RAS
-	RasPort              = "rasconfig.port" // server listen port
-	RasPortLongFlag      = "port"
-	RasPortShortFlag     = "p"
-	RasRestPort          = "rasconfig.rest" // rest listen port
-	RasRestPortLongFlag  = "rest"
-	RasRestPortShortFlag = "r"
-	RasMgrStrategy       = "rasconfig.mgrstrategy"
-	RasAutoStrategy      = "auto"
-	RasChangeTime        = "rasconfig.changetime"
-	RasExtRules          = "rasconfig.basevalue-extract-rules"
+	RasPort               = "rasconfig.port" // server listen port
+	RasPortLongFlag       = "port"
+	RasPortShortFlag      = "p"
+	RasRestPort           = "rasconfig.rest" // rest listen port
+	RasRestPortLongFlag   = "rest"
+	RasRestPortShortFlag  = "r"
+	RasMgrStrategy        = "rasconfig.mgrstrategy"
+	RasAutoStrategy       = "auto"
+	RasAutoUpdateStrategy = "auto-update"
+	RasChangeTime         = "rasconfig.changetime"
+	RasExtRules           = "rasconfig.basevalue-extract-rules"
+	RasAutoUpdateConfig   = "rasconfig.auto-update-config"
 	// RAC
 	RacServer               = "racconfig.server" // client connect to server
 	RacServerLongFlag       = "server"
@@ -103,11 +105,12 @@ type (
 		port     int
 	}
 	rasConfig struct {
-		servPort     string
-		restPort     string
-		mgrStrategy  string
-		changeTime   time.Time
-		extractRules entity.ExtractRules
+		servPort         string
+		restPort         string
+		mgrStrategy      string
+		changeTime       time.Time
+		extractRules     entity.ExtractRules
+		autoUpdateConfig entity.AutoUpdateConfig
 	}
 	racConfig struct {
 		server        string
@@ -166,6 +169,12 @@ func getServerConf(c *config) {
 		c.rasConfig.extractRules = ers
 	} else {
 		c.rasConfig.extractRules = entity.ExtractRules{}
+	}
+	var auc entity.AutoUpdateConfig
+	if viper.UnmarshalKey(RasAutoUpdateConfig, &auc) == nil {
+		c.rasConfig.autoUpdateConfig = auc
+	} else {
+		c.rasConfig.autoUpdateConfig = entity.AutoUpdateConfig{}
 	}
 	c.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
 	c.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
@@ -274,6 +283,7 @@ func Save() {
 			viper.Set(RasRestPort, cfg.rasConfig.restPort)
 			viper.Set(RasMgrStrategy, cfg.rasConfig.mgrStrategy)
 			viper.Set(RasChangeTime, cfg.rasConfig.changeTime)
+			viper.Set(RasAutoStrategy, cfg.rasConfig.autoUpdateConfig)
 			// store common configuration for all client
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
 			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
@@ -387,6 +397,14 @@ func (c *config) SetExtractRules(e entity.ExtractRules) {
 
 func (c *config) GetExtractRules() entity.ExtractRules {
 	return c.rasConfig.extractRules
+}
+
+func (c *config) SetAutoUpdateConfig(a entity.AutoUpdateConfig) {
+	c.rasConfig.autoUpdateConfig = a
+}
+
+func (c *config) GetAutoUpdateConfig() entity.AutoUpdateConfig {
+	return c.rasConfig.autoUpdateConfig
 }
 
 func (c *config) GetPort() string {
