@@ -193,10 +193,12 @@ func (s *RasServer) PutServer(ctx echo.Context) error {
 		return ctx.JSON(http.StatusNoContent, nil)
 	}
 	cids := *serverBody.Clientids
-	for _, cid := range cids {
-		err = trustmgr.UpdateRegisterStatusById(cid, !*serverBody.Registered)
-		if err != nil {
-			return ctx.JSON(http.StatusForbidden, nil)
+	if serverBody.Registered != nil {
+		for _, cid := range cids {
+			err = trustmgr.UpdateRegisterStatusById(cid, !*serverBody.Registered)
+			if err != nil {
+				return ctx.JSON(http.StatusForbidden, nil)
+			}
 		}
 	}
 	return nil
@@ -215,8 +217,47 @@ func (s *RasServer) GetServerBasevalueServerId(ctx echo.Context, serverId int64)
 // create/update the base value of the given server
 // (PUT /server/basevalue/{serverId})
 func (s *RasServer) PutServerBasevalueServerId(ctx echo.Context, serverId int64) error {
-
+	var serverBvBody PutServerBasevalueServerIdJSONBody
+	err := ctx.Bind(&serverBvBody)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, nil)
+	}
+	mInfo, _ := trustmgr.GetBaseValueById(serverId)
+	modifyAlgName(string(*serverBvBody.Algorithm), serverId)
+	modifyManifest(*serverBvBody.Measurements, serverId)
+	modifyPcrValue(*serverBvBody.Pcrvalues, serverId)
+	err = trustmgr.SaveBaseValueById(serverId, mInfo)
+	if err != nil {
+		return ctx.JSON(http.StatusNotModified, nil)
+	}
 	return nil
+}
+
+func modifyAlgName(s string, clientId int64) {
+	mInfo, err := trustmgr.GetBaseValueById(clientId)
+	if err == nil {
+		mInfo.PcrInfo.AlgName = s
+	}
+}
+
+func modifyManifest(ms []Measurement, clientId int64) {
+	mInfo, err := trustmgr.GetBaseValueById(clientId)
+	if err == nil {
+		for i := range ms {
+			mInfo.Manifest[i].Name = *ms[i].Name
+			mInfo.Manifest[i].Type = string(*ms[i].Type)
+			mInfo.Manifest[i].Value = *ms[i].Value
+		}
+	}
+}
+
+func modifyPcrValue(pValues []PcrValue, clientId int64) {
+	mInfo, err := trustmgr.GetBaseValueById(clientId)
+	if err == nil {
+		for _, con := range pValues {
+			mInfo.PcrInfo.Values[*con.Index] = *con.Value
+		}
+	}
 }
 
 type ServerTrustStatus struct {
