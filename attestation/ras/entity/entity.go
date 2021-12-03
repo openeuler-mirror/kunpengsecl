@@ -100,6 +100,10 @@ type ManifestRule struct {
 	MType string   `mapstructure:"type"`
 	Name  []string `mapstructure:"name"`
 }
+type AutoUpdateConfig struct {
+	IsAllUpdate   bool
+	UpdateClients []int64
+}
 
 // for generating detail in ManifestItem
 type BIOSManifestItem struct {

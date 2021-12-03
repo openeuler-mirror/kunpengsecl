@@ -40,6 +40,9 @@ rasconfig:
         name: ["name1", "name2"]
       - type: ima
         name: ["name1", "name2"] 
+  auto-update-config:
+    isAllUpdate: false
+    update-clients: [1, 2, 3]
 racconfig:
   hbduration: 5s
   trustduration: 2m0s
