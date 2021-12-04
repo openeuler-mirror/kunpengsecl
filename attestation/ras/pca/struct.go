@@ -141,9 +141,10 @@ var (
 	ParentPassword   = ""
 	DefaultPassword  = "\x01\x02\x03\x04"
 	DefaultKeyParams = tpm2.Public{
-		Type:       tpm2.AlgRSA,
-		NameAlg:    tpm2.AlgSHA1,
-		Attributes: tpm2.FlagStorageDefault,
+		Type:    tpm2.AlgRSA,
+		NameAlg: tpm2.AlgSHA256,
+		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent | tpm2.FlagSensitiveDataOrigin |
+			tpm2.FlagUserWithAuth | tpm2.FlagDecrypt | tpm2.FlagRestricted,
 		RSAParameters: &tpm2.RSAParams{
 			Symmetric: &tpm2.SymScheme{
 				Alg:     tpm2.AlgAES,
@@ -151,7 +152,7 @@ var (
 				Mode:    tpm2.AlgCFB,
 			},
 			KeyBits:     2048,
-			ExponentRaw: 1<<16 + 1,
+			ExponentRaw: 0,
 		},
 	}
 )

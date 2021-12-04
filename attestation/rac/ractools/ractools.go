@@ -182,7 +182,7 @@ func (tpm *TPM) Prepare(config *TPMConfig, server string, generateEKCert func([]
 	ekPassword := emptyPassword
 	ekSel := pcrSelectionNil
 	ekHandle, ekPub, err := tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement, ekSel,
-		emptyPassword, ekPassword, defaultKeyParams)
+		emptyPassword, ekPassword, EKParams)
 	if err != nil {
 		return err
 	}
@@ -302,8 +302,9 @@ func (tpm *TPM) createIK(parentHandle tpmutil.Handle, parentPassword, ikPassword
 	ikSel tpm2.PCRSelection) error {
 
 	privateIK, publicIK, _, _, _, err := tpm2.CreateKey(tpm.dev, parentHandle, ikSel,
-		parentPassword, ikPassword, params)
+		parentPassword, ikPassword, IKParams)
 	if err != nil {
+		log.Printf("CreateIK failed, error: %v\n", err)
 		return err
 	}
 
