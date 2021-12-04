@@ -10,9 +10,11 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -101,6 +103,52 @@ func GenerateCert(template, parent *x509.Certificate, pub *rsa.PublicKey, priv *
 	certPem := pem.EncodeToMemory(&block)
 	return cert, certPem, nil
 }
+func GenerateCertToFile(template, parent *x509.Certificate, pub *rsa.PublicKey, priv *rsa.PrivateKey, fileName string) (*x509.Certificate, []byte, error) {
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
+	if err != nil {
+		return nil, nil, errors.New("Failed to create certificate: " + err.Error())
+	}
+	cert, err := x509.ParseCertificate(certBytes)
+	if err != nil {
+		return nil, nil, errors.New("Failed to parse certificate: " + err.Error())
+	}
+	err = EncodeCert(certBytes, fileName)
+	if err != nil {
+		return nil, nil, err
+	}
+	block := pem.Block{Type: "CERTIFICATE", Bytes: certBytes}
+	certPem := pem.EncodeToMemory(&block)
+	return cert, certPem, nil
+}
+
+//Encode cert
+//name is the encode name
+func EncodeCert(certBytes []byte, name string) error {
+	crt, err := os.Create(name)
+	if err != nil {
+		return err
+	}
+	pem.Encode(crt, &pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+	crt.Close()
+	return nil
+}
+func DecodeCertFromFile(fileName string) (*x509.Certificate, error) {
+	f, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, err
+	}
+	return DecodeCert(string(f))
+}
+func EncodePrivToFile(priv *rsa.PrivateKey, name string) error {
+	privKeyBytes := x509.MarshalPKCS1PrivateKey(priv)
+	p, err := os.Create(name)
+	if err != nil {
+		return err
+	}
+	pem.Encode(p, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: privKeyBytes})
+	p.Close()
+	return nil
+}
 
 //return a root CA and its privateKey
 func GenerateRootCA() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
@@ -172,6 +220,32 @@ func GenerateIkCert(privacycaCert *x509.Certificate, privacycaKey *rsa.PrivateKe
 	}
 
 	return ikCert, ikPem, err
+}
+
+//自签名
+//template = parent
+//name is the os.Create's name : "RootCert.crt"
+func GenerateCertbyOneself(privKey *rsa.PrivateKey, publicKey *rsa.PublicKey, name string) (*x509.Certificate, []byte, error) {
+	template := x509.Certificate{
+		SerialNumber:   big.NewInt(1),
+		NotBefore:      time.Now().Add(-10 * time.Second),
+		NotAfter:       time.Now().AddDate(10, 0, 0),
+		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		IsCA:           true,
+		MaxPathLenZero: true,
+		//		IPAddresses:    []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	Cert, Pem, err := GenerateCert(&template, &template, publicKey, privKey)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to generate Cert")
+	}
+	crt, err := os.Create(name)
+	if err != nil {
+		return nil, nil, err
+	}
+	pem.Encode(crt, &pem.Block{Type: "CERTIFICATE", Bytes: Pem})
+	crt.Close()
+	return Cert, Pem, err
 }
 
 //Decode the cert from pem cert

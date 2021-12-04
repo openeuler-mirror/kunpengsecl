@@ -13,6 +13,12 @@ import (
 )
 
 //test
+func TestGenerateEkCert(t *testing.T) {
+	_, pub, err := GenerateRsaKey()
+	assert.NoError(t, err)
+	_, err = GenerateEKCert(pub)
+	assert.NoError(t, err)
+}
 func TestGenerateCert(t *testing.T) {
 	var template = x509.Certificate{
 		SerialNumber: big.NewInt(1),
@@ -28,6 +34,33 @@ func TestGenerateCert(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	_, _, err = GenerateCert(&template, &template, &priv.PublicKey, priv)
+	assert.NoError(t, err)
+}
+func TestGenerateCertToFile(t *testing.T) {
+	var template = x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Country:      []string{"test"},
+			Organization: []string{"test"},
+			CommonName:   "test CA",
+		},
+		IsCA: true,
+	}
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		assert.NoError(t, err)
+	}
+	_, _, err = GenerateCertToFile(&template, &template, &priv.PublicKey, priv, "test.crt")
+	assert.NoError(t, err)
+}
+func TestDecodeCertFromFile(t *testing.T) {
+	_, err := DecodeCertFromFile("test.crt")
+	assert.NoError(t, err)
+}
+func TestEncodePrivToFile(t *testing.T) {
+	priv, _, err := GenerateRsaKey()
+	assert.NoError(t, err)
+	err = EncodePrivToFile(priv, "testPriv.pem")
 	assert.NoError(t, err)
 }
 func TestGenerateRootCA(t *testing.T) {
@@ -48,6 +81,14 @@ func TestGeneratePCACert(t *testing.T) {
 	privPem, err := EncodePrivKeyAsPemStr(priv)
 	assert.NoError(t, err)
 	fmt.Println("Key\n", string(privPem))
+}
+func TestGenerateCertbyOneself(t *testing.T) {
+	priv, pub, err := GenerateRsaKey()
+	assert.NoError(t, err)
+	_, cert, err := GenerateCertbyOneself(priv, pub, "test.crt")
+	fmt.Println(string(cert))
+	assert.NoError(t, err)
+
 }
 func TestGenerateSignature(t *testing.T) {
 	_, _, _, err := GenerateSignature([]byte(CertPEM))
