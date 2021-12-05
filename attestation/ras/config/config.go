@@ -283,7 +283,7 @@ func Save() {
 			viper.Set(RasRestPort, cfg.rasConfig.restPort)
 			viper.Set(RasMgrStrategy, cfg.rasConfig.mgrStrategy)
 			viper.Set(RasChangeTime, cfg.rasConfig.changeTime)
-			viper.Set(RasAutoStrategy, cfg.rasConfig.autoUpdateConfig)
+			viper.Set(RasAutoUpdateConfig, cfg.rasConfig.autoUpdateConfig)
 			// store common configuration for all client
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
 			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
