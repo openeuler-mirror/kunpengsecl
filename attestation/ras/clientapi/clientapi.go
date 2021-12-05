@@ -462,7 +462,13 @@ func unmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
 	rows := strings.Split(str, "\n")
 	for _, row := range rows {
 		items := strings.Split(row, " ")
-		if len(items) == 5 {
+		//the file path name may contains space chars
+		if len(items) > 5 {
+			items[4] = strings.Join(items[4:], " ")
+			items = items[:5]
+		}
+		switch len(items) {
+		case 5:
 			imi := entity.IMAManifestItem{
 				Pcr:          items[0],
 				TemplateHash: items[1],
@@ -479,7 +485,9 @@ func unmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
 				Value:  items[1],
 				Detail: string(detail),
 			})
-		} else {
+		case 0, 1:
+			continue
+		default:
 			return nil, errors.New("ima manifest format is wrong")
 		}
 	}
