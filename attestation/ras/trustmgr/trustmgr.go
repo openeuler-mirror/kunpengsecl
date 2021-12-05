@@ -6,6 +6,7 @@ package trustmgr
 import (
 	"errors"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/dao"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
@@ -56,16 +57,30 @@ func RecordReport(report *entity.Report) error {
 		if err != nil {
 			return err
 		}
-		// if this is the first report of this RAC, extract base value
-		isFirstReport, err := isFirstReport(report.ClientID)
-		if err != nil {
-			return err
+		cfg := config.GetDefault(config.ConfServer)
+		// if mgrStrategy is auto-update, save base value of rac which in the update list
+		if cfg.GetMgrStrategy() == config.RasAutoUpdateStrategy {
+			err = recordAutoUpdateReport(report, psd)
+			if err != nil {
+				return err
+			}
 		}
-		baseValue := entity.MeasurementInfo{}
-		if isFirstReport {
-			extractor.Extract(report, &baseValue)
+
+		// if mgrStrategy is auto, and if this is the first report of this RAC, extract base value
+		if cfg.GetMgrStrategy() == config.RasAutoStrategy {
+			isFirstReport, err := isFirstReport(report.ClientID)
+			if err != nil {
+				return err
+			}
+			baseValue := entity.MeasurementInfo{}
+			if isFirstReport {
+				extractor.Extract(report, &baseValue)
+			}
+			err = psd.SaveBaseValue(report.ClientID, &baseValue)
+			if err != nil {
+				return err
+			}
 		}
-		psd.SaveBaseValue(report.ClientID, &baseValue)
 
 		return nil
 	}
@@ -193,4 +208,69 @@ func GetClientInfoByID(clientId int64, infoNames []string) (map[string]string, e
 		return map[string]string{}, err
 	}
 	return psd.SelectClientInfobyId(clientId, infoNames)
+}
+
+func isMeasurementUpdate(oldMea *entity.MeasurementInfo, newMea *entity.MeasurementInfo) bool {
+	// compare pcr info
+	oldPi := oldMea.PcrInfo
+	newPi := newMea.PcrInfo
+	if oldPi.AlgName != newPi.AlgName || len(oldPi.Values) != len(newPi.Values) {
+		return true
+	}
+	for k, v := range oldPi.Values {
+		if nv, ok := newPi.Values[k]; ok && nv == v {
+			continue
+		} else {
+			return true
+		}
+	}
+	// compare measurement
+	if len(oldMea.Manifest) != len(newMea.Manifest) {
+		return true
+	}
+	for _, oldMeaItem := range oldMea.Manifest {
+		isExisted := false
+		for _, newMeaItem := range newMea.Manifest {
+			// use oldMeaItem == newMeaItem is effective because varities in measurement are all string
+			if oldMeaItem == newMeaItem {
+				isExisted = true
+			}
+		}
+		if !isExisted {
+			return true
+		}
+	}
+	return false
+}
+
+func recordAutoUpdateReport(report *entity.Report, psd dao.DAO) error {
+	cfg := config.GetDefault(config.ConfServer)
+	// if all update
+	isClientExist := false
+	if cfg.GetAutoUpdateConfig().IsAllUpdate {
+		isClientExist = true
+
+	} else {
+		clients := cfg.GetAutoUpdateConfig().UpdateClients
+		for _, c := range clients {
+			if report.ClientID == c {
+				isClientExist = true
+			}
+		}
+	}
+	if isClientExist {
+		newMea := entity.MeasurementInfo{}
+		extractor.Extract(report, &newMea)
+		oldMea, err := psd.SelectBaseValueById(report.ClientID)
+		if err != nil {
+			return err
+		}
+		if isMeasurementUpdate(oldMea, &newMea) {
+			err = psd.SaveBaseValue(report.ClientID, &newMea)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
