@@ -31,7 +31,7 @@ CREATE TABLE trust_report_manifest(
     report_id BIGINT NOT NULL REFERENCES trust_report(id),
     index INTEGER NOT NULL,
     type VARCHAR(16),
-    name VARCHAR(128),
+    name TEXT,
     value TEXT,
     detail TEXT,
     PRIMARY KEY(report_id, index, type)
@@ -60,6 +60,6 @@ CREATE TABLE base_value_manifest(
                                       client_id BIGINT NOT NULL REFERENCES register_client(id),
                                       base_value_ver INT,
                                       type VARCHAR(16),
-                                      name VARCHAR(128),
+                                      name TEXT,
                                       value TEXT
 );
