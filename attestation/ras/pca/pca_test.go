@@ -63,24 +63,21 @@ func TestEncodePrivToFile(t *testing.T) {
 	err = EncodePrivToFile(priv, "testPriv.pem")
 	assert.NoError(t, err)
 }
+func TestDecodePrivFromFile(t *testing.T) {
+	_, err := DecodePrivFromFile("testPriv.pem")
+	assert.NoError(t, err)
+}
 func TestGenerateRootCA(t *testing.T) {
 	_, rootPem, _, err := GenerateRootCA()
 	fmt.Println("rootCert\n", string(rootPem))
 	assert.NoError(t, err)
 }
 func TestGeneratePCACert(t *testing.T) {
-	rootCert, rootPem, rootKey, err := GenerateRootCA()
+	rootCert, err := DecodeCertFromFile("root.crt")
 	assert.NoError(t, err)
-	fmt.Println("rootCert\n", string(rootPem))
-	rootPrivPem, err := EncodePrivKeyAsPemStr(rootKey)
+	rootKey, err := DecodePrivFromFile("rootPriv.pem")
+	_, _, _, err = GeneratePCACert(rootCert, rootKey)
 	assert.NoError(t, err)
-	fmt.Println("rootKey\n", string(rootPrivPem))
-	_, pem, priv, err := GeneratePCACert(rootCert, rootKey)
-	assert.NoError(t, err)
-	fmt.Println("Cert\n", string(pem))
-	privPem, err := EncodePrivKeyAsPemStr(priv)
-	assert.NoError(t, err)
-	fmt.Println("Key\n", string(privPem))
 }
 func TestGenerateCertbyOneself(t *testing.T) {
 	priv, pub, err := GenerateRsaKey()
