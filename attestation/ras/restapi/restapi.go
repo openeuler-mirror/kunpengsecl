@@ -139,6 +139,90 @@ func setTDuration(val string) error {
 	return nil
 }
 
+// Return the base value of a given container
+// (GET /container/basevalue/{uuid})
+func (s *RasServer) GetContainerBasevalueUuid(ctx echo.Context, uuid string) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// create/update the base value of the given container
+// (PUT /container/basevalue/{uuid})
+func (s *RasServer) PutContainerBasevalueUuid(ctx echo.Context, uuid string) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// Return a list of trust status for all containers
+// (GET /container/status)
+func (s *RasServer) GetContainerStatus(ctx echo.Context) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// Return a trust status for given container
+// (GET /container/status/{uuid})
+func (s *RasServer) GetContainerStatusUuid(ctx echo.Context, uuid string) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// Return briefing info for the given container
+// (GET /container/{uuid})
+func (s *RasServer) GetContainerUuid(ctx echo.Context, uuid string) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// create info for a container
+// (POST /container/{uuid})
+func (s *RasServer) PostContainerUuid(ctx echo.Context, uuid string) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// put a container into given status
+// (PUT /container/{uuid})
+func (s *RasServer) PutContainerUuid(ctx echo.Context, uuid string) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// Return the base value of a given device
+// (GET /device/basevalue/{id})
+func (s *RasServer) GetDeviceBasevalueId(ctx echo.Context, id int64) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// create/update the base value of the given device
+// (PUT /device/basevalue/{id})
+func (s *RasServer) PutDeviceBasevalueId(ctx echo.Context, id int64) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// Return a list of trust status for all devices
+// (GET /device/status)
+func (s *RasServer) GetDeviceStatus(ctx echo.Context) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// Return a trust status for given device
+// (GET /device/status/{id})
+func (s *RasServer) GetDeviceStatusId(ctx echo.Context, id int64) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// Return briefing info for the given device
+// (GET /device/{id})
+func (s *RasServer) GetDeviceId(ctx echo.Context, id int64) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// create info for a device
+// (POST /device/{id})
+func (s *RasServer) PostDeviceId(ctx echo.Context, id int64) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
+// put a device into given status
+// (PUT /device/{id})
+func (s *RasServer) PutDeviceId(ctx echo.Context, id int64) error {
+	return ctx.JSON(http.StatusOK, nil)
+}
+
 // Return the trust report for the given server
 // (GET /report/{serverId})
 func (s *RasServer) GetReportServerId(ctx echo.Context, serverId int64) error {
