@@ -149,6 +149,13 @@ func EncodePrivToFile(priv *rsa.PrivateKey, name string) error {
 	p.Close()
 	return nil
 }
+func DecodePrivFromFile(fileName string) (*rsa.PrivateKey, error) {
+	f, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, err
+	}
+	return DecodePrivkey(string(f))
+}
 
 //return a root CA and its privateKey
 func GenerateRootCA() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
@@ -172,11 +179,19 @@ func GenerateRootCA() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rootCert, rootPEM, err := GenerateCert(&rootTemplate, &rootTemplate, &priv.PublicKey, priv)
+	err = EncodePrivToFile(priv, "rootPriv.pem")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rootCert, rootPEM, err := GenerateCertToFile(&rootTemplate, &rootTemplate, &priv.PublicKey, priv, "root.crt")
 	return rootCert, rootPEM, priv, err
 }
 func GeneratePCACert(RootCert *x509.Certificate, Rootkey *rsa.PrivateKey) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	err = EncodePrivToFile(priv, "pcaPriv.pem")
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -197,7 +212,7 @@ func GeneratePCACert(RootCert *x509.Certificate, Rootkey *rsa.PrivateKey) (*x509
 		MaxPathLen:            1,
 		IPAddresses:           []net.IP{net.ParseIP(caIP)},
 	}
-	pcaCert, pcaPem, err := GenerateCert(&PCAtemplate, RootCert, &priv.PublicKey, Rootkey)
+	pcaCert, pcaPem, err := GenerateCertToFile(&PCAtemplate, RootCert, &priv.PublicKey, Rootkey, "pca.crt")
 	return pcaCert, pcaPem, priv, err
 }
 
