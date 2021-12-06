@@ -51,6 +51,8 @@ const (
 	sha256DigestLen                   = 32
 	sha1AlgID                         = "0400"
 	sha256AlgID                       = "0b00"
+	sha1AlgStr                        = "sha1"
+	sha256AlgStr                      = "sha256"
 	event2SpecID                      = "Spec ID Event03"
 	specLen                           = 16
 	specStart                         = 32
@@ -420,6 +422,23 @@ func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertRe
 	return bk, nil
 }
 
+func getHashValue(alg string, evt *entity.BIOSManifestItem) string {
+	algMap := map[string]string{
+		sha1AlgStr:   sha1AlgID,
+		sha256AlgStr: sha256AlgID,
+	}
+
+	if algID, ok := algMap[alg]; ok {
+		for _, hv := range evt.Digest.Item {
+			if hv.AlgID == algID {
+				return hv.Item
+			}
+		}
+	}
+
+	return ""
+}
+
 func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
 	result := &entity.Manifest{
 		Type:  "bios",
@@ -435,7 +454,7 @@ func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
 	// if SpecID is "Spec ID Event03", this is a event2 log bytes stream
 	// TODO: getSpecID return "Spec ID Event03\x00", reason is unknown
 	if strings.Contains(SpecID, event2SpecID) {
-		for {
+		for i := 0; ; i++ {
 			event2Log, err := readBIOSEvent2Log(content, &point)
 			if err != nil {
 				break
@@ -444,9 +463,10 @@ func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
 			if err != nil {
 				break
 			}
+
 			result.Items = append(result.Items, entity.ManifestItem{
-				Name:   fmt.Sprint(event2Log.BType),
-				Value:  string(event2Log.Data),
+				Name:   fmt.Sprint(event2Log.BType, "-", i),
+				Value:  getHashValue(sha256AlgStr, event2Log),
 				Detail: string(detail),
 			})
 		}

@@ -226,7 +226,7 @@ func TestUnMarshalBIOS(t *testing.T) {
 		t.Fatal("parse fail")
 	}
 	count := len(result.Items)
-	if result.Items[count-1].Name != "2147483649" {
+	if result.Items[count-1].Name != "2147483649-2" {
 		t.Fatal("parse fail")
 	}
 }

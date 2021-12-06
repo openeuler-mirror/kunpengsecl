@@ -43,6 +43,7 @@ func main() {
 		return
 	}
 	cm := cache.CreateCacheMgr(cache.DEFAULTRACNUM, vm)
+	trustmgr.SetExtractor(vm)
 
 	go clientapi.StartServer(cfg.GetPort(), cm)
 	restapi.StartServer(cfg.GetRestPort(), cm)
