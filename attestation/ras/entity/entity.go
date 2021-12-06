@@ -128,3 +128,29 @@ type IMAManifestItem struct {
 	FiledataHash string
 	FilenameHint string
 }
+
+type Container struct {
+	UUID         string
+	ClientId     int64
+	BaseValueVer int
+	Online       bool
+	Deleted      bool
+}
+
+type ContainerBaseValue struct {
+	ContainerUUID string
+	Value         map[string]string
+}
+
+type PcieDevice struct {
+	ID           int64
+	ClientId     int64
+	BaseValueVer int
+	Online       bool
+	Deleted      bool
+}
+
+type PcieBaseValue struct {
+	DeviceID int64
+	Value    map[string]string
+}

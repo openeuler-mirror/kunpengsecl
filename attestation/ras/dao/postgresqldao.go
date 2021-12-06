@@ -640,3 +640,109 @@ func (psd *PostgreSqlDAO) UpdateRegisterStatusById(clientId int64, isDeleted boo
 	}
 	return nil
 }
+
+func (psd *PostgreSqlDAO) SelectContainerByUUId(uuID string) (*entity.Container, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
+	result := entity.Container{}
+
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT * FROM container WHERE uuid=$1", uuID).Scan(&result.UUID, &result.ClientId, &result.BaseValueVer,
+		&result.Online, &result.Deleted)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (psd *PostgreSqlDAO) SelectContainerBaseValueByUUId(uuID string) (*entity.ContainerBaseValue, error) {
+	psd.Lock()
+	defer psd.Unlock()
+	result := entity.ContainerBaseValue{Value: map[string]string{}}
+	var (
+		baseValueVer int
+	)
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT base_value_ver FROM container WHERE uuid=$1", uuID).Scan(&baseValueVer)
+	if err != nil {
+		return nil, err
+	}
+
+	mRows, err := psd.conn.Query(context.Background(),
+		"SELECT name, value FROM container_base_value WHERE container_uuid=$1 AND base_value_ver=$2", uuID, baseValueVer)
+	if err != nil {
+		return nil, err
+	}
+
+	for mRows.Next() {
+		var (
+			name  string
+			value string
+		)
+		err = mRows.Scan(&name, &value)
+		if err != nil {
+			return nil, err
+		}
+		result.Value[name] = value
+	}
+	mRows.Close()
+	return &result, nil
+}
+
+func (psd *PostgreSqlDAO) InsertContainer(c *entity.Container) error {
+	psd.Lock()
+	defer psd.Unlock()
+
+	var deleted bool
+	// check if container is existed
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT deleted FROM register_client WHERE uuid = $1", c.ClientId).Scan(&deleted)
+	if err == nil {
+		if deleted {
+			return errors.New("container is deleted")
+		}
+		return errors.New("container is existed")
+	}
+
+	// no client in register_client table, register a new one in it. set base_value_ver = 0
+	_, err = psd.conn.Exec(context.Background(),
+		"INSERT INTO container(uuid, client_id, base_value_ver, online, deleted) VALUES ($1, $2, $3, $4, $5)",
+		c.UUID, c.ClientId, 0, c.Online, c.Deleted)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (psd *PostgreSqlDAO) InsertContainerBaseValue(cbv *entity.ContainerBaseValue) error {
+	psd.Lock()
+	defer psd.Unlock()
+
+	var baseValueVer int
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT base_value_ver FROM container WHERE uuid = $1", cbv.ContainerUUID).Scan(&baseValueVer)
+	// if baseValue is empty or baseValue == 0, initialize base_value_ver.
+	if err != nil || baseValueVer == 0 {
+		baseValueVer = 1
+	} else {
+		baseValueVer++
+	}
+
+	_, err = psd.conn.Exec(context.Background(),
+		"UPDATE container SET base_value_ver = $1 WHERE uuid = $2",
+		baseValueVer, cbv.ContainerUUID)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range cbv.Value {
+		_, err = psd.conn.Exec(context.Background(),
+			"INSERT INTO container_base_value(container_id, base_value_ver, name, value) VALUES ($1, $2, $3, $4)",
+			cbv.ContainerUUID, baseValueVer, k, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
