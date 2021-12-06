@@ -203,6 +203,7 @@ func (tpm *TPM) Prepare(config *TPMConfig, server string, generateEKCert func([]
 			}
 			ekCert = ekCert2
 		}
+		tpm.DefineNVRAM(IndexRsa2048EKCert, uint16(len(ekCert)))
 		tpm.WriteNVRAM(IndexRsa2048EKCert, ekCert)
 	}
 	// Create and save IK
