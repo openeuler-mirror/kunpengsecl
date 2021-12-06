@@ -37,15 +37,16 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 	}
 	strER := string(jsonER)
 	cfgMap := map[string]string{
-		"dbHost":        cfg.GetHost(),
-		"dbName":        cfg.GetDBName(),
-		"dbUser":        cfg.GetUser(),
-		"dbPort":        fmt.Sprint(cfg.GetDBPort()),
-		"mgrStrategy":   cfg.GetMgrStrategy(),
-		"changeTime":    fmt.Sprint(cfg.GetChangeTime()),
-		"extractRules":  strER,
-		"hbDuration":    fmt.Sprint(cfg.GetHBDuration()),
-		"trustDuration": fmt.Sprint(cfg.GetTrustDuration()),
+		"dbHost":          cfg.GetHost(),
+		"dbName":          cfg.GetDBName(),
+		"dbUser":          cfg.GetUser(),
+		"dbPort":          fmt.Sprint(cfg.GetDBPort()),
+		"mgrStrategy":     cfg.GetMgrStrategy(),
+		"changeTime":      fmt.Sprint(cfg.GetChangeTime()),
+		"extractRules":    strER,
+		"hbDuration":      fmt.Sprint(cfg.GetHBDuration()),
+		"trustDuration":   fmt.Sprint(cfg.GetTrustDuration()),
+		"digestAlgorithm": cfg.GetDigestAlgorithm(),
 	}
 	configs := []ConfigItem{}
 	for key, val := range cfgMap {
@@ -67,15 +68,16 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 	}
 	fmt.Println(configBody)
 	postCfgMap := map[string]func(s string){
-		"dbHost":        func(s string) { cfg.SetHost(s) },
-		"dbName":        func(s string) { cfg.SetDBName(s) },
-		"dbUser":        func(s string) { cfg.SetUser(s) },
-		"dbPort":        func(s string) { setDBport(s) },
-		"dbPassword":    func(s string) { cfg.SetPassword(s) },
-		"mgrStrategy":   func(s string) { cfg.SetMgrStrategy(s) },
-		"extractRules":  func(s string) { setExtractRules(s) },
-		"hbDuration":    func(s string) { setHBDuration(s) },
-		"trustDuration": func(s string) { setTDuration(s) },
+		"dbHost":          func(s string) { cfg.SetHost(s) },
+		"dbName":          func(s string) { cfg.SetDBName(s) },
+		"dbUser":          func(s string) { cfg.SetUser(s) },
+		"dbPort":          func(s string) { setDBport(s) },
+		"dbPassword":      func(s string) { cfg.SetPassword(s) },
+		"mgrStrategy":     func(s string) { cfg.SetMgrStrategy(s) },
+		"extractRules":    func(s string) { setExtractRules(s) },
+		"hbDuration":      func(s string) { setHBDuration(s) },
+		"trustDuration":   func(s string) { setTDuration(s) },
+		"digestAlgorithm": func(s string) { cfg.SetDigestAlgorithm(s) },
 	}
 	if len(configBody) == 0 {
 		fmt.Print("Not have specification about the config items that need modified.\n")

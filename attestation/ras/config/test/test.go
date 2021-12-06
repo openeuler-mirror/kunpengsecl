@@ -12,6 +12,7 @@ racconfig:
   trustduration: 2m0s
   clientId: -1
   password: ""
+  digestalgorithm: sha256
 `
 
 const hubConfig = `conftype: hub
@@ -46,6 +47,7 @@ rasconfig:
 racconfig:
   hbduration: 5s
   trustduration: 2m0s
+  digestalgorithm: sha256
 `
 const configFilePath = "./config.yaml"
 
