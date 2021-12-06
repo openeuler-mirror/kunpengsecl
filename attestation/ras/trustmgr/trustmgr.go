@@ -85,8 +85,11 @@ func handleBaseValue(report *entity.Report) error {
 				return err
 			}
 			baseValue := entity.MeasurementInfo{}
-			if isFirstReport {
-				extractor.Extract(report, &baseValue)
+			if isFirstReport && extractor != nil {
+				err = extractor.Extract(report, &baseValue)
+				if err != nil {
+					return err
+				}
 				err = SaveBaseValueById(report.ClientID, &baseValue)
 				if err != nil {
 					return err
@@ -283,9 +286,12 @@ func recordAutoUpdateReport(report *entity.Report) error {
 			}
 		}
 	}
-	if isClientExist {
+	if isClientExist && extractor != nil {
 		newMea := entity.MeasurementInfo{}
-		extractor.Extract(report, &newMea)
+		err := extractor.Extract(report, &newMea)
+		if err != nil {
+			return err
+		}
 		oldMea, err := GetBaseValueById(report.ClientID)
 		if err != nil {
 			return err

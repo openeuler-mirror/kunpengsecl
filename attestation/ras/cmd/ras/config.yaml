@@ -15,10 +15,10 @@ rasconfig:
     manifest:
       -
         type: bios
-        name: ["name1", "name2"]
+        name: ["8-0", "2147483656-1"]
       -
         type: ima
-        name: ["name1", "name2"] 
+        name: ["boot_aggregate", "/etc/modprobe.d/tuned.conf"]
 racconfig:
   hbduration: 5s
   trustduration: 2m0s
