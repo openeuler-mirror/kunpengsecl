@@ -268,6 +268,44 @@ func TestGetServerBasevalue(t *testing.T) {
 		t.Log((rec.Body))
 	}
 }
+
+func TestPutServerBasevalue(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	s, cid := prepareServers(t)
+	var baseValueJSON = `{
+		"algorithm":"SHA1", 
+		"measurements":[{
+			"name":"mName",
+			"type":"mType",
+			"value":"mValue"
+		}], 
+		"pcrvalues":[{
+			"index":1, 
+			"value":"pcr value1"
+		}]
+	}`
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.PUT, "/", strings.NewReader(baseValueJSON))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	_ = s.GetServerBasevalueServerId(ctx, cid)
+	t.Logf("Get former base value:%v", rec.Body)
+
+	err := s.PutServerBasevalueServerId(ctx, cid)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		rec = httptest.NewRecorder()
+		ctx = e.NewContext(req, rec)
+		_ = s.GetServerBasevalueServerId(ctx, cid)
+		t.Logf("Get current base value:%v", rec.Body)
+	}
+}
+
 func TestGetReportServerId(t *testing.T) {
 	t.Log("Get server report:")
 	test.CreateServerConfigFile()

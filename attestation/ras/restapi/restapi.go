@@ -306,14 +306,9 @@ func (s *RasServer) PutServerBasevalueServerId(ctx echo.Context, serverId int64)
 	if err != nil {
 		return ctx.JSON(http.StatusNoContent, nil)
 	}
-	mInfo, _ := trustmgr.GetBaseValueById(serverId)
 	modifyAlgName(string(*serverBvBody.Algorithm), serverId)
 	modifyManifest(*serverBvBody.Measurements, serverId)
 	modifyPcrValue(*serverBvBody.Pcrvalues, serverId)
-	err = trustmgr.SaveBaseValueById(serverId, mInfo)
-	if err != nil {
-		return ctx.JSON(http.StatusNotModified, nil)
-	}
 	return nil
 }
 
@@ -322,17 +317,27 @@ func modifyAlgName(s string, clientId int64) {
 	if err == nil {
 		mInfo.PcrInfo.AlgName = s
 	}
+	_ = trustmgr.SaveBaseValueById(clientId, mInfo)
 }
 
 func modifyManifest(ms []Measurement, clientId int64) {
 	mInfo, err := trustmgr.GetBaseValueById(clientId)
+	var mf entity.Measurement
 	if err == nil {
 		for i := range ms {
-			mInfo.Manifest[i].Name = *ms[i].Name
-			mInfo.Manifest[i].Type = string(*ms[i].Type)
-			mInfo.Manifest[i].Value = *ms[i].Value
+			if i < len(mInfo.Manifest) {
+				mInfo.Manifest[i].Name = *ms[i].Name
+				mInfo.Manifest[i].Type = string(*ms[i].Type)
+				mInfo.Manifest[i].Value = *ms[i].Value
+			} else {
+				mf.Name = *ms[i].Name
+				mf.Type = string(*ms[i].Type)
+				mf.Value = *ms[i].Value
+				mInfo.Manifest = append(mInfo.Manifest, mf)
+			}
 		}
 	}
+	_ = trustmgr.SaveBaseValueById(clientId, mInfo)
 }
 
 func modifyPcrValue(pValues []PcrValue, clientId int64) {
@@ -342,6 +347,7 @@ func modifyPcrValue(pValues []PcrValue, clientId int64) {
 			mInfo.PcrInfo.Values[*con.Index] = *con.Value
 		}
 	}
+	_ = trustmgr.SaveBaseValueById(clientId, mInfo)
 }
 
 type ServerTrustStatus struct {
