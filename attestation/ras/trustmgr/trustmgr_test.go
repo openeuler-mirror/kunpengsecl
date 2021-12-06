@@ -18,6 +18,24 @@ func (tv *testValidator) Validate(report *entity.Report) error {
 	return nil
 }
 
+type testExtractor struct {
+}
+
+func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
+	mInfo.ClientID = report.ClientID
+	mInfo.PcrInfo = report.PcrInfo
+	for _, mf := range report.Manifest {
+		for _, mi := range mf.Items {
+			mInfo.Manifest = append(mInfo.Manifest, entity.Measurement{
+				Type:  mf.Type,
+				Name:  mi.Name,
+				Value: mi.Value,
+			})
+		}
+	}
+	return nil
+}
+
 var (
 	pcrInfo = entity.PcrInfo{
 		AlgName: "sha1",
@@ -77,7 +95,9 @@ func TestRecordReport(t *testing.T) {
 	defer test.RemoveConfigFile()
 	vm := new(testValidator)
 	SetValidator(vm)
-
+	ex := new(testExtractor)
+	SetExtractor(ex)
+	cfg := config.GetDefault(config.ConfServer)
 	ic := createRandomCert()
 
 	clientID, err := RegisterClient(&clientInfo, ic)
@@ -95,6 +115,57 @@ func TestRecordReport(t *testing.T) {
 
 	err = RecordReport(testReport)
 	assert.NoError(t, err)
+
+	client, err := GetRegisterClientById(clientID)
+	assert.NoError(t, err)
+	testBeginBVVer := client.BaseValueVer
+
+	// test auto-update
+	cfg.SetMgrStrategy(config.RasAutoUpdateStrategy)
+	// test all update
+	cfg.SetAutoUpdateConfig(entity.AutoUpdateConfig{IsAllUpdate: true})
+	err = RecordReport(testReport)
+	assert.NoError(t, err)
+	client, err = GetRegisterClientById(clientID)
+	assert.NoError(t, err)
+	assert.Equal(t, testBeginBVVer, client.BaseValueVer)
+
+	testReport.Manifest[0].Items[0].Value = "test changed value 1"
+	err = RecordReport(testReport)
+	assert.NoError(t, err)
+	client, err = GetRegisterClientById(clientID)
+	assert.NoError(t, err)
+	assert.Equal(t, testBeginBVVer+1, client.BaseValueVer)
+	testBeginBVVer++
+	// test not all update
+	cfg.SetAutoUpdateConfig(entity.AutoUpdateConfig{
+		IsAllUpdate:   false,
+		UpdateClients: []int64{clientID},
+	})
+	err = RecordReport(testReport)
+	assert.NoError(t, err)
+	client, err = GetRegisterClientById(clientID)
+	assert.NoError(t, err)
+	assert.Equal(t, testBeginBVVer, client.BaseValueVer)
+
+	testReport.Manifest[0].Items[0].Value = "test changed value 2"
+	err = RecordReport(testReport)
+	assert.NoError(t, err)
+	client, err = GetRegisterClientById(clientID)
+	assert.NoError(t, err)
+	assert.Equal(t, testBeginBVVer+1, client.BaseValueVer)
+	testBeginBVVer++
+
+	// test client is not in the list
+	cfg.SetAutoUpdateConfig(entity.AutoUpdateConfig{
+		IsAllUpdate:   false,
+		UpdateClients: []int64{clientID + 10},
+	})
+	err = RecordReport(testReport)
+	assert.NoError(t, err)
+	client, err = GetRegisterClientById(clientID)
+	assert.NoError(t, err)
+	assert.Equal(t, testBeginBVVer, client.BaseValueVer)
 }
 
 func TestIsMeasurementUpdate(t *testing.T) {

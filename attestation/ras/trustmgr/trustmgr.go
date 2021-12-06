@@ -57,17 +57,29 @@ func RecordReport(report *entity.Report) error {
 		if err != nil {
 			return err
 		}
-		cfg := config.GetDefault(config.ConfServer)
-		// if mgrStrategy is auto-update, save base value of rac which in the update list
-		if cfg.GetMgrStrategy() == config.RasAutoUpdateStrategy {
-			err = recordAutoUpdateReport(report, psd)
+		err = handleBaseValue(report)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func handleBaseValue(report *entity.Report) error {
+	cfg := config.GetDefault(config.ConfServer)
+	switch cfg.GetMgrStrategy() {
+	// if mgrStrategy is auto-update, save base value of rac which in the update list
+	case config.RasAutoUpdateStrategy:
+		{
+			err := recordAutoUpdateReport(report)
 			if err != nil {
 				return err
 			}
 		}
 
-		// if mgrStrategy is auto, and if this is the first report of this RAC, extract base value
-		if cfg.GetMgrStrategy() == config.RasAutoStrategy {
+	// if mgrStrategy is auto, and if this is the first report of this RAC, extract base value
+	case config.RasAutoStrategy:
+		{
 			isFirstReport, err := isFirstReport(report.ClientID)
 			if err != nil {
 				return err
@@ -75,15 +87,14 @@ func RecordReport(report *entity.Report) error {
 			baseValue := entity.MeasurementInfo{}
 			if isFirstReport {
 				extractor.Extract(report, &baseValue)
-			}
-			err = psd.SaveBaseValue(report.ClientID, &baseValue)
-			if err != nil {
-				return err
+				err = SaveBaseValueById(report.ClientID, &baseValue)
+				if err != nil {
+					return err
+				}
 			}
 		}
-
-		return nil
 	}
+	return nil
 }
 
 func RegisterClient(clientInfo *entity.ClientInfo, ic []byte) (int64, error) {
@@ -138,7 +149,8 @@ func isFirstReport(clientId int64) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if reports == nil {
+	// because isFirstReport is judged after saving report, len(reports) == 1
+	if len(reports) == 1 {
 		return true, nil
 	}
 	return false, nil
@@ -212,8 +224,17 @@ func GetClientInfoByID(clientId int64, infoNames []string) (map[string]string, e
 
 func isMeasurementUpdate(oldMea *entity.MeasurementInfo, newMea *entity.MeasurementInfo) bool {
 	// compare pcr info
-	oldPi := oldMea.PcrInfo
-	newPi := newMea.PcrInfo
+	if isPcrInfoUpdate(&oldMea.PcrInfo, &newMea.PcrInfo) {
+		return true
+	}
+	// compare manifest
+	if isManifestUpdate(&oldMea.Manifest, &newMea.Manifest) {
+		return true
+	}
+	return false
+}
+
+func isPcrInfoUpdate(oldPi *entity.PcrInfo, newPi *entity.PcrInfo) bool {
 	if oldPi.AlgName != newPi.AlgName || len(oldPi.Values) != len(newPi.Values) {
 		return true
 	}
@@ -224,13 +245,16 @@ func isMeasurementUpdate(oldMea *entity.MeasurementInfo, newMea *entity.Measurem
 			return true
 		}
 	}
-	// compare measurement
-	if len(oldMea.Manifest) != len(newMea.Manifest) {
+	return false
+}
+
+func isManifestUpdate(oldM *[]entity.Measurement, newM *[]entity.Measurement) bool {
+	if len(*oldM) != len(*newM) {
 		return true
 	}
-	for _, oldMeaItem := range oldMea.Manifest {
+	for _, oldMeaItem := range *oldM {
 		isExisted := false
-		for _, newMeaItem := range newMea.Manifest {
+		for _, newMeaItem := range *newM {
 			// use oldMeaItem == newMeaItem is effective because varities in measurement are all string
 			if oldMeaItem == newMeaItem {
 				isExisted = true
@@ -241,9 +265,10 @@ func isMeasurementUpdate(oldMea *entity.MeasurementInfo, newMea *entity.Measurem
 		}
 	}
 	return false
+
 }
 
-func recordAutoUpdateReport(report *entity.Report, psd dao.DAO) error {
+func recordAutoUpdateReport(report *entity.Report) error {
 	cfg := config.GetDefault(config.ConfServer)
 	// if all update
 	isClientExist := false
@@ -261,12 +286,12 @@ func recordAutoUpdateReport(report *entity.Report, psd dao.DAO) error {
 	if isClientExist {
 		newMea := entity.MeasurementInfo{}
 		extractor.Extract(report, &newMea)
-		oldMea, err := psd.SelectBaseValueById(report.ClientID)
+		oldMea, err := GetBaseValueById(report.ClientID)
 		if err != nil {
 			return err
 		}
 		if isMeasurementUpdate(oldMea, &newMea) {
-			err = psd.SaveBaseValue(report.ClientID, &newMea)
+			err = SaveBaseValueById(report.ClientID, &newMea)
 			if err != nil {
 				return err
 			}

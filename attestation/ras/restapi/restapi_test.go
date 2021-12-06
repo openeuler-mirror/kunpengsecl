@@ -24,6 +24,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type testExtractor struct {
+}
+
+func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
+	mInfo.ClientID = report.ClientID
+	mInfo.PcrInfo = report.PcrInfo
+	for _, mf := range report.Manifest {
+		for _, mi := range mf.Items {
+			mInfo.Manifest = append(mInfo.Manifest, entity.Measurement{
+				Type:  mf.Type,
+				Name:  mi.Name,
+				Value: mi.Value,
+			})
+		}
+	}
+	return nil
+}
+
 func CreateServer(t *testing.T) {
 	router := echo.New()
 
@@ -289,6 +307,7 @@ func createRandomCert() []byte {
 }
 
 func prepareServers(t *testing.T) (*RasServer, int64) {
+	trustmgr.SetExtractor(&testExtractor{})
 	vm, err := verifier.CreateVerifierMgr()
 	require.NoError(t, err)
 	cm := cache.CreateCacheMgr(cache.DEFAULTRACNUM, vm)
