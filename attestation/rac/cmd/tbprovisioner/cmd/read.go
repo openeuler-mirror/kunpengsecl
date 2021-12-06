@@ -28,19 +28,45 @@ import (
 
 const (
 	// for command flags const long and strings.
-	LongIndex      = "index"
-	ShortIndex     = "i"
-	LongFile       = "file"
-	ShortFile      = "f"
-	LongType       = "type"
-	ShortType      = "t"
+	LongIndex  = "index"
+	ShortIndex = "i"
+	LongFile   = "file"
+	ShortFile  = "f"
+	ConstFile  = "the file to read content from, PEM format"
+	LongType   = "type"
+	ShortType  = "t"
+	ConstType  = `the output type DER/PEM (DEFAULT: DER)
+    DER: the data needs to be transfered from PEM to DER
+    PEM: the data is PEM and can directly write into NVRAM
+    STR: the data is readable string for testing`
+	LongLength     = "len"
+	ShortLength    = "l"
 	LongSimulator  = "simulator"
 	ShortSimulator = "s"
+	ConstSimulator = "use the simulator to test (DEFAULT: false)"
+	ConstExample   = `
+For example:
+    # define a 128 bytes space for storage at 0x1000001 in NVRAM.
+    tbprovisioner define nvram -i 0x1000001 -l 128
+
+    # write data from command
+    tbprovisioner write nvram "Hello world! I'm here!" -i 0x1000001 -t STR
+    # or write data from file
+    echo "Another test from file!" > data.txt
+    tbprovisioner write nvram -i 0x1000001 -f data.txt -t STR
+
+    # read data from NVRAM at index 0x1000001
+    tbprovisioner read nvram -i 0x1000001 -t STR
+
+    # undefine this index space
+    tbprovisioner undefine nvram -i 0x1000001
+`
 	// for input parameter const strings.
 	ConstNVRAM = "NVRAM"
 	ConstPCR   = "PCR"
 	ConstPEM   = "PEM"
 	ConstDER   = "DER"
+	ConstSTR   = "STR"
 	// for error messages.
 	errOpenTPM    = "can't open TPM, %v\n"
 	errReadNVRAM  = "read NVRAM(0x%08X) error: %v\n"
@@ -48,9 +74,6 @@ const (
 	errReadFile   = "read file(%s) error: %v\n"
 	errWriteNVRAM = "write NVRAM(0x%08X) error: %v\n"
 	errWriteFile  = "write file(%s) error: %v\n"
-	// for information message.
-	constWriteNVRAM = "NVRAM(0x%08X): %v\n"
-	constWritePCR   = "PCR(%d): %v\n"
 	// long help string
 	constIndexList = `
     0x01C00002   RSA 2048 EK Certificate
@@ -66,9 +89,10 @@ const (
     0x01C0001A   ECC SM2_P256 EK Certificate (H-5)
     0x01C0001C   RSA 3072 EK Certificate (H-6)
     0x01C0001E   RSA 4096 EK Certificate (H-7)`
+	constDIndexHelp = `the NVRAM index to define (DEFAULT: 0x01C00002)` + constIndexList
+	constUIndexHelp = `the NVRAM index to undefine (DEFAULT: 0x01C00002)` + constIndexList
 	constRIndexHelp = `the NVRAM index to read from (DEFAULT: 0x01C00002)` + constIndexList
 	constWIndexHelp = `the NVRAM index to write to (DEFAULT: 0x01C00002)` + constIndexList
-	constEIndexHelp = `the NVRAM index to erase (DEFAULT: 0x01C00002)` + constIndexList
 )
 
 var (
@@ -78,7 +102,7 @@ var (
 		Short: "Read TPM NVRAM|PCR content",
 		Long: `Use this command to read TPM resources(nvram, pcr, etc) and save to
 file(Default: StdOut) with the define format(Default: PEM).
-`,
+` + ConstExample,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) != 1 {
 				fmt.Println(cmd.Long)
@@ -114,40 +138,35 @@ file(Default: StdOut) with the define format(Default: PEM).
 func init() {
 	rootCmd.AddCommand(readCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// readCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// readCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	readCmd.Flags().Uint32VarP(&rIndex, LongIndex, ShortIndex, 0, constRIndexHelp)
 	readCmd.Flags().StringVarP(&rFile, LongFile, ShortFile, "", "the file to write content into")
-	readCmd.Flags().StringVarP(&rType, LongType, ShortType, "", "the output type PEM/DER (DEFAULT: PEM)")
-	readCmd.Flags().BoolVarP(&rSim, LongSimulator, ShortSimulator, false, "use the simulator to test (DEFAULT: false)")
+	readCmd.Flags().StringVarP(&rType, LongType, ShortType, "", "the output type PEM/DER/STR (DEFAULT: PEM)")
+	readCmd.Flags().BoolVarP(&rSim, LongSimulator, ShortSimulator, false, ConstSimulator)
 }
 
 func nvramHandle(tp *ractools.TPM) {
 	if rIndex == 0 {
 		rIndex = ractools.IndexRsa2048EKCert
 	}
-	buf, err := tp.ReadEKCert(rIndex)
+	buf, err := tp.ReadNVRAM(rIndex)
 	if err != nil {
 		fmt.Printf(errReadNVRAM, rIndex, err)
 		os.Exit(1)
 	}
 	var out []byte
-	if rType == ConstDER {
+	rType = strings.ToUpper(rType)
+	if rType == ConstDER || rType == ConstSTR {
 		out = buf
 	} else {
 		block := &pem.Block{Bytes: buf}
 		out = pem.EncodeToMemory(block)
 	}
-	rType = strings.ToUpper(rType)
 	if rFile == "" {
-		fmt.Printf(constWriteNVRAM, rIndex, out)
+		if rType == ConstDER {
+			fmt.Printf("%v", out)
+		} else {
+			fmt.Printf("%s", out)
+		}
 	} else {
 		err = ioutil.WriteFile(rFile, out, 0644)
 		if err != nil {

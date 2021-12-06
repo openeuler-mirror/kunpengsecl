@@ -72,9 +72,10 @@ const (
 	biosLogPath     = "/sys/kernel/security/tpm0/binary_bios_measurements"
 	testImaLogPath  = "./ascii_runtime_measurements"
 	testBiosLogPath = "./binary_bios_measurements"
-	tpmDevPath      = "/dev/tpm0"
-	blockSize       = 1024
-	constDIMBIOS    = `# dmidecode 3.2
+	//tpmDevPath      = "/dev/tpm0"
+	tpmDevPath   = "/dev/tpmrm0"
+	blockSize    = 1024
+	constDIMBIOS = `# dmidecode 3.2
 Getting SMBIOS data from sysfs.
 SMBIOS 2.7 present.
 
@@ -188,7 +189,7 @@ func (tpm *TPM) Prepare(config *TPMConfig, server string, generateEKCert func([]
 	}
 	tpm.config.EK.Handle, tpm.config.EK.Pub = uint32(ekHandle), ekPub
 	// try to get ekCert form nv, if failed ,create ekCert and write it to nv
-	_, err = tpm.ReadEKCert(IndexRsa2048EKCert)
+	_, err = tpm.ReadNVRAM(IndexRsa2048EKCert)
 	var ekCert []byte
 	if err != nil {
 		if tpm.config.IsUseTestEKCert {
@@ -202,7 +203,7 @@ func (tpm *TPM) Prepare(config *TPMConfig, server string, generateEKCert func([]
 			}
 			ekCert = ekCert2
 		}
-		tpm.WriteEKCert(IndexRsa2048EKCert, ekCert)
+		tpm.WriteNVRAM(IndexRsa2048EKCert, ekCert)
 	}
 	// Create and save IK
 	err = tpm.createIK(ekHandle, ekPassword, emptyPassword, pcrSelectionNil)
@@ -210,21 +211,22 @@ func (tpm *TPM) Prepare(config *TPMConfig, server string, generateEKCert func([]
 	return err
 }
 
-// EraseEKCert erases the EK certificate from NVRAM.
-func (tpm *TPM) EraseEKCert(idx uint32) {
-	tpm2.NVUndefineSpace(tpm.dev, emptyPassword, tpm2.HandleOwner,
+// DefineNVRAM defines the index space as size length in the NVRAM
+func (tpm *TPM) DefineNVRAM(idx uint32, size uint16) error {
+	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
+	return tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
+		emptyPassword, emptyPassword, nil, attr, size)
+}
+
+// UndefineNVRAM frees the index space in the NVRAM
+func (tpm *TPM) UndefineNVRAM(idx uint32) error {
+	return tpm2.NVUndefineSpace(tpm.dev, emptyPassword, tpm2.HandleOwner,
 		tpmutil.Handle(idx))
 }
 
-// WriteEKCert writes the EK certificate(DER) into tpm NVRAM.
-func (tpm *TPM) WriteEKCert(idx uint32, ekCert []byte) error {
-	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
-	err := tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
-		emptyPassword, emptyPassword, nil, attr, uint16(len(ekCert)))
-	if err != nil {
-		return err
-	}
-	l := uint16(len(ekCert))
+// WriteNVRAM writes the data at index into the NVRAM
+func (tpm *TPM) WriteNVRAM(idx uint32, data []byte) error {
+	l := uint16(len(data))
 	offset := uint16(0)
 	end := uint16(0)
 	for l > 0 {
@@ -235,8 +237,8 @@ func (tpm *TPM) WriteEKCert(idx uint32, ekCert []byte) error {
 			end = offset + blockSize
 			l -= blockSize
 		}
-		err = tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
-			emptyPassword, ekCert[offset:end], offset)
+		err := tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
+			emptyPassword, data[offset:end], offset)
 		if err != nil {
 			return err
 		}
@@ -245,13 +247,9 @@ func (tpm *TPM) WriteEKCert(idx uint32, ekCert []byte) error {
 	return nil
 }
 
-// ReadEKCert reads the EK certificate from tpm NVRAM.
-func (tpm *TPM) ReadEKCert(idx uint32) ([]byte, error) {
-	ekDer, err := tpm2.NVReadEx(tpm.dev, tpmutil.Handle(idx), tpm2.HandleOwner, emptyPassword, 0)
-	if err != nil {
-		return nil, err
-	}
-	return ekDer, nil
+// ReadNVRAM reads the data at index from the NVRAM
+func (tpm *TPM) ReadNVRAM(idx uint32) ([]byte, error) {
+	return tpm2.NVReadEx(tpm.dev, tpmutil.Handle(idx), tpm2.HandleOwner, emptyPassword, 0)
 }
 
 // GetEKCert invoke ReadEKCert to get ekCertDer and convert it to PEM format.
@@ -259,7 +257,7 @@ func (tpm *TPM) ReadEKCert(idx uint32) ([]byte, error) {
 // otherwise an error will be reported when calling this function.
 func (tpm *TPM) GetEKCert() ([]byte, error) {
 	// Read all of the ekDer with NVReadEx
-	ekDer, err := tpm.ReadEKCert(IndexRsa2048EKCert)
+	ekDer, err := tpm.ReadNVRAM(IndexRsa2048EKCert)
 	if err != nil {
 		log.Printf("read NV failed, error: %v\n", err)
 		return nil, err

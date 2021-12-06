@@ -29,13 +29,13 @@ import (
 var (
 	// writeCmd represents the write command
 	writeCmd = &cobra.Command{
-		Use:   "write [nvram]",
+		Use:   "write [nvram] [data]",
 		Short: "Write TPM NVRAM content",
-		Long: `Use this command to read content from file (PEM format) and write to
-TPM resources(nvram, etc) with the define format(Default: DER).
-`,
+		Long: `Use this command to write data to TPM nvram with DER/PEM/STR format.
+The data comes from input or from a file. Default input data is PEM format.
+` + ConstExample,
 		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) != 1 {
+			if len(args) == 0 || len(args) > 2 {
 				fmt.Println(cmd.Long)
 				fmt.Println(cmd.UsageString())
 				os.Exit(1)
@@ -46,26 +46,34 @@ TPM resources(nvram, etc) with the define format(Default: DER).
 				fmt.Println(cmd.UsageString())
 				os.Exit(1)
 			}
+			var buf []byte
+			var err error
+			if len(args) == 2 {
+				buf = []byte(args[1])
+			} else {
+				buf, err = ioutil.ReadFile(wFile)
+				if err != nil {
+					fmt.Printf(errReadFile, wFile, err)
+					os.Exit(1)
+				}
+			}
 			tp, err := ractools.OpenTPM(!wSim)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)
 			}
 			defer tp.Close()
-			buf, err := ioutil.ReadFile(wFile)
-			if err != nil {
-				fmt.Printf(errReadFile, wFile, err)
-				os.Exit(1)
-			}
 			if wIndex == 0 {
 				wIndex = ractools.IndexRsa2048EKCert
 			}
 			wType = strings.ToUpper(wType)
-			if wType == "" || wType == ConstDER {
+			if wType == ConstDER {
 				block, _ := pem.Decode(buf)
-				err = tp.WriteEKCert(wIndex, block.Bytes)
-			} else if wType == ConstPEM {
-				err = tp.WriteEKCert(wIndex, buf)
+				if block != nil {
+					err = tp.WriteNVRAM(wIndex, block.Bytes)
+				}
+			} else {
+				err = tp.WriteNVRAM(wIndex, buf)
 			}
 			if err != nil {
 				fmt.Printf(errWriteNVRAM, wIndex, err)
@@ -82,17 +90,8 @@ TPM resources(nvram, etc) with the define format(Default: DER).
 func init() {
 	rootCmd.AddCommand(writeCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// writeCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// writeCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	writeCmd.Flags().Uint32VarP(&wIndex, LongIndex, ShortIndex, 0, constWIndexHelp)
-	writeCmd.Flags().StringVarP(&wFile, LongFile, ShortFile, "", "the file to read content from")
-	writeCmd.Flags().StringVarP(&wType, LongType, ShortType, "", "the output type DER/PEM (DEFAULT: DER)")
-	writeCmd.Flags().BoolVarP(&wSim, LongSimulator, ShortSimulator, false, "use the simulator to test (DEFAULT: false)")
+	writeCmd.Flags().StringVarP(&wFile, LongFile, ShortFile, "", ConstFile)
+	writeCmd.Flags().StringVarP(&wType, LongType, ShortType, "", ConstType)
+	writeCmd.Flags().BoolVarP(&wSim, LongSimulator, ShortSimulator, false, ConstSimulator)
 }
