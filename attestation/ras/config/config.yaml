@@ -20,3 +20,4 @@ rasconfig:
 racconfig:
   hbduration: 5s
   trustduration: 2m0s
+  digestalgorithm: sha256

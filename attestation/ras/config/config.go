@@ -53,19 +53,21 @@ const (
 	RasExtRules           = "rasconfig.basevalue-extract-rules"
 	RasAutoUpdateConfig   = "rasconfig.auto-update-config"
 	// RAC
-	RacServer               = "racconfig.server" // client connect to server
-	RacServerLongFlag       = "server"
-	RacServerShortFlag      = "s"
-	RacTestModeLongFlag     = "test"
-	RacTestModeShortFlag    = "t"
-	RacHbDuration           = "racconfig.hbduration"
-	RacDefaultHbDuration    = 10 // seconds
-	RacTrustDuration        = "racconfig.trustduration"
-	RacDefaultTrustDuration = 120 // seconds
-	RacClientId             = "racconfig.clientid"
-	RacNullClientId         = -1
-	RacPassword             = "racconfig.password"
-	RacDefaultPassword      = ""
+	RacServer                = "racconfig.server" // client connect to server
+	RacServerLongFlag        = "server"
+	RacServerShortFlag       = "s"
+	RacTestModeLongFlag      = "test"
+	RacTestModeShortFlag     = "t"
+	RacHbDuration            = "racconfig.hbduration"
+	RacDefaultHbDuration     = 10 // seconds
+	RacTrustDuration         = "racconfig.trustduration"
+	RacDefaultTrustDuration  = 120 // seconds
+	RacClientId              = "racconfig.clientid"
+	RacNullClientId          = -1
+	RacPassword              = "racconfig.password"
+	RacDefaultPassword       = ""
+	RacDigestAlgorithm       = "racconfig.digestalgorithm"
+	RacDigestAlgorithmSHA256 = "sha256"
 	// Hub
 	HubServer          = "hubconfig.server"
 	HubServerLongFlag  = "server"
@@ -113,12 +115,13 @@ type (
 		autoUpdateConfig entity.AutoUpdateConfig
 	}
 	racConfig struct {
-		server        string
-		testMode      bool
-		hbDuration    time.Duration // heartbeat duration
-		trustDuration time.Duration // trust state duration
-		clientId      int64
-		password      string
+		server          string
+		testMode        bool
+		hbDuration      time.Duration // heartbeat duration
+		trustDuration   time.Duration // trust state duration
+		clientId        int64
+		password        string
+		digestAlgorithm string
 	}
 	hubConfig struct {
 		server  string
@@ -178,6 +181,7 @@ func getServerConf(c *config) {
 	}
 	c.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
 	c.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
+	c.racConfig.digestAlgorithm = viper.GetString(RacDigestAlgorithm)
 	// set command line input
 	if servPort != nil && *servPort != "" {
 		c.rasConfig.servPort = *servPort
@@ -196,6 +200,7 @@ func getClientConf(c *config) {
 	c.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
 	c.racConfig.clientId = viper.GetInt64(RacClientId)
 	c.racConfig.password = viper.GetString(RacPassword)
+	c.racConfig.digestAlgorithm = viper.GetString(RacDigestAlgorithm)
 	// set command line input
 	if racServer != nil && *racServer != "" {
 		c.racConfig.server = *racServer
@@ -248,6 +253,7 @@ func GetDefault(cfType string) *config {
 		viper.SetDefault(RacTrustDuration, RacDefaultTrustDuration)
 		viper.SetDefault(RacClientId, RacNullClientId)
 		viper.SetDefault(RacPassword, RacDefaultPassword)
+		viper.SetDefault(RacDigestAlgorithm, RacDigestAlgorithmSHA256)
 	case ConfHub:
 	}
 
@@ -287,11 +293,13 @@ func Save() {
 			// store common configuration for all client
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
 			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
+			viper.Set(RacDigestAlgorithm, cfg.racConfig.digestAlgorithm)
 		case ConfClient:
 			// store common part
 			viper.Set(RacServer, cfg.racConfig.server)
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
 			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
+			viper.Set(RacDigestAlgorithm, cfg.racConfig.digestAlgorithm)
 			// store special configuration for this client
 			viper.Set(RacClientId, cfg.racConfig.clientId)
 			viper.Set(RacPassword, cfg.racConfig.password)
@@ -421,4 +429,12 @@ func (c *config) GetHubServer() string {
 
 func (c *config) GetHubPort() string {
 	return c.hubConfig.hubPort
+}
+
+func (c *config) GetDigestAlgorithm() string {
+	return c.racConfig.digestAlgorithm
+}
+
+func (c *config) SetDigestAlgorithm(algorithm string) {
+	c.racConfig.digestAlgorithm = algorithm
 }
