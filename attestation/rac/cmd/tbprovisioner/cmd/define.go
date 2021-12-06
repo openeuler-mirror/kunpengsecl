@@ -10,7 +10,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 Author: wucaijun
-Create: 2021-12-02
+Create: 2021-12-06
 Description: Command line tool for tpm provision process.
 */
 package cmd
@@ -24,12 +24,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// defineCmd represents the define command
 var (
-	// eraseCmd represents the erase command
-	eraseCmd = &cobra.Command{
-		Use:   "erase [nvram]",
-		Short: "Erase TPM NVRAM content",
-		Long:  `Use this command to erase TPM NVRAM content at defined index.`,
+	defineCmd = &cobra.Command{
+		Use:   "define [nvram]",
+		Short: "define TPM NVRAM content",
+		Long: `Use this command to define TPM NVRAM content at index.
+		` + ConstExample,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) != 1 {
 				fmt.Println(cmd.Long)
@@ -42,34 +43,31 @@ var (
 				fmt.Println(cmd.UsageString())
 				os.Exit(1)
 			}
-			tp, err := ractools.OpenTPM(!eSim)
+			if dLength > 2048 {
+				fmt.Println("data length is too long.")
+				os.Exit(1)
+			}
+			tp, err := ractools.OpenTPM(!dSim)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)
 			}
 			defer tp.Close()
-			if eIndex == 0 {
-				eIndex = ractools.IndexRsa2048EKCert
+			if dIndex == 0 {
+				dIndex = ractools.IndexRsa2048EKCert
 			}
-			tp.EraseEKCert(eIndex)
+			tp.DefineNVRAM(dIndex, uint16(dLength))
 		},
 	}
-	eIndex uint32
-	eSim   bool
+	dIndex  uint32
+	dLength uint32
+	dSim    bool
 )
 
 func init() {
-	rootCmd.AddCommand(eraseCmd)
+	rootCmd.AddCommand(defineCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// eraseCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// eraseCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	eraseCmd.Flags().Uint32VarP(&eIndex, LongIndex, ShortIndex, 0, constEIndexHelp)
-	eraseCmd.Flags().BoolVarP(&eSim, LongSimulator, ShortSimulator, false, "use the simulator to test (DEFAULT: false)")
+	defineCmd.Flags().Uint32VarP(&dIndex, LongIndex, ShortIndex, 0, constDIndexHelp)
+	defineCmd.Flags().Uint32VarP(&dLength, LongLength, ShortLength, 0, "define the saved data length")
+	defineCmd.Flags().BoolVarP(&dSim, LongSimulator, ShortSimulator, false, ConstSimulator)
 }
