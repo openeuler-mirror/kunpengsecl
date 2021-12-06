@@ -4,12 +4,30 @@ package verifier
 	verifier is used to verify trust status of target RAC.
 */
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+)
+
+const (
+	constDEFAULTTIMEOUT time.Duration = 100 * time.Second
+	uint32Len                         = 4
+	digestAlgIDLen                    = 2
+	sha1DigestLen                     = 20
+	sha256DigestLen                   = 32
+	sha1AlgID                         = "0400"
+	sha256AlgID                       = "0b00"
+	event2SpecID                      = "Spec ID Event03"
+	specLen                           = 16
+	specStart                         = 32
+	specEnd                           = 48
 )
 
 var validators []trustmgr.Validator
@@ -238,4 +256,126 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 		}
 	}
 	return nil
+}
+
+func (bv *BIOSVerifier) Validate(report *entity.Report) error {
+	pseudoPCR := make(map[uint32]string) //store PCR that will be figured out
+	PCRid := make([]uint32, 0)
+
+	//find bios manifest list
+	var manifest entity.Manifest
+	manifestCnt := 0
+	for _, element := range report.Manifest {
+		if element.Type == "bios" {
+			manifest = element
+			break
+		}
+		manifestCnt++
+	}
+	if manifestCnt == len(report.Manifest) {
+		return fmt.Errorf("no bios manifest in report")
+	}
+
+	//use bios manifest to calculate pseudoPCR
+	for _, item := range manifest.Items {
+		//unmarshal manifest in report
+		parsedManifest := new(entity.BIOSManifestItem)
+		err := json.Unmarshal([]byte(item.Detail), parsedManifest)
+		if err != nil {
+			return fmt.Errorf("json unmarshal failed")
+		}
+		//initial
+		temp, err2 := initpseudoPCR(pseudoPCR, parsedManifest, report.PcrInfo.AlgName, &PCRid)
+		if err2 != nil {
+			return fmt.Errorf("PCR Digest combine falied")
+		}
+		//combine
+		err1 := combinePcrDigest(pseudoPCR, parsedManifest, report.PcrInfo.AlgName, temp)
+		if err1 != nil {
+			return fmt.Errorf("PCR Digest combine falied")
+		}
+		//calculate new pcr value
+		h := sha256.New()
+		h.Write(temp)
+		newPCRBytes := h.Sum(nil)
+
+		pseudoPCR[parsedManifest.Pcr] = hex.EncodeToString(newPCRBytes)
+	}
+
+	//compare report.PcrInfo.Values with pseudoPCR
+	if len(report.PcrInfo.Values) != len(pseudoPCR) {
+		return fmt.Errorf("bios validation failed: invalid bios")
+	}
+	for i := 0; i < len(pseudoPCR); i++ {
+		if report.PcrInfo.Values[int(PCRid[i])] != pseudoPCR[PCRid[i]] {
+			return fmt.Errorf("bios validation failed: invalid bios")
+		}
+	}
+
+	return nil
+}
+
+func combinePcrDigest(pseudoPCR map[uint32]string, parsedManifest *entity.BIOSManifestItem, Algname string, temp []byte) error {
+	prePCRBytes, err := hex.DecodeString(pseudoPCR[parsedManifest.Pcr])
+	if err != nil {
+		return fmt.Errorf("decode bios item digest failed")
+	}
+	for i := 0; i < len(prePCRBytes); i++ {
+		temp[i] = prePCRBytes[i]
+	}
+
+	//continue to combine. find item that uses sha256, if there is no such item, return error
+	var itemToUse entity.DigestItem
+	itemCnt := 0
+	for _, item := range parsedManifest.Digest.Item {
+		var selectAlgID string
+		if Algname == "sha1" {
+			selectAlgID = sha1AlgID
+		} else if Algname == "sha256" {
+			selectAlgID = sha256AlgID
+		} //expected to be extended (more algorithms)
+		if item.AlgID == selectAlgID {
+			itemToUse = item
+			break
+		}
+		itemCnt++
+	}
+	if itemCnt == len(parsedManifest.Digest.Item) {
+		return fmt.Errorf("no item can be used in bios manifest to calculate PCR")
+	}
+	newDigestBytes, err := hex.DecodeString(itemToUse.Item)
+	if err != nil {
+		return fmt.Errorf("decode bios item digest failed")
+	}
+	for i := 0; i < len(newDigestBytes); i++ {
+		temp[len(prePCRBytes)+i] = newDigestBytes[i]
+	}
+
+	return nil
+}
+
+func initpseudoPCR(pseudoPCR map[uint32]string, parsedManifest *entity.BIOSManifestItem, algname string, PCRid *[]uint32) ([]byte, error) {
+	var temp []byte
+
+	if algname == "sha256" {
+		temp = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		} //tpm 2.0, combination: 64 bytes
+		if _, ok := pseudoPCR[parsedManifest.Pcr]; !ok {
+			pseudoPCR[parsedManifest.Pcr] = "0000000000000000000000000000000000000000000000000000000000000000" //pcr: 32 bytes
+			*PCRid = append(*PCRid, parsedManifest.Pcr)
+		}
+	} else if algname == "sha1" {
+		temp = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		} //tpm 1.2, combination: 40 bytes
+		if _, ok := pseudoPCR[parsedManifest.Pcr]; !ok {
+			pseudoPCR[parsedManifest.Pcr] = "0000000000000000000000000000000000000000" //pcr: 20 bytes
+			*PCRid = append(*PCRid, parsedManifest.Pcr)
+		}
+	} //expected to be extended (more algorithms)
+	return temp, nil
 }

@@ -276,3 +276,66 @@ func TestIMAExtract(t *testing.T) {
 	}
 	t.Log(testMea)
 }
+
+func TestBIOSValidate(t *testing.T) {
+	var bv *BIOSVerifier
+
+	pibv := entity.PcrInfo{
+		AlgName: "sha256",
+		Values: map[int]string{
+			1: "8acfdc0d15afa6e5ea69159c080e11ad1c68551c0f64b5b1e738bc3cac30a655",
+			3: "dead51c4da465379b8a750ef177ebf28130ebfa4e9a5b0a49ee5a1b341e973e6",
+		},
+		Quote: entity.PcrQuote{
+			Quoted: []byte(quoteVal),
+		},
+	}
+
+	item1 := entity.ManifestItem{
+		Name:   "item1",
+		Value:  "item1value",
+		Detail: "{\"Pcr\":1,\"BType\":1,\"Digest\":{\"Count\":1,\"Item\":[{\"AlgID\":\"0b00\",\"Item\":\"0000000011111111aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffff\"}]},\"DataLen\":3,\"Data\":\"nil\"}",
+	}
+	item2 := entity.ManifestItem{
+		Name:   "item2",
+		Value:  "item2value",
+		Detail: "{\"Pcr\":1,\"BType\":1,\"Digest\":{\"Count\":1,\"Item\":[{\"AlgID\":\"0b00\",\"Item\":\"0000000022222222aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffff\"}]},\"DataLen\":3,\"Data\":\"nil\"}",
+	}
+	item3 := entity.ManifestItem{
+		Name:   "item3",
+		Value:  "item3value",
+		Detail: "{\"Pcr\":3,\"BType\":1,\"Digest\":{\"Count\":1,\"Item\":[{\"AlgID\":\"0b00\",\"Item\":\"0000000033333333aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffff\"}]},\"DataLen\":3,\"Data\":\"nil\"}",
+	}
+	mf := entity.Manifest{
+		Type:  "bios",
+		Items: []entity.ManifestItem{item1, item2, item3},
+	}
+
+	report := &entity.Report{
+		PcrInfo:  pibv,
+		Manifest: []entity.Manifest{mf},
+		ClientID: 1,
+		ClientInfo: entity.ClientInfo{
+			Info: nil,
+		},
+		Verified: false,
+	}
+
+	testCase := []struct {
+		input  *entity.Report
+		result error
+	}{
+		{report, nil},
+		//{baseValue2, report, errcase},
+	}
+	for i := 0; i < len(testCase); i++ {
+		err := bv.Validate(testCase[i].input)
+		if err == testCase[i].result {
+			t.Logf("test BIOS Validate success at case %d\n", i)
+		} else if err.Error() == testCase[i].result.Error() {
+			t.Logf("test BIOS Validate success at case %d\n", i)
+		} else {
+			t.Errorf("test BIOS Validate error at case %d\n", i)
+		}
+	}
+}
