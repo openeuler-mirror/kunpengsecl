@@ -5,3 +5,7 @@ TRUNCATE TABLE trust_report_manifest  CASCADE;
 TRUNCATE TABLE trust_report_pcr_info CASCADE;
 TRUNCATE TABLE trust_report CASCADE;
 TRUNCATE TABLE register_client CASCADE;
+TRUNCATE TABLE container CASCADE;
+TRUNCATE TABLE container_base_value CASCADE;
+TRUNCATE TABLE pcie_device CASCADE;
+TRUNCATE TABLE pcie_base_value CASCADE;

@@ -63,3 +63,37 @@ CREATE TABLE base_value_manifest(
                                       name TEXT,
                                       value TEXT
 );
+
+CREATE TABLE container(
+    uuid TEXT PRIMARY KEY NOT NULL,
+    client_id BIGINT NOT NULL REFERENCES register_client(id),
+    base_value_ver INT,
+    online BOOLEAN,
+    deleted BOOLEAN
+);
+
+
+CREATE TABLE container_base_value(
+    id BIGSERIAL NOT NULL,
+    container_uuid TEXT NOT NULL REFERENCES container(uuid),
+    base_value_ver INT,
+    name TEXT,
+    value TEXT
+);
+
+CREATE TABLE device(
+    id BIGINT PRIMARY KEY NOT NULL,
+    client_id BIGINT NOT NULL REFERENCES register_client(id),
+    base_value_ver INT,
+    online BOOLEAN,
+    deleted BOOLEAN
+);
+
+
+CREATE TABLE device_base_value(
+    id BIGSERIAL NOT NULL,
+    device_id BIGINT NOT NULL REFERENCES device(id),
+    base_value_ver INT,
+    name TEXT,
+    value TEXT
+);
