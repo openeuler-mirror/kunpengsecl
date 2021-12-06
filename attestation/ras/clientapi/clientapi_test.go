@@ -86,6 +86,24 @@ func (tv *testValidator) Validate(report *entity.Report) error {
 	return nil
 }
 
+type testExtractor struct {
+}
+
+func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
+	mInfo.ClientID = report.ClientID
+	mInfo.PcrInfo = report.PcrInfo
+	for _, mf := range report.Manifest {
+		for _, mi := range mf.Items {
+			mInfo.Manifest = append(mInfo.Manifest, entity.Measurement{
+				Type:  mf.Type,
+				Name:  mi.Name,
+				Value: mi.Value,
+			})
+		}
+	}
+	return nil
+}
+
 func TestClientAPI(t *testing.T) {
 	test.CreateServerConfigFile()
 	cfg := config.GetDefault(config.ConfServer)
@@ -155,6 +173,8 @@ func TestClientAPI(t *testing.T) {
 	t.Logf("Client: invoke SendHeartbeat ok")
 
 	trustmgr.SetValidator(&testValidator{})
+	ex := new(testExtractor)
+	trustmgr.SetExtractor(ex)
 	// test empty report
 	srRep, err := c.SendReport(ctx, &SendReportRequest{})
 	assert.Equal(t, false, srRep.GetResult())
