@@ -26,6 +26,28 @@ const (
 	Servermgt_authScopes = "servermgt_auth.Scopes"
 )
 
+// Defines values for ContainerBaseValueAlgorithm.
+const (
+	ContainerBaseValueAlgorithmSha1 ContainerBaseValueAlgorithm = "sha1"
+
+	ContainerBaseValueAlgorithmSha256 ContainerBaseValueAlgorithm = "sha256"
+
+	ContainerBaseValueAlgorithmSha384 ContainerBaseValueAlgorithm = "sha384"
+
+	ContainerBaseValueAlgorithmSha512 ContainerBaseValueAlgorithm = "sha512"
+)
+
+// Defines values for DeviceBaseValueAlgorithm.
+const (
+	DeviceBaseValueAlgorithmSha1 DeviceBaseValueAlgorithm = "sha1"
+
+	DeviceBaseValueAlgorithmSha256 DeviceBaseValueAlgorithm = "sha256"
+
+	DeviceBaseValueAlgorithmSha384 DeviceBaseValueAlgorithm = "sha384"
+
+	DeviceBaseValueAlgorithmSha512 DeviceBaseValueAlgorithm = "sha512"
+)
+
 // Defines values for MeasurementType.
 const (
 	MeasurementTypeBios MeasurementType = "bios"
@@ -48,6 +70,38 @@ const (
 type ConfigItem struct {
 	Name  *string `json:"name,omitempty"`
 	Value *string `json:"value,omitempty"`
+}
+
+// ContainerBaseValue defines model for ContainerBaseValue.
+type ContainerBaseValue struct {
+	Algorithm    *ContainerBaseValueAlgorithm `json:"algorithm,omitempty"`
+	Measurements *[]Measurement               `json:"measurements,omitempty"`
+}
+
+// ContainerBaseValueAlgorithm defines model for ContainerBaseValue.Algorithm.
+type ContainerBaseValueAlgorithm string
+
+// ContainerBriefInfo defines model for ContainerBriefInfo.
+type ContainerBriefInfo struct {
+	Registered *bool   `json:"registered,omitempty"`
+	Serverid   *int64  `json:"serverid,omitempty"`
+	Uuid       *string `json:"uuid,omitempty"`
+}
+
+// DeviceBaseValue defines model for DeviceBaseValue.
+type DeviceBaseValue struct {
+	Algorithm    *DeviceBaseValueAlgorithm `json:"algorithm,omitempty"`
+	Measurements *[]Measurement            `json:"measurements,omitempty"`
+}
+
+// DeviceBaseValueAlgorithm defines model for DeviceBaseValue.Algorithm.
+type DeviceBaseValueAlgorithm string
+
+// DeviceBriefInfo defines model for DeviceBriefInfo.
+type DeviceBriefInfo struct {
+	Id         *int64 `json:"id,omitempty"`
+	Registered *bool  `json:"registered,omitempty"`
+	Serverid   *int64 `json:"serverid,omitempty"`
 }
 
 // Measurement defines model for Measurement.
@@ -85,6 +139,24 @@ type ServerRegistryStatus struct {
 // PostConfigJSONBody defines parameters for PostConfig.
 type PostConfigJSONBody []ConfigItem
 
+// PutContainerBasevalueUuidJSONBody defines parameters for PutContainerBasevalueUuid.
+type PutContainerBasevalueUuidJSONBody ContainerBaseValue
+
+// PostContainerUuidJSONBody defines parameters for PostContainerUuid.
+type PostContainerUuidJSONBody ContainerBriefInfo
+
+// PutContainerUuidJSONBody defines parameters for PutContainerUuid.
+type PutContainerUuidJSONBody interface{}
+
+// PutDeviceBasevalueIdJSONBody defines parameters for PutDeviceBasevalueId.
+type PutDeviceBasevalueIdJSONBody DeviceBaseValue
+
+// PostDeviceIdJSONBody defines parameters for PostDeviceId.
+type PostDeviceIdJSONBody DeviceBriefInfo
+
+// PutDeviceIdJSONBody defines parameters for PutDeviceId.
+type PutDeviceIdJSONBody interface{}
+
 // PutServerJSONBody defines parameters for PutServer.
 type PutServerJSONBody ServerRegistryStatus
 
@@ -93,6 +165,24 @@ type PutServerBasevalueServerIdJSONBody ServerBaseValue
 
 // PostConfigJSONRequestBody defines body for PostConfig for application/json ContentType.
 type PostConfigJSONRequestBody PostConfigJSONBody
+
+// PutContainerBasevalueUuidJSONRequestBody defines body for PutContainerBasevalueUuid for application/json ContentType.
+type PutContainerBasevalueUuidJSONRequestBody PutContainerBasevalueUuidJSONBody
+
+// PostContainerUuidJSONRequestBody defines body for PostContainerUuid for application/json ContentType.
+type PostContainerUuidJSONRequestBody PostContainerUuidJSONBody
+
+// PutContainerUuidJSONRequestBody defines body for PutContainerUuid for application/json ContentType.
+type PutContainerUuidJSONRequestBody PutContainerUuidJSONBody
+
+// PutDeviceBasevalueIdJSONRequestBody defines body for PutDeviceBasevalueId for application/json ContentType.
+type PutDeviceBasevalueIdJSONRequestBody PutDeviceBasevalueIdJSONBody
+
+// PostDeviceIdJSONRequestBody defines body for PostDeviceId for application/json ContentType.
+type PostDeviceIdJSONRequestBody PostDeviceIdJSONBody
+
+// PutDeviceIdJSONRequestBody defines body for PutDeviceId for application/json ContentType.
+type PutDeviceIdJSONRequestBody PutDeviceIdJSONBody
 
 // PutServerJSONRequestBody defines body for PutServer for application/json ContentType.
 type PutServerJSONRequestBody PutServerJSONBody
@@ -181,6 +271,60 @@ type ClientInterface interface {
 
 	PostConfig(ctx context.Context, body PostConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetContainerBasevalueUuid request
+	GetContainerBasevalueUuid(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutContainerBasevalueUuid request  with any body
+	PutContainerBasevalueUuidWithBody(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutContainerBasevalueUuid(ctx context.Context, uuid string, body PutContainerBasevalueUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetContainerStatus request
+	GetContainerStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetContainerStatusUuid request
+	GetContainerStatusUuid(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetContainerUuid request
+	GetContainerUuid(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostContainerUuid request  with any body
+	PostContainerUuidWithBody(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostContainerUuid(ctx context.Context, uuid string, body PostContainerUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutContainerUuid request  with any body
+	PutContainerUuidWithBody(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutContainerUuid(ctx context.Context, uuid string, body PutContainerUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceBasevalueId request
+	GetDeviceBasevalueId(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutDeviceBasevalueId request  with any body
+	PutDeviceBasevalueIdWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutDeviceBasevalueId(ctx context.Context, id int64, body PutDeviceBasevalueIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceStatus request
+	GetDeviceStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceStatusId request
+	GetDeviceStatusId(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceId request
+	GetDeviceId(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostDeviceId request  with any body
+	PostDeviceIdWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostDeviceId(ctx context.Context, id int64, body PostDeviceIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutDeviceId request  with any body
+	PutDeviceIdWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutDeviceId(ctx context.Context, id int64, body PutDeviceIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetReportServerId request
 	GetReportServerId(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -236,6 +380,246 @@ func (c *Client) PostConfigWithBody(ctx context.Context, contentType string, bod
 
 func (c *Client) PostConfig(ctx context.Context, body PostConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostConfigRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetContainerBasevalueUuid(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetContainerBasevalueUuidRequest(c.Server, uuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutContainerBasevalueUuidWithBody(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutContainerBasevalueUuidRequestWithBody(c.Server, uuid, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutContainerBasevalueUuid(ctx context.Context, uuid string, body PutContainerBasevalueUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutContainerBasevalueUuidRequest(c.Server, uuid, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetContainerStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetContainerStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetContainerStatusUuid(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetContainerStatusUuidRequest(c.Server, uuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetContainerUuid(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetContainerUuidRequest(c.Server, uuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostContainerUuidWithBody(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostContainerUuidRequestWithBody(c.Server, uuid, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostContainerUuid(ctx context.Context, uuid string, body PostContainerUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostContainerUuidRequest(c.Server, uuid, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutContainerUuidWithBody(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutContainerUuidRequestWithBody(c.Server, uuid, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutContainerUuid(ctx context.Context, uuid string, body PutContainerUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutContainerUuidRequest(c.Server, uuid, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeviceBasevalueId(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceBasevalueIdRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutDeviceBasevalueIdWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDeviceBasevalueIdRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutDeviceBasevalueId(ctx context.Context, id int64, body PutDeviceBasevalueIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDeviceBasevalueIdRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeviceStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeviceStatusId(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceStatusIdRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeviceId(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceIdRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostDeviceIdWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostDeviceIdRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostDeviceId(ctx context.Context, id int64, body PostDeviceIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostDeviceIdRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutDeviceIdWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDeviceIdRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutDeviceId(ctx context.Context, id int64, body PutDeviceIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDeviceIdRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -424,6 +808,546 @@ func NewPostConfigRequestWithBody(server string, contentType string, body io.Rea
 	queryURL := serverURL.ResolveReference(&operationURL)
 
 	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetContainerBasevalueUuidRequest generates requests for GetContainerBasevalueUuid
+func NewGetContainerBasevalueUuidRequest(server string, uuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uuid", runtime.ParamLocationPath, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/container/basevalue/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutContainerBasevalueUuidRequest calls the generic PutContainerBasevalueUuid builder with application/json body
+func NewPutContainerBasevalueUuidRequest(server string, uuid string, body PutContainerBasevalueUuidJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutContainerBasevalueUuidRequestWithBody(server, uuid, "application/json", bodyReader)
+}
+
+// NewPutContainerBasevalueUuidRequestWithBody generates requests for PutContainerBasevalueUuid with any type of body
+func NewPutContainerBasevalueUuidRequestWithBody(server string, uuid string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uuid", runtime.ParamLocationPath, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/container/basevalue/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetContainerStatusRequest generates requests for GetContainerStatus
+func NewGetContainerStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/container/status")
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetContainerStatusUuidRequest generates requests for GetContainerStatusUuid
+func NewGetContainerStatusUuidRequest(server string, uuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uuid", runtime.ParamLocationPath, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/container/status/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetContainerUuidRequest generates requests for GetContainerUuid
+func NewGetContainerUuidRequest(server string, uuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uuid", runtime.ParamLocationPath, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/container/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostContainerUuidRequest calls the generic PostContainerUuid builder with application/json body
+func NewPostContainerUuidRequest(server string, uuid string, body PostContainerUuidJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostContainerUuidRequestWithBody(server, uuid, "application/json", bodyReader)
+}
+
+// NewPostContainerUuidRequestWithBody generates requests for PostContainerUuid with any type of body
+func NewPostContainerUuidRequestWithBody(server string, uuid string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uuid", runtime.ParamLocationPath, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/container/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPutContainerUuidRequest calls the generic PutContainerUuid builder with application/json body
+func NewPutContainerUuidRequest(server string, uuid string, body PutContainerUuidJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutContainerUuidRequestWithBody(server, uuid, "application/json", bodyReader)
+}
+
+// NewPutContainerUuidRequestWithBody generates requests for PutContainerUuid with any type of body
+func NewPutContainerUuidRequestWithBody(server string, uuid string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uuid", runtime.ParamLocationPath, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/container/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDeviceBasevalueIdRequest generates requests for GetDeviceBasevalueId
+func NewGetDeviceBasevalueIdRequest(server string, id int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/device/basevalue/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutDeviceBasevalueIdRequest calls the generic PutDeviceBasevalueId builder with application/json body
+func NewPutDeviceBasevalueIdRequest(server string, id int64, body PutDeviceBasevalueIdJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutDeviceBasevalueIdRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPutDeviceBasevalueIdRequestWithBody generates requests for PutDeviceBasevalueId with any type of body
+func NewPutDeviceBasevalueIdRequestWithBody(server string, id int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/device/basevalue/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDeviceStatusRequest generates requests for GetDeviceStatus
+func NewGetDeviceStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/device/status")
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDeviceStatusIdRequest generates requests for GetDeviceStatusId
+func NewGetDeviceStatusIdRequest(server string, id int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/device/status/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDeviceIdRequest generates requests for GetDeviceId
+func NewGetDeviceIdRequest(server string, id int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/device/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostDeviceIdRequest calls the generic PostDeviceId builder with application/json body
+func NewPostDeviceIdRequest(server string, id int64, body PostDeviceIdJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostDeviceIdRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPostDeviceIdRequestWithBody generates requests for PostDeviceId with any type of body
+func NewPostDeviceIdRequestWithBody(server string, id int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/device/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPutDeviceIdRequest calls the generic PutDeviceId builder with application/json body
+func NewPutDeviceIdRequest(server string, id int64, body PutDeviceIdJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutDeviceIdRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPutDeviceIdRequestWithBody generates requests for PutDeviceId with any type of body
+func NewPutDeviceIdRequestWithBody(server string, id int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/device/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -754,6 +1678,60 @@ type ClientWithResponsesInterface interface {
 
 	PostConfigWithResponse(ctx context.Context, body PostConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*PostConfigResponse, error)
 
+	// GetContainerBasevalueUuid request
+	GetContainerBasevalueUuidWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetContainerBasevalueUuidResponse, error)
+
+	// PutContainerBasevalueUuid request  with any body
+	PutContainerBasevalueUuidWithBodyWithResponse(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutContainerBasevalueUuidResponse, error)
+
+	PutContainerBasevalueUuidWithResponse(ctx context.Context, uuid string, body PutContainerBasevalueUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*PutContainerBasevalueUuidResponse, error)
+
+	// GetContainerStatus request
+	GetContainerStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetContainerStatusResponse, error)
+
+	// GetContainerStatusUuid request
+	GetContainerStatusUuidWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetContainerStatusUuidResponse, error)
+
+	// GetContainerUuid request
+	GetContainerUuidWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetContainerUuidResponse, error)
+
+	// PostContainerUuid request  with any body
+	PostContainerUuidWithBodyWithResponse(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostContainerUuidResponse, error)
+
+	PostContainerUuidWithResponse(ctx context.Context, uuid string, body PostContainerUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*PostContainerUuidResponse, error)
+
+	// PutContainerUuid request  with any body
+	PutContainerUuidWithBodyWithResponse(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutContainerUuidResponse, error)
+
+	PutContainerUuidWithResponse(ctx context.Context, uuid string, body PutContainerUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*PutContainerUuidResponse, error)
+
+	// GetDeviceBasevalueId request
+	GetDeviceBasevalueIdWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetDeviceBasevalueIdResponse, error)
+
+	// PutDeviceBasevalueId request  with any body
+	PutDeviceBasevalueIdWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeviceBasevalueIdResponse, error)
+
+	PutDeviceBasevalueIdWithResponse(ctx context.Context, id int64, body PutDeviceBasevalueIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeviceBasevalueIdResponse, error)
+
+	// GetDeviceStatus request
+	GetDeviceStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceStatusResponse, error)
+
+	// GetDeviceStatusId request
+	GetDeviceStatusIdWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetDeviceStatusIdResponse, error)
+
+	// GetDeviceId request
+	GetDeviceIdWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetDeviceIdResponse, error)
+
+	// PostDeviceId request  with any body
+	PostDeviceIdWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostDeviceIdResponse, error)
+
+	PostDeviceIdWithResponse(ctx context.Context, id int64, body PostDeviceIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PostDeviceIdResponse, error)
+
+	// PutDeviceId request  with any body
+	PutDeviceIdWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeviceIdResponse, error)
+
+	PutDeviceIdWithResponse(ctx context.Context, id int64, body PutDeviceIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeviceIdResponse, error)
+
 	// GetReportServerId request
 	GetReportServerIdWithResponse(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*GetReportServerIdResponse, error)
 
@@ -819,6 +1797,300 @@ func (r PostConfigResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PostConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetContainerBasevalueUuidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetContainerBasevalueUuidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetContainerBasevalueUuidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutContainerBasevalueUuidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PutContainerBasevalueUuidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutContainerBasevalueUuidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetContainerStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetContainerStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetContainerStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetContainerStatusUuidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetContainerStatusUuidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetContainerStatusUuidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetContainerUuidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetContainerUuidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetContainerUuidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostContainerUuidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostContainerUuidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostContainerUuidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutContainerUuidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PutContainerUuidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutContainerUuidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDeviceBasevalueIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceBasevalueIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceBasevalueIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutDeviceBasevalueIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PutDeviceBasevalueIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutDeviceBasevalueIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDeviceStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDeviceStatusIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceStatusIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceStatusIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDeviceIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostDeviceIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostDeviceIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostDeviceIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutDeviceIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PutDeviceIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutDeviceIdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1019,6 +2291,180 @@ func (c *ClientWithResponses) PostConfigWithResponse(ctx context.Context, body P
 	return ParsePostConfigResponse(rsp)
 }
 
+// GetContainerBasevalueUuidWithResponse request returning *GetContainerBasevalueUuidResponse
+func (c *ClientWithResponses) GetContainerBasevalueUuidWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetContainerBasevalueUuidResponse, error) {
+	rsp, err := c.GetContainerBasevalueUuid(ctx, uuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetContainerBasevalueUuidResponse(rsp)
+}
+
+// PutContainerBasevalueUuidWithBodyWithResponse request with arbitrary body returning *PutContainerBasevalueUuidResponse
+func (c *ClientWithResponses) PutContainerBasevalueUuidWithBodyWithResponse(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutContainerBasevalueUuidResponse, error) {
+	rsp, err := c.PutContainerBasevalueUuidWithBody(ctx, uuid, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutContainerBasevalueUuidResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutContainerBasevalueUuidWithResponse(ctx context.Context, uuid string, body PutContainerBasevalueUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*PutContainerBasevalueUuidResponse, error) {
+	rsp, err := c.PutContainerBasevalueUuid(ctx, uuid, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutContainerBasevalueUuidResponse(rsp)
+}
+
+// GetContainerStatusWithResponse request returning *GetContainerStatusResponse
+func (c *ClientWithResponses) GetContainerStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetContainerStatusResponse, error) {
+	rsp, err := c.GetContainerStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetContainerStatusResponse(rsp)
+}
+
+// GetContainerStatusUuidWithResponse request returning *GetContainerStatusUuidResponse
+func (c *ClientWithResponses) GetContainerStatusUuidWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetContainerStatusUuidResponse, error) {
+	rsp, err := c.GetContainerStatusUuid(ctx, uuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetContainerStatusUuidResponse(rsp)
+}
+
+// GetContainerUuidWithResponse request returning *GetContainerUuidResponse
+func (c *ClientWithResponses) GetContainerUuidWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetContainerUuidResponse, error) {
+	rsp, err := c.GetContainerUuid(ctx, uuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetContainerUuidResponse(rsp)
+}
+
+// PostContainerUuidWithBodyWithResponse request with arbitrary body returning *PostContainerUuidResponse
+func (c *ClientWithResponses) PostContainerUuidWithBodyWithResponse(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostContainerUuidResponse, error) {
+	rsp, err := c.PostContainerUuidWithBody(ctx, uuid, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostContainerUuidResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostContainerUuidWithResponse(ctx context.Context, uuid string, body PostContainerUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*PostContainerUuidResponse, error) {
+	rsp, err := c.PostContainerUuid(ctx, uuid, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostContainerUuidResponse(rsp)
+}
+
+// PutContainerUuidWithBodyWithResponse request with arbitrary body returning *PutContainerUuidResponse
+func (c *ClientWithResponses) PutContainerUuidWithBodyWithResponse(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutContainerUuidResponse, error) {
+	rsp, err := c.PutContainerUuidWithBody(ctx, uuid, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutContainerUuidResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutContainerUuidWithResponse(ctx context.Context, uuid string, body PutContainerUuidJSONRequestBody, reqEditors ...RequestEditorFn) (*PutContainerUuidResponse, error) {
+	rsp, err := c.PutContainerUuid(ctx, uuid, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutContainerUuidResponse(rsp)
+}
+
+// GetDeviceBasevalueIdWithResponse request returning *GetDeviceBasevalueIdResponse
+func (c *ClientWithResponses) GetDeviceBasevalueIdWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetDeviceBasevalueIdResponse, error) {
+	rsp, err := c.GetDeviceBasevalueId(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceBasevalueIdResponse(rsp)
+}
+
+// PutDeviceBasevalueIdWithBodyWithResponse request with arbitrary body returning *PutDeviceBasevalueIdResponse
+func (c *ClientWithResponses) PutDeviceBasevalueIdWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeviceBasevalueIdResponse, error) {
+	rsp, err := c.PutDeviceBasevalueIdWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutDeviceBasevalueIdResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutDeviceBasevalueIdWithResponse(ctx context.Context, id int64, body PutDeviceBasevalueIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeviceBasevalueIdResponse, error) {
+	rsp, err := c.PutDeviceBasevalueId(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutDeviceBasevalueIdResponse(rsp)
+}
+
+// GetDeviceStatusWithResponse request returning *GetDeviceStatusResponse
+func (c *ClientWithResponses) GetDeviceStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceStatusResponse, error) {
+	rsp, err := c.GetDeviceStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceStatusResponse(rsp)
+}
+
+// GetDeviceStatusIdWithResponse request returning *GetDeviceStatusIdResponse
+func (c *ClientWithResponses) GetDeviceStatusIdWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetDeviceStatusIdResponse, error) {
+	rsp, err := c.GetDeviceStatusId(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceStatusIdResponse(rsp)
+}
+
+// GetDeviceIdWithResponse request returning *GetDeviceIdResponse
+func (c *ClientWithResponses) GetDeviceIdWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetDeviceIdResponse, error) {
+	rsp, err := c.GetDeviceId(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceIdResponse(rsp)
+}
+
+// PostDeviceIdWithBodyWithResponse request with arbitrary body returning *PostDeviceIdResponse
+func (c *ClientWithResponses) PostDeviceIdWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostDeviceIdResponse, error) {
+	rsp, err := c.PostDeviceIdWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostDeviceIdResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostDeviceIdWithResponse(ctx context.Context, id int64, body PostDeviceIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PostDeviceIdResponse, error) {
+	rsp, err := c.PostDeviceId(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostDeviceIdResponse(rsp)
+}
+
+// PutDeviceIdWithBodyWithResponse request with arbitrary body returning *PutDeviceIdResponse
+func (c *ClientWithResponses) PutDeviceIdWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeviceIdResponse, error) {
+	rsp, err := c.PutDeviceIdWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutDeviceIdResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutDeviceIdWithResponse(ctx context.Context, id int64, body PutDeviceIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeviceIdResponse, error) {
+	rsp, err := c.PutDeviceId(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutDeviceIdResponse(rsp)
+}
+
 // GetReportServerIdWithResponse request returning *GetReportServerIdResponse
 func (c *ClientWithResponses) GetReportServerIdWithResponse(ctx context.Context, serverId int64, reqEditors ...RequestEditorFn) (*GetReportServerIdResponse, error) {
 	rsp, err := c.GetReportServerId(ctx, serverId, reqEditors...)
@@ -1135,6 +2581,272 @@ func ParsePostConfigResponse(rsp *http.Response) (*PostConfigResponse, error) {
 	}
 
 	response := &PostConfigResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetContainerBasevalueUuidResponse parses an HTTP response from a GetContainerBasevalueUuidWithResponse call
+func ParseGetContainerBasevalueUuidResponse(rsp *http.Response) (*GetContainerBasevalueUuidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetContainerBasevalueUuidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParsePutContainerBasevalueUuidResponse parses an HTTP response from a PutContainerBasevalueUuidWithResponse call
+func ParsePutContainerBasevalueUuidResponse(rsp *http.Response) (*PutContainerBasevalueUuidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutContainerBasevalueUuidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetContainerStatusResponse parses an HTTP response from a GetContainerStatusWithResponse call
+func ParseGetContainerStatusResponse(rsp *http.Response) (*GetContainerStatusResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetContainerStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetContainerStatusUuidResponse parses an HTTP response from a GetContainerStatusUuidWithResponse call
+func ParseGetContainerStatusUuidResponse(rsp *http.Response) (*GetContainerStatusUuidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetContainerStatusUuidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetContainerUuidResponse parses an HTTP response from a GetContainerUuidWithResponse call
+func ParseGetContainerUuidResponse(rsp *http.Response) (*GetContainerUuidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetContainerUuidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParsePostContainerUuidResponse parses an HTTP response from a PostContainerUuidWithResponse call
+func ParsePostContainerUuidResponse(rsp *http.Response) (*PostContainerUuidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostContainerUuidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParsePutContainerUuidResponse parses an HTTP response from a PutContainerUuidWithResponse call
+func ParsePutContainerUuidResponse(rsp *http.Response) (*PutContainerUuidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutContainerUuidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceBasevalueIdResponse parses an HTTP response from a GetDeviceBasevalueIdWithResponse call
+func ParseGetDeviceBasevalueIdResponse(rsp *http.Response) (*GetDeviceBasevalueIdResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceBasevalueIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParsePutDeviceBasevalueIdResponse parses an HTTP response from a PutDeviceBasevalueIdWithResponse call
+func ParsePutDeviceBasevalueIdResponse(rsp *http.Response) (*PutDeviceBasevalueIdResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutDeviceBasevalueIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceStatusResponse parses an HTTP response from a GetDeviceStatusWithResponse call
+func ParseGetDeviceStatusResponse(rsp *http.Response) (*GetDeviceStatusResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceStatusIdResponse parses an HTTP response from a GetDeviceStatusIdWithResponse call
+func ParseGetDeviceStatusIdResponse(rsp *http.Response) (*GetDeviceStatusIdResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceStatusIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceIdResponse parses an HTTP response from a GetDeviceIdWithResponse call
+func ParseGetDeviceIdResponse(rsp *http.Response) (*GetDeviceIdResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParsePostDeviceIdResponse parses an HTTP response from a PostDeviceIdWithResponse call
+func ParsePostDeviceIdResponse(rsp *http.Response) (*PostDeviceIdResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostDeviceIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParsePutDeviceIdResponse parses an HTTP response from a PutDeviceIdWithResponse call
+func ParsePutDeviceIdResponse(rsp *http.Response) (*PutDeviceIdResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutDeviceIdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -1305,6 +3017,48 @@ type ServerInterface interface {
 	// Create a list of config items
 	// (POST /config)
 	PostConfig(ctx echo.Context) error
+	// Return the base value of a given container
+	// (GET /container/basevalue/{uuid})
+	GetContainerBasevalueUuid(ctx echo.Context, uuid string) error
+	// create/update the base value of the given container
+	// (PUT /container/basevalue/{uuid})
+	PutContainerBasevalueUuid(ctx echo.Context, uuid string) error
+	// Return a list of trust status for all containers
+	// (GET /container/status)
+	GetContainerStatus(ctx echo.Context) error
+	// Return a trust status for given container
+	// (GET /container/status/{uuid})
+	GetContainerStatusUuid(ctx echo.Context, uuid string) error
+	// Return briefing info for the given container
+	// (GET /container/{uuid})
+	GetContainerUuid(ctx echo.Context, uuid string) error
+	// create info for a container
+	// (POST /container/{uuid})
+	PostContainerUuid(ctx echo.Context, uuid string) error
+	// put a container into given status
+	// (PUT /container/{uuid})
+	PutContainerUuid(ctx echo.Context, uuid string) error
+	// Return the base value of a given device
+	// (GET /device/basevalue/{id})
+	GetDeviceBasevalueId(ctx echo.Context, id int64) error
+	// create/update the base value of the given device
+	// (PUT /device/basevalue/{id})
+	PutDeviceBasevalueId(ctx echo.Context, id int64) error
+	// Return a list of trust status for all devices
+	// (GET /device/status)
+	GetDeviceStatus(ctx echo.Context) error
+	// Return a trust status for given device
+	// (GET /device/status/{id})
+	GetDeviceStatusId(ctx echo.Context, id int64) error
+	// Return briefing info for the given device
+	// (GET /device/{id})
+	GetDeviceId(ctx echo.Context, id int64) error
+	// create info for a device
+	// (POST /device/{id})
+	PostDeviceId(ctx echo.Context, id int64) error
+	// put a device into given status
+	// (PUT /device/{id})
+	PutDeviceId(ctx echo.Context, id int64) error
 	// Return the trust report for the given server
 	// (GET /report/{serverId})
 	GetReportServerId(ctx echo.Context, serverId int64) error
@@ -1353,6 +3107,244 @@ func (w *ServerInterfaceWrapper) PostConfig(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PostConfig(ctx)
+	return err
+}
+
+// GetContainerBasevalueUuid converts echo context to params.
+func (w *ServerInterfaceWrapper) GetContainerBasevalueUuid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetContainerBasevalueUuid(ctx, uuid)
+	return err
+}
+
+// PutContainerBasevalueUuid converts echo context to params.
+func (w *ServerInterfaceWrapper) PutContainerBasevalueUuid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PutContainerBasevalueUuid(ctx, uuid)
+	return err
+}
+
+// GetContainerStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) GetContainerStatus(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetContainerStatus(ctx)
+	return err
+}
+
+// GetContainerStatusUuid converts echo context to params.
+func (w *ServerInterfaceWrapper) GetContainerStatusUuid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetContainerStatusUuid(ctx, uuid)
+	return err
+}
+
+// GetContainerUuid converts echo context to params.
+func (w *ServerInterfaceWrapper) GetContainerUuid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetContainerUuid(ctx, uuid)
+	return err
+}
+
+// PostContainerUuid converts echo context to params.
+func (w *ServerInterfaceWrapper) PostContainerUuid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostContainerUuid(ctx, uuid)
+	return err
+}
+
+// PutContainerUuid converts echo context to params.
+func (w *ServerInterfaceWrapper) PutContainerUuid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PutContainerUuid(ctx, uuid)
+	return err
+}
+
+// GetDeviceBasevalueId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetDeviceBasevalueId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetDeviceBasevalueId(ctx, id)
+	return err
+}
+
+// PutDeviceBasevalueId converts echo context to params.
+func (w *ServerInterfaceWrapper) PutDeviceBasevalueId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PutDeviceBasevalueId(ctx, id)
+	return err
+}
+
+// GetDeviceStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) GetDeviceStatus(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetDeviceStatus(ctx)
+	return err
+}
+
+// GetDeviceStatusId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetDeviceStatusId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetDeviceStatusId(ctx, id)
+	return err
+}
+
+// GetDeviceId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetDeviceId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetDeviceId(ctx, id)
+	return err
+}
+
+// PostDeviceId converts echo context to params.
+func (w *ServerInterfaceWrapper) PostDeviceId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostDeviceId(ctx, id)
+	return err
+}
+
+// PutDeviceId converts echo context to params.
+func (w *ServerInterfaceWrapper) PutDeviceId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(Servermgt_authScopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PutDeviceId(ctx, id)
 	return err
 }
 
@@ -1500,6 +3492,20 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.GET(baseURL+"/config", wrapper.GetConfig)
 	router.POST(baseURL+"/config", wrapper.PostConfig)
+	router.GET(baseURL+"/container/basevalue/:uuid", wrapper.GetContainerBasevalueUuid)
+	router.PUT(baseURL+"/container/basevalue/:uuid", wrapper.PutContainerBasevalueUuid)
+	router.GET(baseURL+"/container/status", wrapper.GetContainerStatus)
+	router.GET(baseURL+"/container/status/:uuid", wrapper.GetContainerStatusUuid)
+	router.GET(baseURL+"/container/:uuid", wrapper.GetContainerUuid)
+	router.POST(baseURL+"/container/:uuid", wrapper.PostContainerUuid)
+	router.PUT(baseURL+"/container/:uuid", wrapper.PutContainerUuid)
+	router.GET(baseURL+"/device/basevalue/:id", wrapper.GetDeviceBasevalueId)
+	router.PUT(baseURL+"/device/basevalue/:id", wrapper.PutDeviceBasevalueId)
+	router.GET(baseURL+"/device/status", wrapper.GetDeviceStatus)
+	router.GET(baseURL+"/device/status/:id", wrapper.GetDeviceStatusId)
+	router.GET(baseURL+"/device/:id", wrapper.GetDeviceId)
+	router.POST(baseURL+"/device/:id", wrapper.PostDeviceId)
+	router.PUT(baseURL+"/device/:id", wrapper.PutDeviceId)
 	router.GET(baseURL+"/report/:serverId", wrapper.GetReportServerId)
 	router.GET(baseURL+"/server", wrapper.GetServer)
 	router.PUT(baseURL+"/server", wrapper.PutServer)
@@ -1514,26 +3520,34 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
