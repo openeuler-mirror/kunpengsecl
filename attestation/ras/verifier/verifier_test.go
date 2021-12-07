@@ -278,13 +278,23 @@ func TestIMAExtract(t *testing.T) {
 }
 
 func TestBIOSValidate(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
 	var bv *BIOSVerifier
 
+	const sha256HashAllZero = "0000000000000000000000000000000000000000000000000000000000000000"
 	pibv := entity.PcrInfo{
 		AlgName: "sha256",
 		Values: map[int]string{
+			0: sha256HashAllZero,
 			1: "8acfdc0d15afa6e5ea69159c080e11ad1c68551c0f64b5b1e738bc3cac30a655",
+			2: sha256HashAllZero,
 			3: "dead51c4da465379b8a750ef177ebf28130ebfa4e9a5b0a49ee5a1b341e973e6",
+			4: sha256HashAllZero,
+			5: sha256HashAllZero,
+			6: sha256HashAllZero,
+			7: sha256HashAllZero,
 		},
 		Quote: entity.PcrQuote{
 			Quoted: []byte(quoteVal),
@@ -293,17 +303,17 @@ func TestBIOSValidate(t *testing.T) {
 
 	item1 := entity.ManifestItem{
 		Name:   "item1",
-		Value:  "item1value",
+		Value:  "0000000011111111aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffff",
 		Detail: "{\"Pcr\":1,\"BType\":1,\"Digest\":{\"Count\":1,\"Item\":[{\"AlgID\":\"0b00\",\"Item\":\"0000000011111111aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffff\"}]},\"DataLen\":3,\"Data\":\"nil\"}",
 	}
 	item2 := entity.ManifestItem{
 		Name:   "item2",
-		Value:  "item2value",
+		Value:  "0000000022222222aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffff",
 		Detail: "{\"Pcr\":1,\"BType\":1,\"Digest\":{\"Count\":1,\"Item\":[{\"AlgID\":\"0b00\",\"Item\":\"0000000022222222aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffff\"}]},\"DataLen\":3,\"Data\":\"nil\"}",
 	}
 	item3 := entity.ManifestItem{
 		Name:   "item3",
-		Value:  "item3value",
+		Value:  "0000000033333333aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffff",
 		Detail: "{\"Pcr\":3,\"BType\":1,\"Digest\":{\"Count\":1,\"Item\":[{\"AlgID\":\"0b00\",\"Item\":\"0000000033333333aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffff\"}]},\"DataLen\":3,\"Data\":\"nil\"}",
 	}
 	mf := entity.Manifest{
