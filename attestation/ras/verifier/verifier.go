@@ -59,14 +59,14 @@ type BIOSVerifier struct {
 type IMAVerifier struct {
 }
 
-func (pv PCRVerifier) Validate() error {
-	// TODO: validate process
-	return nil
-}
-
 func createPCRVerifier() (interface{}, error) {
 	pv := new(PCRVerifier)
 	return pv, nil
+}
+
+func (pv *PCRVerifier) Validate(report *entity.Report) error {
+
+	return nil
 }
 
 func createBIOSVerifier() (interface{}, error) {
@@ -154,7 +154,6 @@ func (vm *VerifierMgr) Verify(baseValue *entity.MeasurementInfo, report *entity.
 	return nil
 }
 
-// TODO: need update because PcrValue struct become map.
 func (pv *PCRVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error {
 	if baseValue == nil || report == nil {
 		return fmt.Errorf("invalid input")
@@ -259,9 +258,6 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 }
 
 func (bv *BIOSVerifier) Validate(report *entity.Report) error {
-	pseudoPCR := make(map[uint32]string) //store PCR that will be figured out
-	PCRid := make([]uint32, 0)
-
 	//find bios manifest list
 	var manifest entity.Manifest
 	manifestCnt := 0
@@ -277,29 +273,9 @@ func (bv *BIOSVerifier) Validate(report *entity.Report) error {
 	}
 
 	//use bios manifest to calculate pseudoPCR
-	for _, item := range manifest.Items {
-		//unmarshal manifest in report
-		parsedManifest := new(entity.BIOSManifestItem)
-		err := json.Unmarshal([]byte(item.Detail), parsedManifest)
-		if err != nil {
-			return fmt.Errorf("json unmarshal failed")
-		}
-		//initial
-		temp, err2 := initpseudoPCR(pseudoPCR, parsedManifest, report.PcrInfo.AlgName, &PCRid)
-		if err2 != nil {
-			return fmt.Errorf("PCR Digest combine falied")
-		}
-		//combine
-		err1 := combinePcrDigest(pseudoPCR, parsedManifest, report.PcrInfo.AlgName, temp)
-		if err1 != nil {
-			return fmt.Errorf("PCR Digest combine falied")
-		}
-		//calculate new pcr value
-		h := sha256.New()
-		h.Write(temp)
-		newPCRBytes := h.Sum(nil)
-
-		pseudoPCR[parsedManifest.Pcr] = hex.EncodeToString(newPCRBytes)
+	pseudoPCR, PCRid, err := ExtendPCR(manifest.Items, report.PcrInfo.AlgName)
+	if err != nil {
+		return fmt.Errorf("pcr extend failed (use bios)")
 	}
 
 	//compare report.PcrInfo.Values with pseudoPCR
@@ -313,6 +289,38 @@ func (bv *BIOSVerifier) Validate(report *entity.Report) error {
 	}
 
 	return nil
+}
+
+func ExtendPCR(Items []entity.ManifestItem, algname string) (map[uint32]string, []uint32, error) {
+	pseudoPCR := make(map[uint32]string) //store PCR that will be figured out
+	PCRid := make([]uint32, 0)           //store PCR id that will be figured out
+
+	//use bios manifest to calculate pseudoPCR
+	for _, item := range Items {
+		//unmarshal manifest in report
+		parsedManifest := new(entity.BIOSManifestItem)
+		err := json.Unmarshal([]byte(item.Detail), parsedManifest)
+		if err != nil {
+			return nil, nil, fmt.Errorf("json unmarshal failed")
+		}
+		//initial
+		temp, err2 := initpseudoPCR(pseudoPCR, parsedManifest, algname, &PCRid)
+		if err2 != nil {
+			return nil, nil, fmt.Errorf("PCR Digest combine falied")
+		}
+		//combine
+		err1 := combinePcrDigest(pseudoPCR, parsedManifest, algname, temp)
+		if err1 != nil {
+			return nil, nil, fmt.Errorf("PCR Digest combine falied")
+		}
+		//calculate new pcr value
+		h := sha256.New()
+		h.Write(temp)
+		newPCRBytes := h.Sum(nil)
+
+		pseudoPCR[parsedManifest.Pcr] = hex.EncodeToString(newPCRBytes)
+	}
+	return pseudoPCR, PCRid, nil
 }
 
 func combinePcrDigest(pseudoPCR map[uint32]string, parsedManifest *entity.BIOSManifestItem, Algname string, temp []byte) error {
