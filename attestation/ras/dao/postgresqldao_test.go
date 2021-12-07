@@ -9,6 +9,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -205,7 +206,6 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 		input1 string
 		input2 string
 	}{
-		{mea.PcrInfo.AlgName, pcrInfo.AlgName},
 		{mea.PcrInfo.Values[1], pcrInfo.Values[1]},
 	}
 	for i := 0; i < len(testCase); i++ {
@@ -399,6 +399,88 @@ func TestUpdateRegisterStatusById(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 	assert.False(t, c3.IsDeleted)
+}
+
+func TestInsertAndSelectContainer(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer psd.Destroy()
+
+	ic := createRandomCert()
+	cid, err := psd.RegisterClient(ci, ic)
+	if err != nil {
+		t.FailNow()
+	}
+
+	uuid := uuid.New().String()
+	testCon1 := entity.Container{
+		UUID:     uuid,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	}
+	testCbv1 := entity.ContainerBaseValue{
+		ContainerUUID: uuid,
+		Value:         ci.Info,
+	}
+	err = psd.InsertContainer(&testCon1)
+	assert.NoError(t, err)
+	result1, err := psd.SelectContainerByUUId(uuid)
+	assert.NoError(t, err)
+	assert.Equal(t, cid, result1.ClientId)
+
+	err = psd.InsertContainerBaseValue(&testCbv1)
+	assert.NoError(t, err)
+	result2, err := psd.SelectContainerBaseValueByUUId(uuid)
+	assert.NoError(t, err)
+	assert.Equal(t, len(ci.Info), len(result2.Value))
+}
+
+func TestInsertAndSelectDevice(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer psd.Destroy()
+
+	ic := createRandomCert()
+	cid, err := psd.RegisterClient(ci, ic)
+	if err != nil {
+		t.FailNow()
+	}
+
+	rand.Seed(time.Now().Unix())
+	deviceId := rand.Int31()
+	testP1 := entity.PcieDevice{
+		ID:       int64(deviceId),
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	}
+	testPbv1 := entity.PcieBaseValue{
+		DeviceID: int64(deviceId),
+		Value:    ci.Info,
+	}
+	err = psd.InsertDevice(&testP1)
+	assert.NoError(t, err)
+	result1, err := psd.SelectDeviceById(int64(deviceId))
+	assert.NoError(t, err)
+	assert.Equal(t, cid, result1.ClientId)
+
+	err = psd.InsertDeviceBaseValue(&testPbv1)
+	assert.NoError(t, err)
+	result2, err := psd.SelectDeviceBaseValueById(int64(deviceId))
+	assert.NoError(t, err)
+	assert.Equal(t, len(ci.Info), len(result2.Value))
+
 }
 
 func createRandomCert() []byte {

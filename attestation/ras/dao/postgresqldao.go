@@ -94,8 +94,8 @@ func (psd *PostgreSqlDAO) saveReportManifest(tx pgx.Tx, ctx context.Context, rep
 func (psd *PostgreSqlDAO) saveReportPCRInfo(tx pgx.Tx, ctx context.Context, report *entity.Report, reportID int64) (err error) {
 	for k, v := range report.PcrInfo.Values {
 		_, err = tx.Exec(context.Background(),
-			"INSERT INTO trust_report_pcr_info(report_id, pcr_id, alg_name, pcr_value) VALUES ($1, $2, $3, $4)",
-			reportID, k, report.PcrInfo.AlgName, v)
+			"INSERT INTO trust_report_pcr_info(report_id, pcr_id, pcr_value) VALUES ($1, $2, $3)",
+			reportID, k, v)
 		if err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func (psd *PostgreSqlDAO) getClientInfo(ctx context.Context, clientInfo *entity.
 // get report data from pcr_info table.
 func (psd *PostgreSqlDAO) getPCRInfo(ctx context.Context, pcrInfo *entity.PcrInfo, reportID int64) (err error) {
 	pcrRows, err := psd.conn.Query(context.Background(),
-		"SELECT pcr_id, alg_name, pcr_value FROM trust_report_pcr_info WHERE report_id=$1", reportID)
+		"SELECT pcr_id, pcr_value FROM trust_report_pcr_info WHERE report_id=$1", reportID)
 	if err != nil {
 		return err
 	}
@@ -139,15 +139,13 @@ func (psd *PostgreSqlDAO) getPCRInfo(ctx context.Context, pcrInfo *entity.PcrInf
 	pcrInfo.Values = map[int]string{}
 	for pcrRows.Next() {
 		var (
-			id      int
-			algName string
-			value   string
+			id    int
+			value string
 		)
-		err = pcrRows.Scan(&id, &algName, &value)
+		err = pcrRows.Scan(&id, &value)
 		if err != nil {
 			return err
 		}
-		pcrInfo.AlgName = algName
 		pcrInfo.Values[id] = value
 	}
 
@@ -338,8 +336,8 @@ func (psd *PostgreSqlDAO) SaveBaseValue(clientID int64, meaInfo *entity.Measurem
 
 	for k, v := range meaInfo.PcrInfo.Values {
 		_, err = tx.Exec(context.Background(),
-			"INSERT INTO base_value_pcr_info(client_id, base_value_ver, pcr_id, alg_name, pcr_value) VALUES ($1, $2, $3, $4, $5)",
-			clientID, baseValueVer, k, meaInfo.PcrInfo.AlgName, v)
+			"INSERT INTO base_value_pcr_info(client_id, base_value_ver, pcr_id, pcr_value) VALUES ($1, $2, $3, $4)",
+			clientID, baseValueVer, k, v)
 		if err != nil {
 			tx.Rollback(context.Background())
 			return err
@@ -498,21 +496,19 @@ func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.Measureme
 		Values: map[int]string{},
 	}
 	pcrRows, err := psd.conn.Query(context.Background(),
-		"SELECT pcr_id, alg_name, pcr_value FROM base_value_pcr_info WHERE client_id=$1 AND base_value_ver=$2", clientId, baseValueVer)
+		"SELECT pcr_id, pcr_value FROM base_value_pcr_info WHERE client_id=$1 AND base_value_ver=$2", clientId, baseValueVer)
 	if err != nil {
 		return nil, err
 	}
 	for pcrRows.Next() {
 		var (
-			id      int
-			algName string
-			value   string
+			id    int
+			value string
 		)
-		err = pcrRows.Scan(&id, &algName, &value)
+		err = pcrRows.Scan(&id, &value)
 		if err != nil {
 			return nil, err
 		}
-		pi.AlgName = algName
 		pi.Values[id] = value
 	}
 	pcrRows.Close()
@@ -687,6 +683,7 @@ func (psd *PostgreSqlDAO) SelectContainerBaseValueByUUId(uuID string) (*entity.C
 		result.Value[name] = value
 	}
 	mRows.Close()
+	result.ContainerUUID = uuID
 	return &result, nil
 }
 
@@ -697,7 +694,7 @@ func (psd *PostgreSqlDAO) InsertContainer(c *entity.Container) error {
 	var deleted bool
 	// check if container is existed
 	err := psd.conn.QueryRow(context.Background(),
-		"SELECT deleted FROM register_client WHERE uuid = $1", c.ClientId).Scan(&deleted)
+		"SELECT deleted FROM container WHERE uuid = $1", c.UUID).Scan(&deleted)
 	if err == nil {
 		if deleted {
 			return errors.New("container is deleted")
@@ -705,7 +702,6 @@ func (psd *PostgreSqlDAO) InsertContainer(c *entity.Container) error {
 		return errors.New("container is existed")
 	}
 
-	// no client in register_client table, register a new one in it. set base_value_ver = 0
 	_, err = psd.conn.Exec(context.Background(),
 		"INSERT INTO container(uuid, client_id, base_value_ver, online, deleted) VALUES ($1, $2, $3, $4, $5)",
 		c.UUID, c.ClientId, 0, c.Online, c.Deleted)
@@ -738,8 +734,114 @@ func (psd *PostgreSqlDAO) InsertContainerBaseValue(cbv *entity.ContainerBaseValu
 
 	for k, v := range cbv.Value {
 		_, err = psd.conn.Exec(context.Background(),
-			"INSERT INTO container_base_value(container_id, base_value_ver, name, value) VALUES ($1, $2, $3, $4)",
+			"INSERT INTO container_base_value(container_uuid, base_value_ver, name, value) VALUES ($1, $2, $3, $4)",
 			cbv.ContainerUUID, baseValueVer, k, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (psd *PostgreSqlDAO) SelectDeviceById(deviceId int64) (*entity.PcieDevice, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
+	result := entity.PcieDevice{}
+
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT * FROM device WHERE id=$1", deviceId).Scan(&result.ID, &result.ClientId, &result.BaseValueVer,
+		&result.Online, &result.Deleted)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (psd *PostgreSqlDAO) SelectDeviceBaseValueById(deviceId int64) (*entity.PcieBaseValue, error) {
+	psd.Lock()
+	defer psd.Unlock()
+	result := entity.PcieBaseValue{Value: map[string]string{}}
+	var (
+		baseValueVer int
+	)
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT base_value_ver FROM device WHERE id=$1", deviceId).Scan(&baseValueVer)
+	if err != nil {
+		return nil, err
+	}
+
+	mRows, err := psd.conn.Query(context.Background(),
+		"SELECT name, value FROM device_base_value WHERE device_id=$1 AND base_value_ver=$2", deviceId, baseValueVer)
+	if err != nil {
+		return nil, err
+	}
+
+	for mRows.Next() {
+		var (
+			name  string
+			value string
+		)
+		err = mRows.Scan(&name, &value)
+		if err != nil {
+			return nil, err
+		}
+		result.Value[name] = value
+	}
+	mRows.Close()
+	result.DeviceID = deviceId
+	return &result, nil
+}
+
+func (psd *PostgreSqlDAO) InsertDevice(c *entity.PcieDevice) error {
+	psd.Lock()
+	defer psd.Unlock()
+
+	var deleted bool
+	// check if device is existed
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT deleted FROM device WHERE id = $1", c.ID).Scan(&deleted)
+	if err == nil {
+		if deleted {
+			return errors.New("device is deleted")
+		}
+		return errors.New("device is existed")
+	}
+
+	_, err = psd.conn.Exec(context.Background(),
+		"INSERT INTO device(id, client_id, base_value_ver, online, deleted) VALUES ($1, $2, $3, $4, $5)",
+		c.ID, c.ClientId, 0, c.Online, c.Deleted)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (psd *PostgreSqlDAO) InsertDeviceBaseValue(pbv *entity.PcieBaseValue) error {
+	psd.Lock()
+	defer psd.Unlock()
+
+	var baseValueVer int
+	err := psd.conn.QueryRow(context.Background(),
+		"SELECT base_value_ver FROM device WHERE id = $1", pbv.DeviceID).Scan(&baseValueVer)
+	// if baseValue is empty or baseValue == 0, initialize base_value_ver.
+	if err != nil || baseValueVer == 0 {
+		baseValueVer = 1
+	} else {
+		baseValueVer++
+	}
+
+	_, err = psd.conn.Exec(context.Background(),
+		"UPDATE device SET base_value_ver = $1 WHERE id = $2",
+		baseValueVer, pbv.DeviceID)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range pbv.Value {
+		_, err = psd.conn.Exec(context.Background(),
+			"INSERT INTO device_base_value(device_id, base_value_ver, name, value) VALUES ($1, $2, $3, $4)",
+			pbv.DeviceID, baseValueVer, k, v)
 		if err != nil {
 			return err
 		}

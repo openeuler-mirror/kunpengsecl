@@ -238,7 +238,7 @@ func isMeasurementUpdate(oldMea *entity.MeasurementInfo, newMea *entity.Measurem
 }
 
 func isPcrInfoUpdate(oldPi *entity.PcrInfo, newPi *entity.PcrInfo) bool {
-	if oldPi.AlgName != newPi.AlgName || len(oldPi.Values) != len(newPi.Values) {
+	if len(oldPi.Values) != len(newPi.Values) {
 		return true
 	}
 	for k, v := range oldPi.Values {

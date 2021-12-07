@@ -28,4 +28,8 @@ type DAO interface {
 	InsertContainer(c *entity.Container) error
 	InsertContainerBaseValue(cbv *entity.ContainerBaseValue) error
 	// pcie
+	SelectDeviceById(deviceId int64) (*entity.PcieDevice, error)
+	SelectDeviceBaseValueById(deviceId int64) (*entity.PcieBaseValue, error)
+	InsertDevice(c *entity.PcieDevice) error
+	InsertDeviceBaseValue(pbv *entity.PcieBaseValue) error
 }
