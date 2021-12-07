@@ -326,7 +326,7 @@ func TestBIOSValidate(t *testing.T) {
 		result error
 	}{
 		{report, nil},
-		//{baseValue2, report, errcase},
+		//{report, errcase},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := bv.Validate(testCase[i].input)
