@@ -21,7 +21,6 @@ CREATE TABLE trust_report_pcr_info(
     id BIGSERIAL NOT NULL,
     report_id BIGINT NOT NULL REFERENCES trust_report(id),
     pcr_id INTEGER NOT NULL,
-    alg_name VARCHAR(16),
     pcr_value TEXT,
     PRIMARY KEY(report_id, pcr_id)
 );
@@ -51,7 +50,6 @@ CREATE TABLE base_value_pcr_info(
                                       client_id BIGINT NOT NULL REFERENCES register_client(id),
                                       base_value_ver INT,
                                       pcr_id INTEGER NOT NULL,
-                                      alg_name VARCHAR(16),
                                       pcr_value TEXT
 );
 
