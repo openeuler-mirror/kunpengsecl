@@ -262,9 +262,9 @@ func (s *RasServer) GetReportServerId(ctx echo.Context, serverId int64) error {
 }
 
 type ServerBriefInfo struct {
-	clientId   int64
-	ip         string
-	registered bool
+	ClientId   int64
+	Ip         string
+	Registered bool
 }
 
 // Return a list of briefing info for all servers
@@ -276,12 +276,18 @@ func (s *RasServer) GetServer(ctx echo.Context) error {
 		return ctx.JSON(http.StatusNoContent, err)
 	}
 	briefinfo := []ServerBriefInfo{}
+	var infoName []string
+	infoName = append(infoName, "ip")
 	for _, v := range cids {
 		rc, err := trustmgr.GetRegisterClientById(v)
 		if err != nil {
 			return ctx.JSON(http.StatusNoContent, err)
 		}
-		briefinfo = append(briefinfo, ServerBriefInfo{clientId: rc.ClientID, registered: rc.IsDeleted})
+		rt, err := trustmgr.GetClientInfoByID(v, infoName)
+		if err != nil {
+			fmt.Println("not found ip")
+		}
+		briefinfo = append(briefinfo, ServerBriefInfo{ClientId: rc.ClientID, Ip: rt["ip"], Registered: rc.IsDeleted})
 	}
 
 	return ctx.JSON(http.StatusOK, briefinfo)
