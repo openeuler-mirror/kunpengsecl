@@ -14,7 +14,7 @@ make clean
 rm -rf ./attestation/{vendor,go.sum}
 
 # build source tar ball.
-tar -czf ./rpmbuild/SOURCES/kunpengsecl-1.1.tar.gz \
+tar -czf ./rpmbuild/SOURCES/kunpengsecl-1.0.0.tar.gz \
             attestation doc \
             LICENSE Makefile README.md README.en.md
 
