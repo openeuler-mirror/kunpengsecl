@@ -3,7 +3,7 @@ The sample auth server & sample client are derived from https://github.com/go-oa
 
 ## Run ras server
 ```bash
-$ cd ../attestation/ras/cmd/ras
+$ cd ../cmd/ras
 $ go build main.go
 $ ./main
 

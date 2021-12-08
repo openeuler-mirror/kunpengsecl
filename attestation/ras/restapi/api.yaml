@@ -57,9 +57,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ServerBriefInfo'
-      security:
-      - servermgt_auth:
-        - read:servers
     put:
       summary: put a list of servers into given status
       requestBody:
@@ -92,9 +89,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ServerBaseValue'
-      security:
-      - servermgt_auth:
-        - read:servers
     put:
       summary: create/update the base value of the given server
       parameters:
@@ -129,9 +123,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ServerTrustStatus'
-      security:
-      - servermgt_auth:
-        - read:servers
   /status/{serverId}:
     get:
       summary: Return a trust status for given server
@@ -154,9 +145,6 @@ paths:
                 - unkown
                 - untrusted
                 - trusted
-      security:
-      - servermgt_auth:
-        - read:servers
   /report/{serverId}:
     get:
       summary: Return the trust report for the given server
@@ -174,9 +162,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ServerTrustReport'
-      security:
-      - servermgt_auth:
-        - read:servers
   /container/{uuid}:
     get:
       summary: Return briefing info for the given container
@@ -193,9 +178,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContainerBriefInfo'
-      security:
-      - servermgt_auth:
-        - read:servers
     post:
       summary: create info for a container 
       parameters:
@@ -256,9 +238,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContainerBaseValue'
-      security:
-      - servermgt_auth:
-        - read:servers
     put:
       summary: create/update the base value of the given container
       parameters:
@@ -292,9 +271,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ContainerTrustStatus'
-      security:
-      - servermgt_auth:
-        - read:servers
   /container/status/{uuid}:
     get:
       summary: Return a trust status for given container
@@ -336,9 +312,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeviceBriefInfo'
-      security:
-      - servermgt_auth:
-        - read:servers
     post:
       summary: create info for a device 
       parameters:
@@ -402,9 +375,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeviceBaseValue'
-      security:
-      - servermgt_auth:
-        - read:servers
     put:
       summary: create/update the base value of the given device
       parameters:
@@ -439,9 +409,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/DeviceTrustStatus'
-      security:
-      - servermgt_auth:
-        - read:servers
   /device/status/{id}:
     get:
       summary: Return a trust status for given device
@@ -464,9 +431,6 @@ paths:
                 - unkown
                 - untrusted
                 - trusted
-      security:
-      - servermgt_auth:
-        - read:servers
 
 components:
   schemas:
@@ -499,6 +463,13 @@ components:
           items:
             type: integer
             format: int64
+    TrustStatus:
+      type: string
+      default: unkown
+      enum:
+      - unkown
+      - untrusted
+      - trusted
     ServerTrustStatus:
       type: object
       properties:
@@ -506,12 +477,7 @@ components:
           type: integer
           format: int64
         status:
-          type: string
-          default: unkown
-          enum:
-          - unkown
-          - untrusted
-          - trusted
+          $ref: '#/components/schemas/TrustStatus'
     ServerTrustReport:
       type: object
       properties:
@@ -586,12 +552,7 @@ components:
         uuid:
           type: string
         status:
-          type: string
-          default: unkown
-          enum:
-          - unkown
-          - untrusted
-          - trusted
+          $ref: '#/components/schemas/TrustStatus'
     DeviceBriefInfo:
       type: object
       properties:
@@ -618,12 +579,7 @@ components:
           type: integer
           format: int64
         status:
-          type: string
-          default: unkown
-          enum:
-          - unkown
-          - untrusted
-          - trusted
+          $ref: '#/components/schemas/TrustStatus'
   securitySchemes:
     servermgt_auth:
       type: oauth2

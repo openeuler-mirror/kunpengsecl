@@ -19,10 +19,4 @@ install:
 check:
 	$(shell go env GOPATH)/bin/golangci-lint run -E gofmt -E gocyclo -E errorlint -E gosec
 
-gofmt:
-	gofmt -s -w *
-
-vendor:
-	go mod vendor
-
-.PHONY: all build test clean install check gofmt
+.PHONY: all build test clean install check

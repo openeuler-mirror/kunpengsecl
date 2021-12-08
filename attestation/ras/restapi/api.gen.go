@@ -3076,8 +3076,6 @@ func (w *ServerInterfaceWrapper) GetContainerBasevalueUuid(ctx echo.Context) err
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
 	}
 
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
-
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetContainerBasevalueUuid(ctx, uuid)
 	return err
@@ -3104,8 +3102,6 @@ func (w *ServerInterfaceWrapper) PutContainerBasevalueUuid(ctx echo.Context) err
 // GetContainerStatus converts echo context to params.
 func (w *ServerInterfaceWrapper) GetContainerStatus(ctx echo.Context) error {
 	var err error
-
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetContainerStatus(ctx)
@@ -3140,8 +3136,6 @@ func (w *ServerInterfaceWrapper) GetContainerUuid(ctx echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
 	}
-
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetContainerUuid(ctx, uuid)
@@ -3195,8 +3189,6 @@ func (w *ServerInterfaceWrapper) GetDeviceBasevalueId(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
 	}
 
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
-
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetDeviceBasevalueId(ctx, id)
 	return err
@@ -3224,8 +3216,6 @@ func (w *ServerInterfaceWrapper) PutDeviceBasevalueId(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetDeviceStatus(ctx echo.Context) error {
 	var err error
 
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
-
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetDeviceStatus(ctx)
 	return err
@@ -3242,8 +3232,6 @@ func (w *ServerInterfaceWrapper) GetDeviceStatusId(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
 	}
 
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
-
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetDeviceStatusId(ctx, id)
 	return err
@@ -3259,8 +3247,6 @@ func (w *ServerInterfaceWrapper) GetDeviceId(ctx echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
 	}
-
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetDeviceId(ctx, id)
@@ -3314,8 +3300,6 @@ func (w *ServerInterfaceWrapper) GetReportServerId(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter serverId: %s", err))
 	}
 
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
-
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetReportServerId(ctx, serverId)
 	return err
@@ -3324,8 +3308,6 @@ func (w *ServerInterfaceWrapper) GetReportServerId(ctx echo.Context) error {
 // GetServer converts echo context to params.
 func (w *ServerInterfaceWrapper) GetServer(ctx echo.Context) error {
 	var err error
-
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetServer(ctx)
@@ -3354,8 +3336,6 @@ func (w *ServerInterfaceWrapper) GetServerBasevalueServerId(ctx echo.Context) er
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter serverId: %s", err))
 	}
 
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
-
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetServerBasevalueServerId(ctx, serverId)
 	return err
@@ -3383,8 +3363,6 @@ func (w *ServerInterfaceWrapper) PutServerBasevalueServerId(ctx echo.Context) er
 func (w *ServerInterfaceWrapper) GetStatus(ctx echo.Context) error {
 	var err error
 
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
-
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetStatus(ctx)
 	return err
@@ -3400,8 +3378,6 @@ func (w *ServerInterfaceWrapper) GetStatusServerId(ctx echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter serverId: %s", err))
 	}
-
-	ctx.Set(Servermgt_authScopes, []string{"read:servers"})
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.GetStatusServerId(ctx, serverId)
@@ -3475,34 +3451,34 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"m/0TAAD//6avnIAmMAAA",
+	"H4sIAAAAAAAC/9xaW2/bOBP9KwS/71Ebp+1ugdVbml0U3msQt30JggUtjW22EqnyktYb+L8veJFEWYol",
+	"35vmJbbEy8yZmTOHsh7xD1pkOMYLpQoZj0YZT0i24FLhCE9APICQOGY6yyKc8LzgDJiSOH7EMllATuzH",
+	"a85mdD5WkJtvheAFCEXB3mMkB/NfLQvAMZZKUDbHqwg/kEx33VlF5RU+/QiJMmOvOVOEMhBviIQP5cTm",
+	"RjkQqQXkpX1UQW4//F/ADMf4f6Pa/pE3fvRnPQnXGxMhyLLPEkFhNmYz3rZEwJxKBQJS8y2FGdGZwvGM",
+	"ZBKqJaecZ0CYWVNamKkdPeMiJwrHmDL1+kdcDadMwRyEGa61GzoAt1/ggSZwdtC8GU8jNtj3o0LbZXro",
+	"6/DcdhcCAzHNCY4wMJ3j+A5PKZc4shfvo/1K4yYRT8SWshS+2iCTrzQ3G798FeGcMvflsgvfbXZ27HDS",
+	"5IpwkQhr4/AFK4AGpapz6tammVhOFFFatj1LMgpM0bRpxYD8XXdnu3xuG2xTPNGCquXE+OvMc1mfz9U/",
+	"RKuFNS3jX+wtc4EL+i9RlLNrnkLr4vuqHYTdIP7p8ufXo8ZAHGGZ8KLkPJLGsuwX9ityXxFlDhjKmUn6",
+	"L4IqiBPbMnCMc57S2RIJIpG7pkW5uhtZL+qHKiLmoMrVG5OkxZh/go1e2AENNI1fL/HKXKKeoFKQiaCF",
+	"NSXGv2tWAJtPIPkDCci5AkSUAqnstqUtheAPNAWJbn+dvJvpDF3djCVSHOWEkTkgtQCkhJYKCSi4UBIR",
+	"liLjTH1H2pRDfOYnpU1/5YXJK6oyWLPq1ll1FVhlrPDTcITNZOfMi4vLi0uDFC+AkYLiGL+6uLx4gSNc",
+	"ELWw8RyVAXrEc7DUZ/LfrjtOcYzfgnJdH5sklgVn0qbSy8tLWyCcKU+ZpCgymtiZo4/SGFBqh8ElHOiL",
+	"dhGvorVYXaHfJn//hex9g6PzBLmdVqva3krYSJ3nRCxxjG9BacEQQRmVykwmWdZYAFGGPsEytiSECkIF",
+	"8mVvyMnIphZUN1yGWH3WINUbni7PjVPDLcXRFFAigChIERdIF6n5iJt4VQFuLvWWPgBr4uSXalAUju/a",
+	"5HTXZIT71X0YkGu7TBCQVjRNpjpJNpoSCTYwo0cjklY92VtLSjvpvdFVpgQEyUFZyrkzXRTHtixw5Pu9",
+	"E2AulNQytxIaoiBY683zfr8a6Qn5ujLuCLWhFwMOcmlrOW5YJazNNBWB5mW03c4283VX4uvTo7xbdR0F",
+	"YV9TEpShiC7U+gurDf/aMnWdDq2zsp+uFZqr15FbriPs5krLhWb5yUot9RadF1an6R1uy3emvfp9d+si",
+	"HvGwT2/dTxpN3qSFbzBubdkN6TZ05jz8ZrmsPhFp9ol/YcGhqLqgmUUJjGHlp/YxqaMG1wTUUynbjtfm",
+	"umlo27WyqQLcCmxPsWwR0mfemKpjf0fI3i0gqKypGUrZfJsG1Zhjge8Me484OwnQx+xNm0CuAaapObbO",
+	"KKRoukTGC9+kgnPodoLPLxzOP0gjqsNJtlQa32QQtzzn7xTDQitEmeI++WXV6nYNp1iWfHYokWFMDOLZ",
+	"Za5hydQ+LwzlfA9V1s857fjxsAToCX//88Ij0uf6k9sTiXqH/KY6OyfUhyfQ3WDuVPY1dLvLerfGGTR9",
+	"aXxQff1q3oF3Oinv9ttTx3uIDy/i3cKyA8OB9OV8eibcdR4d72D9bP4GB+0JYd6R8cPC9P00lz5h7kvl",
+	"0Ko86DFPSvIzQH205rIJZg9xU9Ptqcr9mkeV5EN1wjOI4N7SfHMM91bljXAeS5KXPnTrcfdr1ejRLTHe",
+	"zJK3dvDEDx0UflkP/kYZ07ljpYfzr1tq+N8Bw9/4tpDk4bQ1zvS/4tlo+M8bQjApf/M7uiTz7wDUFLe9",
+	"IPOY7dJlakXW7jdGkpUpv4GmAqgO3wA6XybogMTbuUYh1UsGh2KScpvjUkkZksqpbk5xt8Mz/iB2qV86",
+	"sbO+S5o5+am/ZJe+Mjk/7Meq0YM8Aahh3P0JgGfD0z8BaHSY3qP/6Q79Qefd/dDf6MuHPPRXHaaGbSiR",
+	"2cHPkL/Oc/IP0nOPQ3+Y5NX7UE/H6IMfsh9gvV5fIW8LCl63HMbn5UQ+Q4kWAphCVzdje0z5LwAA///D",
+	"5PFK2i0AAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

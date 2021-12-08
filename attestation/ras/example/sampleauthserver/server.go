@@ -49,7 +49,7 @@ import (
 	"github.com/go-oauth2/oauth2/v4/store"
 	"github.com/go-session/session"
 
-	"gitee.com/openeuler/kunpengsecl/integration/sampleauthserver/generates"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/example/sampleauthserver/generates"
 )
 
 const (
