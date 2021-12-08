@@ -5,6 +5,8 @@ package verifier
 */
 import (
 	"bytes"
+	"crypto"
+	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,7 +18,9 @@ import (
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"github.com/google/go-tpm/tpm2"
 )
 
 const (
@@ -68,7 +72,58 @@ func createPCRVerifier() (interface{}, error) {
 }
 
 func (pv *PCRVerifier) Validate(report *entity.Report) error {
+	//verify quote.signature
+	signature := new(tpm2.Signature)
+	err := json.Unmarshal(report.PcrInfo.Quote.Signature, signature)
+	if err != nil {
+		return fmt.Errorf("quote signature unmarshal failed")
+	}
+	//hash(quoted)
+	h := sha256.New()
+	h.Write(report.PcrInfo.Quote.Quoted)
+	datahash := h.Sum(nil)
+	//get public key
+	regclient, err := trustmgr.GetRegisterClientById(report.ClientID)
+	if err != nil {
+		return fmt.Errorf("get register client information failed")
+	}
+	certificate, err := pca.DecodeCert(regclient.AkCertificate)
+	if err != nil {
+		return fmt.Errorf("get register client certificate failed")
+	}
+	err = rsa.VerifyPKCS1v15(certificate.PublicKey.(*rsa.PublicKey), crypto.SHA256, datahash, signature.RSA.Signature)
+	if err != nil {
+		return fmt.Errorf("PCR validation failed: signature verification failed")
+	}
 
+	//use PCRselection to calculate PCRdigest
+	parsedQuote, err := tpm2.DecodeAttestationData(report.PcrInfo.Quote.Quoted)
+	if err != nil {
+		return fmt.Errorf("DecodeAttestationData failed")
+	}
+	//combine all pcrs
+	temp := []byte{}
+	for _, PCRid := range parsedQuote.AttestedQuoteInfo.PCRSelection.PCRs {
+		pcrValueBytes, err := hex.DecodeString(report.PcrInfo.Values[PCRid])
+		if err != nil {
+			return fmt.Errorf("DecodeString failed")
+		}
+		temp = append(temp, pcrValueBytes...)
+	}
+	//calculate new pcr digest
+	h1 := sha256.New()
+	h1.Write(temp)
+	newDigestBytes := h1.Sum(nil)
+
+	//compare newDigest with quote.digest
+	if len(newDigestBytes) != len(parsedQuote.AttestedQuoteInfo.PCRDigest) {
+		return fmt.Errorf("PCR validate failed")
+	}
+	for i := 0; i < len(newDigestBytes); i++ {
+		if parsedQuote.AttestedQuoteInfo.PCRDigest[i] != newDigestBytes[i] {
+			return fmt.Errorf("PCR validate failed")
+		}
+	}
 	return nil
 }
 
