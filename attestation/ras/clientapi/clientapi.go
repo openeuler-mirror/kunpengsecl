@@ -129,6 +129,7 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 		ClientConfig: &ClientConfig{
 			HbDurationSeconds:    int64(hd.Seconds()),
 			TrustDurationSeconds: int64(td.Seconds()),
+			DigestAlgorithm:      cfg.GetDigestAlgorithm(),
 		},
 	}, nil
 }
@@ -202,6 +203,13 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 	}
 
 	report := in.GetTrustReport()
+	// compare if alg is same as ras
+	cfg := config.GetDefault(config.ConfServer)
+	alg := report.GetPcrInfo().GetAlgorithm()
+	if alg != cfg.GetDigestAlgorithm() {
+		log.Printf("Server: the reported algorithm of client %v is wrong", report.GetClientId())
+		return &SendReportReply{Result: false}, fmt.Errorf("the reported algorithm is wrong")
+	}
 	// transform pcr info from struct in grpc to struct in ras
 	opvs := report.GetPcrInfo().GetPcrValues()
 	tpvs := map[int]string{}
@@ -242,8 +250,7 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 	}
 	err := trustmgr.RecordReport(&entity.Report{
 		PcrInfo: entity.PcrInfo{
-			AlgName: report.GetPcrInfo().GetAlgorithm(),
-			Values:  tpvs,
+			Values: tpvs,
 			Quote: entity.PcrQuote{
 				Quoted: report.GetPcrInfo().GetPcrQuote().GetQuoted(),
 			},

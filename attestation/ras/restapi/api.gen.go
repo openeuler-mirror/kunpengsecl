@@ -26,44 +26,11 @@ const (
 	Servermgt_authScopes = "servermgt_auth.Scopes"
 )
 
-// Defines values for ContainerBaseValueAlgorithm.
-const (
-	ContainerBaseValueAlgorithmSha1 ContainerBaseValueAlgorithm = "sha1"
-
-	ContainerBaseValueAlgorithmSha256 ContainerBaseValueAlgorithm = "sha256"
-
-	ContainerBaseValueAlgorithmSha384 ContainerBaseValueAlgorithm = "sha384"
-
-	ContainerBaseValueAlgorithmSha512 ContainerBaseValueAlgorithm = "sha512"
-)
-
-// Defines values for DeviceBaseValueAlgorithm.
-const (
-	DeviceBaseValueAlgorithmSha1 DeviceBaseValueAlgorithm = "sha1"
-
-	DeviceBaseValueAlgorithmSha256 DeviceBaseValueAlgorithm = "sha256"
-
-	DeviceBaseValueAlgorithmSha384 DeviceBaseValueAlgorithm = "sha384"
-
-	DeviceBaseValueAlgorithmSha512 DeviceBaseValueAlgorithm = "sha512"
-)
-
 // Defines values for MeasurementType.
 const (
 	MeasurementTypeBios MeasurementType = "bios"
 
 	MeasurementTypeIma MeasurementType = "ima"
-)
-
-// Defines values for ServerBaseValueAlgorithm.
-const (
-	ServerBaseValueAlgorithmSha1 ServerBaseValueAlgorithm = "sha1"
-
-	ServerBaseValueAlgorithmSha256 ServerBaseValueAlgorithm = "sha256"
-
-	ServerBaseValueAlgorithmSha384 ServerBaseValueAlgorithm = "sha384"
-
-	ServerBaseValueAlgorithmSha512 ServerBaseValueAlgorithm = "sha512"
 )
 
 // ConfigItem defines model for ConfigItem.
@@ -74,12 +41,8 @@ type ConfigItem struct {
 
 // ContainerBaseValue defines model for ContainerBaseValue.
 type ContainerBaseValue struct {
-	Algorithm    *ContainerBaseValueAlgorithm `json:"algorithm,omitempty"`
-	Measurements *[]Measurement               `json:"measurements,omitempty"`
+	Measurements *[]Measurement `json:"measurements,omitempty"`
 }
-
-// ContainerBaseValueAlgorithm defines model for ContainerBaseValue.Algorithm.
-type ContainerBaseValueAlgorithm string
 
 // ContainerBriefInfo defines model for ContainerBriefInfo.
 type ContainerBriefInfo struct {
@@ -90,12 +53,8 @@ type ContainerBriefInfo struct {
 
 // DeviceBaseValue defines model for DeviceBaseValue.
 type DeviceBaseValue struct {
-	Algorithm    *DeviceBaseValueAlgorithm `json:"algorithm,omitempty"`
-	Measurements *[]Measurement            `json:"measurements,omitempty"`
+	Measurements *[]Measurement `json:"measurements,omitempty"`
 }
-
-// DeviceBaseValueAlgorithm defines model for DeviceBaseValue.Algorithm.
-type DeviceBaseValueAlgorithm string
 
 // DeviceBriefInfo defines model for DeviceBriefInfo.
 type DeviceBriefInfo struct {
@@ -122,13 +81,9 @@ type PcrValue struct {
 
 // ServerBaseValue defines model for ServerBaseValue.
 type ServerBaseValue struct {
-	Algorithm    *ServerBaseValueAlgorithm `json:"algorithm,omitempty"`
-	Measurements *[]Measurement            `json:"measurements,omitempty"`
-	Pcrvalues    *[]PcrValue               `json:"pcrvalues,omitempty"`
+	Measurements *[]Measurement `json:"measurements,omitempty"`
+	Pcrvalues    *[]PcrValue    `json:"pcrvalues,omitempty"`
 }
-
-// ServerBaseValueAlgorithm defines model for ServerBaseValue.Algorithm.
-type ServerBaseValueAlgorithm string
 
 // ServerRegistryStatus defines model for ServerRegistryStatus.
 type ServerRegistryStatus struct {
@@ -3520,34 +3475,34 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"m/0TAAD//6avnIAmMAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

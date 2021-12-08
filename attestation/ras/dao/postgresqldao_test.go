@@ -28,7 +28,6 @@ var (
 		},
 	}
 	pcrInfo = entity.PcrInfo{
-		AlgName: "sha256",
 		Values: map[int]string{
 			1: "pcr value 1",
 			2: "pcr value 2",

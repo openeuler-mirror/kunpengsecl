@@ -32,7 +32,6 @@ const (
 
 var (
 	bvpcrInfo1 = entity.PcrInfo{
-		AlgName: algSHA1,
 		Values: map[int]string{
 			2: pcrVal2,
 			5: pcrVal5,
@@ -43,7 +42,6 @@ var (
 	}
 
 	bvpcrInfo2 = entity.PcrInfo{
-		AlgName: algSHA1,
 		Values: map[int]string{
 			2: pcrVal1,
 			5: pcrVal5,
@@ -54,7 +52,6 @@ var (
 	}
 
 	repopcrInfo = entity.PcrInfo{
-		AlgName: algSHA1,
 		Values: map[int]string{
 			1: pcrVal1,
 			2: pcrVal2,
@@ -69,7 +66,6 @@ var (
 
 	pi  = repopcrInfo
 	pi2 = entity.PcrInfo{
-		AlgName: algSHA1,
 		Values: map[int]string{
 			1: pcrVal1,
 			4: pcrVal4,
@@ -285,7 +281,6 @@ func TestBIOSValidate(t *testing.T) {
 
 	const sha256HashAllZero = "0000000000000000000000000000000000000000000000000000000000000000"
 	pibv := entity.PcrInfo{
-		AlgName: "sha256",
 		Values: map[int]string{
 			0: sha256HashAllZero,
 			1: "8acfdc0d15afa6e5ea69159c080e11ad1c68551c0f64b5b1e738bc3cac30a655",

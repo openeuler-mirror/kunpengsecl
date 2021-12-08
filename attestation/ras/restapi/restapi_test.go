@@ -366,7 +366,7 @@ func prepareServers(t *testing.T) (*RasServer, int64) {
 		t.Errorf("Client: invoke RegisterClient error %v", err)
 	}
 	t.Logf("Client: invoke RegisterClient ok, clientID=%d", r.GetClientId())
-
+	cfg := config.GetDefault(config.ConfServer)
 	trustmgr.SetValidator(&testValidator{})
 	_, err = sc.SendReport(context.Background(),
 		&clientapi.SendReportRequest{
@@ -380,7 +380,7 @@ func prepareServers(t *testing.T) (*RasServer, int64) {
 					PcrQuote: &clientapi.PcrQuote{
 						Quoted: []byte("test quote"),
 					},
-					Algorithm: "SHA1",
+					Algorithm: cfg.GetDigestAlgorithm(),
 				},
 				Manifest: []*clientapi.Manifest{},
 				ClientId: r.GetClientId(),

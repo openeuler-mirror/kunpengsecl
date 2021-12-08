@@ -277,5 +277,5 @@ var Ras_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api.proto",
+	Metadata: "clientapi/api.proto",
 }

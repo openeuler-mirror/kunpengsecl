@@ -187,7 +187,7 @@ func TestClientAPI(t *testing.T) {
 			PcrQuote: &PcrQuote{
 				Quoted: []byte("test quote"),
 			},
-			Algorithm: "SHA1",
+			Algorithm: cfg.GetDigestAlgorithm(),
 		},
 		Manifest: []*Manifest{},
 		ClientId: r.GetClientId(),

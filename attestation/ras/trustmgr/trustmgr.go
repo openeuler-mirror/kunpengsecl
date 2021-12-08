@@ -199,6 +199,70 @@ func SaveBaseValueById(clientId int64, meaInfo *entity.MeasurementInfo) error {
 	return psd.SaveBaseValue(clientId, meaInfo)
 }
 
+func AddContainer(c *entity.Container) error {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	return psd.InsertContainer(c)
+}
+
+func AddContainerBaseValue(cbv *entity.ContainerBaseValue) error {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	return psd.InsertContainerBaseValue(cbv)
+}
+
+func GetContainerByUUId(uuID string) (*entity.Container, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return nil, err
+	}
+	return psd.SelectContainerByUUId(uuID)
+}
+
+func GetContainerBaseValueByUUId(uuID string) (*entity.ContainerBaseValue, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return nil, err
+	}
+	return psd.SelectContainerBaseValueByUUId(uuID)
+}
+
+func GetDeviceById(deviceId int64) (*entity.PcieDevice, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return nil, err
+	}
+	return psd.SelectDeviceById(deviceId)
+}
+
+func GetDeviceBaseValueById(deviceId int64) (*entity.PcieBaseValue, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return nil, err
+	}
+	return psd.SelectDeviceBaseValueById(deviceId)
+}
+
+func AddDevice(c *entity.PcieDevice) error {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	return psd.InsertDevice(c)
+}
+
+func AddDeviceBaseValue(pbv *entity.PcieBaseValue) error {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	return psd.InsertDeviceBaseValue(pbv)
+}
+
 //return the name & type & time stamp of the id
 
 func GetAllClientInfoByID(clientId int64) (map[string]string, error) {

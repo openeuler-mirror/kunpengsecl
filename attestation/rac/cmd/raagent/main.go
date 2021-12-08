@@ -131,6 +131,7 @@ func SetNewConf(rpy *clientapi.SendHeartbeatReply) {
 
 // SendTrustReport sneds a new trust report to RAS.
 func SendTrustReport(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
+	cfg := config.GetDefault(config.ConfClient)
 	tRep, err := tpm.GetTrustReport(rpy.GetActionParameters().GetNonce(), id)
 	if err != nil {
 		log.Printf("Client: create a new trust report failed :%v", err)
@@ -146,7 +147,7 @@ func SendTrustReport(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.Sen
 		ClientId: id,
 		TrustReport: &clientapi.TrustReport{
 			PcrInfo: &clientapi.PcrInfo{
-				Algorithm: tRep.PcrInfo.AlgName,
+				Algorithm: cfg.GetDigestAlgorithm(),
 				PcrValues: (map[int32]string)(tRep.PcrInfo.Values),
 				PcrQuote: &clientapi.PcrQuote{
 					Quoted:    tRep.PcrInfo.Quote.Quoted,
