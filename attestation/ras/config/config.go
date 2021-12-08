@@ -52,6 +52,8 @@ const (
 	RasChangeTime         = "rasconfig.changetime"
 	RasExtRules           = "rasconfig.basevalue-extract-rules"
 	RasAutoUpdateConfig   = "rasconfig.auto-update-config"
+	RasAuthKeyFile        = "rasconfig.authkeyfile"
+	RasAuthKeyFileDefault = "./ecdsakey"
 	// RAC
 	RacServer                = "racconfig.server" // client connect to server
 	RacServerLongFlag        = "server"
@@ -110,6 +112,7 @@ type (
 		servPort         string
 		restPort         string
 		mgrStrategy      string
+		authKeyFile      string
 		changeTime       time.Time
 		extractRules     entity.ExtractRules
 		autoUpdateConfig entity.AutoUpdateConfig
@@ -166,6 +169,7 @@ func getServerConf(c *config) {
 	c.rasConfig.servPort = viper.GetString(RasPort)
 	c.rasConfig.restPort = viper.GetString(RasRestPort)
 	c.rasConfig.mgrStrategy = viper.GetString(RasMgrStrategy)
+	c.rasConfig.authKeyFile = viper.GetString(RasAuthKeyFile)
 	c.rasConfig.changeTime = viper.GetTime(RasChangeTime)
 	var ers entity.ExtractRules
 	if viper.UnmarshalKey(RasExtRules, &ers) == nil {
@@ -288,6 +292,7 @@ func Save() {
 			viper.Set(RasPort, cfg.rasConfig.servPort)
 			viper.Set(RasRestPort, cfg.rasConfig.restPort)
 			viper.Set(RasMgrStrategy, cfg.rasConfig.mgrStrategy)
+			viper.Set(RasAuthKeyFile, cfg.rasConfig.authKeyFile)
 			viper.Set(RasChangeTime, cfg.rasConfig.changeTime)
 			viper.Set(RasAutoUpdateConfig, cfg.rasConfig.autoUpdateConfig)
 			// store common configuration for all client
@@ -437,4 +442,12 @@ func (c *config) GetDigestAlgorithm() string {
 
 func (c *config) SetDigestAlgorithm(algorithm string) {
 	c.racConfig.digestAlgorithm = algorithm
+}
+
+func (c *config) GetAuthKeyFile() string {
+	return c.rasConfig.authKeyFile
+}
+
+func (c *config) SetAuthKeyFile(filename string) {
+	c.rasConfig.authKeyFile = filename
 }

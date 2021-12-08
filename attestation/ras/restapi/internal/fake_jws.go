@@ -18,8 +18,11 @@ It is used mainly for testing purpose in current project.
 package internal
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
+	"io/ioutil"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal/ecdsafile"
 	"github.com/lestrrat-go/jwx/jwa"
@@ -32,15 +35,6 @@ import (
 // command:
 //     openssl ecparam -name prime256v1 -genkey -noout -out ecprivatekey.pem
 //
-// We are using a hard coded key here in this example, but in real applications,
-// you would never do this. Your JWT signing key must never be in your application,
-// only the public key.
-const PrivateKey = `-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIN2dALnjdcZaIZg4QuA6Dw+kxiSW502kJfmBN3priIhPoAoGCCqGSM49
-AwEHoUQDQgAE4pPyvrB9ghqkT1Llk0A42lixkugFd/TBdOp6wf69O9Nndnp4+HcR
-s9SlG/8hjB2Hz42v4p3haKWv3uS1C6ahCQ==
------END EC PRIVATE KEY-----`
-
 const KeyID = `fake-key-id`
 const FakeIssuer = "fake-issuer"
 const FakeAudience = "example-users"
@@ -48,21 +42,39 @@ const PermissionsClaim = "perm"
 
 type FakeAuthenticator struct {
 	PrivateKey *ecdsa.PrivateKey
+	PublicKey  *ecdsa.PublicKey
 	KeySet     jwk.Set
 }
 
-// NewFakeAuthenticator creates an authenticator example which uses a hard coded
-// ECDSA key to validate JWT's that it has signed itself.
-func NewFakeAuthenticator() (*FakeAuthenticator, error) {
-	privKey, err := ecdsafile.LoadEcdsaPrivateKey([]byte(PrivateKey))
+// NewFakeAuthenticator creates an authenticator example which uses the ECDSA key
+// in the given file to validate JWT's that it has signed itself.
+func NewFakeAuthenticator(keyfile string) (*FakeAuthenticator, error) {
+	key, err := ioutil.ReadFile(keyfile)
 	if err != nil {
-		return nil, fmt.Errorf("loading PEM private key: %w", err)
+		return nil, err
+	}
+	var (
+		priv *ecdsa.PrivateKey
+		pub  *ecdsa.PublicKey
+	)
+	if bytes.Contains(key, []byte("PRIVATE KEY")) {
+		priv, err = ecdsafile.LoadEcdsaPrivateKey(key)
+		if err == nil {
+			pub = &priv.PublicKey
+		}
+	} else if bytes.Contains(key, []byte("PUBLIC KEY")) {
+		pub, err = ecdsafile.LoadEcdsaPublicKey(key)
+	} else {
+		return nil, errors.New("bad key file")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("loading PEM key: %w", err)
 	}
 
 	set := jwk.NewSet()
 	pubKey := jwk.NewECDSAPublicKey()
 
-	err = pubKey.FromRaw(&privKey.PublicKey)
+	err = pubKey.FromRaw(pub)
 	if err != nil {
 		return nil, fmt.Errorf("parsing jwk key: %w", err)
 	}
@@ -79,7 +91,7 @@ func NewFakeAuthenticator() (*FakeAuthenticator, error) {
 
 	set.Add(pubKey)
 
-	return &FakeAuthenticator{PrivateKey: privKey, KeySet: set}, nil
+	return &FakeAuthenticator{PrivateKey: priv, PublicKey: pub, KeySet: set}, nil
 }
 
 // ValidateJWS ensures that the critical JWT claims needed to ensure that we

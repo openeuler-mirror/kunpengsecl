@@ -507,7 +507,7 @@ func StartServer(addr string, cm *cache.CacheMgr) {
 	router := echo.New()
 
 	// FIXME: need to be replaced with a formal authenticator implementation
-	v, err := internal.NewFakeAuthenticator()
+	v, err := internal.NewFakeAuthenticator(config.GetDefault(config.ConfServer).GetAuthKeyFile())
 	if err != nil {
 		fmt.Println(err)
 		return

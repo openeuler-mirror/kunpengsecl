@@ -33,6 +33,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -53,11 +54,6 @@ import (
 )
 
 const (
-	PrivateKey = `-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIN2dALnjdcZaIZg4QuA6Dw+kxiSW502kJfmBN3priIhPoAoGCCqGSM49
-AwEHoUQDQgAE4pPyvrB9ghqkT1Llk0A42lixkugFd/TBdOp6wf69O9Nndnp4+HcR
-s9SlG/8hjB2Hz42v4p3haKWv3uS1C6ahCQ==
------END EC PRIVATE KEY-----`
 	KeyID = `fake-key-id`
 	// path string
 	pathLogin     = "/login"
@@ -76,11 +72,13 @@ s9SlG/8hjB2Hz42v4p3haKWv3uS1C6ahCQ==
 )
 
 var (
-	dumpvar   bool
-	idvar     string
-	secretvar string
-	domainvar string
-	portvar   int
+	dumpvar    bool
+	idvar      string
+	secretvar  string
+	domainvar  string
+	portvar    int
+	keyfile    string
+	PrivateKey string
 )
 
 func init() {
@@ -89,6 +87,11 @@ func init() {
 	flag.StringVar(&secretvar, "s", "23452345", "The client secret being passed in")
 	flag.StringVar(&domainvar, "r", "http://localhost:5094", "The domain of the redirect url")
 	flag.IntVar(&portvar, "p", 5096, "the base port for the server")
+	flag.StringVar(&keyfile, "k", "./ecdsakey", "The private key file path used to sign token")
+}
+
+func LoadPrivateKey(keyfile string) ([]byte, error) {
+	return ioutil.ReadFile(keyfile)
 }
 
 func createManager() *manage.Manager {
@@ -308,6 +311,11 @@ func main() {
 	if dumpvar {
 		log.Println("Dumping requests")
 	}
+	key, err := LoadPrivateKey(keyfile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	PrivateKey = string(key)
 	manager := createManager()
 	srv := createServer(manager)
 	registerHTTPHandlers(srv)

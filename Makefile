@@ -29,7 +29,8 @@ sim-clean: clean
 	-@pkill ras || true
 	-@pkill raagent || true
 	-@pkill rahub || true
-
+	-@pkill server || true
+	-@pkill client || true
 
 rpm:
 	/bin/bash ./attestation/quick-scripts/buildrpm.sh
