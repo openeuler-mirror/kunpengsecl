@@ -18,9 +18,11 @@ build:
 	go build -mod=vendor -o $(PKGPATH)/dao dao/*.go
 	go build -mod=vendor -o $(PKGPATH)/entity entity/*.go
 	go build -mod=vendor -o $(PKGPATH)/restapi restapi/*.go
+	make -C example $@ || exit $$?
 
 clean:
 	@rm -rf $(PKGPATH)
+	make -C example $@ || exit $$?
 
 install:
 	@echo "to be completed"

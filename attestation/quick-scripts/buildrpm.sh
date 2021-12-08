@@ -12,11 +12,10 @@ mkdir -p ./rpmbuild/{BUILD,BUILDROOT,RPMS,SRPMS,SOURCES}
 # clean useless directories and files.
 make clean
 rm -rf ./attestation/{vendor,go.sum}
-rm -rf ./integration/{vendor,go.sum}
 
 # build source tar ball.
 tar -czf ./rpmbuild/SOURCES/kunpengsecl-1.1.tar.gz \
-            attestation doc integration \
+            attestation doc \
             LICENSE Makefile README.md README.en.md
 
 go env -w GO111MODULE="on"

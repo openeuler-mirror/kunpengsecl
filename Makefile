@@ -1,5 +1,5 @@
 
-subdir = attestation integration
+subdir = attestation
 
 .PHONY: all build test clean install check vendor ci-check bat prepare sim-test sim-clean rpm rpm-clean
 all build test clean install check: vendor
