@@ -16,6 +16,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
+	resttest "gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 	"github.com/labstack/echo/v4"
@@ -26,6 +27,11 @@ import (
 
 type testExtractor struct {
 }
+
+var (
+	authKeyFile    = "./ecdsakey"
+	authKeyPubFile = "./ecdsakey.pub"
+)
 
 func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
 	mInfo.ClientID = report.ClientID
@@ -45,7 +51,7 @@ func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.Measuremen
 func CreateServer(t *testing.T) {
 	router := echo.New()
 
-	v, err := internal.NewFakeAuthenticator()
+	v, err := internal.NewFakeAuthenticator(authKeyPubFile)
 	require.NoError(t, err)
 
 	av, err := CreateAuthValidator(v)
@@ -77,7 +83,7 @@ func CreateClient(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	v, err := internal.NewFakeAuthenticator()
+	v, err := internal.NewFakeAuthenticator(authKeyFile)
 	require.NoError(t, err)
 
 	// create a JWT with no scopes.
@@ -115,6 +121,9 @@ func TestRestAPI(t *testing.T) {
 	test.CreateServerConfigFile()
 	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
+
+	resttest.CreateAuthKeyFile(authKeyFile, authKeyPubFile)
+	defer resttest.RemoveAuthKeyFile()
 
 	t.Log("restapi created server")
 	go CreateServer(t)

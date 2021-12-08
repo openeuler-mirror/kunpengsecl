@@ -9,6 +9,7 @@ rasconfig:
   rest: "127.0.0.1:40002"
   changetime: 0
   mgrstrategy: auto
+  authkeyfile: ./ecdsakey.pub
   basevalue-extract-rules:
     pcrinfo:
       pcrselection: [1, 2, 3, 4]
