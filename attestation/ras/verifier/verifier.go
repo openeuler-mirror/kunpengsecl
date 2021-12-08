@@ -225,6 +225,56 @@ func (pv *PCRVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.
 	return nil
 }
 
+func (bv *BIOSVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error {
+	extractedBIOS := &entity.MeasurementInfo{}
+	err := bv.Extract(report, extractedBIOS)
+	if err != nil {
+		return fmt.Errorf("manifest extraction failed")
+	}
+	manifest, err := selectManifest(baseValue.Manifest, "bios")
+	if err != nil {
+		return fmt.Errorf("bios extraction failed")
+	}
+	// compare
+	if trustmgr.IsManifestUpdate(&manifest, &extractedBIOS.Manifest) {
+		return fmt.Errorf("bios manifest verification failed")
+	}
+
+	return nil
+}
+
+func (iv *IMAVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error {
+	extractedIMA := &entity.MeasurementInfo{}
+	err := iv.Extract(report, extractedIMA)
+	if err != nil {
+		return fmt.Errorf("manifest extraction failed")
+	}
+	manifest, err := selectManifest(baseValue.Manifest, "ima")
+	if err != nil {
+		return fmt.Errorf("bios extraction failed")
+	}
+	// compare
+	if trustmgr.IsManifestUpdate(&manifest, &extractedIMA.Manifest) {
+		return fmt.Errorf("ima manifest verification failed")
+	}
+
+	return nil
+}
+
+func selectManifest(basemanifest []entity.Measurement, manifestType string) ([]entity.Measurement, error) {
+	// find bios manifest list from basevalue.manifest
+	manifest := []entity.Measurement{}
+	for _, element := range basemanifest {
+		if element.Type == manifestType {
+			manifest = append(manifest, element)
+		}
+	}
+	if len(manifest) == 0 {
+		return nil, fmt.Errorf("no item has been found")
+	}
+	return manifest, nil
+}
+
 func (pv *PCRVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
 	config := config.GetDefault(config.ConfServer)
 	pcrSelection := config.GetExtractRules().PcrRule.PcrSelection
