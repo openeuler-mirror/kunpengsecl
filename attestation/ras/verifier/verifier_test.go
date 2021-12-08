@@ -112,6 +112,30 @@ var (
 		Type:  mtIMA,
 		Items: []entity.ManifestItem{i1, i3},
 	}
+
+	bmea = entity.Measurement{
+		Type:  mtBIOS,
+		Name:  name1,
+		Value: value1,
+	}
+
+	bmea2 = entity.Measurement{
+		Type:  mtBIOS,
+		Name:  name2,
+		Value: value2,
+	}
+
+	imea = entity.Measurement{
+		Type:  mtIMA,
+		Name:  name1,
+		Value: value1,
+	}
+
+	imea2 = entity.Measurement{
+		Type:  mtIMA,
+		Name:  name2,
+		Value: value2,
+	}
 )
 
 func TestPCRVerifierVerify(t *testing.T) {
@@ -342,5 +366,79 @@ func TestBIOSValidate(t *testing.T) {
 		} else {
 			t.Errorf("test BIOS Validate error at case %d\n", i)
 		}
+	}
+}
+
+func TestBIOSVerify(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	var bv *BIOSVerifier
+
+	baseValue := &entity.MeasurementInfo{
+		Manifest: []entity.Measurement{bmea, bmea2, imea, imea2},
+	}
+
+	testReport := &entity.Report{
+		Manifest: []entity.Manifest{bm}, //i1 i2
+	}
+
+	testReport2 := &entity.Report{
+		Manifest: []entity.Manifest{bm2}, //i1 i3
+	}
+
+	testCase := []struct {
+		input1 *entity.MeasurementInfo
+		input2 *entity.Report
+		result error
+	}{
+		{baseValue, testReport, nil},
+		{baseValue, testReport2, fmt.Errorf("manifest extraction failed")},
+	}
+	for i := 0; i < len(testCase); i++ {
+		err := bv.Verify(testCase[i].input1, testCase[i].input2)
+		if err == testCase[i].result || err.Error() == testCase[i].result.Error() {
+			t.Logf("test BIOS Verify success at case %d\n", i)
+		} else {
+			t.Errorf("test BIOS Verify error at case %d\n", i)
+		}
+
+	}
+}
+
+func TestIMAVerify(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	var iv *IMAVerifier
+
+	baseValue := &entity.MeasurementInfo{
+		Manifest: []entity.Measurement{bmea, bmea2, imea, imea2},
+	}
+
+	testReport := &entity.Report{
+		Manifest: []entity.Manifest{im}, //i1 i2
+	}
+
+	testReport2 := &entity.Report{
+		Manifest: []entity.Manifest{im2}, //i1 i3
+	}
+
+	testCase := []struct {
+		input1 *entity.MeasurementInfo
+		input2 *entity.Report
+		result error
+	}{
+		{baseValue, testReport, nil},
+		{baseValue, testReport2, fmt.Errorf("manifest extraction failed")},
+	}
+	for i := 0; i < len(testCase); i++ {
+		err := iv.Verify(testCase[i].input1, testCase[i].input2)
+		if err == testCase[i].result || err.Error() == testCase[i].result.Error() {
+			t.Logf("test IMA Verify success at case %d\n", i)
+		} else {
+			t.Errorf("test IMA Verify error at case %d\n", i)
+		}
+
 	}
 }

@@ -295,7 +295,7 @@ func isMeasurementUpdate(oldMea *entity.MeasurementInfo, newMea *entity.Measurem
 		return true
 	}
 	// compare manifest
-	if isManifestUpdate(&oldMea.Manifest, &newMea.Manifest) {
+	if IsManifestUpdate(&oldMea.Manifest, &newMea.Manifest) {
 		return true
 	}
 	return false
@@ -315,7 +315,7 @@ func isPcrInfoUpdate(oldPi *entity.PcrInfo, newPi *entity.PcrInfo) bool {
 	return false
 }
 
-func isManifestUpdate(oldM *[]entity.Measurement, newM *[]entity.Measurement) bool {
+func IsManifestUpdate(oldM *[]entity.Measurement, newM *[]entity.Measurement) bool {
 	if len(*oldM) != len(*newM) {
 		return true
 	}
