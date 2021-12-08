@@ -217,12 +217,25 @@ func TestGetServer(t *testing.T) {
 	req := httptest.NewRequest(echo.GET, "/", nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-
+	ic := createRandomCert()
+	clientInfo := entity.ClientInfo{
+		Info: map[string]string{
+			"client_name":        "test_client",
+			"client_type":        "test_type",
+			"client_description": "test description",
+			"ip":                 "ip",
+		},
+	}
+	_, err := trustmgr.RegisterClient(&clientInfo, ic)
+	assert.NoError(t, err)
 	s, _ := prepareServers(t)
-	err := s.GetServer(ctx)
+	err = s.GetServer(ctx)
 	if assert.NoError(t, err) {
 		assert.Equal(t, http.StatusOK, rec.Code)
-		t.Log(rec.Body)
+		t.Log(rec.Body.String())
+		result := []ServerBriefInfo{}
+		json.Unmarshal(rec.Body.Bytes(), &result)
+		t.Log(result)
 	}
 
 }
