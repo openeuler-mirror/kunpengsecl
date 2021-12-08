@@ -144,12 +144,29 @@ func setTDuration(val string) error {
 // Return the base value of a given container
 // (GET /container/basevalue/{uuid})
 func (s *RasServer) GetContainerBasevalueUuid(ctx echo.Context, uuid string) error {
-	return ctx.JSON(http.StatusOK, nil)
+	cbv, err := trustmgr.GetContainerBaseValueByUUId(uuid)
+	if err != nil {
+		return ctx.JSON(http.StatusNotFound, nil)
+	}
+	return ctx.JSON(http.StatusOK, cbv)
 }
 
 // create/update the base value of the given container
 // (PUT /container/basevalue/{uuid})
 func (s *RasServer) PutContainerBasevalueUuid(ctx echo.Context, uuid string) error {
+	var body PutContainerBasevalueUuidJSONBody
+	err := ctx.Bind(&body)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, nil)
+	}
+	cbv := map[string]string{}
+	for _, m := range *body.Measurements {
+		cbv[*m.Name] = *m.Value
+	}
+	trustmgr.AddContainerBaseValue(&entity.ContainerBaseValue{
+		ContainerUUID: uuid,
+		Value:         cbv,
+	})
 	return ctx.JSON(http.StatusOK, nil)
 }
 
@@ -308,48 +325,39 @@ func (s *RasServer) PutServerBasevalueServerId(ctx echo.Context, serverId int64)
 	if err != nil {
 		return ctx.JSON(http.StatusNoContent, nil)
 	}
-	modifyAlgName(string(*serverBvBody.Algorithm), serverId)
-	modifyManifest(*serverBvBody.Measurements, serverId)
-	modifyPcrValue(*serverBvBody.Pcrvalues, serverId)
+	mInfo, err := trustmgr.GetBaseValueById(serverId)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, nil)
+	}
+	modifyManifest(mInfo, *serverBvBody.Measurements)
+	modifyPcrValue(mInfo, *serverBvBody.Pcrvalues)
+	err = trustmgr.SaveBaseValueById(serverId, mInfo)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, nil)
+	}
 	return nil
 }
 
-func modifyAlgName(s string, clientId int64) {
-	mInfo, err := trustmgr.GetBaseValueById(clientId)
-	if err == nil {
-		mInfo.PcrInfo.AlgName = s
-	}
-	_ = trustmgr.SaveBaseValueById(clientId, mInfo)
-}
-
-func modifyManifest(ms []Measurement, clientId int64) {
-	mInfo, err := trustmgr.GetBaseValueById(clientId)
+func modifyManifest(mInfo *entity.MeasurementInfo, ms []Measurement) {
 	var mf entity.Measurement
-	if err == nil {
-		for i := range ms {
-			if i < len(mInfo.Manifest) {
-				mInfo.Manifest[i].Name = *ms[i].Name
-				mInfo.Manifest[i].Type = string(*ms[i].Type)
-				mInfo.Manifest[i].Value = *ms[i].Value
-			} else {
-				mf.Name = *ms[i].Name
-				mf.Type = string(*ms[i].Type)
-				mf.Value = *ms[i].Value
-				mInfo.Manifest = append(mInfo.Manifest, mf)
-			}
+	for i := range ms {
+		if i < len(mInfo.Manifest) {
+			mInfo.Manifest[i].Name = *ms[i].Name
+			mInfo.Manifest[i].Type = string(*ms[i].Type)
+			mInfo.Manifest[i].Value = *ms[i].Value
+		} else {
+			mf.Name = *ms[i].Name
+			mf.Type = string(*ms[i].Type)
+			mf.Value = *ms[i].Value
+			mInfo.Manifest = append(mInfo.Manifest, mf)
 		}
 	}
-	_ = trustmgr.SaveBaseValueById(clientId, mInfo)
 }
 
-func modifyPcrValue(pValues []PcrValue, clientId int64) {
-	mInfo, err := trustmgr.GetBaseValueById(clientId)
-	if err == nil {
-		for _, con := range pValues {
-			mInfo.PcrInfo.Values[*con.Index] = *con.Value
-		}
+func modifyPcrValue(mInfo *entity.MeasurementInfo, pValues []PcrValue) {
+	for _, con := range pValues {
+		mInfo.PcrInfo.Values[*con.Index] = *con.Value
 	}
-	_ = trustmgr.SaveBaseValueById(clientId, mInfo)
 }
 
 type ServerTrustStatus struct {

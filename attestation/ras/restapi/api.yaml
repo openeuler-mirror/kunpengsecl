@@ -532,14 +532,6 @@ components:
     ServerBaseValue:
       type: object
       properties:
-        algorithm:
-          type: string
-          default: sha256
-          enum:
-          - sha1
-          - sha256
-          - sha384
-          - sha512
         pcrvalues:
           type: array
           items:
@@ -584,14 +576,6 @@ components:
     ContainerBaseValue:
       type: object
       properties:
-        algorithm:
-          type: string
-          default: sha256
-          enum:
-          - sha1
-          - sha256
-          - sha384
-          - sha512
         measurements:
           type: array
           items:
@@ -623,14 +607,6 @@ components:
     DeviceBaseValue:
       type: object
       properties:
-        algorithm:
-          type: string
-          default: sha256
-          enum:
-          - sha1
-          - sha256
-          - sha384
-          - sha512
         measurements:
           type: array
           items:

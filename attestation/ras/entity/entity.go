@@ -49,9 +49,8 @@ type TransformReport struct {
 	Quote is signed by RAC TPM and will be decrypted for validating identity
 */
 type PcrInfo struct {
-	AlgName string
-	Values  map[int]string
-	Quote   PcrQuote
+	Values map[int]string
+	Quote  PcrQuote
 }
 
 type PcrQuote struct {

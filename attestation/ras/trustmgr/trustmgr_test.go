@@ -38,7 +38,6 @@ func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.Measuremen
 
 var (
 	pcrInfo = entity.PcrInfo{
-		AlgName: "sha1",
 		Values: map[int]string{
 			1: "pcr value 1",
 			2: "pcr value 2",

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
@@ -61,6 +62,7 @@ func TestRaHub(t *testing.T) {
 	}
 	t.Logf("Client: invoke SendHeartbeat ok")
 
+	cfg := config.GetDefault(config.ConfServer)
 	trustmgr.SetValidator(&testValidator{})
 	_, err = DoSendReport(addrRaHub, &SendReportRequest{ClientId: r.GetClientId(),
 		TrustReport: &TrustReport{
@@ -71,7 +73,7 @@ func TestRaHub(t *testing.T) {
 				PcrQuote: &PcrQuote{
 					Quoted: []byte("test quote"),
 				},
-				Algorithm: "SHA1",
+				Algorithm: cfg.GetDigestAlgorithm(),
 			},
 			Manifest: []*Manifest{},
 			ClientId: r.GetClientId(),

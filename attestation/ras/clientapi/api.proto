@@ -46,6 +46,7 @@ message RegisterClientReply {
 message ClientConfig {
   int64 hbDurationSeconds = 1;
   int64 trustDurationSeconds = 2;
+  string digestAlgorithm = 3;
 }
 
 message UnregisterClientRequest {
