@@ -527,7 +527,7 @@ func (iv *IMAVerifier) Validate(report *entity.Report) error {
 		}
 		temp = append(temp, pcrValueBytes...)
 	}
-	h1 := sha256.New()
+	h1 := sha1.New()
 	h1.Write(temp)
 	newBootAggreBytes := h1.Sum(nil)
 
