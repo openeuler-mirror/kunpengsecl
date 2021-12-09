@@ -442,3 +442,74 @@ func TestIMAVerify(t *testing.T) {
 
 	}
 }
+
+func TestIMAValidate(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	var iv *IMAVerifier
+
+	const sha1HashAllZero = "0000000000000000000000000000000000000000"
+	pibv := entity.PcrInfo{
+		Values: map[int]string{
+			0:  sha1HashAllZero,
+			1:  "073ee1e91b686efef30ec49f081fe93355de389e",
+			2:  sha1HashAllZero,
+			3:  "34ac889f14ac927f1198daf306f9da76dde64a9f",
+			4:  sha1HashAllZero,
+			5:  sha1HashAllZero,
+			6:  sha1HashAllZero,
+			7:  sha1HashAllZero,
+			10: "41bdfa8ecc891b23da8d9be1487b55d828f5ae65",
+		},
+		Quote: entity.PcrQuote{
+			Quoted: []byte(quoteVal),
+		},
+	}
+
+	item := entity.ManifestItem{
+		Name:   "boot_aggregate",
+		Value:  "6963796540f9a94a8770f6dea2038d5a1a8b6a21",
+		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"6963796540f9a94a8770f6dea2038d5a1a8b6a21\",\"TemplateName\":\"name1\",\"FiledataHash\":\"0000000000000000000000000000000000000000\",\"FilenameHint\":\"boot_aggregate\"}",
+	}
+	item2 := entity.ManifestItem{
+		Name:   "hint2",
+		Value:  "c4b091b099eaaacb9e01295be8a1eb6de21da66e",
+		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"c4b091b099eaaacb9e01295be8a1eb6de21da66e\",\"TemplateName\":\"name2\",\"FiledataHash\":\"0000000000000000000000000000000000000000\",\"FilenameHint\":\"hint2\"}",
+	}
+	item3 := entity.ManifestItem{
+		Name:   "hint3",
+		Value:  "d4a5327c1b04a1129220e821331c68c3b3179a9c",
+		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"d4a5327c1b04a1129220e821331c68c3b3179a9c\",\"TemplateName\":\"name3\",\"FiledataHash\":\"0000000000000000000000000000000000000000\",\"FilenameHint\":\"hint3\"}",
+	}
+	mf := entity.Manifest{
+		Type:  mtIMA,
+		Items: []entity.ManifestItem{item, item2, item3},
+	}
+
+	report := &entity.Report{
+		PcrInfo:  pibv,
+		Manifest: []entity.Manifest{mf},
+		ClientID: 1,
+		ClientInfo: entity.ClientInfo{
+			Info: nil,
+		},
+		Verified: false,
+	}
+
+	testCase := []struct {
+		input  *entity.Report
+		result error
+	}{
+		{report, nil},
+		//{report, errcase},
+	}
+	for i := 0; i < len(testCase); i++ {
+		err := iv.Validate(testCase[i].input)
+		if err == testCase[i].result || err.Error() == testCase[i].result.Error() {
+			t.Logf("test ima Validate success at case %d\n", i)
+		} else {
+			t.Errorf("test ima Validate error at case %d\n", i)
+		}
+	}
+}
