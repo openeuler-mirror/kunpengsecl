@@ -373,6 +373,7 @@ func (psd *PostgreSqlDAO) SelectAllRegisteredClientIds() ([]int64, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var ci int64
 		err = rows.Scan(&ci)
@@ -381,7 +382,6 @@ func (psd *PostgreSqlDAO) SelectAllRegisteredClientIds() ([]int64, error) {
 		}
 		clientIds = append(clientIds, ci)
 	}
-	rows.Close()
 	return clientIds, nil
 }
 
@@ -394,6 +394,7 @@ func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var ci int64
 		err = rows.Scan(&ci)
@@ -402,7 +403,6 @@ func (psd *PostgreSqlDAO) SelectAllClientIds() ([]int64, error) {
 		}
 		clientIds = append(clientIds, ci)
 	}
-	rows.Close()
 	return clientIds, nil
 }
 
@@ -507,6 +507,7 @@ func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.Measureme
 		)
 		err = pcrRows.Scan(&id, &value)
 		if err != nil {
+			pcrRows.Close()
 			return nil, err
 		}
 		pi.Values[id] = value
@@ -527,6 +528,7 @@ func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.Measureme
 		)
 		err = mRows.Scan(&mType, &name, &value)
 		if err != nil {
+			mRows.Close()
 			return nil, err
 		}
 		meas = append(meas, entity.Measurement{
@@ -670,7 +672,7 @@ func (psd *PostgreSqlDAO) SelectContainerBaseValueByUUId(uuID string) (*entity.C
 	if err != nil {
 		return nil, err
 	}
-
+	defer mRows.Close()
 	for mRows.Next() {
 		var (
 			name  string
@@ -682,7 +684,6 @@ func (psd *PostgreSqlDAO) SelectContainerBaseValueByUUId(uuID string) (*entity.C
 		}
 		result.Value[name] = value
 	}
-	mRows.Close()
 	result.ContainerUUID = uuID
 	return &result, nil
 }
@@ -743,6 +744,37 @@ func (psd *PostgreSqlDAO) InsertContainerBaseValue(cbv *entity.ContainerBaseValu
 	return nil
 }
 
+func (psd *PostgreSqlDAO) UpdateContainerRegistryStatusByUUId(uuID string, isDeleted bool) error {
+	psd.Lock()
+	defer psd.Unlock()
+	_, err := psd.conn.Exec(context.Background(),
+		"UPDATE container SET deleted=$1 WHERE uuid=$2", isDeleted, uuID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (psd *PostgreSqlDAO) SelectAllContainerUUIds() ([]string, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
+	var uuids []string
+	rows, err := psd.conn.Query(context.Background(), "SELECT uuid FROM container")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var uuid string
+		err = rows.Scan(&uuid)
+		if err != nil {
+			return nil, err
+		}
+		uuids = append(uuids, uuid)
+	}
+	return uuids, nil
+}
 func (psd *PostgreSqlDAO) SelectDeviceById(deviceId int64) (*entity.PcieDevice, error) {
 	psd.Lock()
 	defer psd.Unlock()
@@ -776,7 +808,7 @@ func (psd *PostgreSqlDAO) SelectDeviceBaseValueById(deviceId int64) (*entity.Pci
 	if err != nil {
 		return nil, err
 	}
-
+	defer mRows.Close()
 	for mRows.Next() {
 		var (
 			name  string
@@ -788,7 +820,6 @@ func (psd *PostgreSqlDAO) SelectDeviceBaseValueById(deviceId int64) (*entity.Pci
 		}
 		result.Value[name] = value
 	}
-	mRows.Close()
 	result.DeviceID = deviceId
 	return &result, nil
 }
@@ -847,4 +878,36 @@ func (psd *PostgreSqlDAO) InsertDeviceBaseValue(pbv *entity.PcieBaseValue) error
 		}
 	}
 	return nil
+}
+
+func (psd *PostgreSqlDAO) UpdateDeviceRegistryStatusById(deviceId int64, isDeleted bool) error {
+	psd.Lock()
+	defer psd.Unlock()
+	_, err := psd.conn.Exec(context.Background(),
+		"UPDATE device SET deleted=$1 WHERE id=$2", isDeleted, deviceId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (psd *PostgreSqlDAO) SelectAllDeviceIds() ([]int64, error) {
+	psd.Lock()
+	defer psd.Unlock()
+
+	var deviceIds []int64
+	rows, err := psd.conn.Query(context.Background(), "SELECT id FROM device")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var di int64
+		err = rows.Scan(&di)
+		if err != nil {
+			return nil, err
+		}
+		deviceIds = append(deviceIds, di)
+	}
+	return deviceIds, nil
 }

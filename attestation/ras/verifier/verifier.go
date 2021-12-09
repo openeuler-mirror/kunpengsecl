@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -271,7 +272,7 @@ func selectManifest(basemanifest []entity.Measurement, manifestType string) ([]e
 		}
 	}
 	if len(manifest) == 0 {
-		return nil, fmt.Errorf("no item has been found")
+		log.Printf("no item has been found")
 	}
 	return manifest, nil
 }
@@ -324,7 +325,7 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 			}
 		}
 		if !isFound {
-			return fmt.Errorf("extract failed. bios manifest name %v doesn't exist in this report", bn)
+			log.Printf("extract failed. bios manifest name %v doesn't exist in this report", bn)
 		}
 	}
 	return nil
@@ -360,7 +361,7 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 			}
 		}
 		if !isFound {
-			return fmt.Errorf("extract failed. ima manifest name %v doesn't exist in this report", in)
+			log.Printf("extract failed. ima manifest name %v doesn't exist in this report", in)
 		}
 	}
 	return nil

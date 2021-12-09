@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 )
@@ -127,8 +128,72 @@ func (cm *CacheMgr) GetAllTrustStatus() map[int64]string {
 	for k, c := range cm.caches {
 		m[k] = c.GetTrustStatus()
 	}
-
 	return m
+}
+
+func (cm *CacheMgr) GetTrustStatusById(clientId int64) string {
+	if ca, ok := cm.caches[clientId]; ok {
+		return ca.GetTrustStatus()
+	}
+	return STSUNKOWN
+}
+
+func (cm *CacheMgr) GetAllContainerTrustStatus() (map[string]string, error) {
+	cons, err := trustmgr.GetAllContainerUUIds()
+	if err != nil {
+		return nil, err
+	}
+	m := map[string]string{}
+	for _, conId := range cons {
+		con, err := trustmgr.GetContainerByUUId(conId)
+		if err != nil {
+			return nil, err
+		}
+		if cache, ok := cm.caches[con.ClientId]; ok {
+			m[conId] = cache.GetContainerTrustStatus(conId)
+		}
+	}
+	return m, nil
+}
+
+func (cm *CacheMgr) GetDeviceTrustStatusById(deviceId int64) string {
+	dev, err := trustmgr.GetDeviceById(deviceId)
+	if err != nil {
+		return STSUNKOWN
+	}
+	if cache, ok := cm.caches[dev.ClientId]; ok {
+		return cache.GetDeviceTrustStatus(deviceId)
+	}
+	return STSUNKOWN
+}
+
+func (cm *CacheMgr) GetAllDeviceTrustStatus() (map[int64]string, error) {
+	devs, err := trustmgr.GetAllDeviceIds()
+	if err != nil {
+		return nil, err
+	}
+	m := map[int64]string{}
+	for _, devId := range devs {
+		dev, err := trustmgr.GetDeviceById(devId)
+		if err != nil {
+			return nil, err
+		}
+		if cache, ok := cm.caches[dev.ClientId]; ok {
+			m[devId] = cache.GetDeviceTrustStatus(devId)
+		}
+	}
+	return m, nil
+}
+
+func (cm *CacheMgr) GetContainerTrustStatusByUUId(uuID string) string {
+	con, err := trustmgr.GetContainerByUUId(uuID)
+	if err != nil {
+		return STSUNKOWN
+	}
+	if cache, ok := cm.caches[con.ClientId]; ok {
+		return cache.GetContainerTrustStatus(uuID)
+	}
+	return STSUNKOWN
 }
 
 // GetTrustStatus returns the trust status of the corresponding client
@@ -147,6 +212,80 @@ func (c *Cache) GetTrustStatus() string {
 	}
 
 	return STSUNTRUSTED
+}
+
+func (c *Cache) GetContainerTrustStatus(uuid string) string {
+	cid := c.cid
+	bv, err := trustmgr.GetBaseValueById(cid)
+	if err != nil {
+		return STSUNKOWN
+	}
+	report, err := trustmgr.GetLatestReportById(cid)
+	if err != nil {
+		return STSUNKOWN
+	}
+	if err = c.cm.vm.Verify(bv, report); err != nil {
+		return STSUNTRUSTED
+	}
+	cbv, err := trustmgr.GetContainerBaseValueByUUId(uuid)
+	if err != nil {
+		return STSUNKOWN
+	}
+	m := []entity.Measurement{}
+	for k, v := range cbv.Value {
+		m = append(m, entity.Measurement{
+			Type:  "ima",
+			Name:  k,
+			Value: v,
+		})
+	}
+	compareCbv := entity.MeasurementInfo{
+		ClientID: cid,
+		Manifest: m,
+	}
+	if err = c.cm.vm.Verify(&compareCbv, report); err != nil {
+		return STSUNTRUSTED
+	}
+	return STSTRUSTED
+}
+
+func (c *Cache) GetDeviceTrustStatus(deviceId int64) string {
+	dev, err := trustmgr.GetDeviceById(deviceId)
+	if err != nil {
+		return STSUNKOWN
+	}
+	cid := dev.ClientId
+	bv, err := trustmgr.GetBaseValueById(cid)
+	if err != nil {
+		return STSUNKOWN
+	}
+	report, err := trustmgr.GetLatestReportById(cid)
+	if err != nil {
+		return STSUNKOWN
+	}
+	if err = c.cm.vm.Verify(bv, report); err != nil {
+		return STSUNTRUSTED
+	}
+	dbv, err := trustmgr.GetDeviceBaseValueById(deviceId)
+	if err != nil {
+		return STSUNKOWN
+	}
+	m := []entity.Measurement{}
+	for k, v := range dbv.Value {
+		m = append(m, entity.Measurement{
+			Type:  "ima",
+			Name:  k,
+			Value: v,
+		})
+	}
+	compareCbv := entity.MeasurementInfo{
+		ClientID: cid,
+		Manifest: m,
+	}
+	if err = c.cm.vm.Verify(&compareCbv, report); err != nil {
+		return STSUNTRUSTED
+	}
+	return STSTRUSTED
 }
 
 // UpdateHeartBeat is called when receives heart beat message from RAC.

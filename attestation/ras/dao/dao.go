@@ -27,9 +27,13 @@ type DAO interface {
 	SelectContainerBaseValueByUUId(uuID string) (*entity.ContainerBaseValue, error)
 	InsertContainer(c *entity.Container) error
 	InsertContainerBaseValue(cbv *entity.ContainerBaseValue) error
+	UpdateContainerRegistryStatusByUUId(uuID string, isDeleted bool) error
+	SelectAllContainerUUIds() ([]string, error)
 	// pcie
 	SelectDeviceById(deviceId int64) (*entity.PcieDevice, error)
 	SelectDeviceBaseValueById(deviceId int64) (*entity.PcieBaseValue, error)
 	InsertDevice(c *entity.PcieDevice) error
 	InsertDeviceBaseValue(pbv *entity.PcieBaseValue) error
+	UpdateDeviceRegistryStatusById(deviceId int64, isDeleted bool) error
+	SelectAllDeviceIds() ([]int64, error)
 }

@@ -19,6 +19,7 @@ import (
 	resttest "gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/stretchr/testify/assert"
@@ -190,7 +191,28 @@ func TestPostConfig(t *testing.T) {
 }
 
 func TestGetStatus(t *testing.T) {
-	t.Log("Get Status:")
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	s, _ := prepareServers(t)
+
+	err := s.GetStatus(ctx)
+	assert.NoError(t, err)
+	result := []ServerTrustStatus{}
+	err = json.Unmarshal(rec.Body.Bytes(), &result)
+	assert.NoError(t, err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, cache.STSTRUSTED, result[0].Status)
+	}
+}
+
+func TestGetStatusById(t *testing.T) {
 	test.CreateServerConfigFile()
 	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
@@ -201,12 +223,17 @@ func TestGetStatus(t *testing.T) {
 	ctx := e.NewContext(req, rec)
 	s, cid := prepareServers(t)
 
-	err := s.GetStatus(ctx)
+	err := s.GetStatusServerId(ctx, cid)
+	assert.NoError(t, err)
+	result := ServerTrustStatus{}
+	err = json.Unmarshal(rec.Body.Bytes(), &result)
+	assert.NoError(t, err)
 	if assert.NoError(t, err) {
 		assert.Equal(t, http.StatusOK, rec.Code)
-		t.Log(cid, rec.Body)
+		assert.Equal(t, cache.STSTRUSTED, result.Status)
 	}
 }
+
 func TestGetServer(t *testing.T) {
 	t.Log("Get server:")
 	test.CreateServerConfigFile()
@@ -346,6 +373,636 @@ func TestGetReportServerId(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		t.Log(rec.Body)
 	}
+}
+
+func TestGetContainer(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, cid := prepareServers(t)
+	uuid := uuid.New().String()
+	trustmgr.AddContainer(&entity.Container{
+		UUID:     uuid,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	err := s.GetContainerUuid(ctx, uuid)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	result := entity.Container{}
+	err = json.Unmarshal(rec.Body.Bytes(), &result)
+	assert.NoError(t, err)
+	assert.Equal(t, cid, result.ClientId)
+}
+
+func TestPostContainer(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	s, cid := prepareServers(t)
+	uuid := uuid.New().String()
+	e := echo.New()
+	registered := true
+	con := ContainerBriefInfo{
+		Uuid:       &uuid,
+		Serverid:   &cid,
+		Registered: &registered,
+	}
+	j, err := json.Marshal(con)
+	assert.NoError(t, err)
+	req := httptest.NewRequest(echo.POST, "/", strings.NewReader(string(j)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	err = s.PostContainerUuid(ctx, uuid)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	con2, err := trustmgr.GetContainerByUUId(uuid)
+	assert.NoError(t, err)
+	assert.Equal(t, con2.ClientId, *con.Serverid)
+}
+
+func TestPutContainerUuid(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	s, cid := prepareServers(t)
+
+	registered := false
+	r, err := json.Marshal(registered)
+	assert.NoError(t, err)
+	e := echo.New()
+	req := httptest.NewRequest(echo.PUT, "/", strings.NewReader(string(r)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	uuid := uuid.New().String()
+	trustmgr.AddContainer(&entity.Container{
+		UUID:     uuid,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	c, err := trustmgr.GetContainerByUUId(uuid)
+	assert.NoError(t, err)
+	assert.Equal(t, false, c.Deleted)
+
+	err = s.PutContainerUuid(ctx, uuid)
+	assert.NoError(t, err)
+	c, err = trustmgr.GetContainerByUUId(uuid)
+	assert.NoError(t, err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, true, c.Deleted)
+	}
+}
+
+var testName1 = "name1"
+var testName2 = "name2"
+var testValue1 = "value1"
+var testValue2 = "value2"
+var testType = "ima"
+var testBv = map[string]string{
+	testName1: testValue1,
+	testName2: testValue2,
+}
+
+var testMea = []Measurement{
+	0: {
+		Name:  &testName1,
+		Value: &testValue1,
+		Type:  (*MeasurementType)(&testType),
+	},
+	1: {
+		Name:  &testName2,
+		Value: &testValue2,
+		Type:  (*MeasurementType)(&testType),
+	},
+}
+
+var testPi = entity.PcrInfo{
+	Values: map[int]string{
+		1: "pcr value1",
+		2: "pcr value2",
+	},
+}
+
+var testRepMea = []entity.Measurement{
+	0: {
+		Type:  testType,
+		Name:  testName1,
+		Value: testValue1,
+	},
+	1: {
+		Type:  testType,
+		Name:  testName2,
+		Value: testValue2,
+	},
+}
+
+func TestGetContainerBasevalueUuid(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, cid := prepareServers(t)
+	uuid := uuid.New().String()
+	err := trustmgr.AddContainer(&entity.Container{
+		UUID:     uuid,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	assert.NoError(t, err)
+	err = trustmgr.AddContainerBaseValue(&entity.ContainerBaseValue{
+		ContainerUUID: uuid,
+		Value:         testBv,
+	})
+	assert.NoError(t, err)
+	err = s.GetContainerBasevalueUuid(ctx, uuid)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	result := entity.ContainerBaseValue{}
+	err = json.Unmarshal(rec.Body.Bytes(), &result)
+	assert.NoError(t, err)
+	assert.Equal(t, testBv, result.Value)
+}
+
+func TestPutContainerBasevalueUuid(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	s, cid := prepareServers(t)
+
+	cbv := ContainerBaseValue{Measurements: &testMea}
+	r, err := json.Marshal(cbv)
+	assert.NoError(t, err)
+	e := echo.New()
+	req := httptest.NewRequest(echo.PUT, "/", strings.NewReader(string(r)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	uuid := uuid.New().String()
+	trustmgr.AddContainer(&entity.Container{
+		UUID:     uuid,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+
+	err = s.PutContainerBasevalueUuid(ctx, uuid)
+	assert.NoError(t, err)
+	b, err := trustmgr.GetContainerBaseValueByUUId(uuid)
+	assert.NoError(t, err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, *testMea[0].Value, b.Value[testName1])
+	}
+}
+
+func TestGetContainerStatus(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, cid := prepareServers(t)
+	uuid := uuid.New().String()
+	trustmgr.AddContainer(&entity.Container{
+		UUID:     uuid,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	trustmgr.AddContainerBaseValue(&entity.ContainerBaseValue{
+		ContainerUUID: uuid,
+		Value:         testBv,
+	})
+	testMf := entity.Manifest{
+		Type: "ima",
+		Items: []entity.ManifestItem{
+			0: {
+				Name:  testName1,
+				Value: testValue1,
+			},
+			1: {
+				Name:  testName2,
+				Value: testValue2,
+			},
+		},
+	}
+	// sleep to sort
+	time.Sleep(time.Second * 1)
+	// record report and base value to test
+	pi := entity.PcrInfo{
+		Values: map[int]string{
+			1: "pcr value1",
+			2: "pcr value2",
+		},
+	}
+	err := trustmgr.RecordReport(&entity.Report{
+		PcrInfo:  pi,
+		ClientID: cid,
+		Manifest: []entity.Manifest{testMf},
+	})
+	assert.NoError(t, err)
+	err = trustmgr.SaveBaseValueById(cid, &entity.MeasurementInfo{
+		ClientID: cid,
+		PcrInfo:  pi,
+		Manifest: testRepMea,
+	})
+	assert.NoError(t, err)
+	err = s.GetContainerStatus(ctx)
+	tss := []ContainerTrustStatus{}
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	err = json.Unmarshal(rec.Body.Bytes(), &tss)
+	assert.NoError(t, err)
+	assert.Equal(t, cache.STSTRUSTED, tss[0].Status)
+}
+
+func TestGetContainerStatusUuId(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, cid := prepareServers(t)
+	uuid := uuid.New().String()
+	trustmgr.AddContainer(&entity.Container{
+		UUID:     uuid,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	trustmgr.AddContainerBaseValue(&entity.ContainerBaseValue{
+		ContainerUUID: uuid,
+		Value:         testBv,
+	})
+	testMf := entity.Manifest{
+		Type: "ima",
+		Items: []entity.ManifestItem{
+			0: {
+				Name:  testName1,
+				Value: testValue1,
+			},
+			1: {
+				Name:  testName2,
+				Value: testValue2,
+			},
+		},
+	}
+	// sleep to sort
+	time.Sleep(time.Second * 1)
+	// record report and base value to test
+	pi := entity.PcrInfo{
+		Values: map[int]string{
+			1: "pcr value1",
+			2: "pcr value2",
+		},
+	}
+	err := trustmgr.RecordReport(&entity.Report{
+		PcrInfo:  pi,
+		ClientID: cid,
+		Manifest: []entity.Manifest{testMf},
+	})
+	assert.NoError(t, err)
+	err = trustmgr.SaveBaseValueById(cid, &entity.MeasurementInfo{
+		ClientID: cid,
+		PcrInfo:  pi,
+		Manifest: testRepMea,
+	})
+	assert.NoError(t, err)
+	err = s.GetContainerStatusUuid(ctx, uuid)
+	ts := ContainerTrustStatus{}
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	err = json.Unmarshal(rec.Body.Bytes(), &ts)
+	assert.NoError(t, err)
+	assert.Equal(t, cache.STSTRUSTED, ts.Status)
+}
+func TestGetDevice(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, cid := prepareServers(t)
+
+	rand.Seed(time.Now().UnixNano())
+	deviceId := rand.Int31()
+	trustmgr.AddDevice(&entity.PcieDevice{
+		ID:       int64(deviceId),
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	err := s.GetDeviceId(ctx, int64(deviceId))
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	result := entity.PcieDevice{}
+	err = json.Unmarshal(rec.Body.Bytes(), &result)
+	assert.NoError(t, err)
+	assert.Equal(t, cid, result.ClientId)
+}
+
+func TestPostDevice(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	s, cid := prepareServers(t)
+	rand.Seed(time.Now().UnixNano())
+	deviceId := int64(rand.Int31())
+	e := echo.New()
+	registered := true
+	dev := DeviceBriefInfo{
+		Id:         &deviceId,
+		Serverid:   &cid,
+		Registered: &registered,
+	}
+	j, err := json.Marshal(dev)
+	assert.NoError(t, err)
+	req := httptest.NewRequest(echo.POST, "/", strings.NewReader(string(j)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	err = s.PostDeviceId(ctx, deviceId)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	dev2, err := trustmgr.GetDeviceById(deviceId)
+	assert.NoError(t, err)
+	assert.Equal(t, dev2.ClientId, *dev.Serverid)
+}
+
+func TestPutDeviceId(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	s, cid := prepareServers(t)
+
+	registered := false
+	r, err := json.Marshal(registered)
+	assert.NoError(t, err)
+	e := echo.New()
+	req := httptest.NewRequest(echo.PUT, "/", strings.NewReader(string(r)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	rand.Seed(time.Now().UnixNano())
+	deviceId := int64(rand.Int31())
+	trustmgr.AddDevice(&entity.PcieDevice{
+		ID:       deviceId,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	c, err := trustmgr.GetDeviceById(deviceId)
+	assert.NoError(t, err)
+	assert.Equal(t, false, c.Deleted)
+
+	err = s.PutDeviceId(ctx, deviceId)
+	assert.NoError(t, err)
+	c, err = trustmgr.GetDeviceById(deviceId)
+	assert.NoError(t, err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, true, c.Deleted)
+	}
+}
+
+func TestGetDeviceBasevalueUuid(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, cid := prepareServers(t)
+	rand.Seed(time.Now().UnixNano())
+	deviceId := int64(rand.Int31())
+	err := trustmgr.AddDevice(&entity.PcieDevice{
+		ID:       deviceId,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	assert.NoError(t, err)
+	err = trustmgr.AddDeviceBaseValue(&entity.PcieBaseValue{
+		DeviceID: deviceId,
+		Value:    testBv,
+	})
+	assert.NoError(t, err)
+	err = s.GetDeviceBasevalueId(ctx, deviceId)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	result := entity.PcieBaseValue{}
+	err = json.Unmarshal(rec.Body.Bytes(), &result)
+	assert.NoError(t, err)
+	assert.Equal(t, testBv, result.Value)
+}
+
+func TestPutDeviceBasevalueUuid(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	s, cid := prepareServers(t)
+
+	cbv := ContainerBaseValue{Measurements: &testMea}
+	r, err := json.Marshal(cbv)
+	assert.NoError(t, err)
+	e := echo.New()
+	req := httptest.NewRequest(echo.PUT, "/", strings.NewReader(string(r)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	rand.Seed(time.Now().UnixNano())
+	deviceId := int64(rand.Int31())
+	trustmgr.AddDevice(&entity.PcieDevice{
+		ID:       deviceId,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+
+	err = s.PutDeviceBasevalueId(ctx, deviceId)
+	assert.NoError(t, err)
+	b, err := trustmgr.GetDeviceBaseValueById(deviceId)
+	assert.NoError(t, err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, *testMea[0].Value, b.Value[testName1])
+	}
+}
+
+func TestGetDeviceStatus(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, cid := prepareServers(t)
+	rand.Seed(time.Now().UnixNano())
+	deviceId := int64(rand.Int31())
+	trustmgr.AddDevice(&entity.PcieDevice{
+		ID:       deviceId,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	trustmgr.AddDeviceBaseValue(&entity.PcieBaseValue{
+		DeviceID: deviceId,
+		Value:    testBv,
+	})
+	testMf := entity.Manifest{
+		Type: "ima",
+		Items: []entity.ManifestItem{
+			0: {
+				Name:  testName1,
+				Value: testValue1,
+			},
+			1: {
+				Name:  testName2,
+				Value: testValue2,
+			},
+		},
+	}
+	// sleep to sort
+	time.Sleep(time.Second * 1)
+	// record report and base value to test
+	pi := entity.PcrInfo{
+		Values: map[int]string{
+			1: "pcr value1",
+			2: "pcr value2",
+		},
+	}
+	err := trustmgr.RecordReport(&entity.Report{
+		PcrInfo:  pi,
+		ClientID: cid,
+		Manifest: []entity.Manifest{testMf},
+	})
+	assert.NoError(t, err)
+	err = trustmgr.SaveBaseValueById(cid, &entity.MeasurementInfo{
+		ClientID: cid,
+		PcrInfo:  pi,
+		Manifest: testRepMea,
+	})
+	assert.NoError(t, err)
+	err = s.GetDeviceStatus(ctx)
+	tss := []DeviceTrustStatus{}
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	err = json.Unmarshal(rec.Body.Bytes(), &tss)
+	assert.NoError(t, err)
+	assert.Equal(t, cache.STSTRUSTED, tss[0].Status)
+}
+
+func TestGetDeviceStatusId(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	s, cid := prepareServers(t)
+	rand.Seed(time.Now().UnixNano())
+	deviceId := int64(rand.Int31())
+	trustmgr.AddDevice(&entity.PcieDevice{
+		ID:       deviceId,
+		ClientId: cid,
+		Online:   true,
+		Deleted:  false,
+	})
+	trustmgr.AddDeviceBaseValue(&entity.PcieBaseValue{
+		DeviceID: deviceId,
+		Value:    testBv,
+	})
+	testMf := entity.Manifest{
+		Type: "ima",
+		Items: []entity.ManifestItem{
+			0: {
+				Name:  testName1,
+				Value: testValue1,
+			},
+			1: {
+				Name:  testName2,
+				Value: testValue2,
+			},
+		},
+	}
+	// sleep to sort
+	time.Sleep(time.Second * 1)
+	// record report and base value to test
+	pi := entity.PcrInfo{
+		Values: map[int]string{
+			1: "pcr value1",
+			2: "pcr value2",
+		},
+	}
+	err := trustmgr.RecordReport(&entity.Report{
+		PcrInfo:  pi,
+		ClientID: cid,
+		Manifest: []entity.Manifest{testMf},
+	})
+	assert.NoError(t, err)
+	err = trustmgr.SaveBaseValueById(cid, &entity.MeasurementInfo{
+		ClientID: cid,
+		PcrInfo:  pi,
+		Manifest: testRepMea,
+	})
+	assert.NoError(t, err)
+	err = s.GetDeviceStatusId(ctx, deviceId)
+	ts := DeviceTrustStatus{}
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	err = json.Unmarshal(rec.Body.Bytes(), &ts)
+	assert.NoError(t, err)
+	assert.Equal(t, cache.STSTRUSTED, ts.Status)
 }
 
 type testValidator struct {
