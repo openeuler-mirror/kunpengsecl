@@ -490,11 +490,12 @@ var testMea = []Measurement{
 		Type:  (*MeasurementType)(&testType),
 	},
 }
-
+var pcrValue1 = "pcr value1"
+var pcrValue2 = "pcr value2"
 var testPi = entity.PcrInfo{
 	Values: map[int]string{
-		1: "pcr value1",
-		2: "pcr value2",
+		1: pcrValue1,
+		2: pcrValue2,
 	},
 }
 
@@ -618,8 +619,8 @@ func TestGetContainerStatus(t *testing.T) {
 	// record report and base value to test
 	pi := entity.PcrInfo{
 		Values: map[int]string{
-			1: "pcr value1",
-			2: "pcr value2",
+			1: pcrValue1,
+			2: pcrValue2,
 		},
 	}
 	err := trustmgr.RecordReport(&entity.Report{
@@ -683,8 +684,8 @@ func TestGetContainerStatusUuId(t *testing.T) {
 	// record report and base value to test
 	pi := entity.PcrInfo{
 		Values: map[int]string{
-			1: "pcr value1",
-			2: "pcr value2",
+			1: pcrValue1,
+			2: pcrValue2,
 		},
 	}
 	err := trustmgr.RecordReport(&entity.Report{
@@ -914,8 +915,8 @@ func TestGetDeviceStatus(t *testing.T) {
 	// record report and base value to test
 	pi := entity.PcrInfo{
 		Values: map[int]string{
-			1: "pcr value1",
-			2: "pcr value2",
+			1: pcrValue1,
+			2: pcrValue2,
 		},
 	}
 	err := trustmgr.RecordReport(&entity.Report{
@@ -980,8 +981,8 @@ func TestGetDeviceStatusId(t *testing.T) {
 	// record report and base value to test
 	pi := entity.PcrInfo{
 		Values: map[int]string{
-			1: "pcr value1",
-			2: "pcr value2",
+			1: pcrValue1,
+			2: pcrValue2,
 		},
 	}
 	err := trustmgr.RecordReport(&entity.Report{
@@ -1053,8 +1054,8 @@ func prepareServers(t *testing.T) (*RasServer, int64) {
 			TrustReport: &clientapi.TrustReport{
 				PcrInfo: &clientapi.PcrInfo{
 					PcrValues: map[int32]string{
-						1: "pcr value1",
-						2: "pcr value2",
+						1: pcrValue1,
+						2: pcrValue2,
 					},
 					PcrQuote: &clientapi.PcrQuote{
 						Quoted: []byte("test quote"),
