@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
+	"strconv"
 	"strings"
 	"time"
 
@@ -437,7 +438,7 @@ func (bv *BIOSVerifier) Validate(report *entity.Report) error {
 	if pseudoPCR == nil {
 		return fmt.Errorf("create pseudo PCRs failed")
 	}
-	err := ExtendPCRForItems(pseudoPCR, manifest.Items)
+	err := ExtendPCRForBIOSItems(pseudoPCR, manifest.Items)
 	if err != nil {
 		return fmt.Errorf("pcr extend failed (use bios)")
 	}
@@ -451,7 +452,7 @@ func (bv *BIOSVerifier) Validate(report *entity.Report) error {
 	return nil
 }
 
-func ExtendPCRForItems(pe PCRExtender, Items []entity.ManifestItem) error {
+func ExtendPCRForBIOSItems(pe PCRExtender, Items []entity.ManifestItem) error {
 	//use bios manifest to calculate pseudoPCR
 	for _, item := range Items {
 		//unmarshal manifest in report
@@ -466,5 +467,92 @@ func ExtendPCRForItems(pe PCRExtender, Items []entity.ManifestItem) error {
 			return fmt.Errorf("PCR Digest combine falied")
 		}
 	}
+	return nil
+}
+
+func ExtendPCRForIMAItems(pe PCRExtender, Items []entity.ManifestItem, changedPCRid *[]uint32) error {
+	//use ima manifest to calculate pseudoPCR
+	for _, item := range Items {
+		//unmarshal manifest in report
+		parsedManifest := new(entity.IMAManifestItem)
+		err := json.Unmarshal([]byte(item.Detail), parsedManifest)
+		if err != nil {
+			return fmt.Errorf("json unmarshal failed")
+		}
+		//combine & calculate new pcr value
+		pcrid, err := strconv.Atoi(parsedManifest.Pcr)
+		if err != nil {
+			return fmt.Errorf("PCR type conversion failed")
+		}
+		err = pe.ExtendPCR(uint32(pcrid), item.Value)
+		if err != nil {
+			return fmt.Errorf("PCR Digest combine falied")
+		}
+		// store pcrs id that have been changed
+		cnt := 0
+		for _, p := range *changedPCRid {
+			if p == uint32(pcrid) {
+				break
+			}
+			cnt++
+		}
+		if cnt == len(*changedPCRid) {
+			*changedPCRid = append(*changedPCRid, uint32(pcrid))
+		}
+	}
+	return nil
+}
+
+func (iv *IMAVerifier) Validate(report *entity.Report) error {
+	// find ima manifest list
+	var manifest entity.Manifest
+	manifestCnt := 0
+	for _, element := range report.Manifest {
+		if element.Type == "ima" {
+			manifest = element
+			break
+		}
+		manifestCnt++
+	}
+	if manifestCnt == len(report.Manifest) {
+		return fmt.Errorf("no ima manifest in report")
+	}
+
+	// use pcr0-7 in report to calculate boot_aggregate
+	temp := []byte{}
+	for i := 0; i < 8; i++ {
+		pcrValueBytes, err := hex.DecodeString(report.PcrInfo.Values[i])
+		if err != nil {
+			return fmt.Errorf("DecodeString failed")
+		}
+		temp = append(temp, pcrValueBytes...)
+	}
+	h1 := sha256.New()
+	h1.Write(temp)
+	newBootAggreBytes := h1.Sum(nil)
+
+	// compare boot_aggregate with ima[0].boot_aggregate
+	if hex.EncodeToString(newBootAggreBytes) != manifest.Items[0].Value {
+		return fmt.Errorf("ima manifest validation falied")
+	}
+
+	// use ima manifest to calculate pseudoPCR
+	changedPCRid := []uint32{}
+	pseudoPCR := createPseudoPCRExtender("sha1")
+	if pseudoPCR == nil {
+		return fmt.Errorf("create pseudo PCRs failed")
+	}
+	err := ExtendPCRForIMAItems(pseudoPCR, manifest.Items, &changedPCRid)
+	if err != nil {
+		return fmt.Errorf("pcr extend failed (use ima)")
+	}
+
+	//compare pseudoPCR with pcrs in report
+	for _, pcrindex := range changedPCRid {
+		if report.PcrInfo.Values[int(pcrindex)] != hex.EncodeToString(pseudoPCR.pcrs[pcrindex]) {
+			return fmt.Errorf("ima validation failed: invalid ima")
+		}
+	}
+
 	return nil
 }
