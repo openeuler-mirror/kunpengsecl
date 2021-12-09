@@ -146,7 +146,7 @@ func setTDuration(val string) error {
 func (s *RasServer) GetContainerBasevalueUuid(ctx echo.Context, uuid string) error {
 	cbv, err := trustmgr.GetContainerBaseValueByUUId(uuid)
 	if err != nil {
-		return ctx.JSON(http.StatusNotFound, nil)
+		return ctx.JSON(http.StatusNotFound, err)
 	}
 	return ctx.JSON(http.StatusOK, cbv)
 }
@@ -157,89 +157,207 @@ func (s *RasServer) PutContainerBasevalueUuid(ctx echo.Context, uuid string) err
 	var body PutContainerBasevalueUuidJSONBody
 	err := ctx.Bind(&body)
 	if err != nil {
-		return ctx.JSON(http.StatusNoContent, nil)
+		return ctx.JSON(http.StatusNoContent, err)
 	}
 	cbv := map[string]string{}
 	for _, m := range *body.Measurements {
 		cbv[*m.Name] = *m.Value
 	}
-	trustmgr.AddContainerBaseValue(&entity.ContainerBaseValue{
+	err = trustmgr.AddContainerBaseValue(&entity.ContainerBaseValue{
 		ContainerUUID: uuid,
 		Value:         cbv,
 	})
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
 	return ctx.JSON(http.StatusOK, nil)
 }
 
 // Return a list of trust status for all containers
 // (GET /container/status)
 func (s *RasServer) GetContainerStatus(ctx echo.Context) error {
-	return ctx.JSON(http.StatusOK, nil)
+	s.cm.Lock()
+	ts, err := s.cm.GetAllContainerTrustStatus()
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
+	s.cm.Unlock()
+	status := make([]ContainerTrustStatus, 0, len(ts))
+	for key, statu := range ts {
+		status = append(status, ContainerTrustStatus{UUID: key, Status: statu})
+	}
+	return ctx.JSON(http.StatusOK, status)
+}
+
+type ContainerTrustStatus struct {
+	UUID   string
+	Status string
+}
+
+type DeviceTrustStatus struct {
+	deviceId int64
+	Status   string
 }
 
 // Return a trust status for given container
 // (GET /container/status/{uuid})
-func (s *RasServer) GetContainerStatusUuid(ctx echo.Context, uuid string) error {
-	return ctx.JSON(http.StatusOK, nil)
+func (s *RasServer) GetContainerStatusUuid(ctx echo.Context, uuID string) error {
+	s.cm.Lock()
+	ts := s.cm.GetContainerTrustStatusByUUId(uuID)
+	s.cm.Unlock()
+	return ctx.JSON(http.StatusOK, ContainerTrustStatus{UUID: uuID, Status: ts})
 }
 
 // Return briefing info for the given container
 // (GET /container/{uuid})
-func (s *RasServer) GetContainerUuid(ctx echo.Context, uuid string) error {
-	return ctx.JSON(http.StatusOK, nil)
+func (s *RasServer) GetContainerUuid(ctx echo.Context, uuID string) error {
+	c, err := trustmgr.GetContainerByUUId(uuID)
+	if err != nil {
+		return ctx.JSON(http.StatusNotFound, err)
+	}
+	return ctx.JSON(http.StatusOK, c)
 }
 
 // create info for a container
 // (POST /container/{uuid})
-func (s *RasServer) PostContainerUuid(ctx echo.Context, uuid string) error {
+func (s *RasServer) PostContainerUuid(ctx echo.Context, uuID string) error {
+	var body PostContainerUuidJSONBody
+	err := ctx.Bind(&body)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
+	c := entity.Container{
+		UUID:     *body.Uuid,
+		ClientId: *body.Serverid,
+		Online:   true,
+		Deleted:  !*body.Registered,
+	}
+	err = trustmgr.AddContainer(&c)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
 	return ctx.JSON(http.StatusOK, nil)
 }
 
 // put a container into given status
 // (PUT /container/{uuid})
-func (s *RasServer) PutContainerUuid(ctx echo.Context, uuid string) error {
-	return ctx.JSON(http.StatusOK, nil)
+func (s *RasServer) PutContainerUuid(ctx echo.Context, uuID string) error {
+	var body PutContainerUuidJSONBody
+	err := ctx.Bind(&body)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
+	if result, ok := body.(bool); ok {
+		trustmgr.UpdateContainerStatusByUUId(uuID, !result)
+		return ctx.JSON(http.StatusOK, nil)
+	}
+	return ctx.JSON(http.StatusNoContent, fmt.Errorf("put container failed"))
 }
 
 // Return the base value of a given device
 // (GET /device/basevalue/{id})
 func (s *RasServer) GetDeviceBasevalueId(ctx echo.Context, id int64) error {
-	return ctx.JSON(http.StatusOK, nil)
+	dbv, err := trustmgr.GetDeviceBaseValueById(id)
+	if err != nil {
+		return ctx.JSON(http.StatusNotFound, err)
+	}
+	return ctx.JSON(http.StatusOK, dbv)
 }
 
 // create/update the base value of the given device
 // (PUT /device/basevalue/{id})
 func (s *RasServer) PutDeviceBasevalueId(ctx echo.Context, id int64) error {
+	var body PutDeviceBasevalueIdJSONBody
+	err := ctx.Bind(&body)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
+	dbv := map[string]string{}
+	for _, m := range *body.Measurements {
+		dbv[*m.Name] = *m.Value
+	}
+	err = trustmgr.AddDeviceBaseValue(&entity.PcieBaseValue{
+		DeviceID: id,
+		Value:    dbv,
+	})
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
 	return ctx.JSON(http.StatusOK, nil)
 }
 
 // Return a list of trust status for all devices
 // (GET /device/status)
 func (s *RasServer) GetDeviceStatus(ctx echo.Context) error {
-	return ctx.JSON(http.StatusOK, nil)
+	s.cm.Lock()
+	ts, err := s.cm.GetAllDeviceTrustStatus()
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
+	s.cm.Unlock()
+	status := make([]DeviceTrustStatus, 0, len(ts))
+	for key, s := range ts {
+		status = append(status, DeviceTrustStatus{deviceId: key, Status: s})
+	}
+	return ctx.JSON(http.StatusOK, status)
 }
 
 // Return a trust status for given device
 // (GET /device/status/{id})
 func (s *RasServer) GetDeviceStatusId(ctx echo.Context, id int64) error {
-	return ctx.JSON(http.StatusOK, nil)
+	s.cm.Lock()
+	ts := s.cm.GetDeviceTrustStatusById(id)
+	s.cm.Unlock()
+	return ctx.JSON(http.StatusOK, DeviceTrustStatus{deviceId: id, Status: ts})
 }
 
 // Return briefing info for the given device
 // (GET /device/{id})
 func (s *RasServer) GetDeviceId(ctx echo.Context, id int64) error {
-	return ctx.JSON(http.StatusOK, nil)
+	d, err := trustmgr.GetDeviceById(id)
+	if err != nil {
+		return ctx.JSON(http.StatusNotFound, err)
+	}
+	return ctx.JSON(http.StatusOK, d)
 }
 
 // create info for a device
 // (POST /device/{id})
 func (s *RasServer) PostDeviceId(ctx echo.Context, id int64) error {
+	var body PostDeviceIdJSONBody
+	err := ctx.Bind(&body)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
+	d := entity.PcieDevice{
+		ID:       *body.Id,
+		ClientId: *body.Serverid,
+		Online:   true,
+		Deleted:  !*body.Registered,
+	}
+	err = trustmgr.AddDevice(&d)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
 	return ctx.JSON(http.StatusOK, nil)
 }
 
 // put a device into given status
 // (PUT /device/{id})
 func (s *RasServer) PutDeviceId(ctx echo.Context, id int64) error {
-	return ctx.JSON(http.StatusOK, nil)
+	var body PutDeviceIdJSONBody
+	err := ctx.Bind(&body)
+	if err != nil {
+		return ctx.JSON(http.StatusNoContent, err)
+	}
+	if result, ok := body.(bool); ok {
+		err = trustmgr.UpdateDeviceStatusById(id, !result)
+		if err != nil {
+			return ctx.JSON(http.StatusNoContent, err)
+		}
+		return ctx.JSON(http.StatusOK, nil)
+	}
+	return ctx.JSON(http.StatusNoContent, fmt.Errorf("put device failed"))
 }
 
 // Return the trust report for the given server
@@ -388,7 +506,10 @@ func (s *RasServer) GetStatus(ctx echo.Context) error {
 // Return a trust status for given server
 // (GET /status/{serverId})
 func (s *RasServer) GetStatusServerId(ctx echo.Context, serverId int64) error {
-	return nil
+	s.cm.Lock()
+	ts := s.cm.GetTrustStatusById(serverId)
+	s.cm.Unlock()
+	return ctx.JSON(http.StatusOK, ServerTrustStatus{ClientID: serverId, Status: ts})
 }
 
 // Return the version of current API

@@ -240,7 +240,7 @@ func TestBIOSExtract(t *testing.T) {
 		result error
 	}{
 		{testReport, testMea, nil},
-		{testReport2, testMea2, fmt.Errorf("extract failed. bios manifest name %v doesn't exist in this report", "name2")},
+		{testReport2, testMea2, nil},
 	}
 
 	bv := new(BIOSVerifier)
@@ -278,7 +278,7 @@ func TestIMAExtract(t *testing.T) {
 		result error
 	}{
 		{testReport, testMea, nil},
-		{testReport2, testMea2, fmt.Errorf("extract failed. ima manifest name %v doesn't exist in this report", "name2")},
+		{testReport2, testMea2, nil},
 	}
 
 	iv := new(IMAVerifier)
@@ -393,7 +393,7 @@ func TestBIOSVerify(t *testing.T) {
 		result error
 	}{
 		{baseValue, testReport, nil},
-		{baseValue, testReport2, fmt.Errorf("manifest extraction failed")},
+		{baseValue, testReport2, fmt.Errorf("bios manifest verification failed")},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := bv.Verify(testCase[i].input1, testCase[i].input2)
@@ -430,7 +430,7 @@ func TestIMAVerify(t *testing.T) {
 		result error
 	}{
 		{baseValue, testReport, nil},
-		{baseValue, testReport2, fmt.Errorf("manifest extraction failed")},
+		{baseValue, testReport2, fmt.Errorf("ima manifest verification failed")},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := iv.Verify(testCase[i].input1, testCase[i].input2)

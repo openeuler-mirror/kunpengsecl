@@ -231,6 +231,22 @@ func GetContainerBaseValueByUUId(uuID string) (*entity.ContainerBaseValue, error
 	return psd.SelectContainerBaseValueByUUId(uuID)
 }
 
+func UpdateContainerStatusByUUId(uuID string, isDeleted bool) error {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	return psd.UpdateContainerRegistryStatusByUUId(uuID, isDeleted)
+}
+
+func GetAllContainerUUIds() ([]string, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return nil, err
+	}
+	return psd.SelectAllContainerUUIds()
+}
+
 func GetDeviceById(deviceId int64) (*entity.PcieDevice, error) {
 	psd, err := getPostgreSQLDAO()
 	if err != nil {
@@ -261,6 +277,22 @@ func AddDeviceBaseValue(pbv *entity.PcieBaseValue) error {
 		return err
 	}
 	return psd.InsertDeviceBaseValue(pbv)
+}
+
+func UpdateDeviceStatusById(deviceId int64, isDeleted bool) error {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	return psd.UpdateDeviceRegistryStatusById(deviceId, isDeleted)
+}
+
+func GetAllDeviceIds() ([]int64, error) {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return nil, err
+	}
+	return psd.SelectAllDeviceIds()
 }
 
 //return the name & type & time stamp of the id
