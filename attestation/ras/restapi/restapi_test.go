@@ -325,14 +325,14 @@ func TestPutServerBasevalue(t *testing.T) {
 
 	s, cid := prepareServers(t)
 	var baseValueJSON = `{
-		"algorithm":"SHA1", 
+		"algorithm":"SHA1",
 		"measurements":[{
 			"name":"mName",
 			"type":"mType",
 			"value":"mValue"
-		}], 
+		}],
 		"pcrvalues":[{
-			"index":1, 
+			"index":1,
 			"value":"pcr value1"
 		}]
 	}`

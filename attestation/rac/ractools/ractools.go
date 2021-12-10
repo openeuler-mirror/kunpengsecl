@@ -400,8 +400,8 @@ func (tpm *TPM) readPcrs(pcrSelection tpm2.PCRSelection) (map[int][]byte, error)
 		// Build a selection structure, specifying 8 PCRs at a time
 		end := min(i+8, numPCRs)
 		pcrSel := tpm2.PCRSelection{
-			Hash: pcrSelectionAll.Hash,
-			PCRs: pcrSelectionAll.PCRs[i:end],
+			Hash: pcrSelection.Hash,
+			PCRs: pcrSelection.PCRs[i:end],
 		}
 
 		// Ask the TPM for those PCR values.
@@ -477,4 +477,19 @@ func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, erro
 		ClientInfo: clientInfo,
 	}
 	return tpm.createTrustReport(tpm.useHW, pcrSelectionAll, &tRepIn)
+}
+
+// SetDigestAlg method update the Digest alg used to get pcrs and to do the quote.
+func (tpm *TPM) SetDigestAlg(alg string) {
+	tpm.config.ReportHashAlg = alg
+	algIdMap := map[string]tpm2.Algorithm{
+		"sha1":   tpm2.AlgSHA1,
+		"sha256": tpm2.AlgSHA256,
+		"sha384": tpm2.AlgSHA384,
+		"sha512": tpm2.AlgSHA512,
+	}
+
+	if algID, ok := algIdMap[alg]; ok {
+		pcrSelectionAll.Hash = algID
+	}
 }

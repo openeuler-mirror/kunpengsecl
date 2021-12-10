@@ -137,6 +137,11 @@ func getICAndDoRegister(t *ractools.TPM) int64 {
 		log.Fatal("Client: can't register rac!")
 	}
 	cid := bk.GetClientId()
+	cc := bk.GetClientConfig()
+	cfg.SetDigestAlgorithm(cc.GetDigestAlgorithm())
+	cfg.SetHBDuration(time.Duration(cc.GetHbDurationSeconds() * int64(time.Second)))
+	cfg.SetTrustDuration(time.Duration(cc.GetTrustDurationSeconds() * int64(time.Second)))
+	t.SetDigestAlg(cc.GetDigestAlgorithm())
 	return cid
 }
 
@@ -171,8 +176,8 @@ func SetNewConf(rpy *clientapi.SendHeartbeatReply) {
 	log.Printf("Client: get new configuration from RAS.")
 	cfg := config.GetDefault(config.ConfClient)
 	conf := rpy.GetActionParameters().GetClientConfig()
-	cfg.SetHBDuration(time.Duration(conf.HbDurationSeconds))
-	cfg.SetTrustDuration(time.Duration(conf.TrustDurationSeconds))
+	cfg.SetHBDuration(time.Duration(conf.GetHbDurationSeconds() * int64(time.Second)))
+	cfg.SetTrustDuration(time.Duration(conf.GetTrustDurationSeconds() * int64(time.Second)))
 }
 
 // SendTrustReport sneds a new trust report to RAS.

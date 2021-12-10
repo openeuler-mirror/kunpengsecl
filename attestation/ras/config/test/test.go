@@ -49,9 +49,9 @@ rasconfig:
       pcrselection: [1, 2, 3, 4]
     manifest:
       - type: bios
-        name: ["8-0", "2147483656-1"]
+        name: ["name1", "name2"]
       - type: ima
-        name: ["boot_aggregate", "/etc/modprobe.d/tuned.conf"]
+        name: ["name1", "name2"]
   auto-update-config:
     isAllUpdate: false
     update-clients: [1, 2, 3]

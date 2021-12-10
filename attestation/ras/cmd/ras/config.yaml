@@ -5,7 +5,7 @@ database:
   port: 5432
   user: postgres
 racconfig:
-  digestalgorithm: sha256
+  digestalgorithm: sha1
   hbduration: 5s
   trustduration: 2m0s
 rasconfig:

@@ -1,11 +1,22 @@
 package clientapi
 
 import (
+	context "context"
+	"encoding/json"
+	"encoding/pem"
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
+	"github.com/stretchr/testify/assert"
+	grpc "google.golang.org/grpc"
 )
 
 const (
@@ -94,7 +105,6 @@ func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.Measuremen
 	return nil
 }
 
-/*
 func TestClientAPI(t *testing.T) {
 	test.CreateServerConfigFile()
 	cfg := config.GetDefault(config.ConfServer)
@@ -120,9 +130,11 @@ func TestClientAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
+	certBlock, _ := pem.Decode([]byte(certPEM))
+	ikpubBlock, _ := pem.Decode([]byte(pubPEM))
 	_, err = c.GenerateIKCert(ctx, &GenerateIKCertRequest{
-		EkCert: certPEM,
-		IkPub:  pubPEM,
+		EkCert: certBlock.Bytes,
+		IkPub:  ikpubBlock.Bytes,
 		IkName: testIKName,
 	})
 	if err != nil {
@@ -199,7 +211,7 @@ func TestClientAPI(t *testing.T) {
 	t.Logf("Client: invoke UnregisterClient %v", u.GetResult())
 
 }
-*/
+
 func createRandomCert() []byte {
 	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	strBytes := []byte(str)
@@ -214,10 +226,21 @@ func createRandomCert() []byte {
 func TestUnMarshalBIOS(t *testing.T) {
 	result, err := unmarshalBIOSManifest(testBiosManifest)
 	if err != nil {
-		t.Fatal("parse fail")
+		t.Fatal(err.Error())
 	}
 	count := len(result.Items)
 	if result.Items[count-1].Name != "2147483649-2" {
-		t.Fatal("parse fail")
+		t.Fatal("BIOS manifest parse failed")
+	}
+}
+
+func TestUnMarshalIMA(t *testing.T) {
+	result, err := unmarshalIMAManifest([]byte(testIMAManifest))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	count := len(result.Items)
+	if result.Items[count-1].Name != "ld.so.cache" {
+		t.Fatal("IMA manifest parse failed")
 	}
 }
