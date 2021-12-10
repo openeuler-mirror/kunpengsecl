@@ -5,8 +5,14 @@ import (
 	"os"
 )
 
-const clientConfig = `conftype: client
+const clientConfig = `
 racconfig:
+  ikpkey: ""
+  ikcert: ""
+  ekpkeytest: ""
+  ekcerttest: ""
+  ikpkeytest: ""
+  ikcerttest: ""
   server: 127.0.0.1:40001
   hbduration: 5s
   trustduration: 2m0s
@@ -15,13 +21,13 @@ racconfig:
   digestalgorithm: sha256
 `
 
-const hubConfig = `conftype: hub
+const hubConfig = `
 hubconfig:
   server: 127.0.0.1:40001
   hubport: "127.0.0.1:40003"
 `
 
-const serverConfig = `conftype: server
+const serverConfig = `
 database:
   host: localhost
   dbname: kunpengsecl
@@ -29,6 +35,10 @@ database:
   user: "postgres"
   password: "postgres"
 rasconfig:
+  rootprivkeyfile: ""
+  rootkeycertfile: ""
+  pcaprivkeyfile: ""
+  pcakeycertfile: ""
   port: "127.0.0.1:40001"
   rest: "127.0.0.1:40002"
   changetime: 0
@@ -39,9 +49,9 @@ rasconfig:
       pcrselection: [1, 2, 3, 4]
     manifest:
       - type: bios
-        name: ["name1", "name2"]
+        name: ["8-0", "2147483656-1"]
       - type: ima
-        name: ["name1", "name2"] 
+        name: ["boot_aggregate", "/etc/modprobe.d/tuned.conf"]
   auto-update-config:
     isAllUpdate: false
     update-clients: [1, 2, 3]

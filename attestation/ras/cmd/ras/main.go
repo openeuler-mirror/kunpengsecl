@@ -33,7 +33,7 @@ func init() {
 func main() {
 	pflag.Parse()
 	cfg := config.GetDefault(config.ConfServer)
-
+	config.SetupSignalHandler()
 	// TODO: Wait for completing of validator
 	trustmgr.SetValidator(&testValidator{})
 

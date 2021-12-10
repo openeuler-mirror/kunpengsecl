@@ -1,9 +1,11 @@
 package config
 
 import (
+	"os"
 	"testing"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,6 +17,8 @@ const (
 )
 
 func TestRASConfig(t *testing.T) {
+	test.CreateServerConfigFile()
+	defer test.RemoveConfigFile()
 	config := GetDefault(ConfServer)
 
 	testCases1 := []struct {
@@ -41,9 +45,16 @@ func TestRASConfig(t *testing.T) {
 	auc := config.GetAutoUpdateConfig()
 	assert.Equal(t, test1, auc.IsAllUpdate)
 	assert.Equal(t, test2, auc.UpdateClients)
+	Save()
+	os.Remove(config.rasConfig.rootPrivKeyFile)
+	os.Remove(config.rasConfig.rootKeyCertFile)
+	os.Remove(config.rasConfig.pcaPrivKeyFile)
+	os.Remove(config.rasConfig.pcaKeyCertFile)
 }
 
 func TestRACConfig(t *testing.T) {
+	test.CreateClientConfigFile()
+	defer test.RemoveConfigFile()
 	config := GetDefault(ConfClient)
 
 	testCases1 := []struct {

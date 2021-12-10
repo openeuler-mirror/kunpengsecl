@@ -43,7 +43,17 @@ var (
 				fmt.Println(cmd.UsageString())
 				os.Exit(1)
 			}
-			tp, err := ractools.OpenTPM(!uSim)
+			tpmConf := ractools.TPMConfig{}
+			if uSim {
+				tpmConf.IMALogPath = ractools.TestImaLogPath
+				tpmConf.BIOSLogPath = ractools.TestBiosLogPath
+				tpmConf.ReportHashAlg = ""
+			} else {
+				tpmConf.IMALogPath = ractools.ImaLogPath
+				tpmConf.BIOSLogPath = ractools.BiosLogPath
+				tpmConf.ReportHashAlg = ""
+			}
+			tp, err := ractools.OpenTPM(!uSim, &tpmConf)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)

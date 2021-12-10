@@ -4,178 +4,95 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"fmt"
-	"math/big"
+	"os"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-//test
-func TestGenerateEkCert(t *testing.T) {
-	_, pub, err := GenerateRsaKey()
-	assert.NoError(t, err)
-	_, err = GenerateEKCert(pub)
-	assert.NoError(t, err)
-}
-func TestGenerateCert(t *testing.T) {
-	var template = x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			Country:      []string{"test"},
-			Organization: []string{"test"},
-			CommonName:   "test CA",
-		},
-		IsCA: true,
-	}
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+const (
+	tmpKeyFile = "./tmp.key"
+	strPRIVERR = "can't generate private key, %v"
+)
+
+func TestEncodeKeyPubPartToDER(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
 	if err != nil {
-		assert.NoError(t, err)
+		t.Fatalf(strPRIVERR, err)
 	}
-	_, _, err = GenerateCert(&template, &template, &priv.PublicKey, priv)
-	assert.NoError(t, err)
-}
-func TestGenerateCertToFile(t *testing.T) {
-	var template = x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			Country:      []string{"test"},
-			Organization: []string{"test"},
-			CommonName:   "test CA",
-		},
-		IsCA: true,
-	}
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	_, err = EncodeKeyPubPartToDER(priv)
 	if err != nil {
-		assert.NoError(t, err)
+		t.Fatalf("can't encode key public part, %v", err)
 	}
-	_, _, err = GenerateCertToFile(&template, &template, &priv.PublicKey, priv, "test.crt")
-	assert.NoError(t, err)
-}
-func TestDecodeCertFromFile(t *testing.T) {
-	_, err := DecodeCertFromFile("test.crt")
-	assert.NoError(t, err)
-}
-func TestEncodePrivToFile(t *testing.T) {
-	priv, _, err := GenerateRsaKey()
-	assert.NoError(t, err)
-	err = EncodePrivToFile(priv, "testPriv.pem")
-	assert.NoError(t, err)
-}
-func TestDecodePrivFromFile(t *testing.T) {
-	_, err := DecodePrivFromFile("testPriv.pem")
-	assert.NoError(t, err)
-}
-func TestGenerateRootCA(t *testing.T) {
-	_, rootPem, _, err := GenerateRootCA()
-	fmt.Println("rootCert\n", string(rootPem))
-	assert.NoError(t, err)
-}
-func TestGeneratePCACert(t *testing.T) {
-	rootCert, err := DecodeCertFromFile("root.crt")
-	assert.NoError(t, err)
-	rootKey, err := DecodePrivFromFile("rootPriv.pem")
-	_, _, _, err = GeneratePCACert(rootCert, rootKey)
-	assert.NoError(t, err)
-}
-func TestGenerateCertbyOneself(t *testing.T) {
-	priv, pub, err := GenerateRsaKey()
-	assert.NoError(t, err)
-	_, cert, err := GenerateCertbyOneself(priv, pub, "test.crt")
-	fmt.Println(string(cert))
-	assert.NoError(t, err)
-
-}
-func TestGenerateSignature(t *testing.T) {
-	_, _, _, err := GenerateSignature([]byte(CertPEM))
-	assert.NoError(t, err)
-}
-func TestVerifySigAndPub(t *testing.T) {
-	sig, hash, pub, err := GenerateSignature([]byte(CertPEM))
-	assert.NoError(t, err)
-	ok := VerifySigAndPub(sig, hash, pub)
-	assert.NoError(t, ok)
-}
-func TestGetIkCert(t *testing.T) {
-	_, err := GetIkCert(CertPEM, PubPEM, nil)
-	assert.NoError(t, err)
 }
 
-func TestVerifyPCACert(t *testing.T) {
-	_, rootPEM, rootKey, err := GenerateRootCA()
-	assert.NoError(t, err)
-	rootCert, err := DecodeCert(string(rootPEM))
-	assert.NoError(t, err)
-	rootPrivPEM, err := EncodePrivKeyAsPemStr(rootKey)
-	assert.NoError(t, err)
-	rootPriv, err := DecodePrivkey(rootPrivPEM)
-	assert.NoError(t, err)
-	pcaCert, _, _, err := GeneratePCACert(rootCert, rootPriv)
-	assert.NoError(t, err)
-	_, err = verifyPCACert(rootCert, pcaCert)
-	assert.NoError(t, err)
-}
-
-func TestVerifyCert(t *testing.T) {
-	pcaCert, err := DecodeCert(string(CertPEM))
-	assert.NoError(t, err)
-	pcaPriv, err := DecodePrivkey(PrivPEM)
-	assert.NoError(t, err)
-	cert, _, _, err := GeneratePCACert(pcaCert, pcaPriv)
-	assert.NoError(t, err)
-	_, err = verifyPCACert(pcaCert, cert)
-	assert.NoError(t, err)
-}
-
-func TestDecodeCert(t *testing.T) {
-	_, err := DecodeCert(CertPEM)
-	assert.NoError(t, err)
-}
-func TestDecodePubkey(t *testing.T) {
-	_, err := DecodePubkey(PubPEM)
-	assert.NoError(t, err)
-}
-func TestDecodePrivKey(t *testing.T) {
-	_, err := DecodePrivkey(PrivPEM)
-	assert.NoError(t, err)
-}
-func TestGenerateRsaKey(t *testing.T) {
-	_, _, err := GenerateRsaKey()
-	assert.NoError(t, err)
-}
-func TestEncodePrivKeyAsPemStr(t *testing.T) {
-	priv, _, err := GenerateRsaKey()
-	assert.NoError(t, err)
-	privPem, err := EncodePrivKeyAsPemStr(priv)
-	fmt.Println(privPem)
-	assert.NoError(t, err)
-}
-func TestPCAForUnsupportedTpm(t *testing.T) {
-	//测试TPM的版本
-	req := Request{
-		TPMVer: "1.0",
+func TestEncodeDecodePrivateKey(t *testing.T) {
+	defer os.Remove(tmpKeyFile)
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
 	}
-	_, err := NewPCA(req)
-	assert.Error(t, err)
+	err = EncodePrivateKeyToFile(priv, tmpKeyFile)
+	if err != nil {
+		t.Fatalf("can't encode private key, %v", err)
+	}
+	priv2, _, err := DecodePrivateKeyFromFile(tmpKeyFile)
+	if err != nil {
+		t.Fatalf("can't decode private key, %v", err)
+	} else {
+		if priv.Equal(priv2) {
+			t.Log("private key equal")
+		} else {
+			t.Fatal("private key not equal")
+		}
+	}
 }
-func TestGenerateIkCert(t *testing.T) {
-	fmt.Println("This is a test of GenerateIkCert")
-	rootCert, _, rootKey, err := GenerateRootCA()
-	assert.NoError(t, err)
-	pcaCert, _, pcaPriv, err := GeneratePCACert(rootCert, rootKey)
-	assert.NoError(t, err)
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	assert.NoError(t, err)
-	_, _, err = GenerateIkCert(pcaCert, pcaPriv, &priv.PublicKey)
-	assert.NoError(t, err)
+
+func TestEncodeDecodePublicKeyKey(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	buf, err := EncodePublicKeyToPEM(&priv.PublicKey)
+	if err != nil {
+		t.Fatalf("can't encode public key, %v", err)
+	}
+	pub, _, err := DecodePublicKeyFromPEM(buf)
+	if err != nil {
+		t.Fatalf("can't decode public key, %v", err)
+	} else {
+		if priv.PublicKey.Equal(pub) {
+			t.Log("public key equal")
+		} else {
+			t.Fatal("public key not equal")
+		}
+	}
 }
-func TestEncryptAkcert(t *testing.T) {
-	var ikCert, _ = CreateRandomBytes(16)
-	akName := []byte{0, 11, 63, 66, 56, 152, 253, 128, 164, 49, 231, 162, 169, 14, 118, 72, 248, 151, 117, 166, 215,
-		235, 210, 181, 92, 167, 94, 113, 24, 131, 10, 5, 12, 85, 252}
-	pub, err := DecodePubkey(PubRSA2048)
-	assert.NoError(t, err)
-	_, err = EncryptIkcert(pub, ikCert, akName)
-	assert.NoError(t, err)
+
+func TestEncodeDecodeKeyCert(t *testing.T) {
+	defer os.Remove(tmpKeyFile)
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	certDer, err := x509.CreateCertificate(rand.Reader, &RootTemplate, &RootTemplate, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("can't generate key certificate, %v", err)
+	}
+	cert, err := x509.ParseCertificate(certDer)
+	if err != nil {
+		t.Fatalf("can't parse key certificate, %v", err)
+	}
+	err = EncodeKeyCertToFile(certDer, tmpKeyFile)
+	if err != nil {
+		t.Fatalf("can't encode key certificate, %v", err)
+	}
+	cert2, _, err := DecodeKeyCertFromFile(tmpKeyFile)
+	if err != nil {
+		t.Fatalf("can't decode key certificate, %v", err)
+	} else {
+		if cert.Equal(cert2) {
+			t.Log("key certificate equal")
+		} else {
+			t.Fatal("key certificate not equal")
+		}
+	}
 }

@@ -1,12 +1,12 @@
 /*
 Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of
+the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
     http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
-PURPOSE.
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 Author: wucaijun
@@ -17,11 +17,19 @@ Description: Store RAS and RAC configurations.
 package config
 
 import (
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -40,6 +48,15 @@ const (
 	DbUser     = "database.user"
 	DbPassword = "database.password"
 	// RAS
+	NullString            = ""
+	extKey                = ".key"
+	extCert               = ".crt"
+	RasRootKeyFileDefault = "./pca-root"
+	RasPcaKeyFileDefault  = "./pca-ek"
+	RasRootPrivKeyFile    = "rasconfig.rootprivkeyfile"
+	RasRootKeyCertFile    = "rasconfig.rootkeycertfile"
+	RasPcaPrivKeyFile     = "rasconfig.pcaprivkeyfile"
+	RasPcaKeyCertFile     = "rasconfig.pcakeycertfile"
 	RasPort               = "rasconfig.port" // server listen port
 	RasPortLongFlag       = "port"
 	RasPortShortFlag      = "p"
@@ -55,6 +72,14 @@ const (
 	RasAuthKeyFile        = "rasconfig.authkeyfile"
 	RasAuthKeyFileDefault = "./ecdsakey"
 	// RAC
+	RacIKFileDefault         = "./ik"
+	RacIPrivKeyFile          = "racconfig.ikpkey"
+	RacIKeyCertFile          = "racconfig.ikcert"
+	RacEKFileDefaultTest     = "./ektest"
+	RacIKFileDefaultTest     = "./iktest"
+	RacEKeyCertFileTest      = "racconfig.ekcerttest"
+	RacIPrivKeyFileTest      = "racconfig.ikpkeytest"
+	RacIKeyCertFileTest      = "racconfig.ikcerttest"
 	RacServer                = "racconfig.server" // client connect to server
 	RacServerLongFlag        = "server"
 	RacServerShortFlag       = "s"
@@ -109,6 +134,14 @@ type (
 		port     int
 	}
 	rasConfig struct {
+		rootPrivKeyFile  string
+		rootKeyCertFile  string
+		rootPrivKey      crypto.PrivateKey
+		rootKeyCert      *x509.Certificate
+		pcaPrivKeyFile   string
+		pcaKeyCertFile   string
+		pcaPrivKey       crypto.PrivateKey
+		pcaKeyCert       *x509.Certificate
 		servPort         string
 		restPort         string
 		mgrStrategy      string
@@ -118,13 +151,27 @@ type (
 		autoUpdateConfig entity.AutoUpdateConfig
 	}
 	racConfig struct {
-		server          string
-		testMode        bool
-		hbDuration      time.Duration // heartbeat duration
-		trustDuration   time.Duration // trust state duration
-		clientId        int64
-		password        string
-		digestAlgorithm string
+		// for TPM chip
+		eKeyCert     *x509.Certificate
+		iPrivKeyFile string
+		iKeyCertFile string
+		iPrivKey     crypto.PrivateKey
+		iKeyCert     *x509.Certificate
+		// for simulator test
+		eKeyCertFileTest  string
+		eKeyCertBytesTest []byte
+		eKeyCertTest      *x509.Certificate
+		iPrivKeyFileTest  string
+		iKeyCertFileTest  string
+		iPrivKeyTest      crypto.PrivateKey
+		iKeyCertTest      *x509.Certificate
+		server            string
+		testMode          bool
+		hbDuration        time.Duration // heartbeat duration
+		trustDuration     time.Duration // trust state duration
+		clientId          int64
+		password          string
+		digestAlgorithm   string
 	}
 	hubConfig struct {
 		server  string
@@ -155,6 +202,115 @@ func InitRacFlags() {
 func InitHubFlags() {
 	hubServer = pflag.StringP(HubServerLongFlag, HubServerShortFlag, "", "connect attestation server at IP:PORT")
 	hubPort = pflag.StringP(HubPortLongFlag, HubPortShortFlag, "", "hub listen at [IP]:PORT")
+}
+
+func SetupSignalHandler() {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-ch
+		Save()
+		os.Exit(0)
+	}()
+}
+
+func getRootKeyCert(c *config) {
+	var err error
+	if c == nil {
+		return
+	}
+	c.rasConfig.rootPrivKeyFile = viper.GetString(RasRootPrivKeyFile)
+	if c.rasConfig.rootPrivKeyFile != NullString {
+		c.rasConfig.rootPrivKey, _, err = pca.DecodePrivateKeyFromFile(c.rasConfig.rootPrivKeyFile)
+		if err != nil {
+			c.rasConfig.rootPrivKey = nil
+			c.rasConfig.rootPrivKeyFile = NullString
+		}
+	} else {
+		c.rasConfig.rootPrivKey = nil
+	}
+	c.rasConfig.rootKeyCertFile = viper.GetString(RasRootKeyCertFile)
+	if c.rasConfig.rootKeyCertFile != NullString {
+		c.rasConfig.rootKeyCert, _, err = pca.DecodeKeyCertFromFile(c.rasConfig.rootKeyCertFile)
+		if err != nil {
+			c.rasConfig.rootKeyCert = nil
+			c.rasConfig.rootKeyCertFile = NullString
+			c.rasConfig.rootPrivKey = nil
+			c.rasConfig.rootPrivKeyFile = NullString
+		}
+	} else {
+		c.rasConfig.rootKeyCert = nil
+		c.rasConfig.rootPrivKey = nil
+		c.rasConfig.rootPrivKeyFile = NullString
+	}
+	// if no loading root ca key/cert, create and self-signing one
+	if c.rasConfig.rootPrivKey == nil {
+		// modify pca.RootTemplate fields
+		priv, _ := rsa.GenerateKey(rand.Reader, pca.RsaKeySize)
+		// self signing
+		certDer, err := x509.CreateCertificate(rand.Reader, &pca.RootTemplate, &pca.RootTemplate, &priv.PublicKey, priv)
+		if err != nil {
+			fmt.Println("couldn't create root key and certificate")
+			return
+		}
+		c.rasConfig.rootKeyCert, err = x509.ParseCertificate(certDer)
+		if err == nil {
+			c.rasConfig.rootPrivKey = priv
+			c.rasConfig.rootPrivKeyFile = RasRootKeyFileDefault + extKey
+			c.rasConfig.rootKeyCertFile = RasRootKeyFileDefault + extCert
+			pca.EncodePrivateKeyToFile(priv, c.rasConfig.rootPrivKeyFile)
+			pca.EncodeKeyCertToFile(certDer, c.rasConfig.rootKeyCertFile)
+		}
+	}
+}
+
+func getPcaKeyCert(c *config) {
+	var err error
+	if c == nil {
+		return
+	}
+	c.rasConfig.pcaPrivKeyFile = viper.GetString(RasPcaPrivKeyFile)
+	if c.rasConfig.pcaPrivKeyFile != NullString {
+		c.rasConfig.pcaPrivKey, _, err = pca.DecodePrivateKeyFromFile(c.rasConfig.pcaPrivKeyFile)
+		if err != nil {
+			c.rasConfig.pcaPrivKey = nil
+			c.rasConfig.pcaPrivKeyFile = NullString
+		}
+	} else {
+		c.rasConfig.pcaPrivKey = nil
+	}
+	c.rasConfig.pcaKeyCertFile = viper.GetString(RasPcaKeyCertFile)
+	if c.rasConfig.pcaKeyCertFile != NullString {
+		c.rasConfig.pcaKeyCert, _, err = pca.DecodeKeyCertFromFile(c.rasConfig.pcaKeyCertFile)
+		if err != nil {
+			c.rasConfig.pcaKeyCert = nil
+			c.rasConfig.pcaKeyCertFile = NullString
+			c.rasConfig.pcaPrivKey = nil
+			c.rasConfig.pcaPrivKeyFile = NullString
+		}
+	} else {
+		c.rasConfig.pcaKeyCert = nil
+		c.rasConfig.pcaPrivKey = nil
+		c.rasConfig.pcaPrivKeyFile = NullString
+	}
+	if c.rasConfig.pcaPrivKey == nil {
+		// modify pca.PcaTemplate fields
+		priv, _ := rsa.GenerateKey(rand.Reader, pca.RsaKeySize)
+		// sign by root ca
+		certDer, err := x509.CreateCertificate(rand.Reader, &pca.PcaTemplate, &pca.RootTemplate, &priv.PublicKey, c.rasConfig.rootPrivKey)
+		if err != nil {
+			fmt.Println("couldn't create pca ek key and certificate")
+			return
+		}
+		c.rasConfig.pcaKeyCert, err = x509.ParseCertificate(certDer)
+		if err == nil {
+			c.rasConfig.pcaPrivKey = priv
+			c.rasConfig.pcaPrivKeyFile = RasPcaKeyFileDefault + extKey
+			c.rasConfig.pcaKeyCertFile = RasPcaKeyFileDefault + extCert
+			pca.EncodePrivateKeyToFile(priv, c.rasConfig.pcaPrivKeyFile)
+			pca.EncodeKeyCertToFile(certDer, c.rasConfig.pcaKeyCertFile)
+		}
+	}
 }
 
 func getServerConf(c *config) {
@@ -193,6 +349,87 @@ func getServerConf(c *config) {
 	if restPort != nil && *restPort != "" {
 		c.rasConfig.restPort = *restPort
 	}
+	getRootKeyCert(c)
+	getPcaKeyCert(c)
+}
+
+func getClientEKeyCertTest(c *config) {
+	var err error
+	if c == nil {
+		return
+	}
+	c.racConfig.eKeyCertFileTest = viper.GetString(RacEKeyCertFileTest)
+	if c.racConfig.eKeyCertFileTest != NullString {
+		c.racConfig.eKeyCertTest, c.racConfig.eKeyCertBytesTest, err = pca.DecodeKeyCertFromFile(c.racConfig.eKeyCertFileTest)
+		if err != nil {
+			c.racConfig.eKeyCertTest = nil
+			c.racConfig.eKeyCertFileTest = NullString
+		}
+	} else {
+		c.racConfig.eKeyCertTest = nil
+	}
+}
+
+func getClientIKeyCertTest(c *config) {
+	var err error
+	if c == nil {
+		return
+	}
+	c.racConfig.iPrivKeyFileTest = viper.GetString(RacIPrivKeyFileTest)
+	if c.racConfig.iPrivKeyFileTest != NullString {
+		c.racConfig.iPrivKeyTest, _, err = pca.DecodePrivateKeyFromFile(c.racConfig.iPrivKeyFileTest)
+		if err != nil {
+			c.racConfig.iPrivKeyTest = nil
+			c.racConfig.iPrivKeyFileTest = NullString
+		}
+	} else {
+		c.racConfig.iPrivKeyTest = nil
+	}
+	c.racConfig.iKeyCertFileTest = viper.GetString(RacIKeyCertFileTest)
+	if c.racConfig.iKeyCertFileTest != NullString {
+		c.racConfig.iKeyCertTest, _, err = pca.DecodeKeyCertFromFile(c.racConfig.iKeyCertFileTest)
+		if err != nil {
+			c.racConfig.iKeyCertTest = nil
+			c.racConfig.iKeyCertFileTest = NullString
+			c.racConfig.iPrivKeyTest = nil
+			c.racConfig.iPrivKeyFileTest = NullString
+		}
+	} else {
+		c.racConfig.iKeyCertTest = nil
+		c.racConfig.iPrivKeyTest = nil
+		c.racConfig.iPrivKeyFileTest = NullString
+	}
+}
+
+func getClientIKeyCert(c *config) {
+	var err error
+	if c == nil {
+		return
+	}
+	c.racConfig.iPrivKeyFile = viper.GetString(RacIPrivKeyFile)
+	if c.racConfig.iPrivKeyFile != NullString {
+		c.racConfig.iPrivKey, _, err = pca.DecodePrivateKeyFromFile(c.racConfig.iPrivKeyFile)
+		if err != nil {
+			c.racConfig.iPrivKey = nil
+			c.racConfig.iPrivKeyFile = NullString
+		}
+	} else {
+		c.racConfig.iPrivKey = nil
+	}
+	c.racConfig.iKeyCertFile = viper.GetString(RacIKeyCertFile)
+	if c.racConfig.iKeyCertFile != NullString {
+		c.racConfig.iKeyCert, _, err = pca.DecodeKeyCertFromFile(c.racConfig.iKeyCertFile)
+		if err != nil {
+			c.racConfig.iKeyCert = nil
+			c.racConfig.iKeyCertFile = NullString
+			c.racConfig.iPrivKey = nil
+			c.racConfig.iPrivKeyFile = NullString
+		}
+	} else {
+		c.racConfig.iKeyCert = nil
+		c.racConfig.iPrivKey = nil
+		c.racConfig.iPrivKeyFile = NullString
+	}
 }
 
 func getClientConf(c *config) {
@@ -211,6 +448,15 @@ func getClientConf(c *config) {
 	}
 	if racTestMode != nil {
 		c.racConfig.testMode = *racTestMode
+	}
+	if c.racConfig.testMode {
+		// in test mode, generate EK/IK and signed by PCA.
+		// load from files because simulator couldn't store them.
+		getClientEKeyCertTest(c)
+		getClientIKeyCertTest(c)
+	} else {
+		// in TPM only load IK/IC
+		getClientIKeyCert(c)
 	}
 }
 
@@ -289,6 +535,10 @@ func Save() {
 			viper.Set(DbPort, cfg.dbConfig.port)
 			viper.Set(DbUser, cfg.dbConfig.user)
 			viper.Set(DbPassword, cfg.dbConfig.password)
+			viper.Set(RasRootPrivKeyFile, cfg.rasConfig.rootPrivKeyFile)
+			viper.Set(RasRootKeyCertFile, cfg.rasConfig.rootKeyCertFile)
+			viper.Set(RasPcaPrivKeyFile, cfg.rasConfig.pcaPrivKeyFile)
+			viper.Set(RasPcaKeyCertFile, cfg.rasConfig.pcaKeyCertFile)
 			viper.Set(RasPort, cfg.rasConfig.servPort)
 			viper.Set(RasRestPort, cfg.rasConfig.restPort)
 			viper.Set(RasMgrStrategy, cfg.rasConfig.mgrStrategy)
@@ -301,6 +551,14 @@ func Save() {
 			viper.Set(RacDigestAlgorithm, cfg.racConfig.digestAlgorithm)
 		case ConfClient:
 			// store common part
+			if cfg.racConfig.testMode {
+				viper.Set(RacEKeyCertFileTest, cfg.racConfig.eKeyCertFileTest)
+				viper.Set(RacIPrivKeyFileTest, cfg.racConfig.iPrivKeyFileTest)
+				viper.Set(RacIKeyCertFileTest, cfg.racConfig.iKeyCertFileTest)
+			} else {
+				viper.Set(RacIPrivKeyFile, cfg.racConfig.iPrivKeyFile)
+				viper.Set(RacIKeyCertFile, cfg.racConfig.iKeyCertFile)
+			}
 			viper.Set(RacServer, cfg.racConfig.server)
 			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
 			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
@@ -318,6 +576,8 @@ func Save() {
 		}
 	}
 }
+
+// for dbConfig handle
 
 func (c *config) GetHost() string {
 	return c.dbConfig.host
@@ -359,37 +619,7 @@ func (c *config) SetPassword(password string) {
 	c.dbConfig.password = password
 }
 
-func (c *config) GetServer() string {
-	return c.racConfig.server
-}
-
-func (c *config) GetTestMode() bool {
-	return c.racConfig.testMode
-}
-
-func (c *config) GetTrustDuration() time.Duration {
-	return c.racConfig.trustDuration
-}
-
-func (c *config) SetTrustDuration(d time.Duration) {
-	c.racConfig.trustDuration = d
-}
-
-func (c *config) GetHBDuration() time.Duration {
-	return c.racConfig.hbDuration
-}
-
-func (c *config) SetHBDuration(d time.Duration) {
-	c.racConfig.hbDuration = d
-}
-
-func (c *config) GetClientId() int64 {
-	return c.racConfig.clientId
-}
-
-func (c *config) SetClientId(id int64) {
-	c.racConfig.clientId = id
-}
+// for rasConfig handle
 
 func (c *config) GetMgrStrategy() string {
 	return c.rasConfig.mgrStrategy
@@ -428,12 +658,107 @@ func (c *config) GetRestPort() string {
 	return c.rasConfig.restPort
 }
 
-func (c *config) GetHubServer() string {
-	return c.hubConfig.server
+func (c *config) GetRootPrivateKey() crypto.PrivateKey {
+	return c.rasConfig.rootPrivKey
 }
 
-func (c *config) GetHubPort() string {
-	return c.hubConfig.hubPort
+func (c *config) GetRootKeyCert() *x509.Certificate {
+	return c.rasConfig.rootKeyCert
+}
+
+func (c *config) GetPcaPrivateKey() crypto.PrivateKey {
+	return c.rasConfig.pcaPrivKey
+}
+
+func (c *config) GetPcaKeyCert() *x509.Certificate {
+	return c.rasConfig.pcaKeyCert
+}
+
+func (c *config) GetAuthKeyFile() string {
+	return c.rasConfig.authKeyFile
+}
+
+func (c *config) SetAuthKeyFile(filename string) {
+	c.rasConfig.authKeyFile = filename
+}
+
+// for racConfig handle
+
+func (c *config) GetEKeyCert() *x509.Certificate {
+	return c.racConfig.eKeyCert
+}
+
+func (c *config) SetEKeyCert(ec *x509.Certificate) {
+	c.racConfig.eKeyCert = ec
+}
+
+func (c *config) GetIPrivKey() crypto.PrivateKey {
+	return c.racConfig.iPrivKey
+}
+
+func (c *config) GetIKeyCert() *x509.Certificate {
+	return c.racConfig.iKeyCert
+}
+
+func (c *config) GetEKeyCertTest() *x509.Certificate {
+	return c.racConfig.eKeyCertTest
+}
+
+func (c *config) GetEKeyCertBytesTest() []byte {
+	return c.racConfig.eKeyCertBytesTest
+}
+
+func (c *config) SetEKeyCertTest(ecDer []byte) {
+	c.racConfig.eKeyCertBytesTest = ecDer
+	c.racConfig.eKeyCertTest, _ = x509.ParseCertificate(ecDer)
+	c.racConfig.eKeyCertFileTest = RacEKFileDefaultTest + extCert
+	pca.EncodeKeyCertToFile(ecDer, c.racConfig.eKeyCertFileTest)
+}
+
+func (c *config) GetIPrivKeyTest() crypto.PrivateKey {
+	return c.racConfig.iPrivKeyTest
+}
+
+func (c *config) SetIPrivKeyTest(ik crypto.PrivateKey) {
+	c.racConfig.iPrivKeyTest = ik
+	c.racConfig.iPrivKeyFileTest = RacIKFileDefaultTest + extKey
+	pca.EncodePrivateKeyToFile(ik, c.racConfig.iPrivKeyFileTest)
+}
+
+func (c *config) GetIKeyCertTest() *x509.Certificate {
+	return c.racConfig.iKeyCertTest
+}
+
+func (c *config) GetServer() string {
+	return c.racConfig.server
+}
+
+func (c *config) GetTestMode() bool {
+	return c.racConfig.testMode
+}
+
+func (c *config) GetTrustDuration() time.Duration {
+	return c.racConfig.trustDuration
+}
+
+func (c *config) SetTrustDuration(d time.Duration) {
+	c.racConfig.trustDuration = d
+}
+
+func (c *config) GetHBDuration() time.Duration {
+	return c.racConfig.hbDuration
+}
+
+func (c *config) SetHBDuration(d time.Duration) {
+	c.racConfig.hbDuration = d
+}
+
+func (c *config) GetClientId() int64 {
+	return c.racConfig.clientId
+}
+
+func (c *config) SetClientId(id int64) {
+	c.racConfig.clientId = id
 }
 
 func (c *config) GetDigestAlgorithm() string {
@@ -444,10 +769,12 @@ func (c *config) SetDigestAlgorithm(algorithm string) {
 	c.racConfig.digestAlgorithm = algorithm
 }
 
-func (c *config) GetAuthKeyFile() string {
-	return c.rasConfig.authKeyFile
+// for hubConfig handle
+
+func (c *config) GetHubServer() string {
+	return c.hubConfig.server
 }
 
-func (c *config) SetAuthKeyFile(filename string) {
-	c.rasConfig.authKeyFile = filename
+func (c *config) GetHubPort() string {
+	return c.hubConfig.hubPort
 }

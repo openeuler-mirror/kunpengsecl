@@ -1,24 +1,35 @@
 database:
-  host: localhost
   dbname: kunpengsecl
+  host: localhost
+  password: postgres
   port: 5432
   user: postgres
-  password: postgres
-rasconfig:
-  port: "127.0.0.1:40001"
-  rest: "127.0.0.1:40002"
-  changetime: 0
-  mgrstrategy: auto
-  authkeyfile: ./ecdsakey.pub
-  basevalue-extract-rules:
-    pcrinfo:
-      pcrselection: [1, 2, 3, 4]
-    manifest:
-      - type: bios
-        name: ["8-0", "2147483656-1"]
-      - type: ima
-        name: ["boot_aggregate", "/etc/modprobe.d/tuned.conf"]
 racconfig:
+  digestalgorithm: sha256
   hbduration: 5s
   trustduration: 2m0s
-  digestalgorithm: sha256
+rasconfig:
+  authkeyfile: ./ecdsakey.pub
+  auto-update-config:
+    isallupdate: false
+    updateclients: []
+  basevalue-extract-rules:
+    manifest:
+    - name:
+      - 8-0
+      - 2147483656-1
+      type: bios
+    - name:
+      - boot_aggregate
+      - /etc/modprobe.d/tuned.conf
+      type: ima
+    pcrinfo:
+      pcrselection:
+      - 1
+      - 2
+      - 3
+      - 4
+  changetime: 1970-01-01T08:00:00+08:00
+  mgrstrategy: auto
+  port: 127.0.0.1:40001
+  rest: 127.0.0.1:40002

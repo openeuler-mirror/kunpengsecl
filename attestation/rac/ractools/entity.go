@@ -21,14 +21,21 @@ import (
 	"io"
 
 	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 type Algorithm uint16
 type PcrValue string
 
 const (
-	emptyPassword = ""
-	ekPemTest     = `
+	emptyPassword   = ""
+	TestImaLogPath  = "./ascii_runtime_measurements"
+	TestBiosLogPath = "./binary_bios_measurements"
+	ImaLogPath      = "/sys/kernel/security/ima/ascii_runtime_measurements"
+	BiosLogPath     = "/sys/kernel/security/tpm0/binary_bios_measurements"
+
+/*
+	ekPemTest       = `
 -----BEGIN CERTIFICATE-----
 MIIEUjCCAjqgAwIBAgIUTPeuiawsSuv0Gs0oAuf/vbRzzYIwDQYJKoZIhvcNAQEL
 BQAwVTELMAkGA1UEBhMCREUxDzANBgNVBAgMBkJheWVybjERMA8GA1UEBwwITXVl
@@ -55,6 +62,7 @@ AEwaHvFqEGmkBVK/dGGJmhSo3h8ohapduWXkLiNI041An5rpTwbwoUF+sxrzn9WC
 UIp9on4e9ggL7OA2BrfRcfIfyK6LQ+UvnFpufY3hfDxoUuhyvnANfGnbo7d16H1n
 j0wy1+Fw
 -----END CERTIFICATE-----`
+*/
 )
 
 var (
@@ -114,25 +122,24 @@ var (
 )
 
 type (
-	TPM struct { //还需讨论
-		config TPMConfig
+	TPM struct {
+		config *TPMConfig
+		useHW  bool
 		dev    io.ReadWriteCloser
+		EK     EndorsementKey
+		IK     AttestationKey
 	}
 
-	TPMConfig struct { //还需讨论
-		IMALogPath      string
-		BIOSLogPath     string
-		ReportHashAlg   string
-		IK              *AttestationKey
-		EK              *EndorsementKey
-		useHW           bool
-		IsUseTestEKCert bool //If true, use ek test case. Not used by default
+	TPMConfig struct {
+		IMALogPath    string
+		BIOSLogPath   string
+		ReportHashAlg string
 	}
 
 	EndorsementKey struct {
 		Alg      string
 		Pub      crypto.PublicKey
-		Handle   uint32
+		Handle   tpmutil.Handle
 		Password string
 	}
 
@@ -141,7 +148,7 @@ type (
 		Public   []byte
 		Private  []byte
 		Pub      crypto.PublicKey
-		Handle   uint32
+		Handle   tpmutil.Handle
 		Password string
 		Alg      string
 	}

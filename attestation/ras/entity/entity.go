@@ -1,16 +1,29 @@
+/*
+Copyright (c) Huawei Technologies Co., Ltd. 2021.
+kunpengsecl licensed under the Mulan PSL v2.
+You can use this software according to the terms and conditions of
+the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
+    http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details.
+
+Author: wucaijun
+Create: 2021-12-08
+Description:
+  this package restores common structs and functions used in the project,
+  don't need to invoke others.
+*/
+
 package entity
 
 import (
+	"net"
 	"time"
 )
 
-/*
-	this package restores struct used in the project
-*/
-
-/*
-	Report is a trust report, normally it is send by RAC
-*/
+// Report is a trust report, normally it is send by RAC
 type Report struct {
 	PcrInfo       PcrInfo
 	Manifest      []Manifest
@@ -152,4 +165,24 @@ type PcieDevice struct {
 type PcieBaseValue struct {
 	DeviceID int64
 	Value    map[string]string
+}
+
+// GetIP returns the host ipv4 address
+func GetIP() (string, bool) {
+	netIfs, err := net.Interfaces()
+	if err != nil {
+		return "", false
+	}
+	for i := 0; i < len(netIfs); i++ {
+		if (netIfs[i].Flags & net.FlagUp) != 0 {
+			addrs, _ := netIfs[i].Addrs()
+			for _, addr := range addrs {
+				ip, ok := addr.(*net.IPNet)
+				if ok && !ip.IP.IsLoopback() && ip.IP.To4() != nil {
+					return ip.IP.String(), true
+				}
+			}
+		}
+	}
+	return "", false
 }

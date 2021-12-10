@@ -88,7 +88,7 @@ func (pv *PCRVerifier) Validate(report *entity.Report) error {
 	if err != nil {
 		return fmt.Errorf("get register client information failed")
 	}
-	certificate, err := pca.DecodeCert(regclient.AkCertificate)
+	certificate, _, err := pca.DecodeKeyCertFromPEM([]byte(regclient.AkCertificate))
 	if err != nil {
 		return fmt.Errorf("get register client certificate failed")
 	}
