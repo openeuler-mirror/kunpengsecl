@@ -9,6 +9,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,7 +17,6 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
@@ -26,17 +26,16 @@ import (
 )
 
 const (
-	constDEFAULTTIMEOUT time.Duration = 100 * time.Second
-	uint32Len                         = 4
-	digestAlgIDLen                    = 2
-	sha1DigestLen                     = 20
-	sha256DigestLen                   = 32
-	sha1AlgID                         = "0400"
-	sha256AlgID                       = "0b00"
-	event2SpecID                      = "Spec ID Event03"
-	specLen                           = 16
-	specStart                         = 32
-	specEnd                           = 48
+	uint32Len         = 4
+	sha1DigestLen     = 20
+	sha256DigestLen   = 32
+	sha1AlgID         = "0400"
+	sha256AlgID       = "0b00"
+	sha1AlgStr        = "sha1"
+	sha256AlgStr      = "sha256"
+	imaStr            = "ima"
+	imangStr          = "ima-ng"
+	imaItemNameLenMax = 255
 )
 
 var validators []trustmgr.Validator
@@ -251,7 +250,7 @@ func (iv *IMAVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.
 	if err != nil {
 		return fmt.Errorf("manifest extraction failed")
 	}
-	manifest, err := selectManifest(baseValue.Manifest, "ima")
+	manifest, err := selectManifest(baseValue.Manifest, imaStr)
 	if err != nil {
 		return fmt.Errorf("bios extraction failed")
 	}
@@ -336,13 +335,13 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 	var imaNames []string
 	var imaManifest entity.Manifest
 	for _, rule := range config.GetExtractRules().ManifestRules {
-		if strings.ToLower(rule.MType) == "ima" {
+		if strings.ToLower(rule.MType) == imaStr {
 			imaNames = rule.Name
 			break
 		}
 	}
 	for _, m := range report.Manifest {
-		if strings.ToLower(m.Type) == "ima" {
+		if strings.ToLower(m.Type) == imaStr {
 			imaManifest = m
 			break
 		}
@@ -353,7 +352,7 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 			if imi.Name == in {
 				isFound = true
 				mInfo.Manifest = append(mInfo.Manifest, entity.Measurement{
-					Type:  "ima",
+					Type:  imaStr,
 					Name:  in,
 					Value: imi.Value,
 				})
@@ -369,6 +368,7 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 
 type PCRExtender interface {
 	ExtendPCR(id uint32, v string) error
+	ExtendPCRRaw(id uint32, v []byte) error
 }
 
 type pseudoPCRExtender struct {
@@ -378,38 +378,41 @@ type pseudoPCRExtender struct {
 	lenHash int
 }
 
-func (pe *pseudoPCRExtender) ExtendPCR(id uint32, v string) error {
-	temp := bytes.NewBuffer(pe.pcrs[id])
-
-	newDigestBytes, err := hex.DecodeString(v)
-	if err != nil {
-		return fmt.Errorf("decode digest failed")
-	}
-	_, err = temp.Write(newDigestBytes)
-	if err != nil {
-		return fmt.Errorf("concatenate digests failed")
-	}
-
+func (pe *pseudoPCRExtender) ExtendPCRRaw(id uint32, v []byte) error {
 	//calculate new pcr value
 	h := pe.newHash()
 	if h == nil {
 		return fmt.Errorf("unsupported algorithm")
 	}
-	h.Write(temp.Bytes())
+	h.Write(pe.pcrs[id])
+	h.Write(v)
 	pe.pcrs[id] = h.Sum(nil)
 	return nil
 }
 
+func (pe *pseudoPCRExtender) ExtendPCR(id uint32, v string) error {
+	newDigestBytes, err := hex.DecodeString(v)
+	if err != nil {
+		return fmt.Errorf("decode digest failed")
+	}
+	return pe.ExtendPCRRaw(id, newDigestBytes)
+}
+
+func matchHashAlgNewFunc(alg string) (func() hash.Hash, int) {
+	switch alg {
+	case sha256AlgStr:
+		return sha256.New, sha256DigestLen
+	case sha1AlgStr:
+		return sha1.New, sha1DigestLen
+	default:
+		return nil, 0
+	}
+}
+
 func createPseudoPCRExtender(algname string) *pseudoPCRExtender {
 	pe := pseudoPCRExtender{algname: algname}
-	switch pe.algname {
-	case "sha256":
-		pe.newHash = sha256.New
-		pe.lenHash = sha256DigestLen
-	case "sha1":
-		pe.newHash = sha1.New
-		pe.lenHash = sha1DigestLen
-	default:
+	pe.newHash, pe.lenHash = matchHashAlgNewFunc(pe.algname)
+	if pe.newHash == nil {
 		return nil
 	}
 
@@ -437,7 +440,7 @@ func (bv *BIOSVerifier) Validate(report *entity.Report) error {
 	//use bios manifest to calculate pseudoPCR
 	pseudoPCR := createPseudoPCRExtender(config.GetDefault(config.ConfServer).GetDigestAlgorithm())
 	if pseudoPCR == nil {
-		return fmt.Errorf("create pseudo PCRs failed")
+		return fmt.Errorf("bios manifest validator create pseudo PCRs failed")
 	}
 	err := ExtendPCRForBIOSItems(pseudoPCR, manifest.Items)
 	if err != nil {
@@ -471,46 +474,207 @@ func ExtendPCRForBIOSItems(pe PCRExtender, Items []entity.ManifestItem) error {
 	return nil
 }
 
-func ExtendPCRForIMAItems(pe PCRExtender, Items []entity.ManifestItem, changedPCRid *[]uint32) error {
-	//use ima manifest to calculate pseudoPCR
-	for _, item := range Items {
-		//unmarshal manifest in report
-		parsedManifest := new(entity.IMAManifestItem)
-		err := json.Unmarshal([]byte(item.Detail), parsedManifest)
-		if err != nil {
-			return fmt.Errorf("json unmarshal failed")
-		}
-		//combine & calculate new pcr value
-		pcrid, err := strconv.Atoi(parsedManifest.Pcr)
-		if err != nil {
-			return fmt.Errorf("PCR type conversion failed")
-		}
-		err = pe.ExtendPCR(uint32(pcrid), item.Value)
-		if err != nil {
-			return fmt.Errorf("PCR Digest combine falied")
-		}
-		// store pcrs id that have been changed
-		cnt := 0
-		for _, p := range *changedPCRid {
-			if p == uint32(pcrid) {
-				break
-			}
-			cnt++
-		}
-		if cnt == len(*changedPCRid) {
-			*changedPCRid = append(*changedPCRid, uint32(pcrid))
-		}
+func parseIMAManifestItem(detail string) (*entity.IMAManifestItem, error) {
+	parsedManifest := new(entity.IMAManifestItem)
+	err := json.Unmarshal([]byte(detail), parsedManifest)
+	return parsedManifest, err
+}
+
+type TemplateHasher interface {
+	Hash(item *entity.IMAManifestItem) ([]byte, error)
+}
+
+type TemplateValidator interface {
+	Validate(item *entity.IMAManifestItem) error
+}
+
+type TemplateHandler interface {
+	TemplateHasher
+	TemplateValidator
+}
+
+type TemplateHandlerBase struct {
+	algHash         string
+	newHash         func() hash.Hash
+	lenHash         int
+	algValidate     string
+	newHashValidate func() hash.Hash
+	lenHashValidate int
+}
+
+type IMATemplateHandler struct {
+	TemplateHandlerBase
+}
+
+type IMANGTemplateHandler struct {
+	TemplateHandlerBase
+}
+
+func (imaTH *IMATemplateHandler) Hash(item *entity.IMAManifestItem) ([]byte, error) {
+	return hex.DecodeString(item.TemplateHash)
+}
+
+func (imaTH *IMATemplateHandler) updateFileDigest(h hash.Hash, fileDigest string) {
+	bHash := make([]byte, hex.DecodedLen(len(fileDigest)))
+	hex.Decode(bHash, []byte(fileDigest))
+	h.Write(bHash)
+}
+
+func (imaTH *IMATemplateHandler) updateFileName(h hash.Hash, fileName string) {
+	h.Write([]byte(fileName))
+	if len(fileName) < imaItemNameLenMax+1 {
+		h.Write(make([]byte, imaItemNameLenMax+1-len(fileName)))
 	}
+}
+
+func (imaTH *IMATemplateHandler) Validate(item *entity.IMAManifestItem) error {
+	h := imaTH.newHashValidate()
+	if h == nil {
+		return fmt.Errorf("calculate ima template hash failed")
+	}
+
+	imaTH.updateFileDigest(h, item.FiledataHash)
+	imaTH.updateFileName(h, item.FilenameHint)
+	th := hex.EncodeToString(h.Sum(nil))
+
+	if th != item.TemplateHash {
+		return fmt.Errorf("ima template hash verification failed")
+	}
+
 	return nil
 }
 
+func createIMATemplateHandler(algname string) *IMATemplateHandler {
+	imaTH := IMATemplateHandler{TemplateHandlerBase{algHash: algname, algValidate: sha1AlgStr}}
+	imaTH.newHash, imaTH.lenHash = matchHashAlgNewFunc(imaTH.algHash)
+	if imaTH.newHash == nil {
+		return nil
+	}
+	imaTH.newHashValidate, imaTH.lenHashValidate = matchHashAlgNewFunc(imaTH.algValidate)
+	if imaTH.newHash == nil {
+		return nil
+	}
+	return &imaTH
+}
+
+func (imaTH *IMANGTemplateHandler) Hash(item *entity.IMAManifestItem) ([]byte, error) {
+	h := imaTH.newHash()
+	if h == nil {
+		return nil, fmt.Errorf("calculate ima-ng template hash failed")
+	}
+
+	imaTH.updateFileDigest(h, item.FiledataHash)
+	imaTH.updateFileName(h, item.FilenameHint)
+	return h.Sum(nil), nil
+}
+
+func (imaTH *IMANGTemplateHandler) Validate(item *entity.IMAManifestItem) error {
+	h := imaTH.newHashValidate()
+	if h == nil {
+		return fmt.Errorf("calculate ima-ng template hash failed")
+	}
+
+	imaTH.updateFileDigest(h, item.FiledataHash)
+	imaTH.updateFileName(h, item.FilenameHint)
+	th := hex.EncodeToString(h.Sum(nil))
+
+	if th != item.TemplateHash {
+		return fmt.Errorf("ima-ng template hash verification failed")
+	}
+
+	return nil
+}
+
+func (imaTH *IMANGTemplateHandler) updateFileDigest(h hash.Hash, fileDigestNG string) {
+	idx := strings.Index(fileDigestNG, ":")
+	b := bytes.Buffer{}
+	b.WriteString(fileDigestNG[:idx+1])
+	b.WriteByte(0)
+
+	bHash := make([]byte, hex.DecodedLen(len(fileDigestNG[idx+1:])))
+	hex.Decode(bHash, []byte(fileDigestNG)[idx+1:])
+	b.Write(bHash)
+
+	bLen := make([]byte, uint32Len)
+	binary.LittleEndian.PutUint32(bLen, uint32(b.Len()))
+
+	h.Write(bLen)
+	h.Write(b.Bytes())
+}
+
+func (imaTH *IMANGTemplateHandler) updateFileName(h hash.Hash, fileNameNG string) {
+	bLen := make([]byte, uint32Len)
+	binary.LittleEndian.PutUint32(bLen, uint32(len(fileNameNG)+1))
+
+	h.Write(bLen)
+	h.Write([]byte(fileNameNG))
+	h.Write([]byte{0})
+}
+
+func createIMANGTemplateHandler(algname string) *IMANGTemplateHandler {
+	base := createTemplateHandlerBase(algname)
+	if base == nil {
+		return nil
+	}
+	return &IMANGTemplateHandler{*base}
+}
+
+func createTemplateHandlerBase(algname string) *TemplateHandlerBase {
+	imaTH := TemplateHandlerBase{algHash: algname, algValidate: sha1AlgStr}
+	imaTH.newHash, imaTH.lenHash = matchHashAlgNewFunc(imaTH.algHash)
+	if imaTH.newHash == nil {
+		return nil
+	}
+	imaTH.newHashValidate, imaTH.lenHashValidate = matchHashAlgNewFunc(imaTH.algValidate)
+	if imaTH.newHash == nil {
+		return nil
+	}
+	return &imaTH
+}
+
+func ExtendPCRForIMAItems(pe PCRExtender, th TemplateHandler, items []entity.ManifestItem) (map[int]bool, error) {
+	changedPCR := map[int]bool{}
+
+	// use ima manifest to calculate pseudoPCR
+	for _, item := range items {
+		// unmarshal manifest in report
+		parsedManifest, err := parseIMAManifestItem(item.Detail)
+		if err != nil {
+			return nil, fmt.Errorf("json unmarshal failed")
+		}
+		// validate item template
+		err = th.Validate(parsedManifest)
+		if err != nil {
+			return nil, fmt.Errorf("item template validation failed, %v", err)
+		}
+		// caculate template hash
+		hash, err := th.Hash(parsedManifest)
+		if err != nil {
+			return nil, fmt.Errorf("item template hash calculation failed, %v", err)
+		}
+		// combine & calculate new pcr value
+		pcrid, err := strconv.Atoi(parsedManifest.Pcr)
+		if err != nil {
+			return nil, fmt.Errorf("PCR type conversion failed")
+		}
+		err = pe.ExtendPCRRaw(uint32(pcrid), hash)
+		if err != nil {
+			return nil, fmt.Errorf("PCR Digest combine falied")
+		}
+		// store pcrs id that have been changed
+		changedPCR[pcrid] = true
+	}
+	return changedPCR, nil
+}
+
 func (iv *IMAVerifier) Validate(report *entity.Report) error {
+	alg := config.GetDefault(config.ConfServer).GetDigestAlgorithm()
 	// find ima manifest list
-	var manifest entity.Manifest
+	var manifest *entity.Manifest
 	manifestCnt := 0
 	for _, element := range report.Manifest {
-		if element.Type == "ima" {
-			manifest = element
+		if element.Type == imaStr {
+			manifest = &element
 			break
 		}
 		manifestCnt++
@@ -519,38 +683,125 @@ func (iv *IMAVerifier) Validate(report *entity.Report) error {
 		return fmt.Errorf("no ima manifest in report")
 	}
 
+	// handle ima manifest validation in ima template specific ways
+	imaTemplateName := getIMATemplateName(&manifest.Items[0])
+	switch imaTemplateName {
+	case imaStr:
+		return validateIMATemplateIMA(alg, &report.PcrInfo, manifest)
+	case imangStr:
+		return validateIMATemplateIMANG(alg, &report.PcrInfo, manifest)
+	default:
+		return fmt.Errorf("ima validation failed: invalid template, %s", imaTemplateName)
+	}
+}
+
+func getIMATemplateName(item *entity.ManifestItem) string {
+	parsedManifest, err := parseIMAManifestItem(item.Detail)
+	if err != nil {
+		return "N/A"
+	}
+	return parsedManifest.TemplateName
+}
+
+func validateIMABootAggregate(h hash.Hash, pcrInfo *entity.PcrInfo, aggregateValue string) error {
 	// use pcr0-7 in report to calculate boot_aggregate
-	temp := []byte{}
 	for i := 0; i < 8; i++ {
-		pcrValueBytes, err := hex.DecodeString(report.PcrInfo.Values[i])
+		pcrValueBytes, err := hex.DecodeString(pcrInfo.Values[i])
 		if err != nil {
 			return fmt.Errorf("DecodeString failed")
 		}
-		temp = append(temp, pcrValueBytes...)
+		h.Write(pcrValueBytes)
 	}
-	h1 := sha1.New()
-	h1.Write(temp)
-	newBootAggreBytes := h1.Sum(nil)
+	newBootAggreBytes := h.Sum(nil)
 
-	// compare boot_aggregate with ima[0].boot_aggregate
-	if hex.EncodeToString(newBootAggreBytes) != manifest.Items[0].Value {
-		return fmt.Errorf("ima manifest validation falied")
+	// compare boot_aggregate with given boot aggregate string
+	if hex.EncodeToString(newBootAggreBytes) != aggregateValue {
+		return fmt.Errorf("boot aggregate validation falied")
+	}
+
+	return nil
+}
+
+func validateIMANGBootAggregate(h hash.Hash, pcrInfo *entity.PcrInfo, aggregateValue string) error {
+	// remove the [alg:] prefix
+	idx := strings.Index(aggregateValue, ":")
+	agValue := aggregateValue[idx+1:]
+
+	return validateIMABootAggregate(h, pcrInfo, agValue)
+}
+
+func newHash(alg string) hash.Hash {
+	newHash, _ := matchHashAlgNewFunc(alg)
+	if newHash != nil {
+		return newHash()
+	}
+	return nil
+}
+
+func validateIMATemplateIMA(hashAlg string, pcrInfo *entity.PcrInfo, manifest *entity.Manifest) error {
+	if hashAlg != sha1AlgStr {
+		return fmt.Errorf("non-supported hash alg with ima-template: %s", hashAlg)
+	}
+	h := sha1.New()
+	if h == nil {
+		return fmt.Errorf("out of memory")
+	}
+	err := validateIMABootAggregate(h, pcrInfo, manifest.Items[0].Value)
+	if err != nil {
+		return fmt.Errorf("ima manifest validation falied: %v", err)
 	}
 
 	// use ima manifest to calculate pseudoPCR
-	changedPCRid := []uint32{}
-	pseudoPCR := createPseudoPCRExtender("sha1")
+	pseudoPCR := createPseudoPCRExtender(hashAlg)
 	if pseudoPCR == nil {
-		return fmt.Errorf("create pseudo PCRs failed")
+		return fmt.Errorf("ima validator create pseudo PCRs failed")
 	}
-	err := ExtendPCRForIMAItems(pseudoPCR, manifest.Items, &changedPCRid)
+	imaTH := createIMATemplateHandler(hashAlg)
+	if imaTH == nil {
+		return fmt.Errorf("create ima template hasher failed")
+	}
+	changedPCRid, err := ExtendPCRForIMAItems(pseudoPCR, imaTH, manifest.Items)
+	if err != nil {
+		return fmt.Errorf("pcr extend failed (use ima): %v", err)
+	}
+
+	//compare pseudoPCR with pcrs in report
+	for pcrindex := range changedPCRid {
+		if pcrInfo.Values[pcrindex] != hex.EncodeToString(pseudoPCR.pcrs[pcrindex]) {
+			return fmt.Errorf("ima validation failed: invalid ima")
+		}
+	}
+
+	return nil
+}
+
+func validateIMATemplateIMANG(hashAlg string, pcrInfo *entity.PcrInfo, manifest *entity.Manifest) error {
+	h := newHash(hashAlg)
+	if h == nil {
+		return fmt.Errorf("out of memory or not supported hash algorithm")
+	}
+	err := validateIMANGBootAggregate(h, pcrInfo, manifest.Items[0].Value)
+	if err != nil {
+		return fmt.Errorf("ima-ng manifest validation falied: %v", err)
+	}
+
+	// use ima manifest to calculate pseudoPCR
+	pseudoPCR := createPseudoPCRExtender(hashAlg)
+	if pseudoPCR == nil {
+		return fmt.Errorf("ima-ng validator create pseudo PCRs failed")
+	}
+	imaTH := createIMANGTemplateHandler(hashAlg)
+	if imaTH == nil {
+		return fmt.Errorf("create ima-ng template hasher failed")
+	}
+	changedPCRid, err := ExtendPCRForIMAItems(pseudoPCR, imaTH, manifest.Items)
 	if err != nil {
 		return fmt.Errorf("pcr extend failed (use ima)")
 	}
 
 	//compare pseudoPCR with pcrs in report
-	for _, pcrindex := range changedPCRid {
-		if report.PcrInfo.Values[int(pcrindex)] != hex.EncodeToString(pseudoPCR.pcrs[pcrindex]) {
+	for pcrindex := range changedPCRid {
+		if pcrInfo.Values[pcrindex] != hex.EncodeToString(pseudoPCR.pcrs[pcrindex]) {
 			return fmt.Errorf("ima validation failed: invalid ima")
 		}
 	}
