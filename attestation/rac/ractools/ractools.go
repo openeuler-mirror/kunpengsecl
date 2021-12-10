@@ -459,9 +459,48 @@ func (t *TrustReportIn) hash() []byte {
 	return bHash.Sum(nil)
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (tpm *TPM) readPcrs(pcrSelection tpm2.PCRSelection) (map[int][]byte, error) {
+
+	numPCRs := len(pcrSelection.PCRs)
+	out := map[int][]byte{}
+
+	for i := 0; i < numPCRs; i += 8 {
+		// Build a selection structure, specifying 8 PCRs at a time
+		end := min(i+8, numPCRs)
+		pcrSel := tpm2.PCRSelection{
+			Hash: pcrSelectionAll.Hash,
+			PCRs: pcrSelectionAll.PCRs[i:end],
+		}
+
+		// Ask the TPM for those PCR values.
+		ret, err := tpm2.ReadPCRs(tpm.dev, pcrSel)
+		if err != nil {
+			log.Printf("ReadPCRs(%+v) failed: %v", pcrSel, err)
+			return nil, err
+		}
+
+		// Keep track of the PCRs we were actually given.
+		for pcr, digest := range ret {
+			out[pcr] = digest
+		}
+	}
+
+	if len(out) != numPCRs {
+		return nil, errors.New("Failed to read all PCRs")
+	}
+	return out, nil
+}
+
 //createTrustReport function collect some information, then return the TrustReport
 func (tpm *TPM) createTrustReport(useHW bool, pcrSelection tpm2.PCRSelection, tRepIn *TrustReportIn) (*TrustReport, error) {
-	pcrmp, err := tpm2.ReadPCRs(tpm.dev, pcrSelection)
+	pcrmp, err := tpm.readPcrs(pcrSelection)
 	if err != nil {
 		return &TrustReport{}, err
 	}
