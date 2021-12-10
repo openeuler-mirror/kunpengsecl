@@ -445,7 +445,8 @@ func TestIMAVerify(t *testing.T) {
 
 func TestIMAValidate(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault(config.ConfServer)
+	config := config.GetDefault(config.ConfServer)
+	config.SetDigestAlgorithm("sha1")
 	defer test.RemoveConfigFile()
 	var iv *IMAVerifier
 
@@ -460,7 +461,7 @@ func TestIMAValidate(t *testing.T) {
 			5:  sha1HashAllZero,
 			6:  sha1HashAllZero,
 			7:  sha1HashAllZero,
-			10: "41bdfa8ecc891b23da8d9be1487b55d828f5ae65",
+			10: "495fae6cef47018b3b4af87ba89e90d9ccef3089",
 		},
 		Quote: entity.PcrQuote{
 			Quoted: []byte(quoteVal),
@@ -470,17 +471,17 @@ func TestIMAValidate(t *testing.T) {
 	item := entity.ManifestItem{
 		Name:   "boot_aggregate",
 		Value:  "6963796540f9a94a8770f6dea2038d5a1a8b6a21",
-		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"6963796540f9a94a8770f6dea2038d5a1a8b6a21\",\"TemplateName\":\"name1\",\"FiledataHash\":\"0000000000000000000000000000000000000000\",\"FilenameHint\":\"boot_aggregate\"}",
+		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"52e5667be7d60a7ade219948519ee280fb9c6aff\",\"TemplateName\":\"ima\",\"FiledataHash\":\"6963796540f9a94a8770f6dea2038d5a1a8b6a21\",\"FilenameHint\":\"boot_aggregate\"}",
 	}
 	item2 := entity.ManifestItem{
 		Name:   "hint2",
-		Value:  "c4b091b099eaaacb9e01295be8a1eb6de21da66e",
-		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"c4b091b099eaaacb9e01295be8a1eb6de21da66e\",\"TemplateName\":\"name2\",\"FiledataHash\":\"0000000000000000000000000000000000000000\",\"FilenameHint\":\"hint2\"}",
+		Value:  "cc7337642a6dd41d45203ca8085727d2bbc1569a",
+		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"8bbbc2b6f723dc32808a10ecdf48fe254db336d1\",\"TemplateName\":\"ima\",\"FiledataHash\":\"cc7337642a6dd41d45203ca8085727d2bbc1569a\",\"FilenameHint\":\"hint2\"}",
 	}
 	item3 := entity.ManifestItem{
 		Name:   "hint3",
-		Value:  "d4a5327c1b04a1129220e821331c68c3b3179a9c",
-		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"d4a5327c1b04a1129220e821331c68c3b3179a9c\",\"TemplateName\":\"name3\",\"FiledataHash\":\"0000000000000000000000000000000000000000\",\"FilenameHint\":\"hint3\"}",
+		Value:  "cc7337642a6dd41d45203ca8085727d2bbc1569a",
+		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"738fad65e6b8366d167b34f7e76688fbc3af8024\",\"TemplateName\":\"ima\",\"FiledataHash\":\"cc7337642a6dd41d45203ca8085727d2bbc1569a\",\"FilenameHint\":\"hint3\"}",
 	}
 	mf := entity.Manifest{
 		Type:  mtIMA,
@@ -497,19 +498,41 @@ func TestIMAValidate(t *testing.T) {
 		Verified: false,
 	}
 
+	pibv1 := pibv
+	pibv1.Values[10] = "ba50b739ca51b77deba25d0ce9cee00f39820c13"
+	mf1 := mf
+	mf1.Items[0].Value = "sha1:6963796540f9a94a8770f6dea2038d5a1a8b6a21"
+	mf1.Items[0].Detail = "{\"Pcr\":\"10\",\"TemplateHash\":\"04f89f802b9453d7952748cee55f58a0f34686c5\",\"TemplateName\":\"ima-ng\",\"FiledataHash\":\"sha1:6963796540f9a94a8770f6dea2038d5a1a8b6a21\",\"FilenameHint\":\"boot_aggregate\"}"
+	mf1.Items[1].Value = "sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a"
+	mf1.Items[1].Detail = "{\"Pcr\":\"10\",\"TemplateHash\":\"e4fb65643b608c6800c35008f278a8ab92e04d71\",\"TemplateName\":\"ima-ng\",\"FiledataHash\":\"sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a\",\"FilenameHint\":\"hint2\"}"
+	mf1.Items[2].Value = "sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a"
+	mf1.Items[2].Detail = "{\"Pcr\":\"10\",\"TemplateHash\":\"9592ab9e18b97bc32ccb08285778f32148f6e801\",\"TemplateName\":\"ima-ng\",\"FiledataHash\":\"sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a\",\"FilenameHint\":\"hint3\"}"
+
+	report1 := &entity.Report{
+		PcrInfo:  pibv1,
+		Manifest: []entity.Manifest{mf1},
+		ClientID: 1,
+		ClientInfo: entity.ClientInfo{
+			Info: nil,
+		},
+		Verified: false,
+	}
+
 	testCase := []struct {
 		input  *entity.Report
 		result error
 	}{
 		{report, nil},
+		{report1, nil},
 		//{report, errcase},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := iv.Validate(testCase[i].input)
-		if err == testCase[i].result || err.Error() == testCase[i].result.Error() {
+		res := testCase[i].result
+		if err == res || (res != nil && err.Error() == testCase[i].result.Error()) {
 			t.Logf("test ima Validate success at case %d\n", i)
 		} else {
-			t.Errorf("test ima Validate error at case %d\n", i)
+			t.Errorf("test ima Validate error at case %d: %v\n", i, err)
 		}
 	}
 }

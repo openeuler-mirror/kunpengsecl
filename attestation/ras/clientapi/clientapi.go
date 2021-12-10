@@ -509,7 +509,7 @@ func unmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
 			}
 			result.Items = append(result.Items, entity.ManifestItem{
 				Name:   items[4],
-				Value:  items[1],
+				Value:  items[3],
 				Detail: string(detail),
 			})
 		case 0, 1:
