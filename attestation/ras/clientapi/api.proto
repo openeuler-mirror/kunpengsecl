@@ -3,26 +3,34 @@ syntax = "proto3";
 option go_package = "gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi";
 
 service Ras {
-  rpc CreateIKCert (CreateIKCertRequest) returns (CreateIKCertReply) {}
-  rpc GenerateEKCert(GenerateEKCertRequest) returns (GenerateEKCertReply) {}
+  rpc GenerateEKCert (GenerateEKCertRequest) returns (GenerateEKCertReply) {}
+  rpc GenerateIKCert (GenerateIKCertRequest) returns (GenerateIKCertReply) {}
   rpc RegisterClient (RegisterClientRequest) returns (RegisterClientReply) {}
   rpc UnregisterClient (UnregisterClientRequest) returns (UnregisterClientReply) {}
   rpc SendHeartbeat (SendHeartbeatRequest) returns (SendHeartbeatReply) {}
   rpc SendReport (SendReportRequest) returns (SendReportReply) {}
 }
 
-message CreateIKCertRequest {
-  string ekCert = 1;
-  string ikPub = 2;
+message GenerateEKCertRequest {
+  bytes ekPub = 1;
+}
+
+message GenerateEKCertReply {
+  bytes ekCert = 1;
+}
+
+message GenerateIKCertRequest {
+  bytes ekCert = 1;
+  bytes ikPub  = 2;
   bytes ikName = 3;
 }
 
-message CreateIKCertReply {
-  bytes EncryptedIC = 1;
-  bytes CredBlob = 2;
-  bytes EncryptedSecret = 3;
-  string EncryptAlg = 4;
-  bytes EncryptParam = 5;
+message GenerateIKCertReply {
+  bytes encryptedIC = 1;
+  bytes credBlob = 2;
+  bytes encryptedSecret = 3;
+  string encryptAlg = 4;
+  bytes encryptParam = 5;
 }
 
 message RegisterClientRequest {
@@ -59,14 +67,6 @@ message UnregisterClientReply {
 
 message SendHeartbeatRequest {
   int64 clientId = 1;
-}
-
-message GenerateEKCertRequest {
-  bytes ekPub = 1;
-}
-
-message GenerateEKCertReply {
-  bytes ekCert = 1;
 }
 
 message SendHeartbeatReply {

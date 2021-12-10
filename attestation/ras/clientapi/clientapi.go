@@ -19,18 +19,17 @@ package clientapi
 import (
 	"bytes"
 	"context"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"net"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
@@ -64,32 +63,60 @@ type service struct {
 	cm *cache.CacheMgr
 }
 
-func (s *service) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
-	to, err := pca.GetIkCert(in.GetEkCert(), in.GetIkPub(), in.GetIkName())
-	if err != nil {
-		return &CreateIKCertReply{}, errors.Wrap(err, "failed to get ikCert")
-	}
-	return &CreateIKCertReply{
-		EncryptedIC:     to.EncryptedCert,
-		CredBlob:        to.TPMSymKeyParams.CredBlob,
-		EncryptedSecret: to.TPMSymKeyParams.EncryptedSecret,
-		EncryptAlg:      to.TPMSymKeyParams.EncryptAlg,
-		EncryptParam:    to.TPMSymKeyParams.EncryptParam,
-	}, nil
-}
-
+// GenerateEKCert handles the generation of the EK certificate for client
 func (s *service) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
 	log.Printf("Server: receive GenerateEKCert")
-	ekPub, err := x509.ParsePKIXPublicKey(in.GetEkPub())
-	if err != nil {
-		return &GenerateEKCertReply{}, errors.New("failed to parse ekPub : " + err.Error())
+	c := config.GetDefault(config.ConfServer)
+	ip, _ := entity.GetIP()
+	template := x509.Certificate{
+		SerialNumber:   big.NewInt(1),
+		NotBefore:      time.Now(),
+		NotAfter:       time.Now().AddDate(10, 0, 0),
+		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		IsCA:           false,
+		MaxPathLenZero: true,
+		IPAddresses:    []net.IP{net.ParseIP(ip)},
 	}
+	ekCert, err := pca.GenerateCertificate(&template, c.GetPcaKeyCert(), in.GetEkPub(), c.GetPcaPrivateKey())
+	if err != nil {
+		return &GenerateEKCertReply{}, err
+	}
+	return &GenerateEKCertReply{EkCert: ekCert}, nil
+}
 
-	ekcert, err := pca.GenerateEKCert((ekPub).(*rsa.PublicKey))
-	if err != nil {
-		return &GenerateEKCertReply{}, errors.New("failed to GenerateEKCert : " + err.Error())
+// GenerateIKCert handles the generation of the IK certificate for client
+func (s *service) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
+	log.Printf("Server: receive GenerateIKCert and encrypt it")
+	c := config.GetDefault(config.ConfServer)
+	ip, _ := entity.GetIP()
+	template := x509.Certificate{
+		SerialNumber:   big.NewInt(1),
+		NotBefore:      time.Now(),
+		NotAfter:       time.Now().AddDate(1, 0, 0),
+		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		IsCA:           false,
+		MaxPathLenZero: true,
+		IPAddresses:    []net.IP{net.ParseIP(ip)},
 	}
-	return &GenerateEKCertReply{EkCert: ekcert}, nil
+	ikCertDer, err := pca.GenerateCertificate(&template, c.GetPcaKeyCert(), in.GetIkPub(), c.GetPcaPrivateKey())
+	if err != nil {
+		return &GenerateIKCertReply{}, err
+	}
+	ekCert, err := x509.ParseCertificate(in.GetEkCert())
+	if err != nil {
+		return nil, err
+	}
+	encIkCert, err := pca.EncryptIKCert(ekCert.PublicKey, ikCertDer, in.GetIkName())
+	if err != nil {
+		return nil, err
+	}
+	return &GenerateIKCertReply{
+		EncryptedIC:     encIkCert.EncryptedCert,
+		CredBlob:        encIkCert.SymKeyParams.CredBlob,
+		EncryptedSecret: encIkCert.SymKeyParams.EncryptedSecret,
+		EncryptAlg:      encIkCert.SymKeyParams.EncryptAlg,
+		EncryptParam:    encIkCert.SymKeyParams.EncryptParam,
+	}, nil
 }
 
 // RegisterClient TODO: need a challenge and some statement for check nil pointer (this package functions all need this)
@@ -110,7 +137,6 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 	if err != nil {
 		return nil, err
 	}
-
 	cfg := config.GetDefault(config.ConfServer)
 	hd := cfg.GetHBDuration()
 	td := cfg.GetTrustDuration()
@@ -122,7 +148,6 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 	if c == nil {
 		return nil, fmt.Errorf("client %d failed to create cache", clientID)
 	}
-	log.Printf("reg %d", clientID)
 
 	return &RegisterClientReply{
 		ClientId: clientID,
@@ -314,8 +339,8 @@ func makesock(addr string) (*rasConn, error) {
 	return ras, nil
 }
 
-// DoCreateIKCert creates an identity certificate from ras server.
-func DoCreateIKCert(addr string, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
+// DoGenerateEKCert generates an ek certificate from ras server for client.
+func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
 	ras, err := makesock(addr)
 	if err != nil {
 		log.Printf("%v", err)
@@ -324,7 +349,26 @@ func DoCreateIKCert(addr string, in *CreateIKCertRequest) (*CreateIKCertReply, e
 	defer ras.conn.Close()
 	defer ras.cancel()
 
-	bk, err := ras.c.CreateIKCert(ras.ctx, in)
+	bk, err := ras.c.GenerateEKCert(ras.ctx, in)
+	if err != nil {
+		log.Printf("Client: invoke GenerateEKCert error %v", err)
+		return nil, err
+	}
+	log.Printf("Client: invoke GenerateEKCert ok")
+	return bk, nil
+}
+
+// DoGenerateIKCert generates an identity certificate from ras server for client.
+func DoGenerateIKCert(addr string, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
+	ras, err := makesock(addr)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+
+	bk, err := ras.c.GenerateIKCert(ras.ctx, in)
 	if err != nil {
 		log.Printf("Client: invoke CreateIKCert error %v", err)
 		return nil, err
@@ -410,31 +454,11 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 	return bk, nil
 }
 
-// DoSendReport sends a trust report message to the ras server.
-func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
-	ras, err := makesock(addr)
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, err
-	}
-	defer ras.conn.Close()
-	defer ras.cancel()
-
-	bk, err := ras.c.GenerateEKCert(ras.ctx, in)
-	if err != nil {
-		log.Printf("Client: invoke GenerateEKCert error %v", err)
-		return nil, err
-	}
-	log.Printf("Client: invoke GenerateEKCert ok")
-	return bk, nil
-}
-
 func getHashValue(alg string, evt *entity.BIOSManifestItem) string {
 	algMap := map[string]string{
 		sha1AlgStr:   sha1AlgID,
 		sha256AlgStr: sha256AlgID,
 	}
-
 	if algID, ok := algMap[alg]; ok {
 		for _, hv := range evt.Digest.Item {
 			if hv.AlgID == algID {
@@ -442,7 +466,6 @@ func getHashValue(alg string, evt *entity.BIOSManifestItem) string {
 			}
 		}
 	}
-
 	return ""
 }
 

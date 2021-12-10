@@ -1,7 +1,7 @@
 racconfig:
   clientid: -1
+  digestalgorithm: sha256
   hbduration: 5s
   password: ""
   server: 127.0.0.1:40001
   trustduration: 2m0s
-  digestalgorithm: sha256

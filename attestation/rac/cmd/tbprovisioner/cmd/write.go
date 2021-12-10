@@ -57,7 +57,17 @@ The data comes from input or from a file. Default input data is PEM format.
 					os.Exit(1)
 				}
 			}
-			tp, err := ractools.OpenTPM(!wSim)
+			tpmConf := ractools.TPMConfig{}
+			if wSim {
+				tpmConf.IMALogPath = ractools.TestImaLogPath
+				tpmConf.BIOSLogPath = ractools.TestBiosLogPath
+				tpmConf.ReportHashAlg = ""
+			} else {
+				tpmConf.IMALogPath = ractools.ImaLogPath
+				tpmConf.BIOSLogPath = ractools.BiosLogPath
+				tpmConf.ReportHashAlg = ""
+			}
+			tp, err := ractools.OpenTPM(!wSim, &tpmConf)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)

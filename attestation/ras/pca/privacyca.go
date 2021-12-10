@@ -187,6 +187,9 @@ func aesCBCEncrypt(key, iv, plaintext []byte) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
+	if iv == nil {
+		iv = bytes.Repeat([]byte("\x00"), cb.BlockSize())
+	}
 	n := cb.BlockSize()
 	d := pkcs7Pad(plaintext, n)
 	bm := cipher.NewCBCEncrypter(cb, iv)
@@ -200,6 +203,9 @@ func aesCBCDecrypt(key, iv, ciphertext []byte) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
+	if iv == nil {
+		iv = bytes.Repeat([]byte("\x00"), cb.BlockSize())
+	}
 	bm := cipher.NewCBCDecrypter(cb, iv)
 	plaintext := make([]byte, len(ciphertext))
 	bm.CryptBlocks(plaintext, ciphertext)
@@ -210,6 +216,9 @@ func aesCFBEncrypt(key, iv, plaintext []byte) ([]byte, error) {
 	cb, err := aes.NewCipher(key)
 	if err != nil {
 		return []byte{}, err
+	}
+	if iv == nil {
+		iv = bytes.Repeat([]byte("\x00"), cb.BlockSize())
 	}
 	st := cipher.NewCFBEncrypter(cb, iv)
 	ciphertext := make([]byte, len(plaintext))
@@ -222,6 +231,9 @@ func aesCFBDecrypt(key, iv, ciphertext []byte) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
+	if iv == nil {
+		iv = bytes.Repeat([]byte("\x00"), cb.BlockSize())
+	}
 	st := cipher.NewCFBDecrypter(cb, iv)
 	plaintext := make([]byte, len(ciphertext))
 	st.XORKeyStream(plaintext, ciphertext)
@@ -233,6 +245,9 @@ func aesOFBEncDec(key, iv, in []byte) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
+	if iv == nil {
+		iv = bytes.Repeat([]byte("\x00"), cb.BlockSize())
+	}
 	st := cipher.NewOFB(cb, iv)
 	out := make([]byte, len(in))
 	st.XORKeyStream(out, in)
@@ -243,6 +258,9 @@ func aesCTREncDec(key, iv, in []byte) ([]byte, error) {
 	cb, err := aes.NewCipher(key)
 	if err != nil {
 		return []byte{}, err
+	}
+	if iv == nil {
+		iv = bytes.Repeat([]byte("\x00"), cb.BlockSize())
 	}
 	st := cipher.NewCTR(cb, iv)
 	out := make([]byte, len(in))
@@ -566,12 +584,9 @@ Page 72
 12.6 TPM2_MakeCredential
 */
 
-func MakeCredential(ekPubKey crypto.PublicKey, credential []byte, name string) ([]byte, []byte, error) {
-	if len(name) <= 0 {
-		return []byte{}, []byte{}, ErrUnsupported
-	}
-	if credential == nil || len(credential) <= 0 || len(credential) > crypto.SHA256.Size() {
-		return []byte{}, []byte{}, ErrUnsupported
+func MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]byte, []byte, error) {
+	if len(credential) == 0 || len(name) == 0 || len(credential) > crypto.SHA256.Size() {
+		return nil, nil, ErrUnsupported
 	}
 	// step 1, size(uint16) + content
 	plaintext := new(bytes.Buffer)
@@ -581,23 +596,23 @@ func MakeCredential(ekPubKey crypto.PublicKey, credential []byte, name string) (
 	seed, _ := GetRandomBytes(KEYSIZE)
 	encSeed, _ := AsymmetricEncrypt(AlgRSA, AlgOAEP, ekPubKey, seed, []byte(IDENTITY))
 	// step 3
-	symKey, _ := KDFa(crypto.SHA256, seed, STORAGE, []byte(name), nil, KEYSIZE*8)
+	symKey, _ := KDFa(crypto.SHA256, seed, STORAGE, name, nil, KEYSIZE*8)
 	// step 4
-	encIdentity, _ := SymmetricEncrypt(AlgAES, AlgCFB, symKey, []byte{}, plaintext.Bytes())
+	encIdentity, _ := SymmetricEncrypt(AlgAES, AlgCFB, symKey, nil, plaintext.Bytes())
 	// step 5
 	hmacKey, _ := KDFa(crypto.SHA256, seed, INTEGRITY, nil, nil, crypto.SHA256.Size()*8)
 	// step 6
 	integrityBuf := new(bytes.Buffer)
 	binary.Write(integrityBuf, binary.BigEndian, encIdentity)
-	binary.Write(integrityBuf, binary.BigEndian, []byte(name))
+	binary.Write(integrityBuf, binary.BigEndian, name)
 	mac := hmac.New(sha256.New, hmacKey)
 	mac.Write(integrityBuf.Bytes())
 	integrity := mac.Sum(nil)
 	// last step: prepare output
-	credentialBlob := new(bytes.Buffer)
-	binary.Write(credentialBlob, binary.BigEndian, uint16(len(integrity)+len(encIdentity))) // need +2 bytes?
-	binary.Write(credentialBlob, binary.BigEndian, uint16(len(integrity)))
-	binary.Write(credentialBlob, binary.BigEndian, integrity)
-	binary.Write(credentialBlob, binary.BigEndian, encIdentity)
-	return credentialBlob.Bytes(), encSeed, nil
+	allBlob := new(bytes.Buffer)
+	binary.Write(allBlob, binary.BigEndian, uint16(2+len(integrity)+len(encIdentity)))
+	binary.Write(allBlob, binary.BigEndian, uint16(len(integrity)))
+	binary.Write(allBlob, binary.BigEndian, integrity)
+	binary.Write(allBlob, binary.BigEndian, encIdentity)
+	return allBlob.Bytes(), encSeed, nil
 }

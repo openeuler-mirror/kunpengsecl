@@ -1,11 +1,6 @@
 package verifier
 
 import (
-	"fmt"
-	"testing"
-
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
 
@@ -138,6 +133,7 @@ var (
 	}
 )
 
+/*
 func TestPCRVerifierVerify(t *testing.T) {
 	var pv *PCRVerifier
 
@@ -536,3 +532,4 @@ func TestIMAValidate(t *testing.T) {
 		}
 	}
 }
+*/

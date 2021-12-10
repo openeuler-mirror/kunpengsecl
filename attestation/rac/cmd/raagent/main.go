@@ -1,13 +1,16 @@
 package main
 
 import (
+	"crypto/x509"
 	"log"
+	"os"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/rac/ractools"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 	"github.com/spf13/pflag"
 )
 
@@ -19,62 +22,38 @@ func main() {
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
 	pflag.Parse()
 	cfg := config.GetDefault(config.ConfClient)
+	config.SetupSignalHandler()
 	testMode := cfg.GetTestMode()
 	server := cfg.GetServer()
 	cid := cfg.GetClientId()
-	tpm, err := ractools.OpenTPM(!testMode)
+	tpmConf := ractools.TPMConfig{}
+	if testMode {
+		tpmConf.IMALogPath = ractools.TestImaLogPath
+		tpmConf.BIOSLogPath = ractools.TestBiosLogPath
+		tpmConf.ReportHashAlg = ""
+	} else {
+		tpmConf.IMALogPath = ractools.ImaLogPath
+		tpmConf.BIOSLogPath = ractools.BiosLogPath
+		tpmConf.ReportHashAlg = ""
+	}
+	tpm, err := ractools.OpenTPM(!testMode, &tpmConf)
 	if err != nil {
-		log.Printf("OpenTPM failed, error: %s \n", err)
-		return
+		log.Printf("OpenTPM failed, error: %s\n", err)
+		os.Exit(1)
 	}
 	defer tpm.Close()
-	//the input is not be used now
-	//TODO: add tpm config file
-	tpm.Prepare(&ractools.TPMConfig{}, server, generateEKCert)
 
-	// step 2. if rac doesn't have clientId, it uses Cert to do the register process.
-	if cid < 0 {
-		ekCert, err := tpm.GetEKCert()
-		if err != nil {
-			log.Printf("GetEkCert failed, error: %s \n", err)
-		}
+	// in test mode, create EK, generate EC from PCA and save it in NVRAM
+	if testMode {
+		generateECForTest(tpm)
+	}
 
-		req := clientapi.CreateIKCertRequest{
-			EkCert: string(ekCert),
-			IkPub:  string(tpm.GetIKPub()),
-			IkName: tpm.GetIKName(),
-		}
-		bkk, err := clientapi.DoCreateIKCert(server, &req)
-		if err != nil {
-			log.Fatal("Client:can't Create IkCert")
-		}
-
-		ic, err := tpm.ActivateIKCert(&ractools.IKCertInput{
-			CredBlob:        bkk.CredBlob,
-			EncryptedSecret: bkk.EncryptedSecret,
-			EncryptedCert:   bkk.EncryptedIC,
-			DecryptAlg:      bkk.EncryptAlg,
-			DecryptParam:    bkk.EncryptParam,
-		})
-		if err != nil {
-			log.Fatalf("Client: ActivateIKCert failed, error: %v", err)
-		}
-
-		clientInfo, err := ractools.GetClientInfo(!testMode)
-		if err != nil {
-			log.Fatalf("Client: GetClientInfo failed, error: %v", err)
-		}
-		bk, err := clientapi.DoRegisterClient(server, &clientapi.RegisterClientRequest{
-			Ic:         &clientapi.Cert{Cert: ic},
-			ClientInfo: &clientapi.ClientInfo{ClientInfo: clientInfo},
-		})
-		if err != nil {
-			log.Fatal("Client: can't register rac!")
-		}
-		cid = bk.GetClientId()
+	// step 2. if rac doesn't have clientId, uses EC and ikPub to sign
+	// a IC and do the register process.
+	if cid <= 0 {
+		cid = getICAndDoRegister(tpm)
 		cfg.SetClientId(cid)
-		cfg.SetHBDuration(time.Duration((int64)(time.Second) * bk.GetClientConfig().HbDurationSeconds))
-		log.Printf("Client: get clientId=%d", cid)
+		//cfg.SetHBDuration(time.Duration((int64)(time.Second) * bk.GetClientConfig().HbDurationSeconds))
 		config.Save()
 	}
 
@@ -96,7 +75,73 @@ func main() {
 	}
 }
 
+func generateECForTest(t *ractools.TPM) {
+	cfg := config.GetDefault(config.ConfClient)
+	t.GenerateEPubKeyTest()
+	if cfg.GetEKeyCertTest() == nil {
+		ekPubDer, err := x509.MarshalPKIXPublicKey(t.EK.Pub)
+		if err != nil {
+			log.Fatal("Client: can't get Ek public der data")
+		}
+		server := cfg.GetServer()
+		reqEC := clientapi.GenerateEKCertRequest{
+			EkPub: ekPubDer,
+		}
+		rspEC, err := clientapi.DoGenerateEKCert(server, &reqEC)
+		if err != nil {
+			log.Fatal("Client: can't Create EkCert")
+		}
+		cfg.SetEKeyCertTest(rspEC.EkCert)
+	}
+	t.DefineNVRAM(ractools.IndexRsa2048EKCert, uint16(len(cfg.GetEKeyCertBytesTest())))
+	t.WriteNVRAM(ractools.IndexRsa2048EKCert, cfg.GetEKeyCertBytesTest())
+}
+
+func getICAndDoRegister(t *ractools.TPM) int64 {
+	cfg := config.GetDefault(config.ConfClient)
+	server := cfg.GetServer()
+	t.GenerateIPrivKeyTest()
+	ikPubDer, err := x509.MarshalPKIXPublicKey(t.IK.Pub)
+	if err != nil {
+		log.Fatal("Client: can't get Ik public der data")
+	}
+	reqIC := clientapi.GenerateIKCertRequest{
+		EkCert: cfg.GetEKeyCertBytesTest(),
+		IkPub:  ikPubDer,
+		IkName: t.IK.Name,
+	}
+	rspIC, err := clientapi.DoGenerateIKCert(server, &reqIC)
+	if err != nil {
+		log.Fatal("Client: can't Create IkCert")
+	}
+	icDer, err := t.ActivateIKCert(&ractools.IKCertInput{
+		CredBlob:        rspIC.CredBlob,
+		EncryptedSecret: rspIC.EncryptedSecret,
+		EncryptedCert:   rspIC.EncryptedIC,
+		DecryptAlg:      rspIC.EncryptAlg,
+		DecryptParam:    rspIC.EncryptParam,
+	})
+	if err != nil {
+		log.Fatalf("Client: ActivateIKCert failed, error: %v", err)
+	}
+	icPem, _ := pca.EncodeKeyCertToPEM(icDer)
+	clientInfo, err := ractools.GetClientInfo(!cfg.GetTestMode())
+	if err != nil {
+		log.Fatalf("Client: GetClientInfo failed, error: %v", err)
+	}
+	bk, err := clientapi.DoRegisterClient(server, &clientapi.RegisterClientRequest{
+		Ic:         &clientapi.Cert{Cert: icPem},
+		ClientInfo: &clientapi.ClientInfo{ClientInfo: clientInfo},
+	})
+	if err != nil {
+		log.Fatal("Client: can't register rac!")
+	}
+	cid := bk.GetClientId()
+	return cid
+}
+
 // Generate EKCert through grpc call clientapi.DoGenerateEKCert
+/*
 func generateEKCert(ekPub []byte, server string) ([]byte, error) {
 	req := clientapi.GenerateEKCertRequest{
 		EkPub: ekPub,
@@ -107,6 +152,7 @@ func generateEKCert(ekPub []byte, server string) ([]byte, error) {
 	}
 	return bk.EkCert, nil
 }
+*/
 
 // DoNextAction checks the nextAction field and invoke the corresponding handler function.
 func DoNextAction(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHeartbeatReply) {

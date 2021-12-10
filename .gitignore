@@ -4,6 +4,4 @@ attestation/go.sum
 attestation/vendor/
 attestation/rac/pkg/
 attestation/ras/pkg/
-integration/go.sum
-integration/vendor/
-integration/pkg/
+attestation/ras/example/pkg/

@@ -8,6 +8,7 @@ import (
 
 //定义几个相关的结构体，用于存放相关信息
 //
+/*
 const (
 	EmptyPassword = ""
 	RootPEM       = `
@@ -135,6 +136,7 @@ bibTTzlA29xPeQCGKHsWiH1Z+XR4eMUC6KLmu3oaAHMoafUx060xgfQdkMtxJ+b1
 MwIDAQAB
 -----END PUBLIC KEY-----`
 )
+*/
 
 var (
 	PcrSelection     = tpm2.PCRSelection{Hash: tpm2.AlgSHA1, PCRs: []int{0}}
@@ -158,22 +160,26 @@ var (
 )
 
 type IKCertChallenge struct {
-	EncryptedCert   []byte
-	TPMSymKeyParams TPMSymKeyParams
+	EncryptedCert []byte
+	SymKeyParams  SymKeyParams
 }
-type TPMSymKeyParams struct {
-	//可能还要存放加密的算法等参数
+
+type SymKeyParams struct {
 	CredBlob        []byte
 	EncryptedSecret []byte
-	EncryptAlg      string // the algorithm & scheme used to encrypt the IK Cert
-	EncryptParam    []byte // the parameter required by the encrypt algorithm to decrypt the IK Cert
-	// if EncryptAlg == "AES128-CBC" then it is the IV used to encrypt IK Cert together with the key recovered from CredBlob & EncryptedSecret
-
+	// the algorithm & scheme used to encrypt the IK Cert
+	EncryptAlg string
+	// the parameter required by the encrypt algorithm to decrypt the IK Cert
+	// if encryptAlg == "AES128-CBC" then it is the IV used to encrypt IK Cert
+	// together with the key recovered from credBlob & encryptedSecret
+	EncryptParam []byte
 }
+
 type TPMAsymKeyParams struct {
 	TPMAsymAlgorithm string
 	TPMEncscheme     string
 }
+
 type Request struct {
 	//身份请求
 	TPMVer string //TPM版本
@@ -181,11 +187,12 @@ type Request struct {
 	IkName []byte //ak名字
 
 }
+
 type IdentitySymKey struct {
 	//身份会话密钥内容
 	IdentityReq      Request
 	TPMAsymmetricKey TPMAsymKeyParams
-	TPMSymmetricKey  TPMSymKeyParams
+	SymmetricKey     SymKeyParams
 	SymBlob          []byte //用于存放加密后的身份证明
 	AsymBlob         []byte //用以存放加密的会话密钥
 }

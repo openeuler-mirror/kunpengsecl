@@ -47,7 +47,17 @@ var (
 				fmt.Println("data length is too long.")
 				os.Exit(1)
 			}
-			tp, err := ractools.OpenTPM(!dSim)
+			tpmConf := ractools.TPMConfig{}
+			if dSim {
+				tpmConf.IMALogPath = ractools.TestImaLogPath
+				tpmConf.BIOSLogPath = ractools.TestBiosLogPath
+				tpmConf.ReportHashAlg = ""
+			} else {
+				tpmConf.IMALogPath = ractools.ImaLogPath
+				tpmConf.BIOSLogPath = ractools.BiosLogPath
+				tpmConf.ReportHashAlg = ""
+			}
+			tp, err := ractools.OpenTPM(!dSim, &tpmConf)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)

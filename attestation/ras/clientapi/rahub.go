@@ -32,9 +32,9 @@ type rahub struct {
 	rasAddr string
 }
 
-func (s *rahub) CreateIKCert(ctx context.Context, in *CreateIKCertRequest) (*CreateIKCertReply, error) {
+func (s *rahub) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
 	log.Printf("rahub: receive CreateIKCert")
-	return DoCreateIKCert(s.rasAddr, in)
+	return DoGenerateIKCert(s.rasAddr, in)
 }
 
 func (s *rahub) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
