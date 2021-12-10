@@ -73,6 +73,7 @@ func TestCreateTrustReport(t *testing.T) {
 }
 
 func TestNVRAM(t *testing.T) {
+	var testNVIndex uint32 = 0x01C00030
 	tpm, err := OpenTPM(testMode)
 	if err != nil {
 		t.Errorf("OpenTPM failed, err: %v", err)
@@ -81,22 +82,22 @@ func TestNVRAM(t *testing.T) {
 	defer tpm.Close()
 
 	// use this will have "error code 0xb : the handle is not correct for the use"
-	tpm.UndefineNVRAM(IndexRsa2048EKCert)
+	tpm.UndefineNVRAM(testNVIndex)
 
 	// concert ekPem to ekDer
 	result, _ := pem.Decode([]byte(ekPemTest))
 	ekDer := result.Bytes
 
-	tpm.DefineNVRAM(IndexRsa2048EKCert, uint16(len(ekDer)))
-	tpm.WriteNVRAM(IndexRsa2048EKCert, ekDer)
-	ekCert, err := tpm.ReadNVRAM(IndexRsa2048EKCert)
+	tpm.DefineNVRAM(testNVIndex, uint16(len(ekDer)))
+	tpm.WriteNVRAM(testNVIndex, ekDer)
+	ekCert, err := tpm.ReadNVRAM(testNVIndex)
 	if err != nil {
 		t.Errorf("ReadEKCert failed, err: %v", err)
 	}
 	if !bytes.Equal(ekCert, []byte(ekDer)) {
 		t.Errorf("EKCert are not equal, got: %v, want: %v \n", ekCert, ekDer)
 	}
-	tpm.UndefineNVRAM(IndexRsa2048EKCert)
+	tpm.UndefineNVRAM(testNVIndex)
 }
 
 // Test that we are using the simulator tpm, every time we reopen the simulator,
@@ -126,4 +127,24 @@ func TestEKUnderTestmode(t *testing.T) {
 	if !bytes.Equal(ekpub1, ekpub2) {
 		t.Errorf("EKpub are not equal, first: %v, second: %v \n", ekpub1, ekpub2)
 	}
+}
+
+func TestOpenAndCloseTPM(t *testing.T) {
+	testMode := false
+
+	t.Run("simulate tpm", func(t *testing.T) {
+		tpm, err := OpenTPM(testMode)
+		if err != nil {
+			t.Errorf("Open simulate tpm failed, error: %v \n", err)
+		}
+		tpm.Close()
+	})
+
+	t.Run("hardware tpm", func(t *testing.T) {
+		tpm, err := OpenTPM(!testMode)
+		if err != nil {
+			t.Errorf("Open hardware tpm failed, error: %v \n", err)
+		}
+		tpm.Close()
+	})
 }
