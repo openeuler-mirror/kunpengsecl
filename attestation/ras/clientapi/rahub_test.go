@@ -1,6 +1,18 @@
 package clientapi
 
-/*
+import (
+	"encoding/json"
+	"encoding/pem"
+	"fmt"
+	"testing"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
+)
+
 func TestRaHub(t *testing.T) {
 	test.CreateServerConfigFile()
 	// We can't use this default config, because the go test
@@ -22,10 +34,12 @@ func TestRaHub(t *testing.T) {
 	const addrRaHub string = ":40003"
 	go StartRaHub(addrRaHub, server)
 
+	certBlock, _ := pem.Decode([]byte(certPEM))
+	ikpubBlock, _ := pem.Decode([]byte(pubPEM))
 	_, err = DoGenerateIKCert(addrRaHub, &GenerateIKCertRequest{
-		EkCert: certPEM,
-		IkPub:  pubPEM,
-		IkName: nil,
+		EkCert: certBlock.Bytes,
+		IkPub:  ikpubBlock.Bytes,
+		IkName: testIKName,
 	})
 	if err != nil {
 		t.Errorf("Client: invoke CreateIKCert error %v", err)
@@ -80,4 +94,3 @@ func TestRaHub(t *testing.T) {
 	t.Logf("Client: invoke UnregisterClient %v", u.Result)
 
 }
-*/

@@ -1,6 +1,11 @@
 package verifier
 
 import (
+	"fmt"
+	"testing"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 )
 
@@ -133,7 +138,6 @@ var (
 	}
 )
 
-/*
 func TestPCRVerifierVerify(t *testing.T) {
 	var pv *PCRVerifier
 
@@ -367,7 +371,7 @@ func TestBIOSValidate(t *testing.T) {
 
 func TestBIOSVerify(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault(config.ConfServer)
+	config.GetDefault(config.ConfServer).SetDigestAlgorithm("sha1")
 	defer test.RemoveConfigFile()
 	var bv *BIOSVerifier
 
@@ -393,10 +397,11 @@ func TestBIOSVerify(t *testing.T) {
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := bv.Verify(testCase[i].input1, testCase[i].input2)
-		if err == testCase[i].result || err.Error() == testCase[i].result.Error() {
+		res := testCase[i].result
+		if err == res || (res != nil && err.Error() == res.Error()) {
 			t.Logf("test BIOS Verify success at case %d\n", i)
 		} else {
-			t.Errorf("test BIOS Verify error at case %d\n", i)
+			t.Errorf("test BIOS Verify error at case %d: %v\n", i, err)
 		}
 
 	}
@@ -532,4 +537,3 @@ func TestIMAValidate(t *testing.T) {
 		}
 	}
 }
-*/
