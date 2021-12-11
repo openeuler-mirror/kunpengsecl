@@ -22,7 +22,7 @@ EOF
         ;;
 esac
 
-sql=$(cat ../ras/dao/createTable.sql)
+sql=$(cat ./createTable.sql)
 sudo su - postgres <<EOF
 psql -U postgres -c "alter user postgres with password 'postgres';";
 psql -U postgres -c "create database kunpengsecl owner postgres;";
