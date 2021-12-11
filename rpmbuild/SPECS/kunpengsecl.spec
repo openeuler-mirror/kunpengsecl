@@ -46,10 +46,7 @@ make build
 rm -rf %{buildroot}/usr/bin/
 mkdir -p %{buildroot}/usr/bin/
 rm -rf %{buildroot}/etc/
-mkdir -p %{buildroot}/etc/rac/
-mkdir -p %{buildroot}/etc/rahub/
-mkdir -p %{buildroot}/etc/ras/
-mkdir -p %{buildroot}/etc/%{name}/
+mkdir -p %{buildroot}/etc/attestation/
 rm -rf %{buildroot}/usr/share/
 mkdir -p %{buildroot}/usr/share/rac/
 mkdir -p %{buildroot}/usr/share/ras/
@@ -60,16 +57,16 @@ install -m 555 %{_builddir}/%{name}-%{version}/attestation/rac/pkg/rahub %{build
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/rac/pkg/tbprovisioner %{buildroot}/usr/bin/
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/ras/pkg/ras %{buildroot}/usr/bin/
 
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/config.yaml %{buildroot}/etc/rac/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/rahub/config.yaml %{buildroot}/etc/rahub/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/ras/config.yaml %{buildroot}/etc/ras/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/config/config.yaml %{buildroot}/etc/%{name}/
+install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/config.yaml %{buildroot}/etc/attestation/
+install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/rahub/config.yaml %{buildroot}/etc/attestation/
+install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/ras/config.yaml %{buildroot}/etc/attestation/
 
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-database-env.sh %{buildroot}/usr/share/ras/
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clear-database.sh %{buildroot}/usr/share/ras/
-# install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/createTable.sql %{buildroot}/usr/share/ras/
-# install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clearTable.sql %{buildroot}/usr/share/ras/
-# install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/dropTable.sql %{buildroot}/usr/share/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/createTable.sql %{buildroot}/usr/share/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clearTable.sql %{buildroot}/usr/share/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/dropTable.sql %{buildroot}/usr/share/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/integritytools/*.sh %{buildroot}/usr/share/rac/
 install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}/usr/share/doc/
 install -m 644 %{_builddir}/%{name}-%{version}/README.en.md %{buildroot}/usr/share/doc/
 install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/doc/
@@ -85,34 +82,33 @@ install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/do
 %defattr(-,root,root,-)
 %license LICENSE
 %doc     README.md README.en.md
-%config(noreplace) %{_sysconfdir}/%{name}/config.yaml
 
 %files   rac
 %{_bindir}/raagent
 %{_bindir}/tbprovisioner
-%{_sysconfdir}/rac/config.yaml
-# /usr/share/rac/containerintegritytools
-# /usr/share/rac/pcieintegritytools
-# /usr/share/rac/hostintegritytools
+%{_sysconfdir}/attestation/config.yaml
+%{_datadir}/rac/containerintegritytool.sh
+%{_datadir}/rac/pcieintegritytool.sh
+%{_datadir}/rac/hostintegritytool.sh
 %{_docdir}/README.md
 %{_docdir}/README.en.md
 %{_docdir}/LICENSE
 
 %files   ras
 %{_bindir}/ras
-%{_sysconfdir}/ras/config.yaml
-%{_datarootdir}/ras/prepare-database-env.sh
-%{_datarootdir}/ras/clear-database.sh
-# /usr/share/ras/createTable.sql
-# /usr/share/ras/clearTable.sql
-# /usr/share/ras/dropTable.sql
+%{_sysconfdir}/attestation/config.yaml
+%{_datadir}/ras/prepare-database-env.sh
+%{_datadir}/ras/clear-database.sh
+%{_datadir}/ras/createTable.sql
+%{_datadir}/ras/clearTable.sql
+%{_datadir}/ras/dropTable.sql
 %{_docdir}/README.md
 %{_docdir}/README.en.md
 %{_docdir}/LICENSE
 
 %files   rahub
 %{_bindir}/rahub
-%{_sysconfdir}/rahub/config.yaml
+%{_sysconfdir}/attestation/config.yaml
 %{_docdir}/README.md
 %{_docdir}/README.en.md
 %{_docdir}/LICENSE
