@@ -1,8 +1,4 @@
 #!/bin/bash
-path=/etc/selinux/config
-selinux=`sed -rn "/^(SELINUX=).*\$/p" $path`
-sed -ri "s@^(SELINUX=).*\$@\1enforcing@g" $path
-touch /.autorelabel
 policyPath="/etc/ima"
 policyFile="/etc/ima/ima-policy"
 if [ ! -d $policyPath ];then
@@ -17,7 +13,31 @@ if [ ! -f $policyFile ];then
 else
    echo "file is existed-------------------success"
 fi
-cat>/etc/ima/ima-policy<<EOF
+check_results=`uname -a | grep -i "ubuntu"`
+echo "command(uname) result is: $check_results"
+if [[ $check_results ]]
+then
+  cat>/etc/ima/ima-policy<<EOF
+dont_measure fsmagic=0x9fa0
+dont_measure fsmagic=0x62656572
+dont_measure fsmagic=0x64626720
+dont_measure fsmagic=0x01021994
+dont_measure fsmagic=0x858458f6
+dont_measure fsmagic=0x73636673
+measure func=FILE_MMAP mask=MAY_EXEC
+measure func=BPRM_CHECK
+measure func=PATH_CHECK mask=MAY_READ uid=0
+EOF
+  sed -i '$a GRUB_CMDLINE_LINUX="ima' /etc/default/grub
+  sed -i '$a GRUB_CMDLINE_LINUX="ima_template=ima-ng"' /etc/default/grub
+  sed -i '$a GRUB_CMDLINE_LINUX="ima_hash=sha256"' /etc/default/grub
+  update-grub
+else
+  path=/etc/selinux/config
+  selinux=`sed -rn "/^(SELINUX=).*\$/p" $path`
+  sed -ri "s@^(SELINUX=).*\$@\1enforcing@g" $path
+  touch /.autorelabel
+  cat>/etc/ima/ima-policy<<EOF
 dont_measure fsmagic=0x9fa0
 dont_measure fsmagic=0x62656572
 dont_measure fsmagic=0x64626720
@@ -39,8 +59,11 @@ measure func=FILE_MMAP mask=MAY_EXEC
 measure func=BPRM_CHECK               
 measure func=PATH_CHECK mask=MAY_READ uid=0
 EOF
-sed -i '$a GRUB_CMDLINE_LINUX="ima ima_template=ima-ng ima_hash=sha256"' /etc/default/grub
+sed -i '$a GRUB_CMDLINE_LINUX="ima' /etc/default/grub
+sed -i '$a GRUB_CMDLINE_LINUX="ima_template=ima-ng"' /etc/default/grub
+sed -i '$a GRUB_CMDLINE_LINUX="ima_hash=sha256"' /etc/default/grub
 grub2-mkconfig -o /boot/grub2/grub.cfg
+fi
 read -p "The ima policy has been written in the file,please restart your device now[y/n] " input
 case $input in
         [yY]*)
