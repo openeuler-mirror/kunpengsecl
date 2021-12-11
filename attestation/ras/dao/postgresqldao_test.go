@@ -400,6 +400,38 @@ func TestUpdateRegisterStatusById(t *testing.T) {
 	assert.False(t, c3.IsDeleted)
 }
 
+func TestUpdateRegisterClient(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	psd, err := CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer psd.Destroy()
+
+	ic := createRandomCert()
+	cid, err := psd.RegisterClient(ci, ic)
+	assert.NoError(t, err)
+
+	time2 := time.Now()
+	ic2 := createRandomCert()
+	c2 := entity.RegisterClient{
+		ClientID:      cid,
+		RegisterTime:  time2,
+		AkCertificate: string(ic2),
+		IsOnline:      false,
+		IsDeleted:     true,
+	}
+	err = psd.UpdateRegisterClient(&c2)
+	assert.NoError(t, err)
+	result, err := psd.SelectClientById(cid)
+	assert.NoError(t, err)
+	assert.Equal(t, time2.Format("2006/01/02 15:04:05"), result.RegisterTime.Format("2006/01/02 15:04:05"))
+	assert.Equal(t, string(ic2), result.AkCertificate)
+	assert.Equal(t, false, result.IsOnline)
+	assert.Equal(t, true, result.IsDeleted)
+}
 func TestInsertAndSelectContainer(t *testing.T) {
 	test.CreateServerConfigFile()
 	config.GetDefault(config.ConfServer)

@@ -22,6 +22,7 @@ type DAO interface {
 	SelectAllClientInfobyId(clientId int64) (map[string]string, error)
 	SelectClientInfobyId(clientId int64, infoNames []string) (map[string]string, error)
 	UpdateRegisterStatusById(clientId int64, isDeleted bool) error
+	UpdateRegisterClient(rc *entity.RegisterClient) error
 	// container
 	SelectContainerByUUId(uuID string) (*entity.Container, error)
 	SelectContainerBaseValueByUUId(uuID string) (*entity.ContainerBaseValue, error)

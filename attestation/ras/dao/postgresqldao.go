@@ -639,6 +639,18 @@ func (psd *PostgreSqlDAO) UpdateRegisterStatusById(clientId int64, isDeleted boo
 	return nil
 }
 
+func (psd *PostgreSqlDAO) UpdateRegisterClient(rc *entity.RegisterClient) error {
+	psd.Lock()
+	defer psd.Unlock()
+	_, err := psd.conn.Exec(context.Background(),
+		"UPDATE register_client SET register_time=$1, ak_certificate=$2, online=$3, deleted=$4 WHERE id=$5",
+		 rc.RegisterTime, rc.AkCertificate, rc.IsOnline, rc.IsDeleted, rc.ClientID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (psd *PostgreSqlDAO) SelectContainerByUUId(uuID string) (*entity.Container, error) {
 	psd.Lock()
 	defer psd.Unlock()

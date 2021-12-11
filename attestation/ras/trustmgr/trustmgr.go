@@ -199,6 +199,14 @@ func SaveBaseValueById(clientId int64, meaInfo *entity.MeasurementInfo) error {
 	return psd.SaveBaseValue(clientId, meaInfo)
 }
 
+func UpdateRegisterClient(rc *entity.RegisterClient) error {
+	psd, err := getPostgreSQLDAO()
+	if err != nil {
+		return err
+	}
+	return psd.UpdateRegisterClient(rc)
+}
+
 func AddContainer(c *entity.Container) error {
 	psd, err := getPostgreSQLDAO()
 	if err != nil {
