@@ -405,7 +405,7 @@ func (s *RasServer) GetServer(ctx echo.Context) error {
 		if err != nil {
 			fmt.Println("not found ip")
 		}
-		briefinfo = append(briefinfo, ServerBriefInfo{ClientId: rc.ClientID, Ip: rt["ip"], Registered: rc.IsDeleted})
+		briefinfo = append(briefinfo, ServerBriefInfo{ClientId: rc.ClientID, Ip: rt["ip"], Registered: !rc.IsDeleted})
 	}
 
 	return ctx.JSON(http.StatusOK, briefinfo)
