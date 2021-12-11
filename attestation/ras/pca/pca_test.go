@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"fmt"
 	"os"
 	"testing"
 )
@@ -95,4 +96,41 @@ func TestEncodeDecodeKeyCert(t *testing.T) {
 			t.Fatal("key certificate not equal")
 		}
 	}
+}
+func TestGenerateCertificate(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	pubDer, err := EncodeKeyPubPartToDER(priv)
+	if err != nil {
+		t.Fatalf("can't encode pubkey to Pem, %v", err)
+	}
+	cert, err := GenerateCertificate(&RootTemplate, &RootTemplate, pubDer, priv)
+	if err != nil {
+		t.Fatalf("can't generate certificate, %v", err)
+	}
+	fmt.Println(cert)
+}
+func TestEncryptIKCert(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	ikCertDer, err := x509.CreateCertificate(rand.Reader, &RootTemplate, &RootTemplate, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("can't generate key certificate, %v", err)
+	}
+	cert, err := EncodeKeyCertToPEM(ikCertDer)
+	if err != nil {
+		t.Fatalf("can't encode keyCert to Pem, %v", err)
+	}
+	ikName := []byte{0, 11, 63, 66, 56, 152, 253, 128, 164, 49, 231, 162, 169, 14, 118, 72, 248, 151, 117, 166, 215,
+		235, 210, 181, 92, 167, 94, 113, 24, 131, 10, 5, 12, 85, 252}
+
+	icChallenge, err := EncryptIKCert(&priv.PublicKey, cert, ikName)
+	if err != nil {
+		t.Fatalf("can't encrypt ik certificate, %v", err)
+	}
+	fmt.Println(icChallenge)
 }
