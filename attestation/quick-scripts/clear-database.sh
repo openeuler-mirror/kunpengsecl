@@ -1,7 +1,7 @@
 #/bin/sh
 
-sqldropfile=../ras/dao/dropTable.sql
-sqlcreate=$(cat ../ras/dao/createTable.sql)
+sqldropfile=./dropTable.sql
+sqlcreate=$(cat ./createTable.sql)
 
 while read line
 do

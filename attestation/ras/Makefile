@@ -4,7 +4,7 @@ TESTEES = ./cache ./clientapi ./cmd/ras ./config ./dao ./entity ./restapi ./trus
 all: build
 
 test:
-	sh ../quick-scripts/clear-database.sh
+	PWD=$(shell pwd); cd ../quick-scripts; sh ./clear-database.sh; cd $(PWD)
 	go test -count=1 $(TESTEES)
 
 build:
