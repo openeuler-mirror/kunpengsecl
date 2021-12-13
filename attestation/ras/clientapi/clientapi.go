@@ -496,7 +496,7 @@ func UnmarshalBIOSManifest(content []byte, algHash string) (*entity.Manifest, er
 			}
 
 			result.Items = append(result.Items, entity.ManifestItem{
-				Name:   fmt.Sprint(event2Log.BType, "-", i),
+				Name:   fmt.Sprint(fmt.Sprintf("%x", event2Log.BType), "-", i),
 				Value:  getHashValue(algHash, event2Log),
 				Detail: string(detail),
 			})

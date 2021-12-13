@@ -229,7 +229,7 @@ func TestUnMarshalBIOS(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	count := len(result.Items)
-	if result.Items[count-1].Name != "2147483649-2" {
+	if result.Items[count-1].Name != "80000001-2" {
 		t.Fatal("BIOS manifest parse failed")
 	}
 }
