@@ -147,7 +147,7 @@ func TestUnRegisterClient(t *testing.T) {
 	}
 	defer psd.Destroy()
 
-	ic := []byte("test ic 1")
+	ic := createRandomCert()
 	_, err2 := psd.RegisterClient(ci, ic)
 	if err2 != nil {
 		t.FailNow()
