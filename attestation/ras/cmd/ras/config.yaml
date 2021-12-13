@@ -17,7 +17,7 @@ rasconfig:
     manifest:
     - name:
       - 8-0
-      - 2147483656-1
+      - 80000008-1
       type: bios
     - name:
       - boot_aggregate
