@@ -10,7 +10,6 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 	"github.com/spf13/pflag"
 )
 
@@ -43,20 +42,23 @@ func main() {
 	}
 	defer tpm.Close()
 
-	// in test mode, create EK, generate EC from PCA and save it in NVRAM
-	if testMode {
-		generateECForTest(tpm)
-	}
+	// assume tpm chip has an Ek from tpm2.CreatePrimary and its EC is stored in
+	// NVRAM. So in test mode, create EK and sign it from PCA, save it to NVRAM
+	tpm.GenerateEKey()
+	generateEKeyCert(tpm)
+	tpm.LoadEKeyCert()
+	loadIKCert(tpm)
 
 	// step 2. if rac doesn't have clientId, uses EC and ikPub to sign
 	// a IC and do the register process.
 	if cid <= 0 {
-		cid = getICAndDoRegister(tpm)
-		cfg.SetClientId(cid)
-		//cfg.SetHBDuration(time.Duration((int64)(time.Second) * bk.GetClientConfig().HbDurationSeconds))
-		config.Save()
+		cid = registerClientID(tpm)
 	}
+	config.Save()
 
+	if testMode {
+		tpm.PreparePCRsTest()
+	}
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
 	for {
 		rpy, err := clientapi.DoSendHeartbeat(server, &clientapi.SendHeartbeatRequest{ClientId: cid})
@@ -75,45 +77,48 @@ func main() {
 	}
 }
 
-func generateECForTest(t *ractools.TPM) {
+// generateEKeyCert gets the EK public from tpm simulator and sends to PCA
+// to sign it, after that saves it into NVRAM, like manufactory did.
+func generateEKeyCert(t *ractools.TPM) {
 	cfg := config.GetDefault(config.ConfClient)
-	t.GenerateEPubKeyTest()
-	if cfg.GetEKeyCertTest() == nil {
-		ekPubDer, err := x509.MarshalPKIXPublicKey(t.EK.Pub)
-		if err != nil {
-			log.Fatal("Client: can't get Ek public der data")
+	testMode := cfg.GetTestMode()
+	if testMode {
+		if cfg.GetEKeyCertTest() == nil {
+			ekPubDer, err := x509.MarshalPKIXPublicKey(t.EK.Pub)
+			if err != nil {
+				log.Fatal("Client: can't get Ek public der data")
+			}
+			server := cfg.GetServer()
+			reqEC := clientapi.GenerateEKCertRequest{
+				EkPub: ekPubDer,
+			}
+			rspEC, err := clientapi.DoGenerateEKCert(server, &reqEC)
+			if err != nil {
+				log.Fatal("Client: can't Create EkCert")
+			}
+			cfg.SetEKeyCertTest(rspEC.EkCert)
 		}
-		server := cfg.GetServer()
-		reqEC := clientapi.GenerateEKCertRequest{
-			EkPub: ekPubDer,
-		}
-		rspEC, err := clientapi.DoGenerateEKCert(server, &reqEC)
-		if err != nil {
-			log.Fatal("Client: can't Create EkCert")
-		}
-		cfg.SetEKeyCertTest(rspEC.EkCert)
+		t.DefineNVRAM(ractools.IndexRsa2048EKCert, uint16(len(cfg.GetEKeyCertTest())))
+		t.WriteNVRAM(ractools.IndexRsa2048EKCert, cfg.GetEKeyCertTest())
 	}
-	t.DefineNVRAM(ractools.IndexRsa2048EKCert, uint16(len(cfg.GetEKeyCertBytesTest())))
-	t.WriteNVRAM(ractools.IndexRsa2048EKCert, cfg.GetEKeyCertBytesTest())
 }
 
-func preparePCRsForTest(t *ractools.TPM) {
-	t.PreparePCRsTest()
-}
-
-func getICAndDoRegister(t *ractools.TPM) int64 {
+func loadIKCert(t *ractools.TPM) error {
 	cfg := config.GetDefault(config.ConfClient)
-	server := cfg.GetServer()
-	t.GenerateIPrivKeyTest()
+	if cfg.GetIKeyCert() != nil {
+		return t.LoadIKey()
+	}
+	t.GenerateIKey()
 	ikPubDer, err := x509.MarshalPKIXPublicKey(t.IK.Pub)
 	if err != nil {
 		log.Fatal("Client: can't get Ik public der data")
 	}
 	reqIC := clientapi.GenerateIKCertRequest{
-		EkCert: cfg.GetEKeyCertBytesTest(),
+		EkCert: cfg.GetEKeyCert(),
 		IkPub:  ikPubDer,
 		IkName: t.IK.Name,
 	}
+	server := cfg.GetServer()
 	rspIC, err := clientapi.DoGenerateIKCert(server, &reqIC)
 	if err != nil {
 		log.Fatal("Client: can't Create IkCert")
@@ -128,13 +133,29 @@ func getICAndDoRegister(t *ractools.TPM) int64 {
 	if err != nil {
 		log.Fatalf("Client: ActivateIKCert failed, error: %v", err)
 	}
-	icPem, _ := pca.EncodeKeyCertToPEM(icDer)
-	clientInfo, err := ractools.GetClientInfo(!cfg.GetTestMode())
+	if cfg.GetTestMode() {
+		cfg.SetIKeyCertTest(icDer)
+	}
+	cfg.SetIKeyCert(icDer)
+	return nil
+}
+
+func registerClientID(t *ractools.TPM) int64 {
+	cfg := config.GetDefault(config.ConfClient)
+	testMode := cfg.GetTestMode()
+	server := cfg.GetServer()
+	var icDer []byte
+	if testMode {
+		icDer = cfg.GetIKeyCert()
+	} else {
+		icDer = cfg.GetIKeyCert()
+	}
+	clientInfo, err := ractools.GetClientInfo(!testMode)
 	if err != nil {
 		log.Fatalf("Client: GetClientInfo failed, error: %v", err)
 	}
 	bk, err := clientapi.DoRegisterClient(server, &clientapi.RegisterClientRequest{
-		Ic:         &clientapi.Cert{Cert: icPem},
+		Ic:         &clientapi.Cert{Cert: icDer},
 		ClientInfo: &clientapi.ClientInfo{ClientInfo: clientInfo},
 	})
 	if err != nil {
@@ -142,29 +163,13 @@ func getICAndDoRegister(t *ractools.TPM) int64 {
 	}
 	cid := bk.GetClientId()
 	cc := bk.GetClientConfig()
+	cfg.SetClientId(cid)
 	cfg.SetDigestAlgorithm(cc.GetDigestAlgorithm())
+	t.SetDigestAlg(cc.GetDigestAlgorithm())
 	cfg.SetHBDuration(time.Duration(cc.GetHbDurationSeconds() * int64(time.Second)))
 	cfg.SetTrustDuration(time.Duration(cc.GetTrustDurationSeconds() * int64(time.Second)))
-	t.SetDigestAlg(cc.GetDigestAlgorithm())
-	if cfg.GetTestMode() {
-		preparePCRsForTest(t)
-	}
 	return cid
 }
-
-// Generate EKCert through grpc call clientapi.DoGenerateEKCert
-/*
-func generateEKCert(ekPub []byte, server string) ([]byte, error) {
-	req := clientapi.GenerateEKCertRequest{
-		EkPub: ekPub,
-	}
-	bk, err := clientapi.DoGenerateEKCert(server, &req)
-	if err != nil {
-		return nil, err
-	}
-	return bk.EkCert, nil
-}
-*/
 
 // DoNextAction checks the nextAction field and invoke the corresponding handler function.
 func DoNextAction(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHeartbeatReply) {

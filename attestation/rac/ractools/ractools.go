@@ -19,7 +19,6 @@ package ractools
 import (
 	"bytes"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -172,16 +171,6 @@ func openTpmChip(tpm *TPM) (*TPM, error) {
 	if err != nil {
 		return nil, errFailTPMInit
 	}
-	ekCertDer, err := tpm.ReadNVRAM(IndexRsa2048EKCert) // DER format??
-	if err != nil {
-		return nil, errFailTPMInit
-	}
-	ekCert, err := x509.ParseCertificate(ekCertDer)
-	if err != nil {
-		return nil, errFailTPMInit
-	}
-	cfg := config.GetDefault(config.ConfClient)
-	cfg.SetEKeyCert(ekCert)
 	return tpm, nil
 }
 
@@ -207,11 +196,11 @@ func (tpm *TPM) Close() {
 	}
 	if tpm.useHW {
 		//remove ekHandle and ikHandle from hw tpm
-		if tpm.EK.Handle != 0 {
-			tpm2.FlushContext(tpm.dev, tpmutil.Handle(tpm.EK.Handle))
+		if tpm.EK.Handle != tpmutil.Handle(0) {
+			tpm2.FlushContext(tpm.dev, tpm.EK.Handle)
 		}
-		if tpm.IK.Handle != 0 {
-			tpm2.FlushContext(tpm.dev, tpmutil.Handle(tpm.IK.Handle))
+		if tpm.IK.Handle != tpmutil.Handle(0) {
+			tpm2.FlushContext(tpm.dev, tpm.IK.Handle)
 		}
 	}
 	if err := tpm.dev.Close(); err != nil {
@@ -261,33 +250,70 @@ func (tpm *TPM) ReadNVRAM(idx uint32) ([]byte, error) {
 	return tpm2.NVReadEx(tpm.dev, tpmutil.Handle(idx), tpm2.HandleOwner, emptyPassword, 0)
 }
 
-// GenerateEPubKeyTest generates the ek key for test by tpm2 and get the public part
-func (tpm *TPM) GenerateEPubKeyTest() error {
+// GenerateEKey generates the ek key by tpm2, gets the handle and public part
+func (tpm *TPM) GenerateEKey() error {
 	var err error
+	// for TPM chip, maybe need to load EKParams from NVRAM to create the
+	// same EK as the saved EC in NVRAM, need to test!!!
 	tpm.EK.Handle, tpm.EK.Pub, err = tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement,
 		pcrSelectionNil, emptyPassword, emptyPassword, EKParams)
 	if err != nil {
+		tpm.EK.Handle = tpmutil.Handle(0)
+		tpm.EK.Pub = nil
 		return err
 	}
 	return nil
 }
 
-// GenerateIPrivKeyTest generates the ik key under ek for test by tpm2, gets the private,
-// public, name fields to use later
-func (tpm *TPM) GenerateIPrivKeyTest() error {
+// LoadEKeyCert reads ek certificate from NVRAM, the simulator is the same
+func (tpm *TPM) LoadEKeyCert() error {
+	ekCertDer, err := tpm.ReadNVRAM(IndexRsa2048EKCert)
+	if err != nil {
+		return errFailTPMInit
+	}
+	cfg := config.GetDefault(config.ConfClient)
+	cfg.SetEKeyCert(ekCertDer)
+	return nil
+}
+
+// GenerateIKey generates the ik key under ek by tpm2, gets the private, public
+// and name fields to use later
+func (tpm *TPM) GenerateIKey() error {
 	var err error
-	tpm.IK.Private, tpm.IK.Public, _, _, _, err = tpm2.CreateKey(tpm.dev, tpm.EK.Handle,
+	var private, public []byte
+	cfg := config.GetDefault(config.ConfClient)
+	private, public, _, _, _, err = tpm2.CreateKey(tpm.dev, tpm.EK.Handle,
 		pcrSelectionNil, emptyPassword, emptyPassword, IKParams)
+	testMode := cfg.GetTestMode()
+	if testMode {
+		cfg.SetIPriKeyTest(private)
+		cfg.SetIPubKeyTest(public)
+	} else {
+		cfg.SetIPriKey(private)
+		cfg.SetIPubKey(public)
+	}
 	if err != nil {
-		log.Printf("Client: GenerateIPrivKeyTest %v\n", err)
+		log.Printf("Client: GenerateIPrivKey %v\n", err)
 		return err
 	}
-	tpm.IK.Handle, _, err = tpm2.Load(tpm.dev, tpm.EK.Handle, emptyPassword,
-		tpm.IK.Public, tpm.IK.Private)
+	return tpm.LoadIKey()
+}
+
+func (tpm *TPM) LoadIKey() error {
+	var err error
+	cfg := config.GetDefault(config.ConfClient)
+	testMode := cfg.GetTestMode()
+	if testMode {
+		tpm.IK.Handle, _, err = tpm2.Load(tpm.dev, tpm.EK.Handle, emptyPassword,
+			cfg.GetIPubKeyTest(), cfg.GetIPriKeyTest())
+	} else {
+		tpm.IK.Handle, _, err = tpm2.Load(tpm.dev, tpm.EK.Handle, emptyPassword,
+			cfg.GetIPubKey(), cfg.GetIPriKey())
+	}
 	if err != nil {
 		return err
 	}
-	ikPub, akName, _, err := tpm2.ReadPublic(tpm.dev, tpm.IK.Handle)
+	ikPub, ikName, _, err := tpm2.ReadPublic(tpm.dev, tpm.IK.Handle)
 	if err != nil {
 		return err
 	}
@@ -296,7 +322,7 @@ func (tpm *TPM) GenerateIPrivKeyTest() error {
 		return err
 	}
 	tpm.IK.Password = emptyPassword
-	tpm.IK.Name = akName
+	tpm.IK.Name = ikName
 	tpm.IK.Pub = pub
 	return nil
 }

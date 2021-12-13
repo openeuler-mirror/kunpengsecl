@@ -98,10 +98,11 @@ var (
 )
 
 func EncodeKeyPubPartToDER(key crypto.PrivateKey) ([]byte, error) {
+	var err error
 	var derData []byte
 	switch priv := key.(type) {
 	case *rsa.PrivateKey:
-		derData, err := x509.MarshalPKIXPublicKey(priv.Public())
+		derData, err = x509.MarshalPKIXPublicKey(priv.Public())
 		if err != nil {
 			return nil, err
 		}
@@ -132,6 +133,12 @@ func EncodePublicKeyToPEM(pub crypto.PublicKey) ([]byte, error) {
 	case ed25519.PublicKey:
 	}
 	return nil, errEncodePEM
+}
+
+// EncodePublicKeyToFile encodes the public key to a file as pem format
+func EncodePublicKeyToFile(pub crypto.PublicKey, fileName string) error {
+	data, _ := EncodePublicKeyToPEM(pub)
+	return ioutil.WriteFile(fileName, data, modKey)
 }
 
 // EncodePrivateKeyToPEM encodes the private key to a pem []byte
@@ -193,6 +200,15 @@ func DecodePublicKeyFromPEM(pemData []byte) (crypto.PublicKey, []byte, error) {
 		return nil, nil, errParseKey
 	}
 	return pub, block.Bytes, nil
+}
+
+// DecodePublicKeyFromFile decodes a pem file to get the public key
+func DecodePublicKeyFromFile(fileName string) (crypto.PublicKey, []byte, error) {
+	data, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, nil, err
+	}
+	return DecodePublicKeyFromPEM(data)
 }
 
 // DecodePrivateKeyFromPEM decodes a pem []byte to get the private key
