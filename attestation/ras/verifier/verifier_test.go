@@ -2,11 +2,15 @@ package verifier
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/dao"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
 
 const (
@@ -536,4 +540,112 @@ func TestIMAValidate(t *testing.T) {
 			t.Errorf("test ima Validate error at case %d: %v\n", i, err)
 		}
 	}
+}
+
+func TestPCRValidate(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+	var pv *PCRVerifier
+
+	const sha1HashAllZero = "0000000000000000000000000000000000000000"
+	const sha1HashAllFF = "ffffffffffffffffffffffffffffffffffffffff"
+	//client id = 40
+	const quoted = "\xffTCG\x80\x18\x00\"\x00\v\x10\f\xedƬ\xd6z\x1e\xbb\xd3}H\xb0\x12\"bb\xe3ȳ\x8a\xc2?u\xf4n{^\xbdԝ\x10\x00 \x1e\xb4\xa0LrU\\\xcb*\x04\xd5*\xd1T?Zi>\x97\xdcC 4c\xa8\xc0D\xd8r\xae\x1b!\x00\x00\x00\x00\x00\x00\x11\xb3\x00\x00\x00\x01\x00\x00\x00\x00\x01 \x17\x06\x19\x00\x1666\x00\x00\x00\x01\x00\x04\x03\xff\xff\xff\x00 ?'\b> \xdb|\v\xf0\xe3\x16!\x19\x00\xa9\nS\xe9\x9e\xf1*hb.\x89y'\x93Y\x88\x03\xd2"
+	const signature = "{\"Alg\":20,\"RSA\":{\"HashAlg\":11,\"Signature\":\"V5zxeJ9+LwkTShUJbdYqyFG8r8+aTWzTg4JRX8DEinMvzIKZ04TfzOVpM3k+EAcECp/E43oS/yqExUHR9cCq4WN1PHhL1S998GTt4ZknkzluhmEh6EaaezcsAuJPDDBNkwbq/eJt3uoi2HSs18pJ7O1cdvEFPPfrRZvlTOFm+aAdcn0eW4WUVk3r/kw2cLlH7EuRIbwecPzG9yPwt9C/6dTKJpaw7qVoj57oKObdyvpzE6J/ylEXgDro3fk2cYinvTxkob+jlThNDydZwU0Iamtsy1d8NS5qvA0kzqUcueLEgvfaLT4IaPZVeN0G/U4q8qpzLXc7c4EGECt3AkIPMQ==\"},\"ECC\":null}"
+	pibv := entity.PcrInfo{
+		Values: map[int]string{
+			0:  sha1HashAllZero,
+			1:  sha1HashAllZero,
+			2:  sha1HashAllZero,
+			3:  sha1HashAllZero,
+			4:  sha1HashAllZero,
+			5:  sha1HashAllZero,
+			6:  sha1HashAllZero,
+			7:  sha1HashAllZero,
+			8:  sha1HashAllZero,
+			9:  sha1HashAllZero,
+			10: sha1HashAllZero,
+			11: sha1HashAllZero,
+			12: sha1HashAllZero,
+			13: sha1HashAllZero,
+			14: sha1HashAllZero,
+			15: sha1HashAllZero,
+			16: sha1HashAllZero,
+			17: sha1HashAllFF,
+			18: sha1HashAllFF,
+			19: sha1HashAllFF,
+			20: sha1HashAllFF,
+			21: sha1HashAllFF,
+			22: sha1HashAllFF,
+			23: sha1HashAllZero,
+		},
+		Quote: entity.PcrQuote{
+			Quoted:    []byte(quoted),
+			Signature: []byte(signature),
+		},
+	}
+
+	ci := &entity.ClientInfo{
+		Info: map[string]string{
+			"info name1": "info value1",
+			"info name2": "info value2",
+		},
+	}
+	psd, err := dao.CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer psd.Destroy()
+	ic := createRandomCert()
+	cid, err := psd.RegisterClient(ci, ic)
+	if err != nil {
+		t.Error(err)
+	}
+
+	rc := entity.RegisterClient{
+		ClientID:      cid,
+		AkCertificate: "-----BEGIN CERTIFICATE-----\nMIIC+TCCAeGgAwIBAgIBATANBgkqhkiG9w0BAQsFADA3MQ4wDAYDVQQGEwVDaGlu\nYTEQMA4GA1UEChMHQ29tcGFueTETMBEGA1UEAxMKcHJpdmFjeSBjYTAeFw0yMTEy\nMTEwNjQ0MzdaFw0yMjEyMTEwNjQ0MzdaMAAwggEiMA0GCSqGSIb3DQEBAQUAA4IB\nDwAwggEKAoIBAQC3oz7yfwjBCeGD+1NUboYNI14F7BeTI7BGZcFp4j8ABG2ABSXh\npje2ot+iiywx7vkEFb2OX6HYzb1RLQWeg6bn4tR+/zWYyTtnYzRO5EI6qflcPpqG\nDoDqICM0fs6tzOLcr443rfmN5Ju5MLv546+4o6xUZA2VCOant5U4bxXO2tPuUiNG\nnxYrBQXO+LCFlCRzA9kF5ckoCVi5uGyadwx1/K69I70O4T2KZK3Fy0Ssg0ZFWM7K\nlwnp0zEt5ZS/UaSOASBQl/Vc4WW3IB9v5pFvGfDY6i7OPULnLFkcPuh2ueBpafF2\nLJ+Tfsbb5zTLYnQKotrbXOeMcX4jnv/R/4mPAgMBAAGjRzBFMA4GA1UdDwEB/wQE\nAwICpDAfBgNVHSMEGDAWgBTNFcdAexj1Ezk8FEfjeBqH+1CidTASBgNVHREBAf8E\nCDAGhwTAqNGhMA0GCSqGSIb3DQEBCwUAA4IBAQACj2NBejgFSoP6aJ4Ib6rVBrX9\nQwCK57MRdRMUaahGbKCKkcwYjuccwZs9pL6mdTqS7KD+SFUwm2SBOD2eU8FbBFqZ\n1OQ3qPievIpnJXkWHVEIBAZEtH9P+Jl3zmfM21DNqZLJJRdcMdFRcug+EooSIdbP\nHuc2tP1RJFe5oSClY1FvQTotpEKQHMxrFWoaYaZarrmx65xfqr8EWYMeMw5YCiOI\n6aL+MQm1uDmhoCMuBtzIOx7GriA8ixXCGaYyXBVd2P7zVaM5P5/8R0g91Tmbhu8i\nV2oVs0zFRO17AmsA/FQDJxMiXGux1DBkEBwgL3QUBcHmRqGabk45VZRAD6Hl\n-----END CERTIFICATE-----\n",
+	}
+	err = trustmgr.UpdateRegisterClient(&rc)
+	if err != nil {
+		t.Error(err)
+	}
+
+	report := &entity.Report{
+		PcrInfo:  pibv,
+		Manifest: []entity.Manifest{},
+		ClientID: cid,
+		ClientInfo: entity.ClientInfo{
+			Info: nil,
+		},
+		Verified: false,
+	}
+
+	testCase := []struct {
+		input  *entity.Report
+		result error
+	}{
+		{report, nil},
+	}
+	for i := 0; i < len(testCase); i++ {
+		err := pv.Validate(testCase[i].input)
+		res := testCase[i].result
+		if err == res || (res != nil && err.Error() == testCase[i].result.Error()) {
+			t.Logf("test pcr validate success at case %d\n", i)
+		} else {
+			t.Errorf("test pcr Validate error at case %d: %v\n", i, err)
+		}
+	}
+}
+
+func createRandomCert() []byte {
+	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	strBytes := []byte(str)
+	randomCert := []byte{}
+	ra := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < 6; i++ {
+		randomCert = append(randomCert, strBytes[ra.Intn(len(strBytes))])
+	}
+	return randomCert
 }
