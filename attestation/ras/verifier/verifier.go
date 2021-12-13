@@ -544,6 +544,19 @@ func (imaTH *IMATemplateHandler) Validate(item *entity.IMAManifestItem) error {
 	return nil
 }
 
+func createTemplateHandlerBase(algname string) *TemplateHandlerBase {
+	imaTH := TemplateHandlerBase{algHash: algname, algValidate: sha1AlgStr}
+	imaTH.newHash, imaTH.lenHash = matchHashAlgNewFunc(imaTH.algHash)
+	if imaTH.newHash == nil {
+		return nil
+	}
+	imaTH.newHashValidate, imaTH.lenHashValidate = matchHashAlgNewFunc(imaTH.algValidate)
+	if imaTH.newHash == nil {
+		return nil
+	}
+	return &imaTH
+}
+
 func createIMATemplateHandler(algname string) *IMATemplateHandler {
 	imaTH := IMATemplateHandler{TemplateHandlerBase{algHash: algname, algValidate: sha1AlgStr}}
 	imaTH.newHash, imaTH.lenHash = matchHashAlgNewFunc(imaTH.algHash)
@@ -619,20 +632,18 @@ func createIMANGTemplateHandler(algname string) *IMANGTemplateHandler {
 	return &IMANGTemplateHandler{*base}
 }
 
-func createTemplateHandlerBase(algname string) *TemplateHandlerBase {
-	imaTH := TemplateHandlerBase{algHash: algname, algValidate: sha1AlgStr}
-	imaTH.newHash, imaTH.lenHash = matchHashAlgNewFunc(imaTH.algHash)
-	if imaTH.newHash == nil {
+func createTemplateHandler(hashAlg string, templateName string) TemplateHandler {
+	switch templateName {
+	case imaStr:
+		return createIMATemplateHandler(hashAlg)
+	case imangStr:
+		return createIMANGTemplateHandler(hashAlg)
+	default:
 		return nil
 	}
-	imaTH.newHashValidate, imaTH.lenHashValidate = matchHashAlgNewFunc(imaTH.algValidate)
-	if imaTH.newHash == nil {
-		return nil
-	}
-	return &imaTH
 }
 
-func ExtendPCRForIMAItems(pe PCRExtender, th TemplateHandler, items []entity.ManifestItem) (map[int]bool, error) {
+func ExtendPCRForIMAItemsWithTemplateHandler(pe PCRExtender, th TemplateHandler, items []entity.ManifestItem) (map[int]bool, error) {
 	changedPCR := map[int]bool{}
 
 	// use ima manifest to calculate pseudoPCR
@@ -665,6 +676,17 @@ func ExtendPCRForIMAItems(pe PCRExtender, th TemplateHandler, items []entity.Man
 		changedPCR[pcrid] = true
 	}
 	return changedPCR, nil
+}
+
+func ExtendPCRForIMAItems(hashAlg string, pe PCRExtender, Items []entity.ManifestItem) (map[int]bool, error) {
+	// handle ima manifest validation in ima template specific ways
+	templateName := getIMATemplateName(&Items[0])
+
+	imaTH := createTemplateHandler(hashAlg, templateName)
+	if imaTH == nil {
+		return nil, fmt.Errorf("create ima-ng template hasher failed")
+	}
+	return ExtendPCRForIMAItemsWithTemplateHandler(pe, imaTH, Items)
 }
 
 func (iv *IMAVerifier) Validate(report *entity.Report) error {
@@ -756,11 +778,7 @@ func validateIMATemplateIMA(hashAlg string, pcrInfo *entity.PcrInfo, manifest *e
 	if pseudoPCR == nil {
 		return fmt.Errorf("ima validator create pseudo PCRs failed")
 	}
-	imaTH := createIMATemplateHandler(hashAlg)
-	if imaTH == nil {
-		return fmt.Errorf("create ima template hasher failed")
-	}
-	changedPCRid, err := ExtendPCRForIMAItems(pseudoPCR, imaTH, manifest.Items)
+	changedPCRid, err := ExtendPCRForIMAItems(hashAlg, pseudoPCR, manifest.Items)
 	if err != nil {
 		return fmt.Errorf("pcr extend failed (use ima): %v", err)
 	}
@@ -790,11 +808,7 @@ func validateIMATemplateIMANG(hashAlg string, pcrInfo *entity.PcrInfo, manifest 
 	if pseudoPCR == nil {
 		return fmt.Errorf("ima-ng validator create pseudo PCRs failed")
 	}
-	imaTH := createIMANGTemplateHandler(hashAlg)
-	if imaTH == nil {
-		return fmt.Errorf("create ima-ng template hasher failed")
-	}
-	changedPCRid, err := ExtendPCRForIMAItems(pseudoPCR, imaTH, manifest.Items)
+	changedPCRid, err := ExtendPCRForIMAItems(hashAlg, pseudoPCR, manifest.Items)
 	if err != nil {
 		return fmt.Errorf("pcr extend failed (use ima)")
 	}

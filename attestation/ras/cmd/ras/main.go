@@ -34,8 +34,6 @@ func main() {
 	pflag.Parse()
 	cfg := config.GetDefault(config.ConfServer)
 	config.SetupSignalHandler()
-	// TODO: Wait for completing of validator
-	trustmgr.SetValidator(&testValidator{})
 
 	vm, err := verifier.CreateVerifierMgr()
 	if err != nil {
@@ -44,6 +42,7 @@ func main() {
 	}
 	cm := cache.CreateCacheMgr(cache.DEFAULTRACNUM, vm)
 	trustmgr.SetExtractor(vm)
+	trustmgr.SetValidator(vm)
 
 	go clientapi.StartServer(cfg.GetPort(), cm)
 	restapi.StartServer(cfg.GetRestPort(), cm)

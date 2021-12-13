@@ -251,9 +251,9 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 
 		switch strings.ToLower(om.GetType()) {
 		case "bios":
-			mi, err = unmarshalBIOSManifest(om.GetItem())
+			mi, err = UnmarshalBIOSManifest(om.GetItem(), alg)
 		case "ima":
-			mi, err = unmarshalIMAManifest(om.GetItem())
+			mi, err = UnmarshalIMAManifest(om.GetItem())
 		default:
 			err = fmt.Errorf("unsupported manifest type: %s", om.GetType())
 		}
@@ -277,7 +277,8 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 		PcrInfo: entity.PcrInfo{
 			Values: tpvs,
 			Quote: entity.PcrQuote{
-				Quoted: report.GetPcrInfo().GetPcrQuote().GetQuoted(),
+				Quoted:    report.GetPcrInfo().GetPcrQuote().GetQuoted(),
+				Signature: report.GetPcrInfo().GetPcrQuote().GetSignature(),
 			},
 		},
 		Manifest: tms,
@@ -469,7 +470,7 @@ func getHashValue(alg string, evt *entity.BIOSManifestItem) string {
 	return ""
 }
 
-func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
+func UnmarshalBIOSManifest(content []byte, algHash string) (*entity.Manifest, error) {
 	result := &entity.Manifest{
 		Type:  "bios",
 		Items: []entity.ManifestItem{},
@@ -496,7 +497,7 @@ func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
 
 			result.Items = append(result.Items, entity.ManifestItem{
 				Name:   fmt.Sprint(event2Log.BType, "-", i),
-				Value:  getHashValue(sha256AlgStr, event2Log),
+				Value:  getHashValue(algHash, event2Log),
 				Detail: string(detail),
 			})
 		}
@@ -504,7 +505,7 @@ func unmarshalBIOSManifest(content []byte) (*entity.Manifest, error) {
 	return result, nil
 }
 
-func unmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
+func UnmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
 	result := &entity.Manifest{
 		Type: "ima",
 	}
