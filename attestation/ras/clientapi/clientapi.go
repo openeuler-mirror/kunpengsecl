@@ -132,8 +132,12 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 	eci := &entity.ClientInfo{
 		Info: cim,
 	}
-	ic := in.GetIc().GetCert()
-	clientID, err := trustmgr.RegisterClient(eci, ic)
+	icDer := in.GetIc().GetCert()
+	icPem, err := pca.EncodeKeyCertToPEM(icDer)
+	if err != nil {
+		return nil, err
+	}
+	clientID, err := trustmgr.RegisterClient(eci, icPem)
 	if err != nil {
 		return nil, err
 	}

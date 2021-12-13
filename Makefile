@@ -1,11 +1,16 @@
 
 subdir = attestation
-delfile=pca-root.crt pca-root.key pca-ek.crt pca-ek.key ektest.crt ektest.key iktest.crt iktest.key
+delfile=pca-root.crt pca-root.key pca-ek.crt pca-ek.key ikpri.key ikpub.key ic.crt ectest.crt ectest.key ikpritest.key ikpubtest.key ictest.crt
 
 .PHONY: all build test clean install check vendor ci-check bat prepare sim-test sim-clean rpm rpm-clean
 all build test clean install check: vendor
 
 all build test clean install check vendor:
+	for name in $(subdir); do\
+		make -C $$name $@ || exit $$?;\
+	done
+
+clean:
 	for name in $(subdir); do\
 		make -C $$name $@ || exit $$?;\
 	done
