@@ -26,6 +26,7 @@ dont_measure fsmagic=0x858458f6
 dont_measure fsmagic=0x73636673
 measure func=FILE_MMAP mask=MAY_EXEC
 measure func=BPRM_CHECK
+measure func=MODULE_CHECK uid=0
 measure func=PATH_CHECK mask=MAY_READ uid=0
 EOF
   sed -i '$a GRUB_CMDLINE_LINUX="ima' /etc/default/grub
@@ -56,7 +57,8 @@ dont_measure obj_type=lastlog_t
 dont_measure obj_type=nscd_log_t
 dont_measure obj_type=var_log_t
 measure func=FILE_MMAP mask=MAY_EXEC 
-measure func=BPRM_CHECK               
+measure func=BPRM_CHECK
+measure func=MODULE_CHECK uid=0
 measure func=PATH_CHECK mask=MAY_READ uid=0
 EOF
 sed -i '$a GRUB_CMDLINE_LINUX="ima' /etc/default/grub
