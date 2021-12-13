@@ -23,14 +23,17 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os/exec"
 	"strings"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
@@ -68,6 +71,8 @@ const (
 	IndexRsa3072EKCertH6   uint32 = 0x01C0001C
 	IndexRsa4096EKCertH7   uint32 = 0x01C0001E
 
+	biosStr      = "bios"
+	imaStr       = "ima"
 	tpmDevPath1  = "/dev/tpmrm0"
 	tpmDevPath2  = "/dev/tpm0"
 	blockSize    = 1024
@@ -119,6 +124,18 @@ var (
 	tpm            *TPM = nil
 	errWrongParams      = errors.New("wrong input parameter")
 	errFailTPMInit      = errors.New("couldn't start tpm or init key/certificate")
+	algStrMap           = map[tpm2.Algorithm]string{
+		tpm2.AlgSHA1:   "SHA1",
+		tpm2.AlgSHA256: "SHA256",
+		tpm2.AlgSHA384: "SHA384",
+		tpm2.AlgSHA512: "SHA512",
+	}
+	algIdMap = map[string]tpm2.Algorithm{
+		"sha1":   tpm2.AlgSHA1,
+		"sha256": tpm2.AlgSHA256,
+		"sha384": tpm2.AlgSHA384,
+		"sha512": tpm2.AlgSHA512,
+	}
 )
 
 // OpenTPM uses either a physical TPM device(default/useHW=true) or a
@@ -447,13 +464,6 @@ func (tpm *TPM) createTrustReport(useHW bool, pcrSelection tpm2.PCRSelection, tR
 		return &TrustReport{}, err
 	}
 
-	algStrMap := map[tpm2.Algorithm]string{
-		tpm2.AlgSHA1:   "SHA1",
-		tpm2.AlgSHA256: "SHA256",
-		tpm2.AlgSHA384: "SHA384",
-		tpm2.AlgSHA512: "SHA512",
-	}
-
 	pcrinfo := PcrInfo{algStrMap[pcrSelection.Hash], pcrValues, PcrQuote{Quoted: attestation, Signature: jsonSig}}
 
 	var manifest []Manifest
@@ -482,14 +492,102 @@ func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, erro
 // SetDigestAlg method update the Digest alg used to get pcrs and to do the quote.
 func (tpm *TPM) SetDigestAlg(alg string) {
 	tpm.config.ReportHashAlg = alg
-	algIdMap := map[string]tpm2.Algorithm{
-		"sha1":   tpm2.AlgSHA1,
-		"sha256": tpm2.AlgSHA256,
-		"sha384": tpm2.AlgSHA384,
-		"sha512": tpm2.AlgSHA512,
-	}
-
 	if algID, ok := algIdMap[alg]; ok {
 		pcrSelectionAll.Hash = algID
 	}
+}
+
+// PreparePCRsTest method replay the bios/ima manifests into pcrs in test mode.
+func (tpm *TPM) PreparePCRsTest() error {
+	// read the manifest files into memory
+	manifest, err := getManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
+	if err != nil {
+		log.Printf("Prepare PCRs: GetManifest Failed, error: %s", err)
+		return err
+	}
+
+	// replay bios manifest
+	biosContent := getManifestContent(manifest, biosStr)
+	if biosContent != nil {
+		tpm.replayBIOSManifestTest(biosContent)
+	}
+	// replay ima manifest
+	imaContent := getManifestContent(manifest, imaStr)
+	if imaContent != nil {
+		tpm.replayIMAManifestTest(imaContent)
+	}
+
+	return nil
+}
+
+func getManifestContent(ms []Manifest, t string) []byte {
+	for _, m := range ms {
+		if m.Type == t {
+			return m.Content
+		}
+	}
+	return nil
+}
+
+func (tpm *TPM) replayBIOSManifestTest(content []byte) error {
+	mi, err := clientapi.UnmarshalBIOSManifest(content, tpm.config.ReportHashAlg)
+	if err != nil {
+		return fmt.Errorf("unmarshal bios manifest failed: %v", err)
+	}
+
+	//use bios manifest to replay pcrs
+	realPCR := createRealPCRExtender(tpm.config.ReportHashAlg, tpm)
+	if realPCR == nil {
+		return fmt.Errorf("bios manifest replay create real PCR extender failed")
+	}
+	err = verifier.ExtendPCRForBIOSItems(realPCR, mi.Items)
+	if err != nil {
+		return fmt.Errorf("pcr extend failed (use bios): %v", err)
+	}
+
+	return nil
+}
+
+func (tpm *TPM) replayIMAManifestTest(content []byte) error {
+	mi, err := clientapi.UnmarshalIMAManifest(content)
+	if err != nil {
+		return fmt.Errorf("unmarshal ima manifest failed: %v", err)
+	}
+
+	//use ima manifest to replay pcrs
+	realPCR := createRealPCRExtender(tpm.config.ReportHashAlg, tpm)
+	if realPCR == nil {
+		return fmt.Errorf("ima manifest replay create real PCR extender failed")
+	}
+	_, err = verifier.ExtendPCRForIMAItems(tpm.config.ReportHashAlg, realPCR, mi.Items)
+	if err != nil {
+		return fmt.Errorf("pcr extend failed (use ima): %v", err)
+	}
+
+	return nil
+}
+
+type realPCRExtender struct {
+	tpm     *TPM
+	algname string
+}
+
+func (pe *realPCRExtender) ExtendPCRRaw(id uint32, v []byte) error {
+	if algID, ok := algIdMap[pe.algname]; ok {
+		return tpm2.PCRExtend(pe.tpm.dev, tpmutil.Handle(id), algID, v, emptyPassword)
+
+	}
+	return fmt.Errorf("real pcr extend failed: unsupported algorithm")
+}
+
+func (pe *realPCRExtender) ExtendPCR(id uint32, v string) error {
+	newDigestBytes, err := hex.DecodeString(v)
+	if err != nil {
+		return fmt.Errorf("decode digest failed")
+	}
+	return pe.ExtendPCRRaw(id, newDigestBytes)
+}
+
+func createRealPCRExtender(algname string, tpm *TPM) *realPCRExtender {
+	return &realPCRExtender{algname: algname, tpm: tpm}
 }

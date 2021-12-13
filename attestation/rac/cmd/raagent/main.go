@@ -97,6 +97,10 @@ func generateECForTest(t *ractools.TPM) {
 	t.WriteNVRAM(ractools.IndexRsa2048EKCert, cfg.GetEKeyCertBytesTest())
 }
 
+func preparePCRsForTest(t *ractools.TPM) {
+	t.PreparePCRsTest()
+}
+
 func getICAndDoRegister(t *ractools.TPM) int64 {
 	cfg := config.GetDefault(config.ConfClient)
 	server := cfg.GetServer()
@@ -142,6 +146,9 @@ func getICAndDoRegister(t *ractools.TPM) int64 {
 	cfg.SetHBDuration(time.Duration(cc.GetHbDurationSeconds() * int64(time.Second)))
 	cfg.SetTrustDuration(time.Duration(cc.GetTrustDurationSeconds() * int64(time.Second)))
 	t.SetDigestAlg(cc.GetDigestAlgorithm())
+	if cfg.GetTestMode() {
+		preparePCRsForTest(t)
+	}
 	return cid
 }
 
@@ -212,7 +219,7 @@ func SendTrustReport(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.Sen
 			Manifest: manifest,
 		},
 	})
-	if srr.Result {
+	if srr.GetResult() {
 		log.Printf("Client: send a new trust report to RAS ok.")
 	} else {
 		log.Printf("Client: send a new trust report to RAS failed.")

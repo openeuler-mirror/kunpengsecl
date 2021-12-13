@@ -224,7 +224,7 @@ func createRandomCert() []byte {
 }
 
 func TestUnMarshalBIOS(t *testing.T) {
-	result, err := unmarshalBIOSManifest(testBiosManifest)
+	result, err := UnmarshalBIOSManifest(testBiosManifest, sha256AlgStr)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -235,7 +235,7 @@ func TestUnMarshalBIOS(t *testing.T) {
 }
 
 func TestUnMarshalIMA(t *testing.T) {
-	result, err := unmarshalIMAManifest([]byte(testIMAManifest))
+	result, err := UnmarshalIMAManifest([]byte(testIMAManifest))
 	if err != nil {
 		t.Fatal(err.Error())
 	}

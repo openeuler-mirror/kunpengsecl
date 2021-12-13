@@ -303,7 +303,7 @@ func TestIMAExtract(t *testing.T) {
 
 func TestBIOSValidate(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault(config.ConfServer)
+	config.GetDefault(config.ConfServer).SetDigestAlgorithm(sha256AlgStr)
 	defer test.RemoveConfigFile()
 	var bv *BIOSVerifier
 
@@ -375,7 +375,7 @@ func TestBIOSValidate(t *testing.T) {
 
 func TestBIOSVerify(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault(config.ConfServer).SetDigestAlgorithm("sha1")
+	config.GetDefault(config.ConfServer).SetDigestAlgorithm(sha1AlgStr)
 	defer test.RemoveConfigFile()
 	var bv *BIOSVerifier
 
@@ -451,7 +451,7 @@ func TestIMAVerify(t *testing.T) {
 func TestIMAValidate(t *testing.T) {
 	test.CreateServerConfigFile()
 	config := config.GetDefault(config.ConfServer)
-	config.SetDigestAlgorithm("sha1")
+	config.SetDigestAlgorithm(sha1AlgStr)
 	defer test.RemoveConfigFile()
 	var iv *IMAVerifier
 
@@ -544,7 +544,7 @@ func TestIMAValidate(t *testing.T) {
 
 func TestPCRValidate(t *testing.T) {
 	test.CreateServerConfigFile()
-	config.GetDefault(config.ConfServer)
+	config.GetDefault(config.ConfServer).SetDigestAlgorithm(sha1AlgStr)
 	defer test.RemoveConfigFile()
 	var pv *PCRVerifier
 
