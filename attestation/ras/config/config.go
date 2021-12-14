@@ -35,6 +35,21 @@ import (
 )
 
 const (
+	// app
+	appRas   = "ras"
+	appRac   = "rac"
+	appRahub = "rahub"
+	// path
+	strPathLocal     = "."
+	strPathLocalConf = "./config"
+	strPathHomeConf  = "$HOME/.config/attestation/"
+	strPathSysConf   = "/etc/attestation/"
+	strPathHomeRas   = strPathHomeConf + appRas
+	strPathHomeRac   = strPathHomeConf + appRac
+	strPathHomeRahub = strPathHomeConf + appRahub
+	strPathSysRas    = strPathSysConf + appRas
+	strPathSysRac    = strPathSysConf + appRac
+	strPathSysRahub  = strPathSysConf + appRahub
 	// normal
 	ConfName   = "config"
 	ConfExt    = "yaml"
@@ -112,15 +127,25 @@ const (
 )
 
 var (
-	defaultConfigPath = []string{
-		".",
-		"./config",
-		"../config",
-		"$HOME/.config/attestation",
-		"/usr/lib/attestation",
-		"/etc/attestation",
+	defaultRasConfigPath = []string{
+		strPathLocal,
+		strPathLocalConf,
+		strPathHomeRas,
+		strPathSysRas,
 	}
-	cfg *config
+	defaultRacConfigPath = []string{
+		strPathLocal,
+		strPathLocalConf,
+		strPathHomeRac,
+		strPathSysRac,
+	}
+	defaultRahubConfigPath = []string{
+		strPathLocal,
+		strPathLocalConf,
+		strPathHomeRahub,
+		strPathSysRahub,
+	}
+	confG *config
 	// for RAS command line parameters
 	servPort *string = nil
 	restPort *string = nil
@@ -513,28 +538,31 @@ func getHubConf(c *config) {
 	}
 }
 
-/*
-GetDefault returns the global default config object.
-It searches the defaultConfigPath to find the first matched config.yaml.
-if it doesn't find any one, it returns the default values by code.
-Notice:
-  server must has a config.yaml to give the configuration.
-  client may not have one.
-*/
-func GetDefault(cfType string) *config {
-	if cfg != nil {
-		return cfg
-	}
-
+// setConfigPaths sets the config paths for different apps
+func setConfigPaths(cfg *config) *config {
+	var s string
 	viper.SetConfigName(ConfName)
 	viper.SetConfigType(ConfExt)
-	for _, s := range defaultConfigPath {
-		viper.AddConfigPath(s)
+	switch cfg.confType {
+	case ConfServer:
+		for _, s = range defaultRasConfigPath {
+			viper.AddConfigPath(s)
+		}
+	case ConfClient:
+		for _, s = range defaultRacConfigPath {
+			viper.AddConfigPath(s)
+		}
+	case ConfHub:
+		for _, s = range defaultRahubConfigPath {
+			viper.AddConfigPath(s)
+		}
 	}
+	return cfg
+}
 
-	// set default configuration for different app.
-	cf := strings.ToLower(cfType)
-	switch cf {
+// setConfigDefaults sets default configurations for different apps
+func setConfigDefaults(cfg *config) *config {
+	switch cfg.confType {
 	case ConfServer:
 	case ConfClient:
 		viper.SetDefault(RacHbDuration, RacDefaultHbDuration)
@@ -544,14 +572,10 @@ func GetDefault(cfType string) *config {
 		viper.SetDefault(RacDigestAlgorithm, RacDigestAlgorithmSHA256)
 	case ConfHub:
 	}
+	return cfg
+}
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		fmt.Printf("read config file error: %v\n", err)
-	}
-
-	cfg = &config{}
-	cfg.confType = cf
+func loadConfig(cfg *config) *config {
 	switch cfg.confType {
 	case ConfServer:
 		getServerConf(cfg)
@@ -563,52 +587,90 @@ func GetDefault(cfType string) *config {
 	return cfg
 }
 
+/*
+GetDefault returns the global default config object.
+It searches the defaultConfigPath to find the first matched config.yaml.
+if it doesn't find any one, it returns the default values by code.
+Notice:
+  server must has a config.yaml to give the configuration.
+  client may not have one.
+*/
+func GetDefault(cfType string) *config {
+	if confG != nil {
+		return confG
+	}
+
+	confG = &config{}
+	confG.confType = strings.ToLower(cfType)
+	confG = setConfigPaths(confG)
+	confG = setConfigDefaults(confG)
+
+	err := viper.ReadInConfig()
+	if err != nil {
+		fmt.Printf("read config file error: %v\n", err)
+	}
+	confG = loadConfig(confG)
+	return confG
+}
+
+func saveRasConfig(cfg *config) {
+	viper.Set(DbHost, cfg.dbConfig.host)
+	viper.Set(DbName, cfg.dbConfig.dbName)
+	viper.Set(DbPort, cfg.dbConfig.port)
+	viper.Set(DbUser, cfg.dbConfig.user)
+	viper.Set(DbPassword, cfg.dbConfig.password)
+	viper.Set(RasRootPrivKeyFile, cfg.rasConfig.rootPrivKeyFile)
+	viper.Set(RasRootKeyCertFile, cfg.rasConfig.rootKeyCertFile)
+	viper.Set(RasPcaPrivKeyFile, cfg.rasConfig.pcaPrivKeyFile)
+	viper.Set(RasPcaKeyCertFile, cfg.rasConfig.pcaKeyCertFile)
+	viper.Set(RasPort, cfg.rasConfig.servPort)
+	viper.Set(RasRestPort, cfg.rasConfig.restPort)
+	viper.Set(RasMgrStrategy, cfg.rasConfig.mgrStrategy)
+	viper.Set(RasAuthKeyFile, cfg.rasConfig.authKeyFile)
+	viper.Set(RasChangeTime, cfg.rasConfig.changeTime)
+	viper.Set(RasAutoUpdateConfig, cfg.rasConfig.autoUpdateConfig)
+	// store common configuration for all client
+	viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
+	viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
+	viper.Set(RacDigestAlgorithm, cfg.racConfig.digestAlgorithm)
+}
+
+func saveRacConfig(cfg *config) {
+	// store common part
+	if cfg.racConfig.testMode {
+		viper.Set(RacEKeyCertFileTest, cfg.racConfig.eKeyCertFileTest)
+		viper.Set(RacIPriKeyFileTest, cfg.racConfig.iPriKeyFileTest)
+		viper.Set(RacIPubKeyFileTest, cfg.racConfig.iPubKeyFileTest)
+		viper.Set(RacIKeyCertFileTest, cfg.racConfig.iKeyCertFileTest)
+	} else {
+		viper.Set(RacIPriKeyFile, cfg.racConfig.iPriKeyFile)
+		viper.Set(RacIPubKeyFile, cfg.racConfig.iPubKeyFile)
+		viper.Set(RacIKeyCertFile, cfg.racConfig.iKeyCertFile)
+	}
+	viper.Set(RacServer, cfg.racConfig.server)
+	viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
+	viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
+	viper.Set(RacDigestAlgorithm, cfg.racConfig.digestAlgorithm)
+	// store special configuration for this client
+	viper.Set(RacClientId, cfg.racConfig.clientId)
+	viper.Set(RacPassword, cfg.racConfig.password)
+}
+
+func saveRahubConfig(cfg *config) {
+	viper.Set(HubServer, cfg.hubConfig.server)
+	viper.Set(HubPort, cfg.hubConfig.hubPort)
+}
+
 // Save saves all config variables to the config.yaml file.
 func Save() {
-	if cfg != nil {
-		switch cfg.confType {
+	if confG != nil {
+		switch confG.confType {
 		case ConfServer:
-			viper.Set(DbHost, cfg.dbConfig.host)
-			viper.Set(DbName, cfg.dbConfig.dbName)
-			viper.Set(DbPort, cfg.dbConfig.port)
-			viper.Set(DbUser, cfg.dbConfig.user)
-			viper.Set(DbPassword, cfg.dbConfig.password)
-			viper.Set(RasRootPrivKeyFile, cfg.rasConfig.rootPrivKeyFile)
-			viper.Set(RasRootKeyCertFile, cfg.rasConfig.rootKeyCertFile)
-			viper.Set(RasPcaPrivKeyFile, cfg.rasConfig.pcaPrivKeyFile)
-			viper.Set(RasPcaKeyCertFile, cfg.rasConfig.pcaKeyCertFile)
-			viper.Set(RasPort, cfg.rasConfig.servPort)
-			viper.Set(RasRestPort, cfg.rasConfig.restPort)
-			viper.Set(RasMgrStrategy, cfg.rasConfig.mgrStrategy)
-			viper.Set(RasAuthKeyFile, cfg.rasConfig.authKeyFile)
-			viper.Set(RasChangeTime, cfg.rasConfig.changeTime)
-			viper.Set(RasAutoUpdateConfig, cfg.rasConfig.autoUpdateConfig)
-			// store common configuration for all client
-			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
-			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
-			viper.Set(RacDigestAlgorithm, cfg.racConfig.digestAlgorithm)
+			saveRasConfig(confG)
 		case ConfClient:
-			// store common part
-			if cfg.racConfig.testMode {
-				viper.Set(RacEKeyCertFileTest, cfg.racConfig.eKeyCertFileTest)
-				viper.Set(RacIPriKeyFileTest, cfg.racConfig.iPriKeyFileTest)
-				viper.Set(RacIPubKeyFileTest, cfg.racConfig.iPubKeyFileTest)
-				viper.Set(RacIKeyCertFileTest, cfg.racConfig.iKeyCertFileTest)
-			} else {
-				viper.Set(RacIPriKeyFile, cfg.racConfig.iPriKeyFile)
-				viper.Set(RacIPubKeyFile, cfg.racConfig.iPubKeyFile)
-				viper.Set(RacIKeyCertFile, cfg.racConfig.iKeyCertFile)
-			}
-			viper.Set(RacServer, cfg.racConfig.server)
-			viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
-			viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
-			viper.Set(RacDigestAlgorithm, cfg.racConfig.digestAlgorithm)
-			// store special configuration for this client
-			viper.Set(RacClientId, cfg.racConfig.clientId)
-			viper.Set(RacPassword, cfg.racConfig.password)
+			saveRacConfig(confG)
 		case ConfHub:
-			viper.Set(HubServer, cfg.hubConfig.server)
-			viper.Set(HubPort, cfg.hubConfig.hubPort)
+			saveRahubConfig(confG)
 		}
 		err := viper.WriteConfig()
 		if err != nil {
