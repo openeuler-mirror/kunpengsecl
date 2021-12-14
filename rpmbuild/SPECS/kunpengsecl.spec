@@ -46,30 +46,41 @@ make build
 rm -rf %{buildroot}/usr/bin/
 mkdir -p %{buildroot}/usr/bin/
 rm -rf %{buildroot}/etc/
-mkdir -p %{buildroot}/etc/attestation/
+mkdir -p %{buildroot}/etc/attestation/rac/
+mkdir -p %{buildroot}/etc/attestation/rahub/
+mkdir -p %{buildroot}/etc/attestation/ras/
 rm -rf %{buildroot}/usr/share/
-mkdir -p %{buildroot}/usr/share/rac/
-mkdir -p %{buildroot}/usr/share/ras/
-mkdir -p %{buildroot}/usr/share/doc/
+mkdir -p %{buildroot}/usr/share/attestation/rac/
+mkdir -p %{buildroot}/usr/share/attestation/ras/
+mkdir -p %{buildroot}/usr/share/doc/attestation/ras/
+mkdir -p %{buildroot}/usr/share/doc/attestation/rac/
+mkdir -p %{buildroot}/usr/share/doc/attestation/rahub/
 
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/rac/pkg/raagent %{buildroot}/usr/bin/
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/rac/pkg/rahub %{buildroot}/usr/bin/
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/rac/pkg/tbprovisioner %{buildroot}/usr/bin/
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/ras/pkg/ras %{buildroot}/usr/bin/
 
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/config.yaml %{buildroot}/etc/attestation/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/rahub/config.yaml %{buildroot}/etc/attestation/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/ras/config.yaml %{buildroot}/etc/attestation/
+install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/config.yaml %{buildroot}/etc/attestation/rac/
+install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/rahub/config.yaml %{buildroot}/etc/attestation/rahub/
+install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/ras/config.yaml %{buildroot}/etc/attestation/ras/
 
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-database-env.sh %{buildroot}/usr/share/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clear-database.sh %{buildroot}/usr/share/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/createTable.sql %{buildroot}/usr/share/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clearTable.sql %{buildroot}/usr/share/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/dropTable.sql %{buildroot}/usr/share/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/integritytools/*.sh %{buildroot}/usr/share/rac/
-install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}/usr/share/doc/
-install -m 644 %{_builddir}/%{name}-%{version}/README.en.md %{buildroot}/usr/share/doc/
-install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/doc/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-database-env.sh %{buildroot}/usr/share/attestation/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clear-database.sh %{buildroot}/usr/share/attestation/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/createTable.sql %{buildroot}/usr/share/attestation/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clearTable.sql %{buildroot}/usr/share/attestation/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/dropTable.sql %{buildroot}/usr/share/attestation/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/integritytools/*.sh %{buildroot}/usr/share/attestation/rac/
+
+install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}/usr/share/doc/attestation/ras/
+install -m 644 %{_builddir}/%{name}-%{version}/README.en.md %{buildroot}/usr/share/doc/attestation/ras/
+install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/doc/attestation/ras/
+install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}/usr/share/doc/attestation/rac/
+install -m 644 %{_builddir}/%{name}-%{version}/README.en.md %{buildroot}/usr/share/doc/attestation/rac/
+install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/doc/attestation/rac/
+install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}/usr/share/doc/attestation/rahub/
+install -m 644 %{_builddir}/%{name}-%{version}/README.en.md %{buildroot}/usr/share/doc/attestation/rahub/
+install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/doc/attestation/rahub/
 
 # %check
 # make check
@@ -86,32 +97,32 @@ install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/do
 %files   rac
 %{_bindir}/raagent
 %{_bindir}/tbprovisioner
-%{_sysconfdir}/attestation/config.yaml
-%{_datadir}/rac/containerintegritytool.sh
-%{_datadir}/rac/pcieintegritytool.sh
-%{_datadir}/rac/hostintegritytool.sh
-%{_docdir}/README.md
-%{_docdir}/README.en.md
-%{_docdir}/LICENSE
+%{_sysconfdir}/attestation/rac/config.yaml
+%{_datadir}/attestation/rac/containerintegritytool.sh
+%{_datadir}/attestation/rac/pcieintegritytool.sh
+%{_datadir}/attestation/rac/hostintegritytool.sh
+%{_docdir}/attestation/rac/README.md
+%{_docdir}/attestation/rac/README.en.md
+%{_docdir}/attestation/rac/LICENSE
 
 %files   ras
 %{_bindir}/ras
-%{_sysconfdir}/attestation/config.yaml
-%{_datadir}/ras/prepare-database-env.sh
-%{_datadir}/ras/clear-database.sh
-%{_datadir}/ras/createTable.sql
-%{_datadir}/ras/clearTable.sql
-%{_datadir}/ras/dropTable.sql
-%{_docdir}/README.md
-%{_docdir}/README.en.md
-%{_docdir}/LICENSE
+%{_sysconfdir}/attestation/ras/config.yaml
+%{_datadir}/attestation/ras/prepare-database-env.sh
+%{_datadir}/attestation/ras/clear-database.sh
+%{_datadir}/attestation/ras/createTable.sql
+%{_datadir}/attestation/ras/clearTable.sql
+%{_datadir}/attestation/ras/dropTable.sql
+%{_docdir}/attestation/ras/README.md
+%{_docdir}/attestation/ras/README.en.md
+%{_docdir}/attestation/ras/LICENSE
 
 %files   rahub
 %{_bindir}/rahub
-%{_sysconfdir}/attestation/config.yaml
-%{_docdir}/README.md
-%{_docdir}/README.en.md
-%{_docdir}/LICENSE
+%{_sysconfdir}/attestation/rahub/config.yaml
+%{_docdir}/attestation/rahub/README.md
+%{_docdir}/attestation/rahub/README.en.md
+%{_docdir}/attestation/rahub/LICENSE
 
 %clean
 rm -rf %{_builddir}
