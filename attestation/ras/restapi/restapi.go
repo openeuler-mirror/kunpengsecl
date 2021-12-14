@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
 
@@ -118,22 +121,22 @@ func setExtractRules(val string) {
 
 func setHBDuration(val string) {
 	cfg := config.GetDefault(config.ConfServer)
-	duration, err := strconv.ParseInt(val, 10, 64)
+	duration, err := time.ParseDuration(val)
 	if err != nil {
-		fmt.Print("Convert string to int64 failed.")
-	} else {
-		cfg.SetHBDuration(time.Duration(duration))
+		fmt.Print("Convert string to duration failed.")
+		return
 	}
+	cfg.SetHBDuration(duration)
 }
 
 func setTDuration(val string) {
 	cfg := config.GetDefault(config.ConfServer)
-	duration, err := strconv.ParseInt(val, 10, 64)
+	duration, err := time.ParseDuration(val)
 	if err != nil {
-		fmt.Print("Convert string to int64 failed.")
-	} else {
-		cfg.SetTrustDuration(time.Duration(duration))
+		fmt.Print("Convert string to duration failed.")
+		return
 	}
+	cfg.SetTrustDuration(duration)
 }
 
 // Return the base value of a given container
@@ -649,4 +652,24 @@ func StartServer(addr string, cm *cache.CacheMgr) {
 	RegisterHandlers(router, server)
 
 	router.Logger.Fatal(router.Start(addr))
+}
+
+func CreateTestAuthToken() ([]byte, error) {
+	authKeyPubFile := config.GetDefault(config.ConfServer).GetAuthKeyFile()
+	authKeyFile := os.TempDir() + "/at" + strconv.FormatInt(rand.Int63(), 16)
+	test.CreateAuthKeyFile(authKeyFile, authKeyPubFile)
+	defer os.Remove(authKeyFile)
+
+	v, err := internal.NewFakeAuthenticator(authKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("Create Authenticator failed: %v", err)
+	}
+
+	// create a JWT with config write & server write permission
+	writeJWT, err := v.CreateJWSWithClaims([]string{"write:config", "write:servers"})
+	if err != nil {
+		return nil, fmt.Errorf("Create token failed: %v", err)
+	}
+
+	return writeJWT, nil
 }

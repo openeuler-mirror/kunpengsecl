@@ -86,6 +86,9 @@ const (
 	RasVersionLongFlag    = "version"
 	RasVersionShortFlag   = "V"
 	RasVersionHelp        = "show version number and quit"
+	RasTokenLongFlag      = "token"
+	RasTokenShortFlag     = "T"
+	RasTokenHelp          = "generate test token and quit"
 	RasMgrStrategy        = "rasconfig.mgrstrategy"
 	RasAutoStrategy       = "auto"
 	RasAutoUpdateStrategy = "auto-update"
@@ -162,6 +165,7 @@ var (
 	restPort       *string = nil
 	RasVerboseFlag *bool   = nil
 	RasVersionFlag *bool   = nil
+	RasTokenFlag   *bool   = nil
 	// for RAC command line parameters
 	racServer      *string = nil
 	racTestMode    *bool   = nil
@@ -244,6 +248,7 @@ func InitRasFlags() {
 	restPort = pflag.StringP(RasRestPortLongFlag, RasRestPortShortFlag, "", RasRestHelp)
 	RasVerboseFlag = pflag.BoolP(RasVerboseLongFlag, RasVerboseShortFlag, false, RasVerboseHelp)
 	RasVersionFlag = pflag.BoolP(RasVersionLongFlag, RasVersionShortFlag, false, RasVersionHelp)
+	RasTokenFlag = pflag.BoolP(RasTokenLongFlag, RasTokenShortFlag, false, RasTokenHelp)
 }
 
 // InitRacFlags sets the rac client whole command flags.

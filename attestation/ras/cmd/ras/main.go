@@ -8,6 +8,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
@@ -34,12 +35,25 @@ func init() {
 	config.InitRasFlags()
 }
 
-func main() {
-	pflag.Parse()
+func handleCommand() {
 	if *config.RasVersionFlag {
 		fmt.Printf("remote attestation server(ras): %s\n", rasVersion)
-		return
+		os.Exit(0)
 	}
+	if *config.RasTokenFlag {
+		token, err := restapi.CreateTestAuthToken()
+		if err != nil {
+			fmt.Printf("create test auth token failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("please pass below line as a whole in http Authorization header:\nBearer %s\n", string(token))
+		os.Exit(0)
+	}
+}
+
+func main() {
+	pflag.Parse()
+	handleCommand()
 	cfg := config.GetDefault(config.ConfServer)
 	config.SetupSignalHandler()
 
