@@ -33,7 +33,8 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 	er := cfg.GetExtractRules()
 	jsonER, err := json.Marshal(er)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Print("Marshal struct to []byte failed.")
+		return ctx.JSON(http.StatusForbidden, err)
 	}
 	strER := string(jsonER)
 	cfgMap := map[string]string{
@@ -63,10 +64,9 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 	cfg := config.GetDefault(config.ConfServer)
 	err := ctx.Bind(&configBody)
 	if err != nil {
-		fmt.Print("Bind configBody failed.")
-		return err
+		fmt.Print("Bind configBody failed.\n")
+		return ctx.JSON(http.StatusNoContent, err)
 	}
-	fmt.Println(configBody)
 	postCfgMap := map[string]func(s string){
 		"dbHost":          func(s string) { cfg.SetHost(s) },
 		"dbName":          func(s string) { cfg.SetDBName(s) },
@@ -81,7 +81,6 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 	}
 	if len(configBody) == 0 {
 		fmt.Print("Not have specification about the config items that need modified.\n")
-		return nil
 	}
 	for i := range configBody {
 		doFunc, ok := postCfgMap[*configBody[i].Name]
@@ -91,54 +90,50 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 			fmt.Print("Modify config failed.\n")
 		}
 	}
-	return nil
+	return ctx.JSON(http.StatusOK, nil)
 }
 
 //Modify some config information respectively
-func setDBport(val string) error {
+func setDBport(val string) {
 	cfg := config.GetDefault(config.ConfServer)
 	port, err := strconv.Atoi(val)
 	if err != nil {
 		fmt.Print("Convert string to int failed.")
-		return err
+	} else {
+		cfg.SetDBPort(port)
 	}
-	cfg.SetDBPort(port)
-	return nil
 }
 
-func setExtractRules(val string) error {
+func setExtractRules(val string) {
 	cfg := config.GetDefault(config.ConfServer)
 	jsonER := []byte(val)
 	var extractRules entity.ExtractRules
 	err := json.Unmarshal(jsonER, &extractRules)
 	if err != nil {
 		fmt.Print("Unmarshal byte to struct failed.")
-		return err
+	} else {
+		cfg.SetExtractRules(extractRules)
 	}
-	cfg.SetExtractRules(extractRules)
-	return nil
 }
 
-func setHBDuration(val string) error {
+func setHBDuration(val string) {
 	cfg := config.GetDefault(config.ConfServer)
 	duration, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
 		fmt.Print("Convert string to int64 failed.")
-		return err
+	} else {
+		cfg.SetHBDuration(time.Duration(duration))
 	}
-	cfg.SetHBDuration(time.Duration(duration))
-	return nil
 }
 
-func setTDuration(val string) error {
+func setTDuration(val string) {
 	cfg := config.GetDefault(config.ConfServer)
 	duration, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
 		fmt.Print("Convert string to int64 failed.")
-		return err
+	} else {
+		cfg.SetTrustDuration(time.Duration(duration))
 	}
-	cfg.SetTrustDuration(time.Duration(duration))
-	return nil
 }
 
 // Return the base value of a given container
