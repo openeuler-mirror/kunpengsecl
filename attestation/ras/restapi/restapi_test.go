@@ -21,7 +21,6 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,26 +49,12 @@ func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.Measuremen
 }
 
 func CreateServer(t *testing.T) {
-	router := echo.New()
-
-	v, err := internal.NewFakeAuthenticator(authKeyPubFile)
-	require.NoError(t, err)
-
-	av, err := CreateAuthValidator(v)
-	require.NoError(t, err)
-
-	router.Pre(middleware.RemoveTrailingSlash())
-	router.Use(middleware.Logger())
-	router.Use(av)
-
+	var addr = "127.0.0.1:5098"
 	vm, err := verifier.CreateVerifierMgr()
 	require.NoError(t, err)
-
 	cm := cache.CreateCacheMgr(100, vm)
-	server := NewRasServer(cm)
-	RegisterHandlers(router, server)
 
-	router.Logger.Fatal(router.Start("127.0.0.1:5098"))
+	StartServer(addr, cm)
 }
 
 func AddAuthReqEditor(jws string) RequestEditorFn {
@@ -156,37 +141,37 @@ func TestPostConfig(t *testing.T) {
 	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 
-	var configJSON0 = `[{"name":"dbName", "value":"kunpengsecl"}, {"name":"dbPort", "value":"5432"}]`
+	var configJSON0 = `[{"name":"trustDuration","value":"2m0s"},{"name":"dbHost","value":"localhost"},{"name":"dbUser","value":"postgres"},{"name":"mgrStrategy","value":"auto"},{"name":"changeTime","value":"1970-01-01 08:00:00 +0800 CST"},{"name":"extractRules","value":"{\"PcrRule\":{\"PcrSelection\":[1,2,3,4]},\"ManifestRules\":[{\"MType\":\"bios\",\"Name\":[\"name1\",\"name2\"]},{\"MType\":\"ima\",\"Name\":[\"name1\",\"name2\"]}]}"},{"name":"hbDuration","value":"5s"},{"name":"dbName","value":"kunpengsecl"},{"name":"dbPort","value":"5432"},{"name":"digestAlgorithm","value":"sha256"}]`
 	var configJSON1 = `[{"name":"port", "value":"1000"}]`
+	var configJSON2 = ``
 	e := echo.New()
+	s := NewRasServer(nil)
+
 	req := httptest.NewRequest(echo.POST, "/", strings.NewReader(configJSON0))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	s := NewRasServer(nil)
-	t.Log("The former config is: ")
-	_ = s.GetConfig(ctx)
-	t.Log(rec.Body)
 	err := s.PostConfig(ctx)
 	if assert.NoError(t, err) {
 		assert.Equal(t, http.StatusOK, rec.Code)
-		t.Log("The modified config is: ")
-		rec = httptest.NewRecorder()
-		ctx = e.NewContext(req, rec)
-		_ = s.GetConfig(ctx)
-		t.Log(rec.Body)
 	}
+
 	req = httptest.NewRequest(echo.POST, "/", strings.NewReader(configJSON1))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
 	ctx = e.NewContext(req, rec)
 	err = s.PostConfig(ctx)
 	if assert.NoError(t, err) {
 		assert.Equal(t, http.StatusOK, rec.Code)
-		t.Log("The current config is: ")
-		rec = httptest.NewRecorder()
-		ctx = e.NewContext(req, rec)
-		_ = s.GetConfig(ctx)
-		t.Log(rec.Body)
+	}
+
+	req = httptest.NewRequest(echo.POST, "/", strings.NewReader(configJSON2))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+	ctx = e.NewContext(req, rec)
+	err = s.PostConfig(ctx)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
 	}
 }
 
@@ -323,35 +308,47 @@ func TestPutServerBasevalue(t *testing.T) {
 	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 
+	e := echo.New()
 	s, cid := prepareServers(t)
-	var baseValueJSON = `{
-		"algorithm":"SHA1",
+	var baseValueJSON0 = `{
 		"measurements":[{
 			"name":"mName",
 			"type":"mType",
 			"value":"mValue"
 		}],
 		"pcrvalues":[{
+			"index":0,
+			"value":"pValue0"
+		}]
+	}`
+	var baseValueJSON1 = `{
+		"measurements":[{
+			"name":"mName1",
+			"type":"mType1",
+			"value":"mValue1"
+		}],
+		"pcrvalues":[{
 			"index":1,
-			"value":"pcr value1"
+			"value":"pValue1"
 		}]
 	}`
 
-	e := echo.New()
-	req := httptest.NewRequest(echo.PUT, "/", strings.NewReader(baseValueJSON))
+	req := httptest.NewRequest(echo.PUT, "/", strings.NewReader(baseValueJSON0))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	_ = s.GetServerBasevalueServerId(ctx, cid)
-	t.Logf("Get former base value:%v", rec.Body)
-
 	err := s.PutServerBasevalueServerId(ctx, cid)
 	if assert.NoError(t, err) {
 		assert.Equal(t, http.StatusOK, rec.Code)
-		rec = httptest.NewRecorder()
-		ctx = e.NewContext(req, rec)
-		_ = s.GetServerBasevalueServerId(ctx, cid)
-		t.Logf("Get current base value:%v", rec.Body)
+	}
+
+	req = httptest.NewRequest(echo.PUT, "/", strings.NewReader(baseValueJSON1))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+	ctx = e.NewContext(req, rec)
+	err = s.PutServerBasevalueServerId(ctx, cid)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
 	}
 }
 
@@ -1004,6 +1001,23 @@ func TestGetDeviceStatusId(t *testing.T) {
 	err = json.Unmarshal(rec.Body.Bytes(), &ts)
 	assert.NoError(t, err)
 	assert.Equal(t, cache.STSTRUSTED, ts.Status)
+}
+
+func TestGetVersion(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer)
+	defer test.RemoveConfigFile()
+
+	e := echo.New()
+	s := NewRasServer(nil)
+	req := httptest.NewRequest(echo.GET, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	err := s.GetVersion(ctx)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+	}
 }
 
 type testValidator struct {
