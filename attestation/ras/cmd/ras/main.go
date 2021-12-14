@@ -19,6 +19,10 @@ import (
 	"github.com/spf13/pflag"
 )
 
+const (
+	rasVersion = "version 0.1.0"
+)
+
 type testValidator struct {
 }
 
@@ -32,6 +36,10 @@ func init() {
 
 func main() {
 	pflag.Parse()
+	if *config.RasVersionFlag {
+		fmt.Printf("remote attestation server(ras): %s\n", rasVersion)
+		return
+	}
 	cfg := config.GetDefault(config.ConfServer)
 	config.SetupSignalHandler()
 
