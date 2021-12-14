@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/x509"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -13,6 +14,10 @@ import (
 	"github.com/spf13/pflag"
 )
 
+const (
+	raagentVersion = "version 0.1.0"
+)
+
 func init() {
 	config.InitRacFlags()
 }
@@ -20,6 +25,10 @@ func init() {
 func main() {
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
 	pflag.Parse()
+	if *config.RacVersionFlag {
+		fmt.Printf("remote attestation client(raagent): %s\n", raagentVersion)
+		return
+	}
 	cfg := config.GetDefault(config.ConfClient)
 	config.SetupSignalHandler()
 	testMode := cfg.GetTestMode()
