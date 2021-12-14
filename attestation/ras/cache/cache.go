@@ -32,30 +32,40 @@ import (
  In the heartbeat reply message, it will send some commands to RAC.
 */
 const (
-	CMDSENDCONF   uint64 = 1 << iota // send new configuration to RAC.
-	CMDGETREPORT                     // get a new trust report from RAC.
-	CMDNONE       uint64 = 0         // clear all pending commands.
-	STSUNKOWN            = "unkown"
-	STSTRUSTED           = "trusted"
-	STSUNTRUSTED         = "untrusted"
-	DEFAULTRACNUM int    = 1000
+	// const start with CMD is used for nextAction which determind what to do for RAC.
+	CMDSENDCONF  uint64 = 1 << iota // send new configuration to RAC.
+	CMDGETREPORT                    // get a new trust report from RAC.
+	CMDNONE      uint64 = 0         // clear all pending commands.
+	// const start with STS is used for trust status.
+	STSUNKOWN    = "unkown"
+	STSTRUSTED   = "trusted"
+	STSUNTRUSTED = "untrusted"
+	// default RAC number in the cache.
+	DEFAULTRACNUM int = 1000
 )
 
 type (
 	// Cache stores the latest status of one RAC target.
 	Cache struct {
-		cm              *CacheMgr
-		cid             int64
-		command         uint64
-		hbExpiration    time.Time
+		cm *CacheMgr
+		// one cache corresponds to one client id.
+		cid int64
+		// current command for RAC.
+		command uint64
+		// heartbeat expiration, used for judging whether RAC heartbeat is expired.
+		hbExpiration time.Time
+		// trust report expiration,used for maintain report freshness.
 		trustExpiration time.Time
 	}
 
-	// manager of the caches for all registered RACs
+	// manager of the caches for all registered RACs.
 	CacheMgr struct {
+		// sync lock.
 		sync.Mutex
+		// all current RAC and its corresponding cache map.
 		caches map[int64]*Cache
-		vm     *verifier.VerifierMgr
+		// for verifying report if it is trusted.
+		vm *verifier.VerifierMgr
 	}
 )
 
