@@ -33,11 +33,11 @@ sim-test: build
 	/bin/bash ./attestation/quick-scripts/test.sh
 
 sim-clean: clean
-	-@pkill ras || true
-	-@pkill raagent || true
-	-@pkill rahub || true
-	-@pkill server || true
-	-@pkill client || true
+	-@pkill -u ${USER} ras || true
+	-@pkill -u ${USER} raagent || true
+	-@pkill -u ${USER} rahub || true
+	-@pkill -u ${USER} server || true
+	-@pkill -u ${USER} client || true
 
 rpm:
 	/bin/bash ./attestation/quick-scripts/buildrpm.sh
