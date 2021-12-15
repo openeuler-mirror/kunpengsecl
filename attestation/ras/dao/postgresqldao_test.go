@@ -115,6 +115,8 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 		fmt.Println(psdErr)
 		t.FailNow()
 	}
+	err = psd.SaveReport(&entity.Report{})
+	assert.Error(t, err)
 
 }
 
@@ -134,6 +136,8 @@ func TestRegisterClient(t *testing.T) {
 	if err2 != nil {
 		t.FailNow()
 	}
+	_, err2 = psd.RegisterClient(ci, ic)
+	assert.Error(t, err2)
 }
 
 func TestUnRegisterClient(t *testing.T) {
@@ -196,10 +200,14 @@ func TestSaveAndSelectBaseValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	err = psd.SaveBaseValue(-999, &testMea)
+	assert.Error(t, err)
 	mea, err := psd.SelectBaseValueById(clientIds[0])
 	if err != nil {
 		t.Fatal(err)
 	}
+	_, err = psd.SelectBaseValueById(-999)
+	assert.Error(t, err)
 	t.Logf("measurement info : %v", mea)
 	testCase := []struct {
 		input1 string
@@ -253,10 +261,14 @@ func TestSelectReportById(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	latestReport, err := psd.SelectLatestReportById(id)
 	if err != nil {
 		t.Fatal(err)
 	}
+	_, err = psd.SelectLatestReportById(-999)
+	assert.Error(t, err)
+
 	t.Logf("the latest report is : %v", latestReport)
 	for i, r := range reports {
 		t.Logf("report %d: %v", i, r)
@@ -286,6 +298,9 @@ func TestSelectClientById(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 	assert.Equal(t, string(ic), rc.AkCertificate)
+
+	_, err = psd.SelectClientById(-999)
+	assert.Error(t, err)
 }
 
 func TestSelectClientIds(t *testing.T) {
@@ -340,6 +355,9 @@ func TestSelectClientInfobyId(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	_, err = psd.SelectAllClientInfobyId(-999)
+	assert.Error(t, err)
+
 	for k, v := range result {
 		assert.Equal(t, v, ci1.Info[k])
 	}
@@ -355,6 +373,8 @@ func TestSelectClientInfobyId(t *testing.T) {
 		assert.Equal(t, v, ci1.Info[k])
 	}
 
+	_, err = psd.SelectClientInfobyId(-999, keys[:len(keys)-1])
+	assert.Error(t, err)
 }
 
 func TestUpdateRegisterStatusById(t *testing.T) {
@@ -383,6 +403,7 @@ func TestUpdateRegisterStatusById(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+
 	c2, err := psd.SelectClientById(cid)
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -461,15 +482,24 @@ func TestInsertAndSelectContainer(t *testing.T) {
 	}
 	err = psd.InsertContainer(&testCon1)
 	assert.NoError(t, err)
+	err = psd.InsertContainer(&entity.Container{})
+	assert.Error(t, err)
+
 	result1, err := psd.SelectContainerByUUId(uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, cid, result1.ClientId)
 
+	_, err = psd.SelectContainerByUUId("a")
+	assert.Error(t, err)
+
 	err = psd.InsertContainerBaseValue(&testCbv1)
 	assert.NoError(t, err)
+
 	result2, err := psd.SelectContainerBaseValueByUUId(uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, len(ci.Info), len(result2.Value))
+	_, err = psd.SelectContainerBaseValueByUUId("a")
+	assert.Error(t, err)
 }
 
 func TestInsertAndSelectDevice(t *testing.T) {
@@ -502,16 +532,23 @@ func TestInsertAndSelectDevice(t *testing.T) {
 	}
 	err = psd.InsertDevice(&testP1)
 	assert.NoError(t, err)
+	err = psd.InsertDevice(&entity.PcieDevice{})
+	assert.Error(t, err)
+
 	result1, err := psd.SelectDeviceById(int64(deviceId))
 	assert.NoError(t, err)
 	assert.Equal(t, cid, result1.ClientId)
+
+	_, err = psd.SelectDeviceById(-999)
+	assert.Error(t, err)
 
 	err = psd.InsertDeviceBaseValue(&testPbv1)
 	assert.NoError(t, err)
 	result2, err := psd.SelectDeviceBaseValueById(int64(deviceId))
 	assert.NoError(t, err)
 	assert.Equal(t, len(ci.Info), len(result2.Value))
-
+	_, err = psd.SelectDeviceBaseValueById(-999)
+	assert.Error(t, err)
 }
 
 func createRandomCert() []byte {

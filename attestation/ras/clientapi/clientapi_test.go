@@ -192,7 +192,10 @@ func TestClientAPI(t *testing.T) {
 			},
 			Algorithm: cfg.GetDigestAlgorithm(),
 		},
-		Manifest: []*Manifest{},
+		Manifest: []*Manifest{
+			0: {Type: "bios", Item: testBiosManifest},
+			1: {Type: "ima", Item: []byte(testIMAManifest)},
+		},
 		ClientId: r.GetClientId(),
 	}})
 	if err != nil {

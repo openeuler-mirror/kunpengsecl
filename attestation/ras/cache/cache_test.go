@@ -1,11 +1,13 @@
 package cache
 
 import (
+	"sort"
 	"strconv"
 	"testing"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCacheCommand(t *testing.T) {
@@ -97,4 +99,18 @@ func TestNonce(t *testing.T) {
 		t.Log(len(strconv.FormatUint(nonce, 2)))
 	}
 
+}
+
+func TestGetAllClientIDs(t *testing.T) {
+	oids := []int64{1, 2, 3}
+	cs := map[int64]*Cache{}
+	for _, id := range oids {
+		cs[id] = &Cache{cid: id}
+	}
+	cm := CacheMgr{
+		caches: cs,
+	}
+	ids := cm.GetAllClientID()
+	sort.SliceStable(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	assert.Equal(t, oids, ids)
 }
