@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eux
+#set -eux
 DST=/tmp/kunpengsecl-test
 RACPKG=./attestation/rac/pkg
 RAAGENT=${RACPKG}/raagent
@@ -22,6 +22,12 @@ SAMPLECLIENT=${EXAMPLE}/pkg/client
 # run number of rac clients to test
 NUM=5
 
+# check number times the performance
+NUMPFM=60
+
+
+echo "start test at: $(date)" > ${DST}/perf.txt
+echo "prepare the test environments..." | tee -a ${DST}/perf.txt
 rm -rf ${DST}
 mkdir -p ${DST}
 cp ${TBPRO} ${DST}
@@ -50,12 +56,44 @@ cp -rf ${SAMPLEAUTHSVRSTATIC} ${DST}/authserver
 mkdir -p ${DST}/authclient
 cp ${SAMPLECLIENT} ${DST}/authclient
 
-( cd ${DST}/ras ; ./ras &>${DST}/ras/log.txt ; )&
-( cd ${DST}/authserver ; ./server &>${DST}/authserver/log.txt ; )&
-( cd ${DST}/authclient ; ./client &>${DST}/authclient/log.txt ; )&
+echo "start ras..." | tee -a ${DST}/perf.txt
+( cd ${DST}/ras ; ./ras &>${DST}/ras/echo.txt ; )&
+echo "start authserver..." | tee -a ${DST}/perf.txt
+( cd ${DST}/authserver ; ./server &>${DST}/authserver/echo.txt ; )&
+echo "start authclient..." | tee -a ${DST}/perf.txt
+( cd ${DST}/authclient ; ./client &>${DST}/authclient/echo.txt ; )&
 
+# start number of rac clients
+echo "start ${NUM} rac clients..." | tee -a ${DST}/perf.txt
+(( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/log.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    (( count++ ))
+    if (( count >= 100 ))
+    then
+        (( count=0 ))
+        echo "start ${i} rac clients at $(date)..." | tee -a ${DST}/perf.txt
+        top -b -n 1 | awk '/load/ {print $10, $11, $12, $13, $14}' | tee -a ${DST}/perf.txt
+    fi
 done
 
+# check number times of performance and record
+echo "start to check performance..." | tee -a ${DST}/perf.txt
+for (( i=1; i<=${NUMPFM}; i++ ))
+do
+    echo "check ${i} at: $(date)" | tee -a ${DST}/perf.txt
+    top -b -n 1 | awk '/load/ {print $10, $11, $12, $13, $14}' | tee -a ${DST}/perf.txt
+    top -b -n 1 | awk '/ras/ {print $12, $1, $9, $10}' | tee -a ${DST}/perf.txt
+    top -b -n 1 | awk '/post/ {print $12, $1, $9, $10}' | tee -a ${DST}/perf.txt
+    sleep 1
+done
+
+echo "kill all test processes..." | tee -a ${DST}/perf.txt
+pkill -u ${USER} ras
+pkill -u ${USER} raagent
+pkill -u ${USER} rahub
+pkill -u ${USER} server
+pkill -u ${USER} client
+
+echo "test DONE!!!" | tee -a ${DST}/perf.txt
