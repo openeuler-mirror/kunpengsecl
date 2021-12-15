@@ -151,10 +151,14 @@ func OpenTPM(useHW bool, conf *TPMConfig) (*TPM, error) {
 		useHW:  useHW,
 		dev:    nil,
 	}
+	var err error
 	if useHW {
-		return openTpmChip(tpm)
+		tpm, err = openTpmChip(tpm)
+	} else {
+		tpm, err = openTpmSimulator(tpm)
 	}
-	return openTpmSimulator(tpm)
+	tpm.SetDigestAlg(conf.ReportHashAlg)
+	return tpm, err
 }
 
 // openTpmChip opens TPM hardware chip and reads EC from NVRAM.
@@ -194,15 +198,15 @@ func (tpm *TPM) Close() {
 	if tpm == nil {
 		return
 	}
-	if tpm.useHW {
-		//remove ekHandle and ikHandle from hw tpm
-		if tpm.EK.Handle != tpmutil.Handle(0) {
-			tpm2.FlushContext(tpm.dev, tpm.EK.Handle)
-		}
-		if tpm.IK.Handle != tpmutil.Handle(0) {
-			tpm2.FlushContext(tpm.dev, tpm.IK.Handle)
-		}
+
+	//remove ekHandle and ikHandle
+	if tpm.EK.Handle != tpmutil.Handle(0) {
+		tpm2.FlushContext(tpm.dev, tpm.EK.Handle)
 	}
+	if tpm.IK.Handle != tpmutil.Handle(0) {
+		tpm2.FlushContext(tpm.dev, tpm.IK.Handle)
+	}
+
 	if err := tpm.dev.Close(); err != nil {
 		log.Printf("close TPM error: %v\n", err)
 	}
@@ -284,8 +288,7 @@ func (tpm *TPM) GenerateIKey() error {
 	cfg := config.GetDefault(config.ConfClient)
 	private, public, _, _, _, err = tpm2.CreateKey(tpm.dev, tpm.EK.Handle,
 		pcrSelectionNil, emptyPassword, emptyPassword, IKParams)
-	testMode := cfg.GetTestMode()
-	if testMode {
+	if !tpm.useHW {
 		cfg.SetIPriKeyTest(private)
 		cfg.SetIPubKeyTest(public)
 	} else {
@@ -302,8 +305,7 @@ func (tpm *TPM) GenerateIKey() error {
 func (tpm *TPM) LoadIKey() error {
 	var err error
 	cfg := config.GetDefault(config.ConfClient)
-	testMode := cfg.GetTestMode()
-	if testMode {
+	if !tpm.useHW {
 		tpm.IK.Handle, _, err = tpm2.Load(tpm.dev, tpm.EK.Handle, emptyPassword,
 			cfg.GetIPubKeyTest(), cfg.GetIPriKeyTest())
 	} else {
