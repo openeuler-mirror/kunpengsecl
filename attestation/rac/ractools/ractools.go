@@ -138,7 +138,7 @@ var (
 )
 
 // OpenTPM uses either a physical TPM device(default/useHW=true) or a
-// simulator(-t/useHw=false), returns a global TPM object variable.
+// simulator(-t/useHW=false), returns a global TPM object variable.
 func OpenTPM(useHW bool, conf *TPMConfig) (*TPM, error) {
 	if tpm != nil {
 		return tpm, nil
