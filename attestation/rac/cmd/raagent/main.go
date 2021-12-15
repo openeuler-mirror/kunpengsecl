@@ -151,11 +151,11 @@ func loadIKCert(t *ractools.TPM) error {
 
 func registerClientID(t *ractools.TPM) int64 {
 	cfg := config.GetDefault(config.ConfClient)
-	testMode := cfg.GetTestMode()
 	server := cfg.GetServer()
 	var icDer []byte
+	testMode := cfg.GetTestMode()
 	if testMode {
-		icDer = cfg.GetIKeyCert()
+		icDer = cfg.GetIKeyCertTest()
 	} else {
 		icDer = cfg.GetIKeyCert()
 	}

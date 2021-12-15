@@ -130,9 +130,9 @@ func TestClientAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	ikpubBlock, _ := pem.Decode([]byte(pubPEM))
+	pubkeyBlock, _ := pem.Decode([]byte(pubPEM))
 	reqEC := GenerateEKCertRequest{
-		EkPub: ikpubBlock.Bytes,
+		EkPub: pubkeyBlock.Bytes,
 	}
 	rspEC, err := c.GenerateEKCert(ctx, &reqEC)
 	if err != nil {
@@ -140,7 +140,7 @@ func TestClientAPI(t *testing.T) {
 	}
 	_, err = c.GenerateIKCert(ctx, &GenerateIKCertRequest{
 		EkCert: rspEC.EkCert,
-		IkPub:  ikpubBlock.Bytes,
+		IkPub:  pubkeyBlock.Bytes,
 		IkName: testIKName,
 	})
 	if err != nil {
