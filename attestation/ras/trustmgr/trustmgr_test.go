@@ -92,6 +92,8 @@ var (
 func TestRecordReport(t *testing.T) {
 	test.CreateServerConfigFile()
 	defer test.RemoveConfigFile()
+	err := RecordReport(&entity.Report{})
+	assert.Error(t, err)
 	vm := new(testValidator)
 	SetValidator(vm)
 	ex := new(testExtractor)
@@ -101,6 +103,8 @@ func TestRecordReport(t *testing.T) {
 
 	clientID, err := RegisterClient(&clientInfo, ic)
 	assert.NoError(t, err)
+	_, err = RegisterClient(&clientInfo, ic)
+	assert.Error(t, err)
 
 	testReport := &entity.Report{
 		PcrInfo: pcrInfo,
@@ -117,7 +121,16 @@ func TestRecordReport(t *testing.T) {
 
 	client, err := GetRegisterClientById(clientID)
 	assert.NoError(t, err)
+	_, err = GetRegisterClientById(-999)
+	assert.Error(t, err)
+
 	testBeginBVVer := client.BaseValueVer
+
+	info, err := GetAllClientInfoByID(clientID)
+	assert.NoError(t, err)
+	assert.Equal(t, info, clientInfo.Info)
+	_, err = GetAllClientInfoByID(-999)
+	assert.Error(t, err)
 
 	// test auto-update
 	cfg.SetMgrStrategy(config.RasAutoUpdateStrategy)

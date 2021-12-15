@@ -35,16 +35,49 @@ func TestRASConfig(t *testing.T) {
 			t.Errorf("test mgrStrategy error at case %d\n", i)
 		}
 	}
+	for i := 0; i < len(testCases1); i++ {
+		config.SetHost(testCases1[i].input)
+		if config.GetHost() != testCases1[i].result {
+			t.Errorf("test host error at case %d\n", i)
+		}
+	}
+	for i := 0; i < len(testCases1); i++ {
+		config.SetUser(testCases1[i].input)
+		if config.GetUser() != testCases1[i].result {
+			t.Errorf("test user error at case %d\n", i)
+		}
+	}
+	for i := 0; i < len(testCases1); i++ {
+		config.SetPassword(testCases1[i].input)
+		if config.GetPassword() != testCases1[i].result {
+			t.Errorf("test user error at case %d\n", i)
+		}
+	}
+	for i := 0; i < len(testCases1); i++ {
+		config.SetAuthKeyFile(testCases1[i].input)
+		if config.GetAuthKeyFile() != testCases1[i].result {
+			t.Errorf("test AuthKeyFile error at case %d\n", i)
+		}
+	}
 
-	test1 := true
-	test2 := []int64{1, 4, 5}
+	testExRule := entity.ExtractRules{
+		PcrRule: entity.PcrRule{PcrSelection: []int{1, 2, 3}},
+		ManifestRules: []entity.ManifestRule{
+			1: {MType: "bios", Name: []string{"name1", "name2"}},
+		},
+	}
+	config.SetExtractRules(testExRule)
+	assert.Equal(t, testExRule, config.GetExtractRules())
+
+	testAuc1 := true
+	testAuc2 := []int64{1, 4, 5}
 	config.SetAutoUpdateConfig(entity.AutoUpdateConfig{
-		IsAllUpdate:   test1,
-		UpdateClients: test2,
+		IsAllUpdate:   testAuc1,
+		UpdateClients: testAuc2,
 	})
 	auc := config.GetAutoUpdateConfig()
-	assert.Equal(t, test1, auc.IsAllUpdate)
-	assert.Equal(t, test2, auc.UpdateClients)
+	assert.Equal(t, testAuc1, auc.IsAllUpdate)
+	assert.Equal(t, testAuc2, auc.UpdateClients)
 	Save()
 	os.Remove(config.rasConfig.rootPrivKeyFile)
 	os.Remove(config.rasConfig.rootKeyCertFile)
