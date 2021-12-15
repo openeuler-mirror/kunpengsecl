@@ -34,23 +34,31 @@ type RasServer struct {
 func (s *RasServer) GetConfig(ctx echo.Context) error {
 	cfg := config.GetDefault(config.ConfServer)
 	er := cfg.GetExtractRules()
-	jsonER, err := json.Marshal(er)
+	byteER, err := json.Marshal(er)
 	if err != nil {
 		fmt.Print("Marshal struct to []byte failed.")
 		return ctx.JSON(http.StatusForbidden, err)
 	}
-	strER := string(jsonER)
+	strER := string(byteER)
+	auc := cfg.GetAutoUpdateConfig()
+	byteAUC, err := json.Marshal(auc)
+	if err != nil {
+		fmt.Print("Marshal struct to []byte failed.")
+		return ctx.JSON(http.StatusForbidden, err)
+	}
+	strAUC := string(byteAUC)
 	cfgMap := map[string]string{
-		"dbHost":          cfg.GetHost(),
-		"dbName":          cfg.GetDBName(),
-		"dbUser":          cfg.GetUser(),
-		"dbPort":          fmt.Sprint(cfg.GetDBPort()),
-		"mgrStrategy":     cfg.GetMgrStrategy(),
-		"changeTime":      fmt.Sprint(cfg.GetChangeTime()),
-		"extractRules":    strER,
-		"hbDuration":      fmt.Sprint(cfg.GetHBDuration()),
-		"trustDuration":   fmt.Sprint(cfg.GetTrustDuration()),
-		"digestAlgorithm": cfg.GetDigestAlgorithm(),
+		"dbHost":           cfg.GetHost(),
+		"dbName":           cfg.GetDBName(),
+		"dbUser":           cfg.GetUser(),
+		"dbPort":           fmt.Sprint(cfg.GetDBPort()),
+		"mgrStrategy":      cfg.GetMgrStrategy(),
+		"changeTime":       fmt.Sprint(cfg.GetChangeTime()),
+		"extractRules":     strER,
+		"hbDuration":       fmt.Sprint(cfg.GetHBDuration()),
+		"trustDuration":    fmt.Sprint(cfg.GetTrustDuration()),
+		"digestAlgorithm":  cfg.GetDigestAlgorithm(),
+		"autoUpdateConfig": strAUC,
 	}
 	configs := []ConfigItem{}
 	for key, val := range cfgMap {
@@ -71,16 +79,17 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 		return ctx.JSON(http.StatusNoContent, err)
 	}
 	postCfgMap := map[string]func(s string){
-		"dbHost":          func(s string) { cfg.SetHost(s) },
-		"dbName":          func(s string) { cfg.SetDBName(s) },
-		"dbUser":          func(s string) { cfg.SetUser(s) },
-		"dbPort":          func(s string) { setDBport(s) },
-		"dbPassword":      func(s string) { cfg.SetPassword(s) },
-		"mgrStrategy":     func(s string) { cfg.SetMgrStrategy(s) },
-		"extractRules":    func(s string) { setExtractRules(s) },
-		"hbDuration":      func(s string) { setHBDuration(s) },
-		"trustDuration":   func(s string) { setTDuration(s) },
-		"digestAlgorithm": func(s string) { cfg.SetDigestAlgorithm(s) },
+		"dbHost":           func(s string) { cfg.SetHost(s) },
+		"dbName":           func(s string) { cfg.SetDBName(s) },
+		"dbUser":           func(s string) { cfg.SetUser(s) },
+		"dbPort":           func(s string) { setDBport(s) },
+		"dbPassword":       func(s string) { cfg.SetPassword(s) },
+		"mgrStrategy":      func(s string) { cfg.SetMgrStrategy(s) },
+		"extractRules":     func(s string) { setExtractRules(s) },
+		"hbDuration":       func(s string) { setHBDuration(s) },
+		"trustDuration":    func(s string) { setTDuration(s) },
+		"digestAlgorithm":  func(s string) { cfg.SetDigestAlgorithm(s) },
+		"autoUpdateConfig": func(s string) { setAUConfig(s) },
 	}
 	if len(configBody) == 0 {
 		fmt.Print("Not have specification about the config items that need modified.\n")
@@ -102,21 +111,21 @@ func setDBport(val string) {
 	port, err := strconv.Atoi(val)
 	if err != nil {
 		fmt.Print("Convert string to int failed.")
-	} else {
-		cfg.SetDBPort(port)
+		return
 	}
+	cfg.SetDBPort(port)
 }
 
 func setExtractRules(val string) {
 	cfg := config.GetDefault(config.ConfServer)
-	jsonER := []byte(val)
+	byteER := []byte(val)
 	var extractRules entity.ExtractRules
-	err := json.Unmarshal(jsonER, &extractRules)
+	err := json.Unmarshal(byteER, &extractRules)
 	if err != nil {
 		fmt.Print("Unmarshal byte to struct failed.")
-	} else {
-		cfg.SetExtractRules(extractRules)
+		return
 	}
+	cfg.SetExtractRules(extractRules)
 }
 
 func setHBDuration(val string) {
@@ -137,6 +146,18 @@ func setTDuration(val string) {
 		return
 	}
 	cfg.SetTrustDuration(duration)
+}
+
+func setAUConfig(val string) {
+	cfg := config.GetDefault(config.ConfServer)
+	byteAUC := []byte(val)
+	var autoUpdateConfig entity.AutoUpdateConfig
+	err := json.Unmarshal(byteAUC, &autoUpdateConfig)
+	if err != nil {
+		fmt.Print("Unmarshal byte to struct failed.")
+		return
+	}
+	cfg.SetAutoUpdateConfig(autoUpdateConfig)
 }
 
 // Return the base value of a given container

@@ -141,7 +141,7 @@ func TestPostConfig(t *testing.T) {
 	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
 
-	var configJSON0 = `[{"name":"trustDuration","value":"2m0s"},{"name":"dbHost","value":"localhost"},{"name":"dbUser","value":"postgres"},{"name":"mgrStrategy","value":"auto"},{"name":"changeTime","value":"1970-01-01 08:00:00 +0800 CST"},{"name":"extractRules","value":"{\"PcrRule\":{\"PcrSelection\":[1,2,3,4]},\"ManifestRules\":[{\"MType\":\"bios\",\"Name\":[\"name1\",\"name2\"]},{\"MType\":\"ima\",\"Name\":[\"name1\",\"name2\"]}]}"},{"name":"hbDuration","value":"5s"},{"name":"dbName","value":"kunpengsecl"},{"name":"dbPort","value":"5432"},{"name":"digestAlgorithm","value":"sha256"}]`
+	var configJSON0 = `[{"name":"digestAlgorithm","value":"sha256"},{"name":"autoUpdateConfig","value":"{\"IsAllUpdate\":false,\"UpdateClients\":null}"},{"name":"dbPort","value":"5432"},{"name":"mgrStrategy","value":"auto"},{"name":"changeTime","value":"1970-01-01 08:00:00 +0800 CST"},{"name":"extractRules","value":"{\"PcrRule\":{\"PcrSelection\":[1,2,3,4]},\"ManifestRules\":[{\"MType\":\"bios\",\"Name\":[\"name1\",\"name2\"]},{\"MType\":\"ima\",\"Name\":[\"name1\",\"name2\"]}]}"},{"name":"hbDuration","value":"5s"},{"name":"trustDuration","value":"2m0s"},{"name":"dbHost","value":"localhost"},{"name":"dbName","value":"kunpengsecl"},{"name":"dbUser","value":"postgres"}]`
 	var configJSON1 = `[{"name":"port", "value":"1000"}]`
 	var configJSON2 = ``
 	e := echo.New()
