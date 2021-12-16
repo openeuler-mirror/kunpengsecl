@@ -58,6 +58,8 @@ cp ${SAMPLECLIENT} ${DST}/authclient
 
 echo "start ras..." | tee -a ${DST}/perf.txt
 ( cd ${DST}/ras ; ./ras &>${DST}/ras/echo.txt ; )&
+echo "start rahub..." | tee -a ${DST}/perf.txt
+( cd ${DST}/hub ; ./rahub &>${DST}/hub/echo.txt ; )&
 echo "start authserver..." | tee -a ${DST}/perf.txt
 ( cd ${DST}/authserver ; ./server &>${DST}/authserver/echo.txt ; )&
 echo "start authclient..." | tee -a ${DST}/perf.txt
@@ -70,7 +72,7 @@ for (( i=1; i<=${NUM}; i++ ))
 do
     ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
-    if (( count >= 100 ))
+    if (( count >= 1 ))
     then
         (( count=0 ))
         echo "start ${i} rac clients at $(date)..." | tee -a ${DST}/perf.txt
@@ -84,8 +86,10 @@ for (( i=1; i<=${NUMPFM}; i++ ))
 do
     echo "check ${i} at: $(date)" | tee -a ${DST}/perf.txt
     top -b -n 1 | awk '/load/ {print $10, $11, $12, $13, $14}' | tee -a ${DST}/perf.txt
-    top -b -n 1 | awk '/ras/ {print $12, $1, $9, $10}' | tee -a ${DST}/perf.txt
-    top -b -n 1 | awk '/post/ {print $12, $1, $9, $10}' | tee -a ${DST}/perf.txt
+    top -b -n 1 | awk '/ras/ {print $12, $1, $9, $10, $6}' | tee -a ${DST}/perf.txt
+    top -b -n 1 | awk '/rahub/ {print $12, $1, $9, $10, $6}' | tee -a ${DST}/perf.txt
+    top -b -n 1 | awk '/raagent/ {print $12, $1, $9, $10, $6}' | tee -a ${DST}/perf.txt
+    top -b -n 1 | awk '/post/ {print $12, $1, $9, $10, $6}' | tee -a ${DST}/perf.txt
     sleep 1
 done
 
