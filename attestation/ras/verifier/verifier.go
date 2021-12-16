@@ -236,6 +236,9 @@ func (bv *BIOSVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity
 	if err != nil {
 		return fmt.Errorf("bios extraction failed")
 	}
+	if len(manifest) == 0 {
+		return nil
+	}
 	// compare
 	if trustmgr.IsManifestUpdate(&manifest, &extractedBIOS.Manifest) {
 		return fmt.Errorf("bios manifest verification failed")
@@ -252,7 +255,10 @@ func (iv *IMAVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.
 	}
 	manifest, err := selectManifest(baseValue.Manifest, imaStr)
 	if err != nil {
-		return fmt.Errorf("bios extraction failed")
+		return fmt.Errorf("ima extraction failed")
+	}
+	if len(manifest) == 0 {
+		return nil
 	}
 	// compare
 	if trustmgr.IsManifestUpdate(&manifest, &extractedIMA.Manifest) {

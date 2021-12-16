@@ -142,7 +142,7 @@ var (
 	}
 )
 
-func TestPCRVerifierVerify(t *testing.T) {
+func TestPCRVerify(t *testing.T) {
 	var pv *PCRVerifier
 
 	baseValue1 := &entity.MeasurementInfo{
@@ -167,20 +167,19 @@ func TestPCRVerifierVerify(t *testing.T) {
 		Verified: false,
 	}
 
-	errcase := fmt.Errorf("PCR verification failed")
 	testCase := []struct {
 		input1 *entity.MeasurementInfo
 		input2 *entity.Report
 		result error
 	}{
 		{baseValue1, report, nil},
-		{baseValue2, report, errcase},
+		{baseValue2, report, fmt.Errorf("PCR verification failed")},
+		{nil, nil, fmt.Errorf("invalid input")},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := pv.Verify(testCase[i].input1, testCase[i].input2)
-		if err == testCase[i].result {
-			t.Logf("test PCR Verify success at case %d\n", i)
-		} else if err.Error() == testCase[i].result.Error() {
+		res := testCase[i].result
+		if err == testCase[i].result || (res != nil && err.Error() == res.Error()) {
 			t.Logf("test PCR Verify success at case %d\n", i)
 		} else {
 			t.Errorf("test PCR Verify error at case %d\n", i)
@@ -344,9 +343,18 @@ func TestBIOSValidate(t *testing.T) {
 		Items: []entity.ManifestItem{item1, item2, item3},
 	}
 
-	report := &entity.Report{
+	testreport1 := &entity.Report{
 		PcrInfo:  pibv,
 		Manifest: []entity.Manifest{mf},
+		ClientID: 1,
+		ClientInfo: entity.ClientInfo{
+			Info: nil,
+		},
+		Verified: false,
+	}
+	testreport2 := &entity.Report{
+		PcrInfo:  pibv,
+		Manifest: []entity.Manifest{},
 		ClientID: 1,
 		ClientInfo: entity.ClientInfo{
 			Info: nil,
@@ -358,14 +366,13 @@ func TestBIOSValidate(t *testing.T) {
 		input  *entity.Report
 		result error
 	}{
-		{report, nil},
-		//{report, errcase},
+		{testreport1, nil},
+		{testreport2, fmt.Errorf("no bios manifest in report")},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := bv.Validate(testCase[i].input)
-		if err == testCase[i].result {
-			t.Logf("test BIOS Validate success at case %d\n", i)
-		} else if err.Error() == testCase[i].result.Error() {
+		res := testCase[i].result
+		if err == testCase[i].result || (res != nil && err.Error() == res.Error()) {
 			t.Logf("test BIOS Validate success at case %d\n", i)
 		} else {
 			t.Errorf("test BIOS Validate error at case %d\n", i)
@@ -383,6 +390,10 @@ func TestBIOSVerify(t *testing.T) {
 		Manifest: []entity.Measurement{bmea, bmea2, imea, imea2},
 	}
 
+	baseValue2 := &entity.MeasurementInfo{
+		Manifest: []entity.Measurement{},
+	}
+
 	testReport := &entity.Report{
 		Manifest: []entity.Manifest{bm}, //i1 i2
 	}
@@ -398,6 +409,7 @@ func TestBIOSVerify(t *testing.T) {
 	}{
 		{baseValue, testReport, nil},
 		{baseValue, testReport2, fmt.Errorf("bios manifest verification failed")},
+		{baseValue2, testReport, nil},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := bv.Verify(testCase[i].input1, testCase[i].input2)
@@ -421,6 +433,10 @@ func TestIMAVerify(t *testing.T) {
 		Manifest: []entity.Measurement{bmea, bmea2, imea, imea2},
 	}
 
+	baseValue2 := &entity.MeasurementInfo{
+		Manifest: []entity.Measurement{},
+	}
+
 	testReport := &entity.Report{
 		Manifest: []entity.Manifest{im}, //i1 i2
 	}
@@ -436,10 +452,12 @@ func TestIMAVerify(t *testing.T) {
 	}{
 		{baseValue, testReport, nil},
 		{baseValue, testReport2, fmt.Errorf("ima manifest verification failed")},
+		{baseValue2, testReport, nil},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := iv.Verify(testCase[i].input1, testCase[i].input2)
-		if err == testCase[i].result || err.Error() == testCase[i].result.Error() {
+		res := testCase[i].result
+		if err == testCase[i].result || (res != nil && err.Error() == testCase[i].result.Error()) {
 			t.Logf("test IMA Verify success at case %d\n", i)
 		} else {
 			t.Errorf("test IMA Verify error at case %d\n", i)
@@ -503,15 +521,41 @@ func TestIMAValidate(t *testing.T) {
 		Verified: false,
 	}
 
-	pibv1 := pibv
-	pibv1.Values[10] = "ba50b739ca51b77deba25d0ce9cee00f39820c13"
-	mf1 := mf
-	mf1.Items[0].Value = "sha1:6963796540f9a94a8770f6dea2038d5a1a8b6a21"
-	mf1.Items[0].Detail = "{\"Pcr\":\"10\",\"TemplateHash\":\"04f89f802b9453d7952748cee55f58a0f34686c5\",\"TemplateName\":\"ima-ng\",\"FiledataHash\":\"sha1:6963796540f9a94a8770f6dea2038d5a1a8b6a21\",\"FilenameHint\":\"boot_aggregate\"}"
-	mf1.Items[1].Value = "sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a"
-	mf1.Items[1].Detail = "{\"Pcr\":\"10\",\"TemplateHash\":\"e4fb65643b608c6800c35008f278a8ab92e04d71\",\"TemplateName\":\"ima-ng\",\"FiledataHash\":\"sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a\",\"FilenameHint\":\"hint2\"}"
-	mf1.Items[2].Value = "sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a"
-	mf1.Items[2].Detail = "{\"Pcr\":\"10\",\"TemplateHash\":\"9592ab9e18b97bc32ccb08285778f32148f6e801\",\"TemplateName\":\"ima-ng\",\"FiledataHash\":\"sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a\",\"FilenameHint\":\"hint3\"}"
+	pibv1 := entity.PcrInfo{
+		Values: map[int]string{
+			0:  sha1HashAllZero,
+			1:  "073ee1e91b686efef30ec49f081fe93355de389e",
+			2:  sha1HashAllZero,
+			3:  "34ac889f14ac927f1198daf306f9da76dde64a9f",
+			4:  sha1HashAllZero,
+			5:  sha1HashAllZero,
+			6:  sha1HashAllZero,
+			7:  sha1HashAllZero,
+			10: "ba50b739ca51b77deba25d0ce9cee00f39820c13",
+		},
+		Quote: entity.PcrQuote{
+			Quoted: []byte(quoteVal),
+		},
+	}
+	item4 := entity.ManifestItem{
+		Name:   "boot_aggregate",
+		Value:  "sha1:6963796540f9a94a8770f6dea2038d5a1a8b6a21",
+		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"04f89f802b9453d7952748cee55f58a0f34686c5\",\"TemplateName\":\"ima-ng\",\"FiledataHash\":\"sha1:6963796540f9a94a8770f6dea2038d5a1a8b6a21\",\"FilenameHint\":\"boot_aggregate\"}",
+	}
+	item5 := entity.ManifestItem{
+		Name:   "hint2",
+		Value:  "sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a",
+		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"e4fb65643b608c6800c35008f278a8ab92e04d71\",\"TemplateName\":\"ima-ng\",\"FiledataHash\":\"sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a\",\"FilenameHint\":\"hint2\"}",
+	}
+	item6 := entity.ManifestItem{
+		Name:   "hint3",
+		Value:  "sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a",
+		Detail: "{\"Pcr\":\"10\",\"TemplateHash\":\"9592ab9e18b97bc32ccb08285778f32148f6e801\",\"TemplateName\":\"ima-ng\",\"FiledataHash\":\"sha1:cc7337642a6dd41d45203ca8085727d2bbc1569a\",\"FilenameHint\":\"hint3\"}",
+	}
+	mf1 := entity.Manifest{
+		Type:  mtIMA,
+		Items: []entity.ManifestItem{item4, item5, item6},
+	}
 
 	report1 := &entity.Report{
 		PcrInfo:  pibv1,
@@ -529,7 +573,6 @@ func TestIMAValidate(t *testing.T) {
 	}{
 		{report, nil},
 		{report1, nil},
-		//{report, errcase},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := iv.Validate(testCase[i].input)
@@ -612,7 +655,7 @@ func TestPCRValidate(t *testing.T) {
 		t.Error(err)
 	}
 
-	report := &entity.Report{
+	testreport1 := &entity.Report{
 		PcrInfo:  pibv,
 		Manifest: []entity.Manifest{},
 		ClientID: cid,
@@ -621,12 +664,21 @@ func TestPCRValidate(t *testing.T) {
 		},
 		Verified: false,
 	}
-
+	testreport2 := &entity.Report{
+		PcrInfo:  pibv,
+		Manifest: []entity.Manifest{},
+		ClientID: 100,
+		ClientInfo: entity.ClientInfo{
+			Info: nil,
+		},
+		Verified: false,
+	}
 	testCase := []struct {
 		input  *entity.Report
 		result error
 	}{
-		{report, nil},
+		{testreport1, nil},
+		{testreport2, fmt.Errorf("get register client information failed")},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := pv.Validate(testCase[i].input)
@@ -648,4 +700,195 @@ func createRandomCert() []byte {
 		randomCert = append(randomCert, strBytes[ra.Intn(len(strBytes))])
 	}
 	return randomCert
+}
+
+func TestVerifierMgrValidate(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer).SetDigestAlgorithm(sha1AlgStr)
+	defer test.RemoveConfigFile()
+	vm, err := CreateVerifierMgr()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	const sha1HashAllZero = "0000000000000000000000000000000000000000"
+	const sha1HashAllFF = "ffffffffffffffffffffffffffffffffffffffff"
+	const quoted = "\xffTCG\x80\x18\x00\"\x00\v\x10\f\xedƬ\xd6z\x1e\xbb\xd3}H\xb0\x12\"bb\xe3ȳ\x8a\xc2?u\xf4n{^\xbdԝ\x10\x00 \x1e\xb4\xa0LrU\\\xcb*\x04\xd5*\xd1T?Zi>\x97\xdcC 4c\xa8\xc0D\xd8r\xae\x1b!\x00\x00\x00\x00\x00\x00\x11\xb3\x00\x00\x00\x01\x00\x00\x00\x00\x01 \x17\x06\x19\x00\x1666\x00\x00\x00\x01\x00\x04\x03\xff\xff\xff\x00 ?'\b> \xdb|\v\xf0\xe3\x16!\x19\x00\xa9\nS\xe9\x9e\xf1*hb.\x89y'\x93Y\x88\x03\xd2"
+	const signature = "{\"Alg\":20,\"RSA\":{\"HashAlg\":11,\"Signature\":\"V5zxeJ9+LwkTShUJbdYqyFG8r8+aTWzTg4JRX8DEinMvzIKZ04TfzOVpM3k+EAcECp/E43oS/yqExUHR9cCq4WN1PHhL1S998GTt4ZknkzluhmEh6EaaezcsAuJPDDBNkwbq/eJt3uoi2HSs18pJ7O1cdvEFPPfrRZvlTOFm+aAdcn0eW4WUVk3r/kw2cLlH7EuRIbwecPzG9yPwt9C/6dTKJpaw7qVoj57oKObdyvpzE6J/ylEXgDro3fk2cYinvTxkob+jlThNDydZwU0Iamtsy1d8NS5qvA0kzqUcueLEgvfaLT4IaPZVeN0G/U4q8qpzLXc7c4EGECt3AkIPMQ==\"},\"ECC\":null}"
+	pibv := entity.PcrInfo{
+		Values: map[int]string{
+			0:  sha1HashAllZero,
+			1:  sha1HashAllZero,
+			2:  sha1HashAllZero,
+			3:  sha1HashAllZero,
+			4:  sha1HashAllZero,
+			5:  sha1HashAllZero,
+			6:  sha1HashAllZero,
+			7:  sha1HashAllZero,
+			8:  sha1HashAllZero,
+			9:  sha1HashAllZero,
+			10: sha1HashAllZero,
+			11: sha1HashAllZero,
+			12: sha1HashAllZero,
+			13: sha1HashAllZero,
+			14: sha1HashAllZero,
+			15: sha1HashAllZero,
+			16: sha1HashAllZero,
+			17: sha1HashAllFF,
+			18: sha1HashAllFF,
+			19: sha1HashAllFF,
+			20: sha1HashAllFF,
+			21: sha1HashAllFF,
+			22: sha1HashAllFF,
+			23: sha1HashAllZero,
+		},
+		Quote: entity.PcrQuote{
+			Quoted:    []byte(quoted),
+			Signature: []byte(signature),
+		},
+	}
+
+	ci := &entity.ClientInfo{
+		Info: map[string]string{
+			"info name1": "info value1",
+			"info name2": "info value2",
+		},
+	}
+	psd, err := dao.CreatePostgreSQLDAO()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer psd.Destroy()
+	ic := createRandomCert()
+	cid, err := psd.RegisterClient(ci, ic)
+	if err != nil {
+		t.Error(err)
+	}
+
+	rc := entity.RegisterClient{
+		ClientID:      cid,
+		AkCertificate: "-----BEGIN CERTIFICATE-----\nMIIC+TCCAeGgAwIBAgIBATANBgkqhkiG9w0BAQsFADA3MQ4wDAYDVQQGEwVDaGlu\nYTEQMA4GA1UEChMHQ29tcGFueTETMBEGA1UEAxMKcHJpdmFjeSBjYTAeFw0yMTEy\nMTEwNjQ0MzdaFw0yMjEyMTEwNjQ0MzdaMAAwggEiMA0GCSqGSIb3DQEBAQUAA4IB\nDwAwggEKAoIBAQC3oz7yfwjBCeGD+1NUboYNI14F7BeTI7BGZcFp4j8ABG2ABSXh\npje2ot+iiywx7vkEFb2OX6HYzb1RLQWeg6bn4tR+/zWYyTtnYzRO5EI6qflcPpqG\nDoDqICM0fs6tzOLcr443rfmN5Ju5MLv546+4o6xUZA2VCOant5U4bxXO2tPuUiNG\nnxYrBQXO+LCFlCRzA9kF5ckoCVi5uGyadwx1/K69I70O4T2KZK3Fy0Ssg0ZFWM7K\nlwnp0zEt5ZS/UaSOASBQl/Vc4WW3IB9v5pFvGfDY6i7OPULnLFkcPuh2ueBpafF2\nLJ+Tfsbb5zTLYnQKotrbXOeMcX4jnv/R/4mPAgMBAAGjRzBFMA4GA1UdDwEB/wQE\nAwICpDAfBgNVHSMEGDAWgBTNFcdAexj1Ezk8FEfjeBqH+1CidTASBgNVHREBAf8E\nCDAGhwTAqNGhMA0GCSqGSIb3DQEBCwUAA4IBAQACj2NBejgFSoP6aJ4Ib6rVBrX9\nQwCK57MRdRMUaahGbKCKkcwYjuccwZs9pL6mdTqS7KD+SFUwm2SBOD2eU8FbBFqZ\n1OQ3qPievIpnJXkWHVEIBAZEtH9P+Jl3zmfM21DNqZLJJRdcMdFRcug+EooSIdbP\nHuc2tP1RJFe5oSClY1FvQTotpEKQHMxrFWoaYaZarrmx65xfqr8EWYMeMw5YCiOI\n6aL+MQm1uDmhoCMuBtzIOx7GriA8ixXCGaYyXBVd2P7zVaM5P5/8R0g91Tmbhu8i\nV2oVs0zFRO17AmsA/FQDJxMiXGux1DBkEBwgL3QUBcHmRqGabk45VZRAD6Hl\n-----END CERTIFICATE-----\n",
+	}
+	err = trustmgr.UpdateRegisterClient(&rc)
+	if err != nil {
+		t.Error(err)
+	}
+
+	testreport1 := &entity.Report{
+		PcrInfo:  pibv,
+		Manifest: []entity.Manifest{},
+		ClientID: cid,
+		ClientInfo: entity.ClientInfo{
+			Info: nil,
+		},
+		Verified: false,
+	}
+
+	testCase := []struct {
+		input  *entity.Report
+		result error
+	}{
+		{testreport1, fmt.Errorf("no bios manifest in report")},
+	}
+	for i := 0; i < len(testCase); i++ {
+		err := vm.Validate(testCase[i].input)
+		res := testCase[i].result
+		if err == res || (res != nil && err.Error() == testCase[i].result.Error()) {
+			t.Logf("test VerifierMgr validate success at case %d\n", i)
+		} else {
+			t.Errorf("test VerifierMgr Validate error at case %d: %v\n", i, err)
+		}
+	}
+
+}
+
+func TestVerifierMgrVerify(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer).SetDigestAlgorithm(sha1AlgStr)
+	defer test.RemoveConfigFile()
+	vm, err := CreateVerifierMgr()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	baseValue := &entity.MeasurementInfo{
+		Manifest: []entity.Measurement{bmea, bmea2, imea, imea2},
+	}
+
+	testReport := &entity.Report{
+		Manifest: []entity.Manifest{bm, im},
+	}
+
+	baseValue2 := &entity.MeasurementInfo{
+		Manifest: []entity.Measurement{bmea, bmea2},
+	}
+
+	testReport2 := &entity.Report{
+		Manifest: []entity.Manifest{bm},
+	}
+
+	baseValue3 := &entity.MeasurementInfo{
+		Manifest: []entity.Measurement{imea, imea2},
+	}
+
+	testReport3 := &entity.Report{
+		Manifest: []entity.Manifest{im},
+	}
+
+	testCase := []struct {
+		input1 *entity.MeasurementInfo
+		input2 *entity.Report
+		result error
+	}{
+		{baseValue, testReport, nil},
+		{baseValue2, testReport2, nil},
+		{baseValue3, testReport3, nil},
+	}
+	for i := 0; i < len(testCase); i++ {
+		err := vm.Verify(testCase[i].input1, testCase[i].input2)
+		res := testCase[i].result
+		if err == res || (res != nil && err.Error() == res.Error()) {
+			t.Logf("test VerifierMgr Verify success at case %d\n", i)
+		} else {
+			t.Errorf("test VerifierMgr Verify error at case %d: %v\n", i, err)
+		}
+	}
+}
+
+func TestVerifierMgrExtract(t *testing.T) {
+	test.CreateServerConfigFile()
+	config.GetDefault(config.ConfServer).SetDigestAlgorithm(sha1AlgStr)
+	defer test.RemoveConfigFile()
+	vm, err := CreateVerifierMgr()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	testReport := &entity.Report{
+		PcrInfo:  pi,
+		Manifest: []entity.Manifest{im},
+	}
+	testReport2 := &entity.Report{
+		PcrInfo:  pi,
+		Manifest: []entity.Manifest{im2},
+	}
+	testMea := &entity.MeasurementInfo{}
+	testMea2 := &entity.MeasurementInfo{}
+	testCase := []struct {
+		input1 *entity.Report
+		input2 *entity.MeasurementInfo
+		result error
+	}{
+		{testReport, testMea, nil},
+		{testReport2, testMea2, nil},
+	}
+	for i := 0; i < len(testCase); i++ {
+		err := vm.Extract(testCase[i].input1, testCase[i].input2)
+		res := testCase[i].result
+		if err == res || (res != nil && err.Error() == res.Error()) {
+			t.Logf("test VerifierMgr extract success at case %d\n", i)
+		} else {
+			t.Errorf("test VerifierMgr extract error at case %d: %v\n", i, err)
+		}
+	}
 }
