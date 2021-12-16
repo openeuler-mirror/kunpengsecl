@@ -120,7 +120,7 @@ System Information
 )
 
 var (
-	tpm            *TPM = nil
+	tpmRef         *TPM = nil
 	errWrongParams      = errors.New("wrong input parameter")
 	errFailTPMInit      = errors.New("couldn't start tpm or init key/certificate")
 	algStrMap           = map[tpm2.Algorithm]string{
@@ -140,25 +140,27 @@ var (
 // OpenTPM uses either a physical TPM device(default/useHW=true) or a
 // simulator(-t/useHW=false), returns a global TPM object variable.
 func OpenTPM(useHW bool, conf *TPMConfig) (*TPM, error) {
-	if tpm != nil {
-		return tpm, nil
+	if tpmRef != nil {
+		return tpmRef, nil
 	}
 	if conf == nil {
 		return nil, errWrongParams
 	}
-	tpm = &TPM{
+	tpmRef = &TPM{
 		config: conf,
 		useHW:  useHW,
 		dev:    nil,
 	}
+	tpmRef.SetDigestAlg(conf.ReportHashAlg)
+
 	var err error
 	if useHW {
-		tpm, err = openTpmChip(tpm)
+		tpmRef, err = openTpmChip(tpmRef)
 	} else {
-		tpm, err = openTpmSimulator(tpm)
+		tpmRef, err = openTpmSimulator(tpmRef)
 	}
-	tpm.SetDigestAlg(conf.ReportHashAlg)
-	return tpm, err
+
+	return tpmRef, err
 }
 
 // openTpmChip opens TPM hardware chip and reads EC from NVRAM.
@@ -210,7 +212,7 @@ func (tpm *TPM) Close() {
 	if err := tpm.dev.Close(); err != nil {
 		log.Printf("close TPM error: %v\n", err)
 	}
-	tpm = nil
+	tpmRef = nil
 }
 
 // DefineNVRAM defines the index space as size length in the NVRAM
