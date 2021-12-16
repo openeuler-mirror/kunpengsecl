@@ -348,7 +348,6 @@ func makesock(addr string) (*rasConn, error) {
 func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
 	ras, err := makesock(addr)
 	if err != nil {
-		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()

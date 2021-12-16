@@ -22,6 +22,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -80,12 +81,12 @@ const (
 	RasRestPortLongFlag   = "rest"
 	RasRestPortShortFlag  = "r"
 	RasRestHelp           = "this app rest interface listen at [IP]:PORT"
-	RasVerboseLongFlag    = "verbose"
-	RasVerboseShortFlag   = "v"
-	RasVerboseHelp        = "show more detail running information"
-	RasVersionLongFlag    = "version"
-	RasVersionShortFlag   = "V"
-	RasVersionHelp        = "show version number and quit"
+	VerboseLongFlag       = "verbose"
+	VerboseShortFlag      = "v"
+	VerboseHelp           = "show more detail running information"
+	VersionLongFlag       = "version"
+	VersionShortFlag      = "V"
+	VersionHelp           = "show version number and quit"
 	RasTokenLongFlag      = "token"
 	RasTokenShortFlag     = "T"
 	RasTokenHelp          = "generate test token and quit"
@@ -159,23 +160,19 @@ var (
 		strPathHomeRahub,
 		strPathSysRahub,
 	}
-	confG *config
+	confG       *config
+	VerboseFlag *bool = nil
+	VersionFlag *bool = nil
 	// for RAS command line parameters
-	servPort       *string = nil
-	restPort       *string = nil
-	RasVerboseFlag *bool   = nil
-	RasVersionFlag *bool   = nil
-	RasTokenFlag   *bool   = nil
+	servPort     *string = nil
+	restPort     *string = nil
+	RasTokenFlag *bool   = nil
 	// for RAC command line parameters
-	racServer      *string = nil
-	racTestMode    *bool   = nil
-	RacVerboseFlag *bool   = nil
-	RacVersionFlag *bool   = nil
+	racServer   *string = nil
+	racTestMode *bool   = nil
 	// for HUB command line parameters
-	hubServer      *string = nil
-	hubPort        *string = nil
-	HubVerboseFlag *bool   = nil
-	HubVersionFlag *bool   = nil
+	hubServer *string = nil
+	hubPort   *string = nil
 )
 
 type (
@@ -246,8 +243,8 @@ type (
 func InitRasFlags() {
 	servPort = pflag.StringP(RasPortLongFlag, RasPortShortFlag, "", RasPortHelp)
 	restPort = pflag.StringP(RasRestPortLongFlag, RasRestPortShortFlag, "", RasRestHelp)
-	RasVerboseFlag = pflag.BoolP(RasVerboseLongFlag, RasVerboseShortFlag, false, RasVerboseHelp)
-	RasVersionFlag = pflag.BoolP(RasVersionLongFlag, RasVersionShortFlag, false, RasVersionHelp)
+	VerboseFlag = pflag.BoolP(VerboseLongFlag, VerboseShortFlag, false, VerboseHelp)
+	VersionFlag = pflag.BoolP(VersionLongFlag, VersionShortFlag, false, VersionHelp)
 	RasTokenFlag = pflag.BoolP(RasTokenLongFlag, RasTokenShortFlag, false, RasTokenHelp)
 }
 
@@ -255,16 +252,16 @@ func InitRasFlags() {
 func InitRacFlags() {
 	racServer = pflag.StringP(RacServerLongFlag, RacServerShortFlag, "", RacServerHelp)
 	racTestMode = pflag.BoolP(RacTestModeLongFlag, RacTestModeShortFlag, false, RacTestModeHelp)
-	RacVerboseFlag = pflag.BoolP(RasVerboseLongFlag, RasVerboseShortFlag, false, RasVerboseHelp)
-	RacVersionFlag = pflag.BoolP(RasVersionLongFlag, RasVersionShortFlag, false, RasVersionHelp)
+	VerboseFlag = pflag.BoolP(VerboseLongFlag, VerboseShortFlag, false, VerboseHelp)
+	VersionFlag = pflag.BoolP(VersionLongFlag, VersionShortFlag, false, VersionHelp)
 }
 
 // InitRacFlags sets the rac client whole command flags.
 func InitHubFlags() {
 	hubServer = pflag.StringP(HubServerLongFlag, HubServerShortFlag, "", RacServerHelp)
 	hubPort = pflag.StringP(HubPortLongFlag, HubPortShortFlag, "", HubPortHelp)
-	HubVerboseFlag = pflag.BoolP(RasVerboseLongFlag, RasVerboseShortFlag, false, RasVerboseHelp)
-	HubVersionFlag = pflag.BoolP(RasVersionLongFlag, RasVersionShortFlag, false, RasVersionHelp)
+	VerboseFlag = pflag.BoolP(VerboseLongFlag, VerboseShortFlag, false, VerboseHelp)
+	VersionFlag = pflag.BoolP(VersionLongFlag, VersionShortFlag, false, VersionHelp)
 }
 
 func SetupSignalHandler() {
@@ -940,4 +937,11 @@ func (c *config) GetHubServer() string {
 
 func (c *config) GetHubPort() string {
 	return c.hubConfig.hubPort
+}
+
+// Logf controls the log.Printf output with VerboseFlag
+func Logf(format string, v ...interface{}) {
+	if *VerboseFlag {
+		log.Printf(format, v...)
+	}
 }

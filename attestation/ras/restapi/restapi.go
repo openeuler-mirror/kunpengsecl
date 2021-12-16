@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
 	echomiddleware "github.com/labstack/echo/v4/middleware"
+	echolog "github.com/labstack/gommon/log"
 	"github.com/lestrrat-go/jwx/jwt"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
@@ -36,14 +38,14 @@ func (s *RasServer) GetConfig(ctx echo.Context) error {
 	er := cfg.GetExtractRules()
 	byteER, err := json.Marshal(er)
 	if err != nil {
-		fmt.Print("Marshal struct to []byte failed.")
+		log.Print("Marshal extract rules to []byte failed.")
 		return ctx.JSON(http.StatusForbidden, err)
 	}
 	strER := string(byteER)
 	auc := cfg.GetAutoUpdateConfig()
 	byteAUC, err := json.Marshal(auc)
 	if err != nil {
-		fmt.Print("Marshal struct to []byte failed.")
+		log.Print("Marshal auto update config to []byte failed.")
 		return ctx.JSON(http.StatusForbidden, err)
 	}
 	strAUC := string(byteAUC)
@@ -75,7 +77,7 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 	cfg := config.GetDefault(config.ConfServer)
 	err := ctx.Bind(&configBody)
 	if err != nil {
-		fmt.Print("Bind configBody failed.\n")
+		log.Print("Bind configBody failed.\n")
 		return ctx.JSON(http.StatusNoContent, err)
 	}
 	postCfgMap := map[string]func(s string){
@@ -92,14 +94,14 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 		"autoUpdateConfig": func(s string) { setAUConfig(s) },
 	}
 	if len(configBody) == 0 {
-		fmt.Print("Not have specification about the config items that need modified.\n")
+		log.Print("Not have specification about the config items that need modified.\n")
 	}
 	for i := range configBody {
 		doFunc, ok := postCfgMap[*configBody[i].Name]
 		if ok {
 			doFunc(*configBody[i].Value)
 		} else {
-			fmt.Print("Modify config failed.\n")
+			log.Print("Modify config failed.\n")
 		}
 	}
 	return ctx.JSON(http.StatusOK, nil)
@@ -110,7 +112,7 @@ func setDBport(val string) {
 	cfg := config.GetDefault(config.ConfServer)
 	port, err := strconv.Atoi(val)
 	if err != nil {
-		fmt.Print("Convert string to int failed.")
+		log.Print("Convert string to int failed.")
 		return
 	}
 	cfg.SetDBPort(port)
@@ -122,7 +124,7 @@ func setExtractRules(val string) {
 	var extractRules entity.ExtractRules
 	err := json.Unmarshal(byteER, &extractRules)
 	if err != nil {
-		fmt.Print("Unmarshal byte to struct failed.")
+		log.Print("Unmarshal byte to struct failed.")
 		return
 	}
 	cfg.SetExtractRules(extractRules)
@@ -132,7 +134,7 @@ func setHBDuration(val string) {
 	cfg := config.GetDefault(config.ConfServer)
 	duration, err := time.ParseDuration(val)
 	if err != nil {
-		fmt.Print("Convert string to duration failed.")
+		log.Print("Convert string to duration failed.")
 		return
 	}
 	cfg.SetHBDuration(duration)
@@ -142,7 +144,7 @@ func setTDuration(val string) {
 	cfg := config.GetDefault(config.ConfServer)
 	duration, err := time.ParseDuration(val)
 	if err != nil {
-		fmt.Print("Convert string to duration failed.")
+		log.Print("Convert string to duration failed.")
 		return
 	}
 	cfg.SetTrustDuration(duration)
@@ -154,7 +156,7 @@ func setAUConfig(val string) {
 	var autoUpdateConfig entity.AutoUpdateConfig
 	err := json.Unmarshal(byteAUC, &autoUpdateConfig)
 	if err != nil {
-		fmt.Print("Unmarshal byte to struct failed.")
+		log.Print("Unmarshal byte to struct failed.")
 		return
 	}
 	cfg.SetAutoUpdateConfig(autoUpdateConfig)
@@ -422,7 +424,7 @@ func (s *RasServer) GetServer(ctx echo.Context) error {
 		}
 		rt, err := trustmgr.GetClientInfoByID(v, infoName)
 		if err != nil {
-			fmt.Println("not found ip")
+			log.Println("not found ip")
 		}
 		briefinfo = append(briefinfo, ServerBriefInfo{ClientId: rc.ClientID, Ip: rt["ip"], Registered: !rc.IsDeleted})
 	}
@@ -535,7 +537,7 @@ func (s *RasServer) GetStatusServerId(ctx echo.Context, serverId int64) error {
 // (GET /version)
 func (s *RasServer) GetVersion(ctx echo.Context) error {
 
-	return ctx.JSON(http.StatusOK, "0.1.0")
+	return ctx.JSON(http.StatusOK, "1.0.0")
 }
 
 func NewRasServer(cm *cache.CacheMgr) *RasServer {
@@ -672,6 +674,11 @@ func StartServer(addr string, cm *cache.CacheMgr) {
 	server := NewRasServer(cm)
 	RegisterHandlers(router, server)
 
+	if *config.VerboseFlag {
+		router.Logger.SetLevel(echolog.DEBUG)
+	} else {
+		router.Logger.SetLevel(echolog.ERROR)
+	}
 	router.Logger.Fatal(router.Start(addr))
 }
 

@@ -34,6 +34,15 @@ func TestRaHub(t *testing.T) {
 	const addrRaHub string = ":40003"
 	go StartRaHub(addrRaHub, server)
 
+	pubkeyBlock, _ := pem.Decode([]byte(pubPEM))
+	_, err = DoGenerateEKCert(addrRaHub, &GenerateEKCertRequest{
+		EkPub: pubkeyBlock.Bytes,
+	})
+	if err != nil {
+		t.Errorf("Client: invoke GenerateEKCert error %v", err)
+	}
+	t.Logf("Client: invoke GenerateEKCert ok")
+
 	certBlock, _ := pem.Decode([]byte(certPEM))
 	ikpubBlock, _ := pem.Decode([]byte(pubPEM))
 	_, err = DoGenerateIKCert(addrRaHub, &GenerateIKCertRequest{
@@ -42,9 +51,9 @@ func TestRaHub(t *testing.T) {
 		IkName: testIKName,
 	})
 	if err != nil {
-		t.Errorf("Client: invoke CreateIKCert error %v", err)
+		t.Errorf("Client: invoke GenerateIKCert error %v", err)
 	}
-	t.Logf("Client: invoke CreateIKCert ok")
+	t.Logf("Client: invoke GenerateIKCert ok")
 
 	ci, err := json.Marshal(map[string]string{"test name": "test value"})
 	if err != nil {
