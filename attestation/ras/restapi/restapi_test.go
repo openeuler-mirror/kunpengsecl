@@ -59,6 +59,7 @@ func CreateServer(t *testing.T) {
 
 func AddAuthReqEditor(jws string) RequestEditorFn {
 	return func(ctx context.Context, req *http.Request) error {
+		_ = ctx
 		req.Header.Set("Authorization", "Bearer "+jws)
 		return nil
 	}
@@ -1086,4 +1087,12 @@ func prepareServers(t *testing.T) (*RasServer, int64) {
 	t.Logf("Client: invoke SendReport ok")
 
 	return s, r.GetClientId()
+}
+
+func TestCreateTestAuthToken(t *testing.T) {
+	token, err := CreateTestAuthToken()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	t.Log(token)
 }

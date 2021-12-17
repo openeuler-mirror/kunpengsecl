@@ -35,10 +35,11 @@ const (
 )
 
 var (
-	pcrSelection        = pcrSelectionAll
-	nonce        uint64 = 1
-	clientId     int64  = 1
-	testMode            = true
+	pcrSelection          = pcrSelectionAll
+	nonce          uint64 = 1
+	clientId       int64  = 1
+	testMode              = true
+	openTPMFailStr        = "OpenTpm failed, err: %v"
 )
 
 func TestCreateTrustReport(t *testing.T) {
@@ -52,7 +53,7 @@ func TestCreateTrustReport(t *testing.T) {
 	TpmConf.ReportHashAlg = ""
 	Tpm, err := OpenTPM(!testMode, &TpmConf)
 	if err != nil {
-		t.Errorf("OpenTpm failed, err: %v", err)
+		t.Errorf(openTPMFailStr, err)
 		return
 	}
 	defer Tpm.Close()
@@ -106,7 +107,7 @@ func TestNVRAM(t *testing.T) {
 	TpmConf.ReportHashAlg = ""
 	Tpm, err := OpenTPM(!testMode, &TpmConf)
 	if err != nil {
-		t.Errorf("OpenTpm failed, err: %v", err)
+		t.Errorf(openTPMFailStr, err)
 		return
 	}
 	defer Tpm.Close()
@@ -160,7 +161,7 @@ func TestActivateIKCert(t *testing.T) {
 	TpmConf := TPMConfig{}
 	Tpm, err := OpenTPM(!testMode, &TpmConf)
 	if err != nil {
-		t.Errorf("OpenTpm failed, err: %v", err)
+		t.Errorf(openTPMFailStr, err)
 		return
 	}
 	defer Tpm.Close()
@@ -402,7 +403,7 @@ func TestPreparePCRsTest(t *testing.T) {
 	}
 	tpm, err := OpenTPM(false, &tpmConf)
 	if err != nil {
-		t.Errorf("OpenTpm failed, err: %v", err)
+		t.Errorf(openTPMFailStr, err)
 		return
 	}
 	defer tpm.Close()
@@ -443,7 +444,7 @@ func TestOpenTPM(t *testing.T) {
 	}
 	_, err = OpenTPM(false, &tpmConf)
 	if err != nil {
-		t.Errorf("OpenTpm failed, err: %v", err)
+		t.Errorf(openTPMFailStr, err)
 	}
 	tpm, err := OpenTPM(false, &tpmConf)
 	if err != nil {
@@ -477,7 +478,7 @@ func TestGenerateEKey(t *testing.T) {
 	}
 	tpm, err := OpenTPM(false, &tpmConf)
 	if err != nil {
-		t.Errorf("OpenTpm failed, err: %v", err)
+		t.Errorf(openTPMFailStr, err)
 	}
 	defer tpm.Close()
 

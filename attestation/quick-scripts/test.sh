@@ -57,7 +57,7 @@ mkdir -p ${DST}/authclient
 cp ${SAMPLECLIENT} ${DST}/authclient
 
 echo "start ras..." | tee -a ${DST}/perf.txt
-( cd ${DST}/ras ; ./ras &>${DST}/ras/echo.txt ; )&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
 echo "start rahub..." | tee -a ${DST}/perf.txt
 ( cd ${DST}/hub ; ./rahub &>${DST}/hub/echo.txt ; )&
 echo "start authserver..." | tee -a ${DST}/perf.txt

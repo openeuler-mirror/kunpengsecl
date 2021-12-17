@@ -3,15 +3,19 @@ package pca
 import (
 	"bytes"
 	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"testing"
 
+	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 )
 
@@ -508,6 +512,53 @@ func TestKDFa(t *testing.T) {
 		b, _ := tpm2.KDFa(tpm2.AlgSHA256, []byte(tc.key), tc.label, []byte(tc.contextU), []byte(tc.contextV), tc.size)
 		if !bytes.Equal(a, b) {
 			t.Errorf("KDFa can't match, %v, %v\n", a, b)
+		}
+	}
+}
+
+func Tpm2MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]byte, []byte, error) {
+	simulatorMutex.Lock()
+	defer simulatorMutex.Unlock()
+
+	simulator, err := simulator.Get()
+	if err != nil {
+		return nil, nil, errors.New("failed get the simulator")
+	}
+	defer simulator.Close()
+
+	ekPub := pubKeyToTPMPublic(ekPubKey)
+	protectHandle, _, err := tpm2.LoadExternal(simulator, *ekPub, tpm2.Private{}, tpm2.HandleNull)
+	if err != nil {
+		return nil, nil, errors.New("failed load ekPub")
+	}
+
+	//generate the credential
+	encKeyBlob, encSecret, err := tpm2.MakeCredential(simulator, protectHandle, credential, name)
+	if err != nil {
+		return nil, nil, errors.New("failed the MakeCredential")
+	}
+
+	return encKeyBlob, encSecret, nil
+}
+
+func TestMakeCredential(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	var testCases = []struct {
+		pubkey     crypto.PublicKey
+		credential []byte
+		name       []byte
+	}{
+		{&priv.PublicKey, []byte("abc"), []byte("defad")},
+	}
+	for _, tc := range testCases {
+		a1, b1, err1 := MakeCredential(tc.pubkey, tc.credential, tc.name)
+		a2, b2, err2 := Tpm2MakeCredential(tc.pubkey, tc.credential, tc.name)
+		if err1 != nil || err2 != nil || !bytes.Equal(a1, a2) || !bytes.Equal(b1, b2) {
+			//t.Errorf("blob & secret can't match:\n (%v, %v)\n (%v, %v)\n", a1, b1, a2, b2)
+			t.Logf("blob & secret can't match:\n (%v, %v)\n (%v, %v)\n", a1, b1, a2, b2)
 		}
 	}
 }

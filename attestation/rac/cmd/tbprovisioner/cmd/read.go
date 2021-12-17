@@ -186,6 +186,7 @@ func nvramHandle(tp *ractools.TPM) {
 }
 
 func pcrHandle(tp *ractools.TPM) {
+	_ = tp
 	//fmt.Printf(errReadPCR, rIndex, err)
 	//fmt.Printf(constWritePCR, rIndex, buf)
 }

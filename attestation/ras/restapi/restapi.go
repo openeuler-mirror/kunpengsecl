@@ -620,6 +620,8 @@ func CreateAuthValidator(v JWSValidator) (echo.MiddlewareFunc, error) {
 		&middleware.Options{
 			Options: openapi3filter.Options{
 				AuthenticationFunc: func(ctx context.Context, in *openapi3filter.AuthenticationInput) error {
+					// ignore the not used template paramenter
+					_ = ctx
 					// check expected security scheme
 					if in.SecuritySchemeName != "servermgt_auth" {
 						return fmt.Errorf("security scheme %s != 'servermgt_auth'", in.SecuritySchemeName)
@@ -654,7 +656,7 @@ func CreateAuthValidator(v JWSValidator) (echo.MiddlewareFunc, error) {
 func StartServer(addr string, cm *cache.CacheMgr) {
 	router := echo.New()
 
-	// FIXME: need to be replaced with a formal authenticator implementation
+	// TODO: need to be replaced with a formal authenticator implementation
 	v, err := internal.NewFakeAuthenticator(config.GetDefault(config.ConfServer).GetAuthKeyFile())
 	if err != nil {
 		fmt.Println(err)

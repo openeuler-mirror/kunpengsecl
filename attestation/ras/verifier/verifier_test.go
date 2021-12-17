@@ -15,24 +15,27 @@ import (
 )
 
 const (
-	algSHA1  = "sha1"
-	mtBIOS   = "bios"
-	mtIMA    = "ima"
-	pcrVal1  = "pcr value 1"
-	pcrVal2  = "pcr value 2"
-	pcrVal3  = "pcr value 3"
-	pcrVal4  = "pcr value 4"
-	pcrVal5  = "pcr value 5"
-	quoteVal = "test quote"
-	name1    = "name1"
-	value1   = "name1 value"
-	detail1  = "name1 detail"
-	name2    = "name2"
-	value2   = "name2 value"
-	detail2  = "name2 detail"
-	name3    = "name3"
-	value3   = "name3 value"
-	detail3  = "name3 detail"
+	algSHA1           = "sha1"
+	mtBIOS            = "bios"
+	mtIMA             = "ima"
+	pcrVal1           = "pcr value 1"
+	pcrVal2           = "pcr value 2"
+	pcrVal3           = "pcr value 3"
+	pcrVal4           = "pcr value 4"
+	pcrVal5           = "pcr value 5"
+	quoteVal          = "test quote"
+	name1             = "name1"
+	value1            = "name1 value"
+	detail1           = "name1 detail"
+	name2             = "name2"
+	value2            = "name2 value"
+	detail2           = "name2 detail"
+	name3             = "name3"
+	value3            = "name3 value"
+	detail3           = "name3 detail"
+	sha1HashAllZero   = "0000000000000000000000000000000000000000"
+	sha1HashAllFF     = "ffffffffffffffffffffffffffffffffffffffff"
+	sha256HashAllZero = "0000000000000000000000000000000000000000000000000000000000000000"
 )
 
 var (
@@ -307,7 +310,6 @@ func TestBIOSValidate(t *testing.T) {
 	defer test.RemoveConfigFile()
 	var bv *BIOSVerifier
 
-	const sha256HashAllZero = "0000000000000000000000000000000000000000000000000000000000000000"
 	pibv := entity.PcrInfo{
 		Values: map[int]string{
 			0: sha256HashAllZero,
@@ -474,7 +476,6 @@ func TestIMAValidate(t *testing.T) {
 	defer test.RemoveConfigFile()
 	var iv *IMAVerifier
 
-	const sha1HashAllZero = "0000000000000000000000000000000000000000"
 	pibv := entity.PcrInfo{
 		Values: map[int]string{
 			0:  sha1HashAllZero,
@@ -592,8 +593,6 @@ func TestPCRValidate(t *testing.T) {
 	defer test.RemoveConfigFile()
 	var pv *PCRVerifier
 
-	const sha1HashAllZero = "0000000000000000000000000000000000000000"
-	const sha1HashAllFF = "ffffffffffffffffffffffffffffffffffffffff"
 	//client id = 40
 	const quoted = "\xffTCG\x80\x18\x00\"\x00\v\x10\f\xedƬ\xd6z\x1e\xbb\xd3}H\xb0\x12\"bb\xe3ȳ\x8a\xc2?u\xf4n{^\xbdԝ\x10\x00 \x1e\xb4\xa0LrU\\\xcb*\x04\xd5*\xd1T?Zi>\x97\xdcC 4c\xa8\xc0D\xd8r\xae\x1b!\x00\x00\x00\x00\x00\x00\x11\xb3\x00\x00\x00\x01\x00\x00\x00\x00\x01 \x17\x06\x19\x00\x1666\x00\x00\x00\x01\x00\x04\x03\xff\xff\xff\x00 ?'\b> \xdb|\v\xf0\xe3\x16!\x19\x00\xa9\nS\xe9\x9e\xf1*hb.\x89y'\x93Y\x88\x03\xd2"
 	const signature = "{\"Alg\":20,\"RSA\":{\"HashAlg\":11,\"Signature\":\"V5zxeJ9+LwkTShUJbdYqyFG8r8+aTWzTg4JRX8DEinMvzIKZ04TfzOVpM3k+EAcECp/E43oS/yqExUHR9cCq4WN1PHhL1S998GTt4ZknkzluhmEh6EaaezcsAuJPDDBNkwbq/eJt3uoi2HSs18pJ7O1cdvEFPPfrRZvlTOFm+aAdcn0eW4WUVk3r/kw2cLlH7EuRIbwecPzG9yPwt9C/6dTKJpaw7qVoj57oKObdyvpzE6J/ylEXgDro3fk2cYinvTxkob+jlThNDydZwU0Iamtsy1d8NS5qvA0kzqUcueLEgvfaLT4IaPZVeN0G/U4q8qpzLXc7c4EGECt3AkIPMQ==\"},\"ECC\":null}"
@@ -712,8 +711,6 @@ func TestVerifierMgrValidate(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	const sha1HashAllZero = "0000000000000000000000000000000000000000"
-	const sha1HashAllFF = "ffffffffffffffffffffffffffffffffffffffff"
 	const quoted = "\xffTCG\x80\x18\x00\"\x00\v\x10\f\xedƬ\xd6z\x1e\xbb\xd3}H\xb0\x12\"bb\xe3ȳ\x8a\xc2?u\xf4n{^\xbdԝ\x10\x00 \x1e\xb4\xa0LrU\\\xcb*\x04\xd5*\xd1T?Zi>\x97\xdcC 4c\xa8\xc0D\xd8r\xae\x1b!\x00\x00\x00\x00\x00\x00\x11\xb3\x00\x00\x00\x01\x00\x00\x00\x00\x01 \x17\x06\x19\x00\x1666\x00\x00\x00\x01\x00\x04\x03\xff\xff\xff\x00 ?'\b> \xdb|\v\xf0\xe3\x16!\x19\x00\xa9\nS\xe9\x9e\xf1*hb.\x89y'\x93Y\x88\x03\xd2"
 	const signature = "{\"Alg\":20,\"RSA\":{\"HashAlg\":11,\"Signature\":\"V5zxeJ9+LwkTShUJbdYqyFG8r8+aTWzTg4JRX8DEinMvzIKZ04TfzOVpM3k+EAcECp/E43oS/yqExUHR9cCq4WN1PHhL1S998GTt4ZknkzluhmEh6EaaezcsAuJPDDBNkwbq/eJt3uoi2HSs18pJ7O1cdvEFPPfrRZvlTOFm+aAdcn0eW4WUVk3r/kw2cLlH7EuRIbwecPzG9yPwt9C/6dTKJpaw7qVoj57oKObdyvpzE6J/ylEXgDro3fk2cYinvTxkob+jlThNDydZwU0Iamtsy1d8NS5qvA0kzqUcueLEgvfaLT4IaPZVeN0G/U4q8qpzLXc7c4EGECt3AkIPMQ==\"},\"ECC\":null}"
 	pibv := entity.PcrInfo{
