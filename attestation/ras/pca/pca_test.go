@@ -47,7 +47,31 @@ func TestEncodeDecodePrivateKey(t *testing.T) {
 	}
 }
 
-func TestEncodeDecodePublicKeyKey(t *testing.T) {
+func TestEncodeDecodePublicKeyFile(t *testing.T) {
+	filePath := "./key_pub"
+	defer os.Remove(filePath)
+
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	err = EncodePublicKeyToFile(&priv.PublicKey, filePath)
+	if err != nil {
+		t.Fatalf("can't encode public key to file, %v", err)
+	}
+	pub, _, err := DecodePublicKeyFromFile(filePath)
+	if err != nil {
+		t.Fatalf("can't decode public key from file, %v", err)
+	} else {
+		if priv.PublicKey.Equal(pub) {
+			t.Log("public key from file equal")
+		} else {
+			t.Fatal("public key from file not equal")
+		}
+	}
+}
+
+func TestEncodeDecodePublicKeyPEM(t *testing.T) {
 	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
 	if err != nil {
 		t.Fatalf(strPRIVERR, err)
@@ -133,4 +157,36 @@ func TestEncryptIKCert(t *testing.T) {
 		t.Fatalf("can't encrypt ik certificate, %v", err)
 	}
 	fmt.Println(icChallenge)
+}
+
+func TestNilJudge(t *testing.T) {
+	_, _, err := DecodePublicKeyFromPEM(nil)
+	if err != errDecodePEM {
+		t.Error("DecodePublicKeyFromPEM doesn't handle nil input corretly")
+	}
+	_, _, err = DecodePublicKeyFromFile("")
+	if err == nil {
+		t.Error("DecodePublicKeyFromFile doesn't handle nil input corretly")
+	}
+	_, _, err = DecodePrivateKeyFromPEM(nil)
+	if err != errDecodePEM {
+		t.Error("DecodePrivateKeyFromPEM doesn't handle nil input corretly")
+	}
+	_, _, err = DecodePrivateKeyFromFile("")
+	if err == nil {
+		t.Error("DecodePrivateKeyFromFile doesn't handle nil input corretly")
+	}
+	_, _, err = DecodeKeyCertFromPEM(nil)
+	if err != errDecodePEM {
+		t.Error("DecodeKeyCertFromPEM doesn't handle nil input corretly")
+	}
+	_, _, err = DecodeKeyCertFromFile("")
+	if err == nil {
+		t.Error("DecodeKeyCertFromFile doesn't handle nil input corretly")
+	}
+	_, err = GenerateCertificate(nil, nil, nil, nil)
+	if err != errWrongParams {
+		t.Error("GenerateCertificate doesn't handle nil input corretly")
+	}
+
 }
