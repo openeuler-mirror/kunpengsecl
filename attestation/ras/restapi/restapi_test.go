@@ -107,6 +107,7 @@ func TestRestAPI(t *testing.T) {
 	test.CreateServerConfigFile()
 	config.GetDefault(config.ConfServer)
 	defer test.RemoveConfigFile()
+	config.InitRasFlags()
 
 	resttest.CreateAuthKeyFile(authKeyFile, authKeyPubFile)
 	defer resttest.RemoveAuthKeyFile()

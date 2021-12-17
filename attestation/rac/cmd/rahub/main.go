@@ -18,7 +18,7 @@ func init() {
 
 func main() {
 	pflag.Parse()
-	if *config.HubVersionFlag {
+	if *config.VersionFlag {
 		fmt.Printf("remote attestation hub(rahub): %s\n", rahubVersion)
 		return
 	}

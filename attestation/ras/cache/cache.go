@@ -42,6 +42,8 @@ const (
 	STSUNTRUSTED = "untrusted"
 	// default RAC number in the cache.
 	DEFAULTRACNUM int = 1000
+	// ima string
+	IMASTR = "ima"
 )
 
 type (
@@ -244,7 +246,7 @@ func (c *Cache) GetContainerTrustStatus(uuid string) string {
 	m := []entity.Measurement{}
 	for k, v := range cbv.Value {
 		m = append(m, entity.Measurement{
-			Type:  "ima",
+			Type:  IMASTR,
 			Name:  k,
 			Value: v,
 		})
@@ -283,7 +285,7 @@ func (c *Cache) GetDeviceTrustStatus(deviceId int64) string {
 	m := []entity.Measurement{}
 	for k, v := range dbv.Value {
 		m = append(m, entity.Measurement{
-			Type:  "ima",
+			Type:  IMASTR,
 			Name:  k,
 			Value: v,
 		})

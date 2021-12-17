@@ -227,17 +227,17 @@ func (pv *PCRVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.
 }
 
 func (bv *BIOSVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error {
-	extractedBIOS := &entity.MeasurementInfo{}
-	err := bv.Extract(report, extractedBIOS)
-	if err != nil {
-		return fmt.Errorf("manifest extraction failed")
-	}
 	manifest, err := selectManifest(baseValue.Manifest, "bios")
 	if err != nil {
 		return fmt.Errorf("bios extraction failed")
 	}
 	if len(manifest) == 0 {
 		return nil
+	}
+	extractedBIOS := &entity.MeasurementInfo{}
+	err = bv.Extract(report, extractedBIOS)
+	if err != nil {
+		return fmt.Errorf("manifest extraction failed")
 	}
 	// compare
 	if trustmgr.IsManifestUpdate(&manifest, &extractedBIOS.Manifest) {
@@ -248,17 +248,17 @@ func (bv *BIOSVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity
 }
 
 func (iv *IMAVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.Report) error {
-	extractedIMA := &entity.MeasurementInfo{}
-	err := iv.Extract(report, extractedIMA)
-	if err != nil {
-		return fmt.Errorf("manifest extraction failed")
-	}
 	manifest, err := selectManifest(baseValue.Manifest, imaStr)
 	if err != nil {
 		return fmt.Errorf("ima extraction failed")
 	}
 	if len(manifest) == 0 {
 		return nil
+	}
+	extractedIMA := &entity.MeasurementInfo{}
+	err = iv.Extract(report, extractedIMA)
+	if err != nil {
+		return fmt.Errorf("manifest extraction failed")
 	}
 	// compare
 	if trustmgr.IsManifestUpdate(&manifest, &extractedIMA.Manifest) {
@@ -330,7 +330,7 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 			}
 		}
 		if !isFound {
-			log.Printf("extract failed. bios manifest name %v doesn't exist in this report", bn)
+			return fmt.Errorf("extract failed. bios manifest name %v doesn't exist in this report", bn)
 		}
 	}
 	return nil
@@ -366,7 +366,7 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 			}
 		}
 		if !isFound {
-			log.Printf("extract failed. ima manifest name %v doesn't exist in this report", in)
+			return fmt.Errorf("extract failed. ima manifest name %v doesn't exist in this report", in)
 		}
 	}
 	return nil

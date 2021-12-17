@@ -1,6 +1,7 @@
 package verifier
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -243,18 +244,18 @@ func TestBIOSExtract(t *testing.T) {
 		result error
 	}{
 		{testReport, testMea, nil},
-		{testReport2, testMea2, nil},
+		{testReport2, testMea2, errors.New("extract failed. bios manifest name name2 doesn't exist in this report")},
 	}
 
 	bv := new(BIOSVerifier)
 	for _, tc := range testCase {
 		err := bv.Extract(tc.input1, tc.input2)
-		if err != nil {
+		if err != nil && tc.result != nil {
 			if err.Error() != tc.result.Error() {
 				t.Error(err)
 			}
 		} else {
-			if tc.result != nil {
+			if err != tc.result {
 				t.Error("bios extract test failed")
 			}
 		}
@@ -281,18 +282,18 @@ func TestIMAExtract(t *testing.T) {
 		result error
 	}{
 		{testReport, testMea, nil},
-		{testReport2, testMea2, nil},
+		{testReport2, testMea2, errors.New("extract failed. ima manifest name name2 doesn't exist in this report")},
 	}
 
 	iv := new(IMAVerifier)
 	for _, tc := range testCase {
 		err := iv.Extract(tc.input1, tc.input2)
-		if err != nil {
+		if err != nil && tc.result != nil {
 			if err.Error() != tc.result.Error() {
 				t.Error(err)
 			}
 		} else {
-			if tc.result != nil {
+			if err != tc.result {
 				t.Error("bios extract test failed")
 			}
 		}
@@ -408,13 +409,13 @@ func TestBIOSVerify(t *testing.T) {
 		result error
 	}{
 		{baseValue, testReport, nil},
-		{baseValue, testReport2, fmt.Errorf("bios manifest verification failed")},
+		{baseValue, testReport2, fmt.Errorf("manifest extraction failed")},
 		{baseValue2, testReport, nil},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := bv.Verify(testCase[i].input1, testCase[i].input2)
 		res := testCase[i].result
-		if err == res || (res != nil && err.Error() == res.Error()) {
+		if err == res || (res != nil && err != nil && err.Error() == res.Error()) {
 			t.Logf("test BIOS Verify success at case %d\n", i)
 		} else {
 			t.Errorf("test BIOS Verify error at case %d: %v\n", i, err)
@@ -451,16 +452,16 @@ func TestIMAVerify(t *testing.T) {
 		result error
 	}{
 		{baseValue, testReport, nil},
-		{baseValue, testReport2, fmt.Errorf("ima manifest verification failed")},
+		{baseValue, testReport2, fmt.Errorf("manifest extraction failed")},
 		{baseValue2, testReport, nil},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := iv.Verify(testCase[i].input1, testCase[i].input2)
 		res := testCase[i].result
-		if err == testCase[i].result || (res != nil && err.Error() == testCase[i].result.Error()) {
+		if err == res || (res != nil && err != nil && err.Error() == res.Error()) {
 			t.Logf("test IMA Verify success at case %d\n", i)
 		} else {
-			t.Errorf("test IMA Verify error at case %d\n", i)
+			t.Errorf("test IMA Verify error at case %d: %v\n", i, err)
 		}
 
 	}
@@ -847,7 +848,7 @@ func TestVerifierMgrVerify(t *testing.T) {
 	for i := 0; i < len(testCase); i++ {
 		err := vm.Verify(testCase[i].input1, testCase[i].input2)
 		res := testCase[i].result
-		if err == res || (res != nil && err.Error() == res.Error()) {
+		if err == res || (res != nil && err != nil && err.Error() == res.Error()) {
 			t.Logf("test VerifierMgr Verify success at case %d\n", i)
 		} else {
 			t.Errorf("test VerifierMgr Verify error at case %d: %v\n", i, err)
@@ -866,11 +867,11 @@ func TestVerifierMgrExtract(t *testing.T) {
 
 	testReport := &entity.Report{
 		PcrInfo:  pi,
-		Manifest: []entity.Manifest{im},
+		Manifest: []entity.Manifest{im, bm},
 	}
 	testReport2 := &entity.Report{
 		PcrInfo:  pi,
-		Manifest: []entity.Manifest{im2},
+		Manifest: []entity.Manifest{im2, bm2},
 	}
 	testMea := &entity.MeasurementInfo{}
 	testMea2 := &entity.MeasurementInfo{}
@@ -880,12 +881,12 @@ func TestVerifierMgrExtract(t *testing.T) {
 		result error
 	}{
 		{testReport, testMea, nil},
-		{testReport2, testMea2, nil},
+		{testReport2, testMea2, errors.New("extract failed. bios manifest name name2 doesn't exist in this report")},
 	}
 	for i := 0; i < len(testCase); i++ {
 		err := vm.Extract(testCase[i].input1, testCase[i].input2)
 		res := testCase[i].result
-		if err == res || (res != nil && err.Error() == res.Error()) {
+		if err == res || (res != nil && err != nil && err.Error() == res.Error()) {
 			t.Logf("test VerifierMgr extract success at case %d\n", i)
 		} else {
 			t.Errorf("test VerifierMgr extract error at case %d: %v\n", i, err)

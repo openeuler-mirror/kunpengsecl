@@ -36,7 +36,7 @@ func init() {
 }
 
 func handleCommand() {
-	if *config.RasVersionFlag {
+	if *config.VersionFlag {
 		fmt.Printf("remote attestation server(ras): %s\n", rasVersion)
 		os.Exit(0)
 	}

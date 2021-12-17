@@ -298,7 +298,6 @@ func (tpm *TPM) GenerateIKey() error {
 		cfg.SetIPubKey(public)
 	}
 	if err != nil {
-		log.Printf("Client: GenerateIPrivKey %v\n", err)
 		return err
 	}
 	return tpm.LoadIKey()
@@ -499,7 +498,7 @@ func (tpm *TPM) createTrustReport(useHW bool, pcrSelection tpm2.PCRSelection, tR
 	var manifest []Manifest
 	manifest, err = getManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
 	if err != nil {
-		log.Printf("GetManifest Failed, error: %s", err)
+		log.Printf("GetManifest Failed, error: %s. Go without manifests", err)
 	}
 
 	return &TrustReport{pcrinfo, manifest, tRepIn.ClientId, tRepIn.ClientInfo}, nil
@@ -509,7 +508,7 @@ func (tpm *TPM) createTrustReport(useHW bool, pcrSelection tpm2.PCRSelection, tR
 func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, error) {
 	clientInfo, err := GetClientInfo(tpm.useHW)
 	if err != nil {
-		log.Printf("GetClientInfo failed, error : %v \n", err)
+		log.Printf("GetClientInfo failed, error : %v. Go with empty info\n", err)
 	}
 	tRepIn := TrustReportIn{
 		Nonce:      nonce,
@@ -529,10 +528,13 @@ func (tpm *TPM) SetDigestAlg(alg string) {
 
 // PreparePCRsTest method replay the bios/ima manifests into pcrs in test mode.
 func (tpm *TPM) PreparePCRsTest() error {
+	if tpm.useHW {
+		return nil
+	}
+
 	// read the manifest files into memory
 	manifest, err := getManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
 	if err != nil {
-		log.Printf("Prepare PCRs: GetManifest Failed, error: %s", err)
 		return err
 	}
 
