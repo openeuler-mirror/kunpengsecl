@@ -56,10 +56,11 @@ func main() {
 	// step 2. if rac doesn't have clientId, uses EC and ikPub to sign
 	// a IC and do the register process.
 	if cid <= 0 {
-		cid = registerClientID(tpm)
+		cid = registerClientID()
 	}
 	config.Save()
 
+	tpm.SetDigestAlg(cfg.GetDigestAlgorithm())
 	err = tpm.PreparePCRsTest()
 	if err != nil {
 		log.Fatalf("Prepare PCRs failed, error: %s", err)
@@ -130,9 +131,16 @@ func generateEKeyCert(t *ractools.TPM) {
 
 func loadIKCert(t *ractools.TPM) error {
 	cfg := config.GetDefault(config.ConfClient)
-	if cfg.GetIKeyCert() != nil {
+	var ikCert []byte
+	if cfg.GetTestMode() {
+		ikCert = cfg.GetIKeyCertTest()
+	} else {
+		ikCert = cfg.GetIKeyCert()
+	}
+	if ikCert != nil {
 		return t.LoadIKey()
 	}
+
 	err := t.GenerateIKey()
 	if err != nil {
 		log.Fatalf("Client: GenerateIPrivKey %v\n", err)
@@ -163,12 +171,13 @@ func loadIKCert(t *ractools.TPM) error {
 	}
 	if cfg.GetTestMode() {
 		cfg.SetIKeyCertTest(icDer)
+	} else {
+		cfg.SetIKeyCert(icDer)
 	}
-	cfg.SetIKeyCert(icDer)
 	return nil
 }
 
-func registerClientID(t *ractools.TPM) int64 {
+func registerClientID() int64 {
 	cfg := config.GetDefault(config.ConfClient)
 	server := cfg.GetServer()
 	var icDer []byte
@@ -193,7 +202,6 @@ func registerClientID(t *ractools.TPM) int64 {
 	cc := bk.GetClientConfig()
 	cfg.SetClientId(cid)
 	cfg.SetDigestAlgorithm(cc.GetDigestAlgorithm())
-	t.SetDigestAlg(cc.GetDigestAlgorithm())
 	cfg.SetHBDuration(time.Duration(cc.GetHbDurationSeconds() * int64(time.Second)))
 	cfg.SetTrustDuration(time.Duration(cc.GetTrustDurationSeconds() * int64(time.Second)))
 	return cid

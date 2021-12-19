@@ -3,17 +3,14 @@ subdir = attestation
 delfile=pca-root.crt pca-root.key pca-ek.crt pca-ek.key ikpri.key ikpub.key ic.crt ectest.crt ectest.key ikpritest.key ikpubtest.key ictest.crt
 
 .PHONY: all build test clean install check vendor ci-check bat prepare sim-test sim-clean rpm rpm-clean
-all build test clean install check: vendor
-
+all build test install: vendor
+clean: clean-keycert
 all build test clean install check vendor:
 	for name in $(subdir); do\
 		make -C $$name $@ || exit $$?;\
 	done
 
-clean:
-	for name in $(subdir); do\
-		make -C $$name $@ || exit $$?;\
-	done
+clean-keycert:
 	for name in $(delfile); do find . -name $$name -exec rm -f {} \; ; done
 
 bat: build test
@@ -30,7 +27,7 @@ ci-check: prepare bat
 
 # run one ras and some racs to do the simulation test.
 sim-test: build
-	/bin/bash ./attestation/quick-scripts/test.sh
+	/bin/bash ./attestation/test/sim-test.sh
 
 sim-clean: clean
 	-@pkill -u ${USER} ras || true
