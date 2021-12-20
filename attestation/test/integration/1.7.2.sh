@@ -74,7 +74,7 @@ sleep 90
 echo "check server trust status via restapi request"
 # get restapi auth token from echo.txt
 # AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-# curl -X POST -H "Authorization: $TOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
+# curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
 RESPONSE2=$(curl http://localhost:40002/status 2>/dev/null)
 echo ${RESPONSE2} | tee -a ${DST}/control.txt
 

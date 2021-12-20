@@ -15,6 +15,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/labstack/echo/v4 v4.3.0
+	github.com/labstack/gommon v0.3.0
 	github.com/lestrrat-go/jwx v1.2.9
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.1.3
