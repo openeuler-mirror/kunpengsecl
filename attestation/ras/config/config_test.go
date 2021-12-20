@@ -159,30 +159,6 @@ func TestRACConfig(t *testing.T) {
 			t.Errorf("test IKeyCertTest error at case %d\n", i)
 		}
 	}
-	for i := 0; i < len(testCases3); i++ {
-		config.SetIPriKey([]byte(testCases3[i].input))
-		if string(config.GetIPriKey()) != testCases3[i].result {
-			t.Errorf("test IPrikey error at case %d\n", i)
-		}
-	}
-	for i := 0; i < len(testCases3); i++ {
-		config.SetIPubKey([]byte(testCases3[i].input))
-		if string(config.GetIPubKey()) != testCases3[i].result {
-			t.Errorf("test IPubKey error at case %d\n", i)
-		}
-	}
-	for i := 0; i < len(testCases3); i++ {
-		config.SetIPubKeyTest([]byte(testCases3[i].input))
-		if string(config.GetIPubKeyTest()) != testCases3[i].result {
-			t.Errorf("test IPubKeyTest error at case %d\n", i)
-		}
-	}
-	for i := 0; i < len(testCases3); i++ {
-		config.SetIPubKeyTest([]byte(testCases3[i].input))
-		if string(config.GetIPubKeyTest()) != testCases3[i].result {
-			t.Errorf("test IPubKeyTest error at case %d\n", i)
-		}
-	}
 
 	testCases4 := []struct {
 		input  int64

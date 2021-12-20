@@ -4,9 +4,6 @@ racconfig:
   ekcerttest: ""
   hbduration: 5s
   ikcerttest: ""
-  ikpkeytest: ""
-  ikprikeytest: ""
-  ikpubkeytest: ""
   password: ""
   server: 127.0.0.1:40001
   trustduration: 2m0s

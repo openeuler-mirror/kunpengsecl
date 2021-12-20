@@ -51,7 +51,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("load ek cert failed, error: %s", err)
 	}
-	loadIKCert(tpm)
+	err = tpm.GenerateIKey()
+	if err != nil {
+		log.Fatalf("generate ik failed, error: %s", err)
+	}
+	generateIKeyCert(tpm)
 
 	// step 2. if rac doesn't have clientId, uses EC and ikPub to sign
 	// a IC and do the register process.
@@ -129,26 +133,26 @@ func generateEKeyCert(t *ractools.TPM) {
 	}
 }
 
-func loadIKCert(t *ractools.TPM) error {
+// generateIKeyCert gets the IK public from tpm simulator and sends to PCA
+// to sign it, after that saves it into config.
+func generateIKeyCert(t *ractools.TPM) {
 	cfg := config.GetDefault(config.ConfClient)
+	testMode := cfg.GetTestMode()
 	var ikCert []byte
-	if cfg.GetTestMode() {
+	if testMode {
 		ikCert = cfg.GetIKeyCertTest()
 	} else {
 		ikCert = cfg.GetIKeyCert()
 	}
 	if ikCert != nil {
-		return t.LoadIKey()
+		return
 	}
 
-	err := t.GenerateIKey()
-	if err != nil {
-		log.Fatalf("Client: GenerateIPrivKey %v\n", err)
-	}
 	ikPubDer, err := x509.MarshalPKIXPublicKey(t.IK.Pub)
 	if err != nil {
-		log.Fatalf("Client: can't get Ik public der data %v", err)
+		log.Fatalf("Client: can't get Ik public der data, %v", err)
 	}
+
 	reqIC := clientapi.GenerateIKCertRequest{
 		EkCert: cfg.GetEKeyCert(),
 		IkPub:  ikPubDer,
@@ -169,12 +173,11 @@ func loadIKCert(t *ractools.TPM) error {
 	if err != nil {
 		log.Fatalf("Client: ActivateIKCert failed, error: %v", err)
 	}
-	if cfg.GetTestMode() {
+	if testMode {
 		cfg.SetIKeyCertTest(icDer)
 	} else {
 		cfg.SetIKeyCert(icDer)
 	}
-	return nil
 }
 
 func registerClientID() int64 {
