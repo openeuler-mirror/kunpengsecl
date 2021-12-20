@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,6 +28,8 @@ func TestCacheCommand(t *testing.T) {
 }
 
 func TestCacheUpdate(t *testing.T) {
+	test.CreateServerConfigFile()
+	defer test.RemoveConfigFile()
 	cfg := config.GetDefault(config.ConfServer)
 	c := &Cache{
 		command:         0,
