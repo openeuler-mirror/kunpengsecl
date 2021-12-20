@@ -140,9 +140,9 @@ paths:
             application/json:
               schema:
                 type: string
-                default: unkown
+                default: unknown
                 enum:
-                - unkown
+                - unknown
                 - untrusted
                 - trusted
   /report/{serverId}:
@@ -287,9 +287,9 @@ paths:
             application/json:
               schema:
                 type: string
-                default: unkown
+                default: unknown
                 enum:
-                - unkown
+                - unnkown
                 - untrusted
                 - trusted
       security:
@@ -426,9 +426,9 @@ paths:
             application/json:
               schema:
                 type: string
-                default: unkown
+                default: unknown
                 enum:
-                - unkown
+                - unknown
                 - untrusted
                 - trusted
 
@@ -465,9 +465,9 @@ components:
             format: int64
     TrustStatus:
       type: string
-      default: unkown
+      default: unknown
       enum:
-      - unkown
+      - unknown
       - untrusted
       - trusted
     ServerTrustStatus:

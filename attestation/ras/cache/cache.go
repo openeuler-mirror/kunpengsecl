@@ -37,7 +37,7 @@ const (
 	CMDGETREPORT                    // get a new trust report from RAC.
 	CMDNONE      uint64 = 0         // clear all pending commands.
 	// const start with STS is used for trust status.
-	STSUNKOWN    = "unkown"
+	STSUNKOWN    = "unknown"
 	STSTRUSTED   = "trusted"
 	STSUNTRUSTED = "untrusted"
 	// default RAC number in the cache.
