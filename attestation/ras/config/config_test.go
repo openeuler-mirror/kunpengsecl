@@ -215,6 +215,8 @@ func TestRACConfig(t *testing.T) {
 }
 
 func TestRAHubConfig(t *testing.T) {
+	test.CreateHubConfigFile()
+	defer test.RemoveConfigFile()
 	confG = nil
 	//InitHubFlags()
 	config := GetDefault(ConfHub)
