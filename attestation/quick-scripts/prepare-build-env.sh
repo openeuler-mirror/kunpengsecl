@@ -1,8 +1,8 @@
 #/bin/sh
 osv=`grep "\<NAME=" /etc/os-release | awk -F '[" ]' '{print $2}'`
 # install deps
-ubuntu_deps="protobuf-compiler libssl-dev"
-openeuler_deps="golang protobuf-compiler openssl-devel"
+ubuntu_deps="protobuf-compiler libssl-dev jq"
+openeuler_deps="golang protobuf-compiler openssl-devel jq"
 
 VERSION=1.15.14
 OS=linux

@@ -33,12 +33,12 @@ type rahub struct {
 }
 
 func (s *rahub) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
-	log.Printf("rahub: receive CreateIKCert")
+	log.Printf("rahub: receive GenerateEKCert")
 	return DoGenerateEKCert(s.rasAddr, in)
 }
 
 func (s *rahub) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
-	log.Printf("rahub: receive CreateIKCert")
+	log.Printf("rahub: receive GenerateIKCert")
 	return DoGenerateIKCert(s.rasAddr, in)
 }
 

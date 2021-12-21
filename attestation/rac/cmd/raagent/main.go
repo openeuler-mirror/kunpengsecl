@@ -36,7 +36,7 @@ func main() {
 	tpmConf := createTPMConfig(testMode)
 	tpm, err := ractools.OpenTPM(!testMode, tpmConf)
 	if err != nil {
-		log.Fatalf("OpenTPM failed, error: %s", err)
+		log.Fatalf("Client: openTPM failed, error: %s", err)
 	}
 	defer tpm.Close()
 
@@ -44,16 +44,16 @@ func main() {
 	// NVRAM. So in test mode, create EK and sign it from PCA, save it to NVRAM
 	err = tpm.GenerateEKey()
 	if err != nil {
-		log.Fatalf("generate ek failed, error: %s", err)
+		log.Fatalf("Client: generate ek failed, error: %s", err)
 	}
 	generateEKeyCert(tpm)
 	err = tpm.LoadEKeyCert()
 	if err != nil {
-		log.Fatalf("load ek cert failed, error: %s", err)
+		log.Fatalf("Client: load ek cert failed, error: %s", err)
 	}
 	err = tpm.GenerateIKey()
 	if err != nil {
-		log.Fatalf("generate ik failed, error: %s", err)
+		log.Fatalf("Client: generate ik failed, error: %s", err)
 	}
 	generateIKeyCert(tpm)
 
@@ -67,7 +67,7 @@ func main() {
 	tpm.SetDigestAlg(cfg.GetDigestAlgorithm())
 	err = tpm.PreparePCRsTest()
 	if err != nil {
-		log.Fatalf("Prepare PCRs failed, error: %s", err)
+		log.Fatalf("Client: prepare PCRs failed, error: %s", err)
 	}
 
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
@@ -171,7 +171,7 @@ func generateIKeyCert(t *ractools.TPM) {
 		DecryptParam:    rspIC.EncryptParam,
 	})
 	if err != nil {
-		log.Fatalf("Client: ActivateIKCert failed, error: %v", err)
+		log.Fatalf("Client: activateIKCert failed, error: %v", err)
 	}
 	if testMode {
 		cfg.SetIKeyCertTest(icDer)
@@ -192,7 +192,7 @@ func registerClientID() int64 {
 	}
 	clientInfo, err := ractools.GetClientInfo(!testMode)
 	if err != nil {
-		log.Fatalf("Client: GetClientInfo failed, error: %v", err)
+		log.Fatalf("Client: getClientInfo failed, error: %v", err)
 	}
 	bk, err := clientapi.DoRegisterClient(server, &clientapi.RegisterClientRequest{
 		Ic:         &clientapi.Cert{Cert: icDer},
