@@ -11,10 +11,11 @@ RAHUB=${RACPKG}/rahub
 TBPRO=${RACPKG}/tbprovisioner
 
 CMDRAAGENT=${PROJROOT}/attestation/rac/cmd/raagent
+CMDRAHUB=${PROJROOT}/attestation/rac/cmd/rahub
 RACCONF=${CMDRAAGENT}/config.yaml
+RAHUBCONF=${CMDRAHUB}/config.yaml
 BIOSFILE=binary_bios_measurements
 IMAFILE=ascii_runtime_measurements
-
 BIOSMANIFEST=${CMDRAAGENT}/${BIOSFILE}
 IMAMANIFEST=${CMDRAAGENT}/${IMAFILE}
 
@@ -46,6 +47,7 @@ cp ${RASAUTHKEY} ${DST}/ras
 # prepare rahub
 mkdir -p ${DST}/hub
 cp ${RAHUB} ${DST}/hub
+cp ${RAHUBCONF} ${DST}/hub
 
 # prepare raagent
 mkdir -p ${DST}/rac
@@ -70,3 +72,8 @@ cp -rf ${SAMPLEAUTHSVRSTATIC} ${DST}/authserver
 # prepare authclient
 mkdir -p ${DST}/authclient
 cp ${SAMPLECLIENT} ${DST}/authclient
+
+FILENAME=`basename $0`
+# DIRNAME=`dirname $0`
+CASENAME=${FILENAME%.*}
+# echo ${FILENAME%.*}, ${FILENAME##*.}

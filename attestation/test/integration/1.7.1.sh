@@ -10,7 +10,7 @@ NUM=1
 # above are common preparation steps, below are specific preparation step, scope includs:
 # configure files, input files, environment variables, cmdline paramenters, flow control paramenters, etc.
 ### Start Preparation
-echo "start test preparation..." | tee -a ${DST}/control.txt
+echo "start test ${CASENAME} preparation..." | tee -a ${DST}/control.txt
 pushd $(pwd)
 cd ${PROJROOT}/attestation/quick-scripts
 echo "clean database" | tee -a ${DST}/control.txt

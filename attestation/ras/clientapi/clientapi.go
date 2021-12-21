@@ -374,10 +374,10 @@ func DoGenerateIKCert(addr string, in *GenerateIKCertRequest) (*GenerateIKCertRe
 
 	bk, err := ras.c.GenerateIKCert(ras.ctx, in)
 	if err != nil {
-		log.Printf("Client: invoke CreateIKCert error %v", err)
+		log.Printf("Client: invoke GenerateIKCert error %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke CreateIKCert ok")
+	log.Printf("Client: invoke GenerateIKCert ok")
 	return bk, nil
 }
 
