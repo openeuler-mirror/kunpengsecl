@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	rahubVersion = "version 0.1.0"
+	rahubVersion = "version 1.0.0"
 )
 
 func init() {

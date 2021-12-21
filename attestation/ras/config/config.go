@@ -22,7 +22,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -100,20 +99,12 @@ const (
 	RasAuthKeyFile        = "rasconfig.authkeyfile"
 	RasAuthKeyFileDefault = "./ecdsakey"
 	// RAC
-	RacIPriKeyFileDefault      = "./ikpri"
-	RacIPubKeyFileDefault      = "./ikpub"
 	RacIKeyCertFileDefault     = "./ic"
 	RacEKeyCertFile            = "racconfig.ekcert"
-	RacIPriKeyFile             = "racconfig.ikprikey"
-	RacIPubKeyFile             = "racconfig.ikpubkey"
 	RacIKeyCertFile            = "racconfig.ikcert"
 	RacEKFileDefaultTest       = "./ectest"
-	RacIPriKeyFileDefaultTest  = "./ikpritest"
-	RacIPubKeyFileDefaultTest  = "./ikpubtest"
 	RacIKeyCertFileDefaultTest = "./ictest"
 	RacEKeyCertFileTest        = "racconfig.ekcerttest"
-	RacIPriKeyFileTest         = "racconfig.ikprikeytest"
-	RacIPubKeyFileTest         = "racconfig.ikpubkeytest"
 	RacIKeyCertFileTest        = "racconfig.ikcerttest"
 	RacServer                  = "racconfig.server" // client connect to server
 	RacServerLongFlag          = "server"
@@ -204,19 +195,11 @@ type (
 	racConfig struct {
 		// for TPM chip
 		eKeyCert     []byte
-		iPriKeyFile  string
-		iPriKey      []byte
-		iPubKeyFile  string
-		iPubKey      []byte
 		iKeyCertFile string
 		iKeyCert     []byte
 		// for simulator test
 		eKeyCertFileTest string
 		eKeyCertTest     []byte
-		iPriKeyFileTest  string
-		iPriKeyTest      []byte
-		iPubKeyFileTest  string
-		iPubKeyTest      []byte
 		iKeyCertFileTest string
 		iKeyCertTest     []byte
 		server           string
@@ -436,43 +419,15 @@ func getClientIKeyCertTest(c *config) {
 	if c == nil {
 		return
 	}
-	c.racConfig.iPriKeyFileTest = viper.GetString(RacIPriKeyFileTest)
-	if c.racConfig.iPriKeyFileTest != NullString {
-		c.racConfig.iPriKeyTest, err = ioutil.ReadFile(c.racConfig.iPriKeyFileTest)
-		if err != nil {
-			c.racConfig.iPriKeyTest = nil
-			c.racConfig.iPriKeyFileTest = NullString
-		}
-	} else {
-		c.racConfig.iPriKeyTest = nil
-	}
-	c.racConfig.iPubKeyFileTest = viper.GetString(RacIPubKeyFileTest)
-	if c.racConfig.iPubKeyFileTest != NullString {
-		c.racConfig.iPubKeyTest, err = ioutil.ReadFile(c.racConfig.iPubKeyFileTest)
-		if err != nil {
-			c.racConfig.iPubKeyTest = nil
-			c.racConfig.iPubKeyFileTest = NullString
-		}
-	} else {
-		c.racConfig.iPubKeyTest = nil
-	}
 	c.racConfig.iKeyCertFileTest = viper.GetString(RacIKeyCertFileTest)
 	if c.racConfig.iKeyCertFileTest != NullString {
 		_, c.racConfig.iKeyCertTest, err = pca.DecodeKeyCertFromFile(c.racConfig.iKeyCertFileTest)
 		if err != nil {
 			c.racConfig.iKeyCertTest = nil
 			c.racConfig.iKeyCertFileTest = NullString
-			c.racConfig.iPriKeyTest = nil
-			c.racConfig.iPriKeyFileTest = NullString
-			c.racConfig.iPubKeyTest = nil
-			c.racConfig.iPubKeyFileTest = NullString
 		}
 	} else {
 		c.racConfig.iKeyCertTest = nil
-		c.racConfig.iPriKeyTest = nil
-		c.racConfig.iPriKeyFileTest = NullString
-		c.racConfig.iPubKeyTest = nil
-		c.racConfig.iPubKeyFileTest = NullString
 	}
 }
 
@@ -481,43 +436,15 @@ func getClientIKeyCert(c *config) {
 	if c == nil {
 		return
 	}
-	c.racConfig.iPriKeyFile = viper.GetString(RacIPriKeyFile)
-	if c.racConfig.iPriKeyFile != NullString {
-		c.racConfig.iPriKey, err = ioutil.ReadFile(c.racConfig.iPriKeyFile)
-		if err != nil {
-			c.racConfig.iPriKey = nil
-			c.racConfig.iPriKeyFile = NullString
-		}
-	} else {
-		c.racConfig.iPriKey = nil
-	}
-	c.racConfig.iPubKeyFile = viper.GetString(RacIPubKeyFile)
-	if c.racConfig.iPubKeyFile != NullString {
-		c.racConfig.iPubKey, err = ioutil.ReadFile(c.racConfig.iPubKeyFile)
-		if err != nil {
-			c.racConfig.iPubKey = nil
-			c.racConfig.iPubKeyFile = NullString
-		}
-	} else {
-		c.racConfig.iPubKey = nil
-	}
 	c.racConfig.iKeyCertFile = viper.GetString(RacIKeyCertFile)
 	if c.racConfig.iKeyCertFile != NullString {
 		_, c.racConfig.iKeyCert, err = pca.DecodeKeyCertFromFile(c.racConfig.iKeyCertFile)
 		if err != nil {
 			c.racConfig.iKeyCert = nil
 			c.racConfig.iKeyCertFile = NullString
-			c.racConfig.iPriKey = nil
-			c.racConfig.iPriKeyFile = NullString
-			c.racConfig.iPubKey = nil
-			c.racConfig.iPubKeyFile = NullString
 		}
 	} else {
 		c.racConfig.iKeyCert = nil
-		c.racConfig.iPriKey = nil
-		c.racConfig.iPriKeyFile = NullString
-		c.racConfig.iPubKey = nil
-		c.racConfig.iPubKeyFile = NullString
 	}
 }
 
@@ -665,12 +592,8 @@ func saveRacConfig(cfg *config) {
 	// store common part
 	if cfg.racConfig.testMode {
 		viper.Set(RacEKeyCertFileTest, cfg.racConfig.eKeyCertFileTest)
-		viper.Set(RacIPriKeyFileTest, cfg.racConfig.iPriKeyFileTest)
-		viper.Set(RacIPubKeyFileTest, cfg.racConfig.iPubKeyFileTest)
 		viper.Set(RacIKeyCertFileTest, cfg.racConfig.iKeyCertFileTest)
 	} else {
-		viper.Set(RacIPriKeyFile, cfg.racConfig.iPriKeyFile)
-		viper.Set(RacIPubKeyFile, cfg.racConfig.iPubKeyFile)
 		viper.Set(RacIKeyCertFile, cfg.racConfig.iKeyCertFile)
 	}
 	viper.Set(RacServer, cfg.racConfig.server)
@@ -820,26 +743,6 @@ func (c *config) SetEKeyCert(ec []byte) {
 	c.racConfig.eKeyCert = ec
 }
 
-func (c *config) GetIPriKey() []byte {
-	return c.racConfig.iPriKey
-}
-
-func (c *config) SetIPriKey(ikDer []byte) {
-	c.racConfig.iPriKey = ikDer
-	c.racConfig.iPriKeyFile = RacIPriKeyFileDefault + extKey
-	ioutil.WriteFile(c.racConfig.iPriKeyFile, ikDer, 0600)
-}
-
-func (c *config) GetIPubKey() []byte {
-	return c.racConfig.iPubKey
-}
-
-func (c *config) SetIPubKey(ikDer []byte) {
-	c.racConfig.iPubKey = ikDer
-	c.racConfig.iPubKeyFile = RacIPubKeyFileDefault + extKey
-	ioutil.WriteFile(c.racConfig.iPubKeyFile, ikDer, 0600)
-}
-
 func (c *config) GetIKeyCert() []byte {
 	return c.racConfig.iKeyCert
 }
@@ -858,26 +761,6 @@ func (c *config) SetEKeyCertTest(ecDer []byte) {
 	c.racConfig.eKeyCertTest = ecDer
 	c.racConfig.eKeyCertFileTest = RacEKFileDefaultTest + extCert
 	pca.EncodeKeyCertToFile(ecDer, c.racConfig.eKeyCertFileTest)
-}
-
-func (c *config) GetIPriKeyTest() []byte {
-	return c.racConfig.iPriKeyTest
-}
-
-func (c *config) SetIPriKeyTest(ikDer []byte) {
-	c.racConfig.iPriKeyTest = ikDer
-	c.racConfig.iPriKeyFileTest = RacIPriKeyFileDefaultTest + extKey
-	ioutil.WriteFile(c.racConfig.iPriKeyFileTest, ikDer, 0600)
-}
-
-func (c *config) GetIPubKeyTest() []byte {
-	return c.racConfig.iPubKeyTest
-}
-
-func (c *config) SetIPubKeyTest(ikDer []byte) {
-	c.racConfig.iPubKeyTest = ikDer
-	c.racConfig.iPubKeyFileTest = RacIPubKeyFileDefaultTest + extKey
-	ioutil.WriteFile(c.racConfig.iPubKeyFileTest, ikDer, 0600)
 }
 
 func (c *config) GetIKeyCertTest() []byte {

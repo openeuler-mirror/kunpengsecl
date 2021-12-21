@@ -282,51 +282,24 @@ func (tpm *TPM) LoadEKeyCert() error {
 	return nil
 }
 
-// GenerateIKey generates the ik key under ek by tpm2, gets the private, public
+// GenerateIKey generates the ik key as a primary key by tpm2, gets the handle, public
 // and name fields to use later
 func (tpm *TPM) GenerateIKey() error {
 	var err error
-	var private, public []byte
-	cfg := config.GetDefault(config.ConfClient)
-	private, public, _, _, _, err = tpm2.CreateKey(tpm.dev, tpm.EK.Handle,
+	tpm.IK.Handle, tpm.IK.Pub, err = tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement,
 		pcrSelectionNil, emptyPassword, emptyPassword, IKParams)
-	if !tpm.useHW {
-		cfg.SetIPriKeyTest(private)
-		cfg.SetIPubKeyTest(public)
-	} else {
-		cfg.SetIPriKey(private)
-		cfg.SetIPubKey(public)
-	}
 	if err != nil {
+		tpm.IK.Handle = tpmutil.Handle(0)
+		tpm.IK.Pub = nil
 		return err
 	}
-	return tpm.LoadIKey()
-}
-
-func (tpm *TPM) LoadIKey() error {
-	var err error
-	cfg := config.GetDefault(config.ConfClient)
-	if !tpm.useHW {
-		tpm.IK.Handle, _, err = tpm2.Load(tpm.dev, tpm.EK.Handle, emptyPassword,
-			cfg.GetIPubKeyTest(), cfg.GetIPriKeyTest())
-	} else {
-		tpm.IK.Handle, _, err = tpm2.Load(tpm.dev, tpm.EK.Handle, emptyPassword,
-			cfg.GetIPubKey(), cfg.GetIPriKey())
-	}
-	if err != nil {
-		return err
-	}
-	ikPub, ikName, _, err := tpm2.ReadPublic(tpm.dev, tpm.IK.Handle)
-	if err != nil {
-		return err
-	}
-	pub, err := ikPub.Key()
+	_, ikName, _, err := tpm2.ReadPublic(tpm.dev, tpm.IK.Handle)
 	if err != nil {
 		return err
 	}
 	tpm.IK.Password = emptyPassword
 	tpm.IK.Name = ikName
-	tpm.IK.Pub = pub
+
 	return nil
 }
 

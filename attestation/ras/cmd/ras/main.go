@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	rasVersion = "version 0.1.0"
+	rasVersion = "version 1.0.0"
 )
 
 type testValidator struct {
