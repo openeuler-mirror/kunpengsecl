@@ -95,7 +95,7 @@ echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 
 ### generate the test report
-if [ ${clientID1} != "" ] && [ ${clientID2} == ""]
+if [ ${clientID1} != "" ] && [ ${clientID2} == "" ]
 then
     echo "test succeeded!" | tee -a ${DST}/control.txt
     exit 0
