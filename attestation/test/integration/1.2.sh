@@ -37,7 +37,7 @@ do
 done
 
 ### start monitoring and control the testing
-echo "start to perform test ${TEST_ID}..." | tee -a ${DST}/control.txt
+echo "start to perform test ..." | tee -a ${DST}/control.txt
 echo "wait for 30s"
 sleep 30
 
@@ -79,7 +79,7 @@ done
 echo "wait for 30s"
 sleep 30
 clientID2=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/clientID=/ {gsub("clientID=","",$7);print $7}')
-if [ ${clientID2} != "" ]
+if [ "${clientID2}" != "" ]
 then
     echo "register again!" | tee -a ${DST}/control.txt
 else
@@ -98,6 +98,8 @@ echo "test DONE!!!" | tee -a ${DST}/control.txt
 if [ ${clientID1} != "" ] && [ ${clientID2} == ""]
 then
     echo "test succeeded!" | tee -a ${DST}/control.txt
+    exit 0
 else
     echo "test failed!" | tee -a ${DST}/control.txt
+    exit 1
 fi
