@@ -458,12 +458,17 @@ func TestOpenTPM(t *testing.T) {
 	tpmRef.dev = sim
 	tpmRef.Close()
 
-	tpm, err = OpenTPM(true, &tpmConf)
-	if err != errFailTPMInit {
-		t.Errorf("OpenTpm open physical tpm get unexpected err: %v", err)
-		return
+	file, err := os.OpenFile(tpmDevPath1, os.O_RDWR, 0)
+	if err != nil {
+		tpm, err = OpenTPM(true, &tpmConf)
+		if err != errFailTPMInit {
+			t.Errorf("OpenTpm open physical tpm get unexpected err: %v", err)
+			return
+		}
+		tpm.Close()
+	} else {
+		file.Close()
 	}
-	tpm.Close()
 }
 
 func TestGenerateEKey(t *testing.T) {
