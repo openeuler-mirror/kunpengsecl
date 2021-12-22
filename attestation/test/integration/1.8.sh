@@ -37,7 +37,7 @@ do
 done
 
 ### start monitoring and control the testing
-echo "start to perform test ${TEST_ID}..." | tee -a ${DST}/control.txt
+echo "start to perform test ..." | tee -a ${DST}/control.txt
 echo "wait for 5s"
 sleep 5
 echo "check config items via restapi request"

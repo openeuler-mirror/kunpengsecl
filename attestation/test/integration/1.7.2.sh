@@ -10,7 +10,7 @@ NUM=1
 # above are common preparation steps, below are specific preparation step, scope includs:
 # configure files, input files, environment variables, cmdline paramenters, flow control paramenters, etc.
 ### Start Preparation
-echo "start test ${CASENAME} preparation..." | tee -a ${DST}/control.txt
+echo "start test preparation..." | tee -a ${DST}/control.txt
 pushd $(pwd)
 cd ${PROJROOT}/attestation/quick-scripts
 echo "clean database" | tee -a ${DST}/control.txt
@@ -37,14 +37,14 @@ do
 done
 
 ### start monitoring and control the testing
-echo "start to perform test ${TEST_ID}..." | tee -a ${DST}/control.txt
+echo "start to perform test ..." | tee -a ${DST}/control.txt
 echo "wait for 5s"
 sleep 5
 echo "check server trust status via restapi request"
 # get restapi auth token from echo.txt
 # AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
 # curl -X POST -H "Authorization: $TOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
-RESPONSE1=$(curl http://localhost:40002/status 2>/dev/null)
+RESPONSE1=$(curl http://localhost:40002/status)
 echo ${RESPONSE1} | tee -a ${DST}/control.txt
 # stop rac
 echo "kill all raagent processes..." | tee -a ${DST}/control.txt
@@ -75,7 +75,7 @@ echo "check server trust status via restapi request"
 # get restapi auth token from echo.txt
 # AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
 # curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
-RESPONSE2=$(curl http://localhost:40002/status 2>/dev/null)
+RESPONSE2=$(curl http://localhost:40002/status)
 echo ${RESPONSE2} | tee -a ${DST}/control.txt
 
 ### stop testing

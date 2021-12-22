@@ -3,36 +3,14 @@
 # . ${PROJROOT}/attestation/test/integration/common.sh
 # this scripts should be run under the root folder of kunpengsecl project
 #set -eux
-DST=$(mktemp -t -d kunpengsecl-test-XXXXXX)
-
-RACPKG=${PROJROOT}/attestation/rac/pkg
-RAAGENT=${RACPKG}/raagent
-RAHUB=${RACPKG}/rahub
-TBPRO=${RACPKG}/tbprovisioner
-
-CMDRAAGENT=${PROJROOT}/attestation/rac/cmd/raagent
-CMDRAHUB=${PROJROOT}/attestation/rac/cmd/rahub
-RACCONF=${CMDRAAGENT}/config.yaml
-RAHUBCONF=${CMDRAHUB}/config.yaml
-BIOSFILE=binary_bios_measurements
-IMAFILE=ascii_runtime_measurements
-BIOSMANIFEST=${CMDRAAGENT}/${BIOSFILE}
-IMAMANIFEST=${CMDRAAGENT}/${IMAFILE}
-
-RAS=${PROJROOT}/attestation/ras/pkg/ras
-RASCONF=${PROJROOT}/attestation/ras/cmd/ras/config.yaml
-RASAUTHKEY=${PROJROOT}/attestation/ras/cmd/ras/ecdsakey.pub
-
-EXAMPLE=${PROJROOT}/attestation/ras/example
-SAMPLEAUTHSVR=${EXAMPLE}/pkg/server
-SAMPLECLIENT=${EXAMPLE}/pkg/client
-SAMPLEAUTHSVRAUTHKEY=${EXAMPLE}/sampleauthserver/ecdsakey
-SAMPLEAUTHSVRSTATIC=${EXAMPLE}/sampleauthserver/static
+. ${PROJROOT}/attestation/test/integration/common-def.sh
+DST=$(mktemp -t -d ${TESTDIR_PREFIX}-XXXXXX)
 
 # run number of rac clients to test
-# NUM=1
+NUM=${NUM:-1}
 
-echo "start test at: $(date)" > ${DST}/control.txt
+echo "=========="
+echo "start test ${CASENAME} at: $(date)" | tee -a ${DST}/control.txt
 echo "prepare the test environments..." | tee -a ${DST}/control.txt
 
 # prepare tbprovisioner
@@ -72,8 +50,3 @@ cp -rf ${SAMPLEAUTHSVRSTATIC} ${DST}/authserver
 # prepare authclient
 mkdir -p ${DST}/authclient
 cp ${SAMPLECLIENT} ${DST}/authclient
-
-FILENAME=`basename $0`
-# DIRNAME=`dirname $0`
-CASENAME=${FILENAME%.*}
-# echo ${FILENAME%.*}, ${FILENAME##*.}

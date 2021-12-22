@@ -75,7 +75,7 @@ else
 fi
 ### check the ik cert's log is only one
 echo "generateIKCert count:"
-grep 'invoke CreateIKCert ok' ${DST}/rac-1/echo.txt |wc -l
+grep 'invoke GenerateIKCert ok' ${DST}/rac-1/echo.txt |wc -l
 ### check the ekCert's file is not null
 
 if test -s ${DST}/rac-1/ictest.crt;then
