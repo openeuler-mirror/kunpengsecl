@@ -146,6 +146,79 @@ else
     exit 1
 fi
 
+echo "wait for 5s"
+sleep 5
+# get the server registration status
+echo "check the server brief info via restapi request"
+RESPONSE5=$(curl http://localhost:40002/server)
+echo ${RESPONSE5} | tee -a ${DST}/control.txt
+
+echo "wait for 5s"
+sleep 5
+# modify the server registration status
+curl -X PUT -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/server --data '{"clientids":[1], "registered":false}'
+RESPONSE6=$(curl http://localhost:40002/server)
+echo ${RESPONSE6} | tee -a ${DST}/control.txt
+### analyse the server registration status testing data
+REGISTERED1=$(echo $RESPONSE5 | jq -r '.' | grep -A 2 "\"ClientId\": 1," | awk '/Registered/ {gsub("\"","");print $2}')
+REGISTERED2=$(echo $RESPONSE6 | jq -r '.' | grep -A 2 "\"ClientId\": 1," | awk '/Registered/ {gsub("\"","");print $2}')
+BOOL="false"
+echo "First time: ClientId1'registered:${REGISTERED1}"
+echo "Second time: ClientId1'registered:${REGISTERED2}"
+if [[ ${REGISTERED2} == ${BOOL} ]]
+then
+    echo "registration status test succeeded!" | tee -a ${DST}/control.txt
+    curl -X PUT -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/server --data '{"clientids":[1], "registered":true}'
+else
+    echo "registration status test failed!" | tee -a ${DST}/control.txt
+    echo "kill all test processes..." | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
+fi
+
+echo "wait for 5s"
+sleep 5
+# get the server base value
+echo "check the server base value via restapi request"
+RESPONSE7=$(curl http://localhost:40002/server/basevalue/1)
+echo ${RESPONSE7} | tee -a ${DST}/control.txt
+
+echo "wait for 5s"
+sleep 5
+# modify the server base value
+curl -X PUT -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/server/basevalue/1 --data '{"measurements":[{"name":"mName","type":"ima","value":"mValue"}],"pcrvalues":[{"index":1,"value":"pValue1"}]}'
+RESPONSE8=$(curl http://localhost:40002/server/basevalue/1)
+echo ${RESPONSE8} | tee -a ${DST}/control.txt
+### analyse the server base value testing data
+VALUES1=$(echo $RESPONSE7 | jq -r '.' | grep -A 4 "\"Values\"" | awk '/\"1\"/ {gsub("\"","");gsub(",","",$2);print $2}')
+VALUES2=$(echo $RESPONSE8 | jq -r '.' | grep -A 4 "\"Values\"" | awk '/\"1\"/ {gsub("\"","");gsub(",","",$2);print $2}')
+MNAME1=$(echo $RESPONSE7 | jq -r '.' | grep -A 4 "\"Manifest\"" | awk '/Name/ {gsub("\"","");gsub(",","",$2);print $2}')
+MNAME2=$(echo $RESPONSE8 | jq -r '.' | grep -A 4 "\"Manifest\"" | awk '/Name/ {gsub("\"","");gsub(",","",$2);print $2}')
+MTYPE1=$(echo $RESPONSE7 | jq -r '.' | grep -A 4 "\"Manifest\"" | awk '/Type/ {gsub("\"","");gsub(",","",$2);print $2}')
+MTYPE2=$(echo $RESPONSE8 | jq -r '.' | grep -A 4 "\"Manifest\"" | awk '/Type/ {gsub("\"","");gsub(",","",$2);print $2}')
+MVALUE1=$(echo $RESPONSE7 | jq -r '.' | grep -A 4 "\"Manifest\"" | awk '/Value/ {gsub("\"","");gsub(",","",$2);print $2}')
+MVALUE2=$(echo $RESPONSE8 | jq -r '.' | grep -A 4 "\"Manifest\"" | awk '/Value/ {gsub("\"","");gsub(",","",$2);print $2}')
+VA="pValue1"
+MN="mName"
+MT="ima"
+MV="mValue"
+echo "First time: pcrValues:${VALUES1}, manifest'name:${MNAME1}, manifest'type:${MTYPE1}, manifest'value:${MVALUE1}"
+echo "Second time: pcrValues:${VALUES2}, manifest'name:${MNAME2}, manifest'type:${MTYPE2}, manifest'value:${MVALUE2}"
+if [[ ${VALUES2} == ${VA} && ${MNAME2} == ${MN} && ${MTYPE2} == ${MT} && ${MVALUE2} == ${MV} ]]
+then
+    echo "base value test succeeded!" | tee -a ${DST}/control.txt
+    curl -X PUT -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/server/basevalue/1 --data "{\"measurements\":[{\"name\":\"${MNAME1}\",\"type\":\"${MTYPE1}\",\"value\":\"${MVALUE1}\"}],\"pcrvalues\":[{\"index\":1,\"value\":\"${VALUES1}\"}]}"
+else
+    echo "base value test failed!" | tee -a ${DST}/control.txt
+    echo "kill all test processes..." | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
+fi
+
 ### stop test
 echo "all test succeeded!" | tee -a ${DST}/control.txt
 echo "kill all test processes..." | tee -a ${DST}/control.txt
