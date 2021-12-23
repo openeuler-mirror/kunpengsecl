@@ -90,13 +90,7 @@ func TestRASConfig(t *testing.T) {
 	os.Remove(config.rasConfig.pcaKeyCertFile)
 }
 
-func TestRACConfig(t *testing.T) {
-	test.CreateClientConfigFile()
-	defer test.RemoveConfigFile()
-	confG = nil
-	InitRacFlags()
-	SetupSignalHandler()
-	*racTestMode = true
+func testHBDuration(t *testing.T) {
 	config := GetDefault(ConfClient)
 
 	testCases1 := []struct {
@@ -112,7 +106,10 @@ func TestRACConfig(t *testing.T) {
 			t.Errorf("test hbDuration error at case %d\n", i)
 		}
 	}
+}
 
+func testTrustDuration(t *testing.T) {
+	config := GetDefault(ConfClient)
 	testCases2 := []struct {
 		input  time.Duration
 		result time.Duration
@@ -126,7 +123,10 @@ func TestRACConfig(t *testing.T) {
 			t.Errorf("test trustDuration error at case %d\n", i)
 		}
 	}
+}
 
+func testKeyCert(t *testing.T) {
+	config := GetDefault(ConfClient)
 	testCases3 := []struct {
 		input  string
 		result string
@@ -159,7 +159,10 @@ func TestRACConfig(t *testing.T) {
 			t.Errorf("test IKeyCertTest error at case %d\n", i)
 		}
 	}
+}
 
+func testClientId(t *testing.T) {
+	config := GetDefault(ConfClient)
 	testCases4 := []struct {
 		input  int64
 		result int64
@@ -174,11 +177,25 @@ func TestRACConfig(t *testing.T) {
 			t.Errorf("test ClientId error at case %d\n", i)
 		}
 	}
+}
+
+func TestRACConfig(t *testing.T) {
+	test.CreateClientConfigFile()
+	defer test.RemoveConfigFile()
+	confG = nil
+	InitRacFlags()
+	SetupSignalHandler()
+	*racTestMode = true
+
+	testHBDuration(t)
+	testTrustDuration(t)
+	testKeyCert(t)
+	testClientId(t)
 
 	Save()
 	confG = nil
 	*racTestMode = true
-	config = GetDefault(ConfClient)
+	config := GetDefault(ConfClient)
 	if !config.GetTestMode() {
 		t.Errorf("test TestMode error\n")
 	}
@@ -200,4 +217,5 @@ func TestRAHubConfig(t *testing.T) {
 
 	config.GetHubPort()
 	config.GetHubServer()
+	t.Log("RAHub config tested")
 }

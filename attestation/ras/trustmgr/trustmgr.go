@@ -375,22 +375,23 @@ func IsManifestUpdate(oldM *[]entity.Measurement, newM *[]entity.Measurement) bo
 
 }
 
-func recordAutoUpdateReport(report *entity.Report) error {
+func isClientAutoUpdate(clientID int64) bool {
 	cfg := config.GetDefault(config.ConfServer)
 	// if all update
-	isClientExist := false
 	if cfg.GetAutoUpdateConfig().IsAllUpdate {
-		isClientExist = true
-
-	} else {
-		clients := cfg.GetAutoUpdateConfig().UpdateClients
-		for _, c := range clients {
-			if report.ClientID == c {
-				isClientExist = true
-			}
+		return true
+	}
+	clients := cfg.GetAutoUpdateConfig().UpdateClients
+	for _, c := range clients {
+		if clientID == c {
+			return true
 		}
 	}
-	if isClientExist && extractor != nil {
+	return false
+}
+
+func recordAutoUpdateReport(report *entity.Report) error {
+	if isClientAutoUpdate(report.ClientID) && extractor != nil {
 		newMea := entity.MeasurementInfo{}
 		err := extractor.Extract(report, &newMea)
 		if err != nil {

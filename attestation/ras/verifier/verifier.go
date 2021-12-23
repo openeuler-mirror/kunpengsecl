@@ -238,9 +238,8 @@ func (bv *BIOSVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity
 	extractedBIOS := &entity.MeasurementInfo{
 		ClientID: -1,
 	}
-	for _, m := range manifest {
-		extractedBIOS.Manifest = append(extractedBIOS.Manifest, m)
-	}
+	extractedBIOS.Manifest = append(extractedBIOS.Manifest, manifest...)
+
 	err = bv.Extract(report, extractedBIOS)
 	if err != nil {
 		return fmt.Errorf("manifest extraction failed")
@@ -265,9 +264,8 @@ func (iv *IMAVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.
 	extractedIMA := &entity.MeasurementInfo{
 		ClientID: -1,
 	}
-	for _, m := range manifest {
-		extractedIMA.Manifest = append(extractedIMA.Manifest, m)
-	}
+	extractedIMA.Manifest = append(extractedIMA.Manifest, manifest...)
+
 	err = iv.Extract(report, extractedIMA)
 	if err != nil {
 		return fmt.Errorf("manifest extraction failed")
@@ -311,10 +309,9 @@ func (pv *PCRVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 	return nil
 }
 
-func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
+func (bv *BIOSVerifier) getExtractTemplate(mInfo *entity.MeasurementInfo) []string {
 	config := config.GetDefault(config.ConfServer)
 	var biosNames []string
-	var biosManifest entity.Manifest
 	mRule := config.GetExtractRules().ManifestRules
 	if mInfo.ClientID == 0 {
 		for _, rule := range mRule {
@@ -323,12 +320,18 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 				break
 			}
 		}
-	}
-	if mInfo.ClientID == -1 {
+	} else {
 		for _, biosTemplate := range mInfo.Manifest {
 			biosNames = append(biosNames, biosTemplate.Name)
 		}
 	}
+
+	return biosNames
+}
+
+func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
+	var biosManifest entity.Manifest
+	biosNames := bv.getExtractTemplate(mInfo)
 	for _, m := range report.Manifest {
 		if strings.ToLower(m.Type) == "bios" {
 			biosManifest = m
@@ -357,10 +360,9 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 	return nil
 }
 
-func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
+func (iv *IMAVerifier) getExtractTemplate(mInfo *entity.MeasurementInfo) []string {
 	config := config.GetDefault(config.ConfServer)
 	var imaNames []string
-	var imaManifest entity.Manifest
 	if mInfo.ClientID == 0 {
 		for _, rule := range config.GetExtractRules().ManifestRules {
 			if strings.ToLower(rule.MType) == imaStr {
@@ -368,12 +370,18 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 				break
 			}
 		}
-	}
-	if mInfo.ClientID == -1 {
+	} else {
 		for _, imaTemplate := range mInfo.Manifest {
 			imaNames = append(imaNames, imaTemplate.Name)
 		}
 	}
+
+	return imaNames
+}
+
+func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
+	var imaManifest entity.Manifest
+	imaNames := iv.getExtractTemplate(mInfo)
 	for _, m := range report.Manifest {
 		if strings.ToLower(m.Type) == imaStr {
 			imaManifest = m

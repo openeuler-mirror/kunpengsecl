@@ -219,6 +219,42 @@ func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (
 	}, nil
 }
 
+func (s *service) transformManifest(report *TrustReport) ([]entity.Manifest, error) {
+	oms := report.GetManifest()
+	var tms []entity.Manifest
+	for _, om := range oms {
+		handled := false
+		var mi *entity.Manifest
+		var err error
+
+		switch strings.ToLower(om.GetType()) {
+		case "bios":
+			mi, err = UnmarshalBIOSManifest(om.GetItem(), report.GetPcrInfo().GetAlgorithm())
+		case "ima":
+			mi, err = UnmarshalIMAManifest(om.GetItem())
+		default:
+			err = fmt.Errorf("unsupported manifest type: %s", om.GetType())
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		// if type has existed
+		for _, tm := range tms {
+			if om.GetType() == tm.Type {
+				handled = true
+				tm.Items = append(tm.Items, mi.Items...)
+				break
+			}
+		}
+		if !handled {
+			tms = append(tms, *mi)
+		}
+	}
+
+	return tms, nil
+}
+
 func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
 	log.Printf("Server: receive SendReport")
 	cid := in.GetClientId()
@@ -228,7 +264,7 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 	s.cm.Unlock()
 
 	if c == nil {
-		return &SendReportReply{Result: false}, fmt.Errorf("unregisted client: %d", cid)
+		return &SendReportReply{Result: false}, fmt.Errorf("unregistered client: %d", cid)
 	}
 
 	report := in.GetTrustReport()
@@ -245,39 +281,12 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 	for k, v := range opvs {
 		tpvs[int(k)] = v
 	}
-	// transfrom manifest from struct in grpc to struct in ras
-	oms := report.GetManifest()
-	var tms []entity.Manifest
-	for _, om := range oms {
-		handled := false
-		var mi *entity.Manifest
-		var err error
-
-		switch strings.ToLower(om.GetType()) {
-		case "bios":
-			mi, err = UnmarshalBIOSManifest(om.GetItem(), alg)
-		case "ima":
-			mi, err = UnmarshalIMAManifest(om.GetItem())
-		default:
-			err = fmt.Errorf("unsupported manifest type: %s", om.GetType())
-		}
-		if err != nil {
-			return &SendReportReply{Result: false}, err
-		}
-
-		// if type has existed
-		for _, tm := range tms {
-			if om.GetType() == tm.Type {
-				handled = true
-				tm.Items = append(tm.Items, mi.Items...)
-				break
-			}
-		}
-		if !handled {
-			tms = append(tms, *mi)
-		}
+	// transform manifest from struct in grpc to struct in ras
+	tms, err := s.transformManifest(report)
+	if err != nil {
+		return &SendReportReply{Result: false}, err
 	}
-	err := trustmgr.RecordReport(&entity.Report{
+	err = trustmgr.RecordReport(&entity.Report{
 		PcrInfo: entity.PcrInfo{
 			Values: tpvs,
 			Quote: entity.PcrQuote{

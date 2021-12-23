@@ -49,7 +49,7 @@ func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.Measuremen
 }
 
 func CreateServer(t *testing.T) {
-	var addr = "127.0.0.1:5098"
+	addr := config.GetDefault(config.ConfServer).GetRestPort()
 	vm, err := verifier.CreateVerifierMgr()
 	require.NoError(t, err)
 	cm := cache.CreateCacheMgr(100, vm)
@@ -66,7 +66,8 @@ func AddAuthReqEditor(jws string) RequestEditorFn {
 }
 
 func CreateClient(t *testing.T) {
-	c, _ := NewClientWithResponses("http://127.0.0.1:5098")
+	addr := config.GetDefault(config.ConfServer).GetRestPort()
+	c, _ := NewClientWithResponses("http://" + addr)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
