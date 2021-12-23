@@ -234,7 +234,13 @@ func (bv *BIOSVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity
 	if len(manifest) == 0 {
 		return nil
 	}
-	extractedBIOS := &entity.MeasurementInfo{}
+	// if clientID is -1, Extract function will extract report as the second parameter
+	extractedBIOS := &entity.MeasurementInfo{
+		ClientID: -1,
+	}
+	for _, m := range manifest {
+		extractedBIOS.Manifest = append(extractedBIOS.Manifest, m)
+	}
 	err = bv.Extract(report, extractedBIOS)
 	if err != nil {
 		return fmt.Errorf("manifest extraction failed")
@@ -255,7 +261,13 @@ func (iv *IMAVerifier) Verify(baseValue *entity.MeasurementInfo, report *entity.
 	if len(manifest) == 0 {
 		return nil
 	}
-	extractedIMA := &entity.MeasurementInfo{}
+	// if clientID is -1, Extract function will extract report as the second parameter
+	extractedIMA := &entity.MeasurementInfo{
+		ClientID: -1,
+	}
+	for _, m := range manifest {
+		extractedIMA.Manifest = append(extractedIMA.Manifest, m)
+	}
 	err = iv.Extract(report, extractedIMA)
 	if err != nil {
 		return fmt.Errorf("manifest extraction failed")
@@ -304,10 +316,17 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 	var biosNames []string
 	var biosManifest entity.Manifest
 	mRule := config.GetExtractRules().ManifestRules
-	for _, rule := range mRule {
-		if strings.ToLower(rule.MType) == "bios" {
-			biosNames = rule.Name
-			break
+	if mInfo.ClientID == 0 {
+		for _, rule := range mRule {
+			if strings.ToLower(rule.MType) == "bios" {
+				biosNames = rule.Name
+				break
+			}
+		}
+	}
+	if mInfo.ClientID == -1 {
+		for _, biosTemplate := range mInfo.Manifest {
+			biosNames = append(biosNames, biosTemplate.Name)
 		}
 	}
 	for _, m := range report.Manifest {
@@ -316,6 +335,8 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 			break
 		}
 	}
+	// reset manifest to append extract result
+	mInfo.Manifest = []entity.Measurement{}
 	for _, bn := range biosNames {
 		isFound := false
 		for _, bmi := range biosManifest.Items {
@@ -340,10 +361,17 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 	config := config.GetDefault(config.ConfServer)
 	var imaNames []string
 	var imaManifest entity.Manifest
-	for _, rule := range config.GetExtractRules().ManifestRules {
-		if strings.ToLower(rule.MType) == imaStr {
-			imaNames = rule.Name
-			break
+	if mInfo.ClientID == 0 {
+		for _, rule := range config.GetExtractRules().ManifestRules {
+			if strings.ToLower(rule.MType) == imaStr {
+				imaNames = rule.Name
+				break
+			}
+		}
+	}
+	if mInfo.ClientID == -1 {
+		for _, imaTemplate := range mInfo.Manifest {
+			imaNames = append(imaNames, imaTemplate.Name)
 		}
 	}
 	for _, m := range report.Manifest {
@@ -352,6 +380,8 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 			break
 		}
 	}
+	// reset manifest to append extract result
+	mInfo.Manifest = []entity.Measurement{}
 	for _, in := range imaNames {
 		isFound := false
 		for _, imi := range imaManifest.Items {
