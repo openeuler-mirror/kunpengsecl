@@ -27,7 +27,7 @@ echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t -v &>${DST}/rac-${i}/echo1.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -38,33 +38,37 @@ done
 
 ### start monitoring and control the testing
 echo "start to perform test ..." | tee -a ${DST}/control.txt
-echo "wait for 5s"  | tee -a ${DST}/control.txt
-sleep 5  | tee -a ${DST}/control.txt
-echo "check server trust status via restapi request"  | tee -a ${DST}/control.txt
-# get restapi auth token from echo.txt
-# AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-# curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
-RESPONSE=$(curl http://localhost:40002/status)
-echo ${RESPONSE} | tee -a ${DST}/control.txt
+echo "wait for 60s" | tee -a ${DST}/control.txt
+sleep 60
+echo "kill rac processes..." | tee -a ${DST}/control.txt
+pkill -u ${USER} raagent
+### launching rahub for testing
+echo "start rahub..." | tee -a ${DST}/control.txt
+( cd ${DST}/hub ; ./rahub &>${DST}/hub/echo.txt ;)&
+# start number of rac clients
+echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
+(( count=0 ))
+for (( i=1; i<=${NUM}; i++ ))
+do
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t -v -s 127.0.0.1:40003 &>${DST}/rac-${i}/echo2.txt ; )&
+    (( count++ ))
+    if (( count >= 1 ))
+    then
+        (( count=0 ))
+        echo "start ${i} rac clients at $(date)..." | tee -a ${DST}/control.txt
+    fi
+done
+echo "wait for 60s" | tee -a ${DST}/control.txt
+sleep 60
 
 ### stop testing
 echo "kill all test processes..." | tee -a ${DST}/control.txt
 pkill -u ${USER} ras
+pkill -u ${USER} rahub
 pkill -u ${USER} raagent
 
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### analyse the testing data
-CLIENTID=$(echo $RESPONSE | jq -r '.' | awk '/ClientID/ {gsub(",","",$2);print $2}')
-STATUS=$(echo $RESPONSE | jq -r '.' | awk '/Status/ {gsub(",","",$2);gsub("\"","",$2);print $2}')
+echo "please collect the data from ${DST}/rac-1/echo1.txt & ${DST}/rac-1/echo2.txt and do the ongoing analysis."
 
-### generate the test report
-echo "ClientID:${CLIENTID}, Status:${STATUS}"  | tee -a ${DST}/control.txt
-if [ ${STATUS} == "trusted" ]
-then
-    echo "test succeeded!" | tee -a ${DST}/control.txt
-    exit 0
-else
-    echo "test failed!" | tee -a ${DST}/control.txt
-    exit 1
-fi

@@ -134,7 +134,7 @@ do
         echo "start ${i} rac clients at $(date)..." | tee -a ${DST}/control.txt
     fi
 done
-echo "wait for 5s"
+echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 
 ### stop testing

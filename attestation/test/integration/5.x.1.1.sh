@@ -4,6 +4,13 @@
 # gnome-terminal is required.
 #set -eux
 ### prepare the test environment
+osv=`grep "\<NAME=" /etc/os-release | awk -F '[" ]' '{print $2}'`
+if [ "${osv}" != "openEuler" ]
+then
+    echo "only support openEuler by far" | tee -a ${DST}/control.txt    
+    exit 0
+fi
+
 git clone https://gitee.com/openeuler/kunpengsecl.git
 cd kunpengsecl/
 make
@@ -39,7 +46,7 @@ pushd $(pwd)
 cd ${RASPATH}
 gnome-terminal --title="ras" -e ras
 popd
-echo "wait for 5s"
+echo "wait for 5s"  | tee -a ${DST}/control.txt
 sleep 5
 
 ### run rahub
@@ -48,7 +55,7 @@ pushd $(pwd)
 cd ${RAHUBPATH}
 gnome-terminal --title="rahub" -e rahub
 popd
-echo "wait for 5s"
+echo "wait for 5s"  | tee -a ${DST}/control.txt
 sleep 5
 
 ### run rac
@@ -57,7 +64,7 @@ pushd $(pwd)
 cd ${RACPATH}
 gnome-terminal --title="rac" -e "raagent -t"
 popd
-echo "wait for 10s"
+echo "wait for 10s"  | tee -a ${DST}/control.txt
 sleep 10
 echo "kill all processes..." | tee -a ${DST}/control.txt
 pkill -u ${USER} raagent

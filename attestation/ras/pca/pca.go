@@ -255,6 +255,11 @@ func DecodeKeyCertFromFile(fileName string) (*x509.Certificate, []byte, error) {
 	return DecodeKeyCertFromPEM(data)
 }
 
+var (
+	serialNumber int64 = 1
+	snMutex      sync.Mutex
+)
+
 // GenerateCertificate generate a certificate according to template, signed by signer parent/key
 func GenerateCertificate(template, parent *x509.Certificate, pubDer []byte, signer crypto.PrivateKey) ([]byte, error) {
 	if template == nil || parent == nil || len(pubDer) == 0 || signer == nil {
@@ -264,6 +269,13 @@ func GenerateCertificate(template, parent *x509.Certificate, pubDer []byte, sign
 	if err != nil {
 		return nil, err
 	}
+
+	snMutex.Lock()
+	sn := serialNumber
+	serialNumber++
+	snMutex.Unlock()
+	template.SerialNumber = big.NewInt(sn)
+
 	certDer, err := x509.CreateCertificate(rand.Reader, template, parent, pubKey, signer)
 	if err != nil {
 		return nil, err
