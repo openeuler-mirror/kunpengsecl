@@ -44,7 +44,7 @@ measure func=BPRM_CHECK
 measure func=MODULE_CHECK uid=0
 measure func=PATH_CHECK mask=MAY_READ uid=0
 EOF
-sed -i '$a GRUB_CMDLINE_LINUX="ima' /etc/default/grub
+sed -i '$a GRUB_CMDLINE_LINUX="ima"' /etc/default/grub
 sed -i '$a GRUB_CMDLINE_LINUX="ima_template=ima-ng"' /etc/default/grub
 sed -i '$a GRUB_CMDLINE_LINUX="ima_hash=sha256"' /etc/default/grub
 grub2-mkconfig -o /boot/grub2/grub.cfg
@@ -61,7 +61,7 @@ measure func=BPRM_CHECK
 measure func=MODULE_CHECK uid=0
 measure func=PATH_CHECK mask=MAY_READ uid=0
 EOF
-  sed -i '$a GRUB_CMDLINE_LINUX="ima' /etc/default/grub
+  sed -i '$a GRUB_CMDLINE_LINUX="ima"' /etc/default/grub
   sed -i '$a GRUB_CMDLINE_LINUX="ima_template=ima-ng"' /etc/default/grub
   sed -i '$a GRUB_CMDLINE_LINUX="ima_hash=sha256"' /etc/default/grub
   update-grub
