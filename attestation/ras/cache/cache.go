@@ -208,6 +208,12 @@ func (cm *CacheMgr) GetContainerTrustStatusByUUId(uuID string) string {
 	return STSUNKOWN
 }
 
+func (cm *CacheMgr) SyncConfig() {
+	for _, c := range cm.caches {
+		c.SetCMDSendConfigure()
+	}
+}
+
 // GetTrustStatus returns the trust status of the corresponding client
 func (c *Cache) GetTrustStatus() string {
 	bv, err := trustmgr.GetBaseValueById(c.cid)

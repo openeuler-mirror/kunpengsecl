@@ -191,6 +191,7 @@ func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (
 	log.Printf("Server: receive SendHeartbeat")
 	var nextAction uint64
 	var nonce uint64
+	var ci = &ClientConfig{}
 	cid := in.GetClientId()
 
 	s.cm.Lock()
@@ -207,13 +208,19 @@ func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (
 			if err != nil {
 				return nil, err
 			}
+			if (nextAction & cache.CMDSENDCONF) == cache.CMDSENDCONF {
+				ci.HbDurationSeconds = int64(config.GetDefault(config.ConfServer).GetHBDuration().Seconds())
+				ci.TrustDurationSeconds = int64(config.GetDefault(config.ConfServer).GetTrustDuration().Seconds())
+				ci.DigestAlgorithm = config.GetDefault(config.ConfServer).GetDigestAlgorithm()
+				c.ClearCommands()
+			}
 		}
 	}
 
 	return &SendHeartbeatReply{
 		NextAction: nextAction,
 		ActionParameters: &ActionParameters{
-			ClientConfig: &ClientConfig{},
+			ClientConfig: ci,
 			Nonce:        nonce,
 		},
 	}, nil

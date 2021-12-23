@@ -90,7 +90,7 @@ func (s *RasServer) PostConfig(ctx echo.Context) error {
 		"extractRules":     func(s string) { setExtractRules(s) },
 		"hbDuration":       func(s string) { setHBDuration(s) },
 		"trustDuration":    func(s string) { setTDuration(s) },
-		"digestAlgorithm":  func(s string) { cfg.SetDigestAlgorithm(s) },
+		"digestAlgorithm":  func(s string) { setDigestAlgorithm(s) },
 		"autoUpdateConfig": func(s string) { setAUConfig(s) },
 	}
 	if len(configBody) == 0 {
@@ -137,7 +137,12 @@ func setHBDuration(val string) {
 		log.Print("Convert string to duration failed.")
 		return
 	}
+	if duration == cfg.GetHBDuration() {
+		log.Print("Set same config value for HBDuration, ignored.")
+		return
+	}
 	cfg.SetHBDuration(duration)
+	server.cm.SyncConfig()
 }
 
 func setTDuration(val string) {
@@ -147,7 +152,22 @@ func setTDuration(val string) {
 		log.Print("Convert string to duration failed.")
 		return
 	}
+	if duration == cfg.GetTrustDuration() {
+		log.Print("Set same config value for TrustDuration, ignored.")
+		return
+	}
 	cfg.SetTrustDuration(duration)
+	server.cm.SyncConfig()
+}
+
+func setDigestAlgorithm(val string) {
+	cfg := config.GetDefault(config.ConfServer)
+	if val == cfg.GetDigestAlgorithm() {
+		log.Print("Set same config value for DigestAlgorithm, ignored.")
+		return
+	}
+	cfg.SetDigestAlgorithm(val)
+	server.cm.SyncConfig()
 }
 
 func setAUConfig(val string) {
@@ -540,6 +560,8 @@ func (s *RasServer) GetVersion(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, "1.0.0")
 }
 
+var server *RasServer
+
 func NewRasServer(cm *cache.CacheMgr) *RasServer {
 	return &RasServer{cm: cm}
 }
@@ -673,7 +695,7 @@ func StartServer(addr string, cm *cache.CacheMgr) {
 	router.Use(echomiddleware.Logger())
 	router.Use(av)
 
-	server := NewRasServer(cm)
+	server = NewRasServer(cm)
 	RegisterHandlers(router, server)
 
 	if *config.VerboseFlag {
