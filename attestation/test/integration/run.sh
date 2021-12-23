@@ -8,8 +8,8 @@ LOG=${PROJROOT}/itest.log
 run () {
     if  [ -s "${INTEGRATIONDIR}/$1.sh" ]
     then
-        bash "${INTEGRATIONDIR}/$1.sh" >> ${LOG} 2>/dev/null
         echo -n "test $1: "
+        bash "${INTEGRATIONDIR}/$1.sh" >> ${LOG} 2>/dev/null
         if (($? == 0))
         then
             echo -e "\tpass"
@@ -23,6 +23,8 @@ run () {
 
 echo "Please check log ${LOG} for more test details"
 echo "Running tests ..."
+echo "You might need to provide sudo authorization first"
+sudo ls > /dev/null
 
 # run the specified test if $1 is given
 if (($# == 1))

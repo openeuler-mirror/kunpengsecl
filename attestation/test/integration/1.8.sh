@@ -38,7 +38,7 @@ done
 
 ### start monitoring and control the testing
 echo "start to perform test ..." | tee -a ${DST}/control.txt
-echo "wait for 5s"
+echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 echo "check config items via restapi request"
 RESPONSE1=$(curl http://localhost:40002/config)
@@ -47,8 +47,6 @@ echo ${RESPONSE1} | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
 
-echo "wait for 5s"
-sleep 5
 # modify the database config items
 curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"dbName","value":"kunpengsecl1"},{"name":"dbHost","value":"localhost1"},{"name":"dbPort","value":"1234"},{"name":"dbUser","value":"postgres1"}]'
 RESPONSE2=$(curl http://localhost:40002/config)
@@ -81,8 +79,6 @@ else
     exit 1
 fi
 
-echo "wait for 5s"
-sleep 5
 # modify the ras config items
 curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"mgrStrategy","value":"auto1"},{"name":"extractRules","value":"{\"PcrRule\":{\"PcrSelection\":[1,2,3,4,5]},\"ManifestRules\":[{\"MType\":\"bios1\",\"Name\":[\"newName1\",\"newName2\"]},{\"MType\":\"ima1\",\"Name\":[\"newName1\",\"newName2\"]}]}"},{"name":"autoUpdateConfig","value":"{\"IsAllUpdate\":true,\"UpdateClients\":[1]}"}]'
 RESPONSE3=$(curl http://localhost:40002/config)
@@ -97,8 +93,8 @@ AUTOUPDATE2=$(echo $RESPONSE3 | jq -r '.' | grep -A 1 "autoUpdateConfig" | awk '
 STR4="auto1"
 STR5="{PcrRule:{PcrSelection:[1,2,3,4,5]},ManifestRules:[{MType:bios1,Name:[newName1,newName2]},{MType:ima1,Name:[newName1,newName2]}]}"
 STR6="{IsAllUpdate:true,UpdateClients:[1]}"
-echo "First time: mgrStrategy:${MGRSTRATEGY1}, extractRules:${EXTRACTRULES1}, autoUpdateConfig:${AUTOUPDATE1}"
-echo "Second time: mgrStrategy:${MGRSTRATEGY2}, extractRules:${EXTRACTRULES2}, autoUpdateConfig:${AUTOUPDATE2}"
+echo "First time: mgrStrategy:${MGRSTRATEGY1}, extractRules:${EXTRACTRULES1}, autoUpdateConfig:${AUTOUPDATE1}" | tee -a ${DST}/control.txt
+echo "Second time: mgrStrategy:${MGRSTRATEGY2}, extractRules:${EXTRACTRULES2}, autoUpdateConfig:${AUTOUPDATE2}" | tee -a ${DST}/control.txt
 
 ### The extractRules value and autoUpdateConfig value are modified successfully but equality judgment failed. So we comment it for the moment.
 # if [[ ${MGRSTRATEGY2} == ${STR4} && ${EXTRACTRULES2} == ${STR5} &&  ${AUTOUPDATE2} == ${STR6} ]]
@@ -115,8 +111,6 @@ else
     exit 1
 fi
 
-echo "wait for 5s"
-sleep 5
 # modify the rac config items
 curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"},{"name":"trustDuration","value":"1m0s"},{"name":"digestAlgorithm","value":"sha256"}]'
 RESPONSE4=$(curl http://localhost:40002/config)
@@ -131,8 +125,8 @@ DIGESTALG2=$(echo $RESPONSE4 | jq -r '.' | grep -A 1 "digestAlgorithm" | awk '/v
 STR7="10s"
 STR8="1m0s"
 STR9="sha256"
-echo "First time: hbDuration:${HBDURATION1}, trustDuration:${TRUSTDURATION1}, digestAlgorithm:${DIGESTALG1}"
-echo "Second time: hbDuration:${HBDURATION2}, trustDuration:${TRUSTDURATION2}, digestAlgorithm:${DIGESTALG2}"
+echo "First time: hbDuration:${HBDURATION1}, trustDuration:${TRUSTDURATION1}, digestAlgorithm:${DIGESTALG1}" | tee -a ${DST}/control.txt
+echo "Second time: hbDuration:${HBDURATION2}, trustDuration:${TRUSTDURATION2}, digestAlgorithm:${DIGESTALG2}" | tee -a ${DST}/control.txt
 if [[ ${HBDURATION2} == ${STR7} && ${TRUSTDURATION2} == ${STR8} && ${DIGESTALG2} == ${STR9} ]]
 then
     echo "rac test succeeded!" | tee -a ${DST}/control.txt

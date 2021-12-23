@@ -63,23 +63,36 @@ echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### check the ek cert's log is only one
 ### cat ${DST}/rac-1/echo.txt|grep 'ok' |wc -l
-echo "generateEKCert count:"
-grep 'invoke GenerateEKCert ok' ${DST}/rac-1/echo.txt |wc -l
+ECCOUNT=$(grep 'invoke GenerateEKCert ok' ${DST}/rac-1/echo.txt |wc -l)
+echo "generateEKCert count: ${ECCOUNT}" | tee -a ${DST}/control.txt
 ### list the log
 ### tail -f ${DST}/rac-1/echo.txt
 ### check the ekCert's file is not null
 if test -s ${DST}/rac-1/ectest.crt;then
-    echo "ectest is not empty"
+    ECEMPTY=0
+    echo "ectest is not empty" | tee -a ${DST}/control.txt
 else
-    echo "ectest is empty"
+    ECEMPTY=1
+    echo "ectest is empty" | tee -a ${DST}/control.txt
 fi
 ### check the ik cert's log is only one
-echo "generateIKCert count:"
-grep 'invoke GenerateIKCert ok' ${DST}/rac-1/echo.txt |wc -l
+ICCOUNT=$(grep 'invoke GenerateIKCert ok' ${DST}/rac-1/echo.txt |wc -l)
+echo "generateIKCert count: ${ICCOUNT}" | tee -a ${DST}/control.txt
 ### check the ekCert's file is not null
 
 if test -s ${DST}/rac-1/ictest.crt;then
-    echo "ictest is not empty"
+    ICEMPTY=0
+    echo "ictest is not empty" | tee -a ${DST}/control.txt
 else
-    echo "ictest is empty"
+    ICEMPTY=1
+    echo "ictest is empty" | tee -a ${DST}/control.txt
+fi
+
+if (( ${ECCOUNT} == 1 )) && (( ${ICCOUNT} == 1 )) && (( ${ECEMPTY} == 0 )) && (( ${ICEMPTY} == 0 ))
+then
+    echo "test succeeded!"
+    exit 0
+else
+    echo "test failed!"
+    exit 1
 fi

@@ -21,7 +21,7 @@ popd
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
 ( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
-echo "wait for 5s"
+echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 
 # start number of rac clients
@@ -39,15 +39,15 @@ do
 done
 
 ### start monitoring and control the testing
-echo "start to perform test ${TEST_ID}..." | tee -a ${DST}/control.txt
-echo "wait for 1min"
-sleep 60
-# set the heartbeat cycle to 20s
-echo "set the heartbeat cycle to 20s"
+echo "start to perform test ..." | tee -a ${DST}/control.txt
+echo "wait for 20s" | tee -a ${DST}/control.txt
+sleep 20
+# set the heartbeat cycle to 3s
+echo "set the heartbeat cycle to 3s" | tee -a ${DST}/control.txt
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"20s"}]'
-echo "wait for 1min"
-sleep 60
+curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"3s"}]'
+echo "wait for 20s" | tee -a ${DST}/control.txt
+sleep 20
 # Query the heartbeat cycle of ras according to restapi, and read the log of ras
 RESPONSE=$(curl http://localhost:40002/config)
 echo ${RESPONSE} | tee -a ${DST}/control.txt
@@ -61,7 +61,7 @@ echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### analyse the testing data
 rasHBDuration=$(echo $RESPONSE | jq -r '.' | grep -A 1 "hbDuration" | awk '/value/ {gsub("\"","",$2);print $2}')
-if [ "$rasHBDuration" == "20s" ]
+if [ "$rasHBDuration" == "3s" ]
 then
     echo "modify ras HBDuration succeeded!" | tee -a ${DST}/control.txt
 else 
@@ -70,19 +70,20 @@ fi
 
 # compute true HBDuration
 latestHBTime=$(cat ${DST}/ras/echo.txt | awk '/receive SendHeartbeat/ {gsub("^.*:","",$2);print $2}' | tail -n 3)
+echo "Latest 3 HB time: ${latestHBTime}" | tee -a ${DST}/control.txt
 time1=$(echo ${latestHBTime} | awk '{print $1}')
 time2=$(echo ${latestHBTime} | awk '{print $2}')
 time3=$(echo ${latestHBTime} | awk '{print $3}')
 
 ### generate the test report
 # Because time may be rounded up, one success is correct
-if  [ $((${time2} - ${time1})) -eq 20 ] || [ $((${time3} - ${time2})) -eq 20 ]
+if  [ $((${time2} - ${time1})) -eq 3 ] || [ $((${time3} - ${time2})) -eq 3 ]
 then
-    echo "modify HBDuration succeeded!"
+    echo "modify HBDuration succeeded!" | tee -a ${DST}/control.txt
     echo "test succeeded!" | tee -a ${DST}/control.txt
     exit 0
 else
-    echo "modify HBDuration failed!"
+    echo "modify HBDuration failed!" | tee -a ${DST}/control.txt
     echo "test failed!" | tee -a ${DST}/control.txt
     exit 1
 fi
