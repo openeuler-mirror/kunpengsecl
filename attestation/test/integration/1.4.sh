@@ -40,8 +40,8 @@ done
 
 ### start monitoring and control the testing
 echo "start to perform test ${TEST_ID}..." | tee -a ${DST}/control.txt
-echo "wait for 1min"
-sleep 60
+echo "wait for 5s"
+sleep 5
 
 ### stop testing
 echo "kill all test processes..." | tee -a ${DST}/control.txt
@@ -51,10 +51,11 @@ pkill -u ${USER} raagent
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 # Read the running log of rac
-ans=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/create a new trust report, succeeded/ {gsub("clientID=","",$7);print $1}')
+ans=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/create a new trust report, succeeded/')
+echo ${ans} | tee -a ${DST}/control.txt
 ### analyse the testing data
 ### generate the test report
-if [ "$ans" != "" ]
+if [ "${ans}" != "" ]
 then
     echo "create trust report succeeded!" | tee -a ${DST}/control.txt
     echo "test succeeded!" | tee -a ${DST}/control.txt

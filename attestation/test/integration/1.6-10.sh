@@ -21,11 +21,11 @@ popd
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
 ( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
-echo "wait for 3s"
+echo "wait for 3s" | tee -a ${DST}/control.txt
 sleep 3
 # change config
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"trustDuration","value":"1m0s"},{"name":"extractRules","value":"{\"PcrRule\":{\"PcrSelection\":[0,1]},\"ManifestRules\":[{\"MType\":\"bios\",\"Name\":[\"8-0\",\"80000008-1\"]},{\"MType\":\"ima\",\"Name\":[\"boot_aggregate\",\"/etc/modprobe.d/tuned.conf\"]}]}"}]'
+curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"trustDuration","value":"20s"},{"name":"extractRules","value":"{\"PcrRule\":{\"PcrSelection\":[0,1]},\"ManifestRules\":[{\"MType\":\"bios\",\"Name\":[\"8-0\",\"80000008-1\"]},{\"MType\":\"ima\",\"Name\":[\"boot_aggregate\",\"/etc/modprobe.d/tuned.conf\"]}]}"}]'
 
 # start number of rac clients
 echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
@@ -42,13 +42,13 @@ do
 done
 
 ### start monitoring and control the testing
-echo "start to perform test ${TEST_ID}..." | tee -a ${DST}/control.txt
-echo "wait for 3s"
+echo "start to perform test ..." | tee -a ${DST}/control.txt
+echo "wait for 3s" | tee -a ${DST}/control.txt
 sleep 3
 # get cid
 echo "get client id" | tee -a ${DST}/control.txt
 cid=$(awk '{ if ($1 == "clientid:") { print $2 } }' ${DST}/rac-1/config.yaml)
-echo ${cid}
+echo ${cid} | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
 # CONFIGRESPONSE=$(curl http://localhost:40002/config)
 # echo $CONFIGRESPONSE
@@ -63,7 +63,7 @@ bpcr0=$(curl -X GET ${basevalueurl} | jq -r '.' | grep "\"0\":")
 # test not extracted pcr
 rpcr2=$(curl -X GET ${reporturl} | jq -r '.' | grep "\"2\":")
 bpcr2=$(curl -X GET ${basevalueurl} | jq -r '.' | grep "\"2\":")
-if [ "$rpcr0" == "$bpcr0" ] && [ "$bpcr2" != "$rpcr2" ]
+if [ "${rpcr0}" == "${bpcr0}" ] && [ "${bpcr2}" != "${rpcr2}" ]
 then
     echo "test 1: pcr base value extract successed" | tee -a ${DST}/control.txt
 else
@@ -103,9 +103,9 @@ echo "test 3: mode is auto update now" | tee -a ${DST}/control.txt
 OLDLINE="10 6fefbefdf63fbc4210a8eee66a21a63e578300d6 ima 1b8ccbdcaac1956b7c48529efbfb32e76355b1ca \/etc\/modprobe.d\/tuned.conf"
 NEWLINE="10 88ff8c85e6b94cbf8002a17fd59f1ea1bd13ecc4 ima 2b8ccbdcaac1956b7c48529efbfb32e76355b1ca \/etc\/modprobe.d\/tuned.conf"
 sed -i --follow-symlinks "s/${OLDLINE}/${NEWLINE}/g" ${RACDIR}/${IMAFILE}
-# wait for 30s
-echo "test 3: modified ima file, wait 30s for updating report and base value" | tee -a ${DST}/control.txt
-sleep 30
+# wait for 10s
+echo "test 3: modified ima file, wait 10s for updating report and base value" | tee -a ${DST}/control.txt
+sleep 10
 rima2=$(curl -X GET ${reporturl} | jq -r '.' | grep -A 1 "\"\/etc\/modprobe.d\/tuned.conf\"," | grep "Value")
 bima2=$(curl -X GET ${basevalueurl} | jq -r '.' | grep -A 1 "\"\/etc/modprobe.d\/tuned.conf\"," | grep "Value")
 # report should be different with test2 and base value should change 
@@ -126,9 +126,9 @@ curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" 
 echo "test 4: IsAllUpdate is false, updateClients is null now" | tee -a ${DST}/control.txt
 # modify ima file
 sed -i --follow-symlinks "s/${NEWLINE}/${OLDLINE}/g" ${RACDIR}/${IMAFILE}
-# wait for 30s
-echo "test 4: modified ima file, wait 30s for updating report and base value" | tee -a ${DST}/control.txt
-sleep 30
+# wait for 10s
+echo "test 4: modified ima file, wait 10s for updating report and base value" | tee -a ${DST}/control.txt
+sleep 10
 rima3=$(curl -X GET ${reporturl} | jq -r '.' | grep -A 1 "\"\/etc\/modprobe.d\/tuned.conf\"," | grep "Value")
 bima3=$(curl -X GET ${basevalueurl} | jq -r '.' | grep -A 1 "\"\/etc/modprobe.d\/tuned.conf\"," | grep "Value")
 # base value should be the same as test3 and report should change
@@ -150,9 +150,9 @@ curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" 
 echo "test 5: IsAllUpdate is false, updateClients is [1] now" | tee -a ${DST}/control.txt
 # modify ima file
 sed -i --follow-symlinks "s/${OLDLINE}/${NEWLINE}/g" ${RACDIR}/${IMAFILE}
-# wait for 30s
-echo "test 5: modified ima file, wait 30s for updating report and base value" | tee -a ${DST}/control.txt
-sleep 30
+# wait for 10s
+echo "test 5: modified ima file, wait 10s for updating report and base value" | tee -a ${DST}/control.txt
+sleep 10
 rima4=$(curl -X GET ${reporturl} | jq -r '.' | grep -A 1 "\"\/etc\/modprobe.d\/tuned.conf\"," | grep "Value")
 bima4=$(curl -X GET ${basevalueurl} | jq -r '.' | grep -A 1 "\"\/etc/modprobe.d\/tuned.conf\"," | grep "Value")
 if [ "$rima4" != "$rima3" ] && [[ "$rima4" =~ "$bima4" ]]
@@ -172,9 +172,9 @@ curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" 
 echo "test 6: mgrStrategy is auto now" | tee -a ${DST}/control.txt
 # modify ima file
 sed -i --follow-symlinks "s/${NEWLINE}/${OLDLINE}/g" ${RACDIR}/${IMAFILE}
-# wait for 30s
-echo "test 6: modified ima file, wait 30s for updating report and base value" | tee -a ${DST}/control.txt
-sleep 30
+# wait for 10s
+echo "test 6: modified ima file, wait 10s for updating report and base value" | tee -a ${DST}/control.txt
+sleep 10
 rima5=$(curl -X GET ${reporturl} | jq -r '.' | grep -A 1 "\"\/etc\/modprobe.d\/tuned.conf\"," | grep "Value")
 bima5=$(curl -X GET ${basevalueurl} | jq -r '.' | grep -A 1 "\"\/etc/modprobe.d\/tuned.conf\"," | grep "Value")
 if [ "$rima5" != "$rima4" ] && [[ "$bima5" == "$bima4" ]]

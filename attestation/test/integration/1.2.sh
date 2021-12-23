@@ -38,8 +38,8 @@ done
 
 ### start monitoring and control the testing
 echo "start to perform test ..." | tee -a ${DST}/control.txt
-echo "wait for 30s"
-sleep 30
+echo "wait for 5s" | tee -a ${DST}/control.txt
+sleep 5
 
 # read the running logs of ras and rac to determine whether the registration is successful
 # get cid
@@ -76,8 +76,8 @@ do
 done
 
 # Read the running log of ras and rac to see if it will re-register
-echo "wait for 30s"
-sleep 30
+echo "wait for 5s"
+sleep 5
 clientID2=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/clientID=/ {gsub("clientID=","",$7);print $7}')
 if [ "${clientID2}" != "" ]
 then
@@ -95,7 +95,7 @@ echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 
 ### generate the test report
-if [ ${clientID1} != "" ] && [ ${clientID2} == "" ]
+if [ "${clientID1}" != "" ] && [ "${clientID2}" == "" ]
 then
     echo "test succeeded!" | tee -a ${DST}/control.txt
     exit 0

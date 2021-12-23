@@ -21,11 +21,11 @@ popd
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
 ( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
-echo "wait for 3s"
+echo "wait for 3s" | tee -a ${DST}/control.txt
 sleep 3
 # change config
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"trustDuration","value":"1m0s"}]'
+curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"trustDuration","value":"20s"}]'
 
 # start number of rac clients
 echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
@@ -43,12 +43,12 @@ done
 
 ### start monitoring and control the testing
 echo "start to perform test ..." | tee -a ${DST}/control.txt
-echo "wait for 3s"
+echo "wait for 3s" | tee -a ${DST}/control.txt
 sleep 3
 # get cid
 echo "get client id" | tee -a ${DST}/control.txt
 cid=$(awk '{ if ($1 == "clientid:") { print $2 } }' ${DST}/rac-1/config.yaml)
-echo ${cid}
+echo ${cid} | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
 # CONFIGRESPONSE=$(curl http://localhost:40002/config)
 # echo $CONFIGRESPONSE
@@ -61,8 +61,8 @@ do
     # do not use REPORTRESPONSE=$(curl -X GET ${reporturl}), it cost too many memory and may cause mistake
     REPORTID=$(curl -X GET ${reporturl} | jq -r '.' | awk '/ReportId/ {gsub(",","",$2);print $2}')
     echo "the newest report id is ${REPORTID}" | tee -a ${DST}/control.txt
-    echo "the old report id is ${OLDREPORTID}"
-    if [ "$REPORTID" -gt "$OLDREPORTID" ]
+    echo "the old report id is ${OLDREPORTID}" | tee -a ${DST}/control.txt
+    if [ "${REPORTID}" -gt "${OLDREPORTID}" ]
     then
         echo "${i} test successed" | tee -a ${DST}/control.txt
     else
@@ -72,11 +72,11 @@ do
         pkill -u ${USER} raagent
         exit 1
     fi
-    OLDREPORTID=$REPORTID
-    # wait 30s for recording new report
-    if [ "$i" -lt "$TESTTIMES" ] 
+    OLDREPORTID=${REPORTID}
+    # wait 10s for recording new report
+    if [ "${i}" -lt "${TESTTIMES}" ] 
     then
-        sleep 30
+        sleep 10
     fi
 done
 ### stop testing
@@ -84,5 +84,3 @@ echo "kill all test processes..." | tee -a ${DST}/control.txt
 pkill -u ${USER} ras
 pkill -u ${USER} raagent
 echo "test DONE!!!" | tee -a ${DST}/control.txt
-
-
