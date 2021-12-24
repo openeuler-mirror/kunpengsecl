@@ -38,9 +38,9 @@ done
 
 ### start monitoring and control the testing
 echo "start to perform test ..." | tee -a ${DST}/control.txt
-echo "wait for 5s"
-sleep 5
-echo "check server trust status via restapi request"
+echo "wait for 5s" | tee -a ${DST}/control.txt
+sleep 5 | tee -a ${DST}/control.txt
+echo "check server trust status via restapi request" | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
 # AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
 # curl -X POST -H "Authorization: $TOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
@@ -69,9 +69,9 @@ do
     fi
 done
 
-echo "wait for 90s"
-sleep 90
-echo "check server trust status via restapi request"
+echo "wait for 90s" | tee -a ${DST}/control.txt
+sleep 90 | tee -a ${DST}/control.txt
+echo "check server trust status via restapi request" | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
 # AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
 # curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
@@ -92,8 +92,8 @@ CLIENTID2=$(echo ${RESPONSE2} | jq -r '.' | awk '/ClientID/ {gsub(",","",$2);pri
 STATUS2=$(echo ${RESPONSE2} | jq -r '.' | awk '/Status/ {gsub(",","",$2);gsub("\"","",$2);print $2}')
 
 ### generate the test report
-echo "First time: ClientID:${CLIENTID1}, Status:${STATUS1}"
-echo "Second time: ClientID:${CLIENTID2}, Status:${STATUS2}"
+echo "First time: ClientID:${CLIENTID1}, Status:${STATUS1}" | tee -a ${DST}/control.txt
+echo "Second time: ClientID:${CLIENTID2}, Status:${STATUS2}" | tee -a ${DST}/control.txt
 if [[ ${STATUS1} == "trusted"  && ${STATUS2} == "untrusted" ]]
 then
     echo "test succeeded!" | tee -a ${DST}/control.txt

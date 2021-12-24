@@ -3,7 +3,7 @@
 #set -eux
 PROJROOT=.
 # run number of rac clients to test
-NUM=1
+NUM=${NUM:-5}
 # include common part
 . ${PROJROOT}/attestation/test/integration/common.sh
 
@@ -38,33 +38,32 @@ done
 
 ### start monitoring and control the testing
 echo "start to perform test ..." | tee -a ${DST}/control.txt
-echo "wait for 5s"  | tee -a ${DST}/control.txt
-sleep 5  | tee -a ${DST}/control.txt
-echo "check server trust status via restapi request"  | tee -a ${DST}/control.txt
-# get restapi auth token from echo.txt
-# AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-# curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
-RESPONSE=$(curl http://localhost:40002/status)
-echo ${RESPONSE} | tee -a ${DST}/control.txt
+echo "wait for all rac registered..." | tee -a ${DST}/control.txt
+for (( i=1; i<=${NUM}; i++))
+do
+    for (( j=1; j<=360; j++))
+    do
+        echo -en "\b\b\b\b\b\b\b\b\b${i} ${j}    "
+        grep "report ${i}" ${DST}/ras/echo.txt > /dev/null
+        if (( $? == 0 ))
+        then
+            echo -en "\b\b\b\b\b\b\b\b\b${i} done"
+            break
+        fi
+        sleep 1
+    done
+    if (( ${j} > 3600 ))
+    then
+        echo -e "\ntimeout, test failed! " | tee -a ${DST}/control.txt
+        echo "kill all test processes..." | tee -a ${DST}/control.txt
+        pkill -u ${USER} ras
+        pkill -u ${USER} raagent
+        exit 1
+    fi
+done
 
-### stop testing
+echo -e "\ntest succeeded! " | tee -a ${DST}/control.txt
 echo "kill all test processes..." | tee -a ${DST}/control.txt
 pkill -u ${USER} ras
 pkill -u ${USER} raagent
-
-echo "test DONE!!!" | tee -a ${DST}/control.txt
-
-### analyse the testing data
-CLIENTID=$(echo $RESPONSE | jq -r '.' | awk '/ClientID/ {gsub(",","",$2);print $2}')
-STATUS=$(echo $RESPONSE | jq -r '.' | awk '/Status/ {gsub(",","",$2);gsub("\"","",$2);print $2}')
-
-### generate the test report
-echo "ClientID:${CLIENTID}, Status:${STATUS}"  | tee -a ${DST}/control.txt
-if [ ${STATUS} == "trusted" ]
-then
-    echo "test succeeded!" | tee -a ${DST}/control.txt
-    exit 0
-else
-    echo "test failed!" | tee -a ${DST}/control.txt
-    exit 1
-fi
+exit 0

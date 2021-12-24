@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/rac/ractools"
@@ -21,13 +22,22 @@ func init() {
 	config.InitRacFlags()
 }
 
-func main() {
-	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
+func handleFlags() {
 	pflag.Parse()
 	if *config.VersionFlag {
 		fmt.Printf("remote attestation client(raagent): %s\n", raagentVersion)
-		return
+		os.Exit(0)
 	}
+	if *config.VerboseFlag {
+		log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile)
+	} else {
+		log.SetFlags(log.Ldate | log.Ltime)
+	}
+}
+
+func main() {
+	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
+	handleFlags()
 	cfg := config.GetDefault(config.ConfClient)
 	config.SetupSignalHandler()
 	testMode := cfg.GetTestMode()

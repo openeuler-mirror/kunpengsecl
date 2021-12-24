@@ -140,14 +140,14 @@ else
     exit 1
 fi
 
-echo "wait for 5s"
+echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 # get the server registration status
 echo "check the server brief info via restapi request"
 RESPONSE5=$(curl http://localhost:40002/server)
 echo ${RESPONSE5} | tee -a ${DST}/control.txt
 
-echo "wait for 5s"
+echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 # modify the server registration status
 curl -X PUT -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/server --data '{"clientids":[1], "registered":false}'
@@ -157,8 +157,8 @@ echo ${RESPONSE6} | tee -a ${DST}/control.txt
 REGISTERED1=$(echo $RESPONSE5 | jq -r '.' | grep -A 2 "\"ClientId\": 1," | awk '/Registered/ {gsub("\"","");print $2}')
 REGISTERED2=$(echo $RESPONSE6 | jq -r '.' | grep -A 2 "\"ClientId\": 1," | awk '/Registered/ {gsub("\"","");print $2}')
 BOOL="false"
-echo "First time: ClientId1'registered:${REGISTERED1}"
-echo "Second time: ClientId1'registered:${REGISTERED2}"
+echo "First time: ClientId1'registered:${REGISTERED1}" | tee -a ${DST}/control.txt
+echo "Second time: ClientId1'registered:${REGISTERED2}" | tee -a ${DST}/control.txt
 if [[ ${REGISTERED2} == ${BOOL} ]]
 then
     echo "registration status test succeeded!" | tee -a ${DST}/control.txt
@@ -172,14 +172,14 @@ else
     exit 1
 fi
 
-echo "wait for 5s"
+echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 # get the server base value
-echo "check the server base value via restapi request"
+echo "check the server base value via restapi request" | tee -a ${DST}/control.txt
 RESPONSE7=$(curl http://localhost:40002/server/basevalue/1)
 echo ${RESPONSE7} | tee -a ${DST}/control.txt
 
-echo "wait for 5s"
+echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 # modify the server base value
 curl -X PUT -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/server/basevalue/1 --data '{"measurements":[{"name":"mName","type":"ima","value":"mValue"}],"pcrvalues":[{"index":1,"value":"pValue1"}]}'
@@ -198,8 +198,8 @@ VA="pValue1"
 MN="mName"
 MT="ima"
 MV="mValue"
-echo "First time: pcrValues:${VALUES1}, manifest'name:${MNAME1}, manifest'type:${MTYPE1}, manifest'value:${MVALUE1}"
-echo "Second time: pcrValues:${VALUES2}, manifest'name:${MNAME2}, manifest'type:${MTYPE2}, manifest'value:${MVALUE2}"
+echo "First time: pcrValues:${VALUES1}, manifest'name:${MNAME1}, manifest'type:${MTYPE1}, manifest'value:${MVALUE1}" | tee -a ${DST}/control.txt
+echo "Second time: pcrValues:${VALUES2}, manifest'name:${MNAME2}, manifest'type:${MTYPE2}, manifest'value:${MVALUE2}" | tee -a ${DST}/control.txt
 if [[ ${VALUES2} == ${VA} && ${MNAME2} == ${MN} && ${MTYPE2} == ${MT} && ${MVALUE2} == ${MV} ]]
 then
     echo "base value test succeeded!" | tee -a ${DST}/control.txt

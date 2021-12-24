@@ -10,7 +10,7 @@ NUM=1
 # above are common preparation steps, below are specific preparation step, scope includs:
 # configure files, input files, environment variables, cmdline paramenters, flow control paramenters, etc.
 ### Start Preparation
-echo "start test ${CASENAME} preparation..." | tee -a ${DST}/control.txt
+echo "start test preparation..." | tee -a ${DST}/control.txt
 pushd $(pwd)
 cd ${PROJROOT}/attestation/quick-scripts
 echo "clean database" | tee -a ${DST}/control.txt
@@ -39,8 +39,8 @@ do
 done
 
 ### start monitoring and control the testing
-echo "start to perform test ${TEST_ID}..." | tee -a ${DST}/control.txt
-echo "wait for 5s"
+echo "start to perform test ..." | tee -a ${DST}/control.txt
+echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 
 # register device
@@ -73,9 +73,9 @@ STATUS1=$(echo ${BASEDEVICE1} | grep "db4049d7fe6443ceeedd2d2eda1f35c41d7b100a")
 STATUS2=$(echo ${BASEDEVICE2} | grep "0000000000000000000000000000000000000000")
 
 ### generate the test report
-echo "First time: basevalue:${STATUS1}"
-echo "Second time: basevalue:${STATUS2}"
-if [[ ${STATUS1} && ${STATUS2} ]]
+echo "First time: basevalue:${STATUS1}" | tee -a ${DST}/control.txt
+echo "Second time: basevalue:${STATUS2}" | tee -a ${DST}/control.txt
+if [[ "${STATUS1}" && "${STATUS2}" ]]
 then
     echo "test succeeded!" | tee -a ${DST}/control.txt
     exit 0
