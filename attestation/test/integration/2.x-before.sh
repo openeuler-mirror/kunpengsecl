@@ -2,8 +2,7 @@
 # this scripts should be run under the root folder of kunpengsecl project and run as super-user.
 # set -eux
 PROJROOT=.
-# include common part
-. ${PROJROOT}/attestation/test/integration/common.sh
+DST=$(mktemp -t -d kunpengsecl-test-XXXXXX)
 
 ###use integritytools to enable container-measurment
 cd ${PROJROOT}/attestation/quick-scripts/integritytools
