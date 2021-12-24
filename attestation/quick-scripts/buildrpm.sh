@@ -12,6 +12,7 @@ mkdir -p ./rpmbuild/{BUILD,BUILDROOT,RPMS,SRPMS,SOURCES}
 # clean useless directories and files.
 make clean
 rm -rf ./attestation/{vendor,go.sum}
+make vendor
 
 # build source tar ball.
 tar -czf ./rpmbuild/SOURCES/kunpengsecl-1.0.0.tar.gz \
