@@ -48,17 +48,17 @@ func (s *rahub) RegisterClient(ctx context.Context, in *RegisterClientRequest) (
 }
 
 func (s *rahub) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
-	log.Printf("Server: receive UnregisterClient")
+	log.Printf("rahub: receive UnregisterClient")
 	return DoUnregisterClient(s.rasAddr, in)
 }
 
 func (s *rahub) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
-	log.Printf("Server: receive SendHeartbeat")
+	log.Printf("rahub: receive SendHeartbeat")
 	return DoSendHeartbeat(s.rasAddr, in)
 }
 
 func (s *rahub) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
-	log.Printf("Server: receive SendReport")
+	log.Printf("rahub: receive SendReport")
 	return DoSendReport(s.rasAddr, in)
 }
 
