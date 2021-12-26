@@ -1,0 +1,4 @@
+version_control: gitee
+src_repo: openEuler/kunpengsecl
+tag_prefix: ^v
+separator: .
