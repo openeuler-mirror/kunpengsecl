@@ -3,7 +3,7 @@
 
 Name:            %{name}
 Version:         %{version}
-Release:         3%{?dist}
+Release:         4%{?dist}
 Summary:         A remote attestation security software components running on Kunpeng processors.
 Summary(zh_CN):  一款运行于鲲鹏处理器上的远程证明安全软件组件
 License:         Mulan PSL v2
@@ -129,6 +129,8 @@ rm -rf %{_builddir}
 rm -rf %{buildroot}
 
 %changelog
+* Mon Dec 27 2021 gwei3 <11015100@qq.com> - 1.0.0-4
+-   update the source tar to remove intermediate files.
 * Wed Dec 08 2021 aaron-liwang <3214053332@qq.com> - 1.0.0-3
 -   add the rahub package.
 -   reorganize the directory structure of all packages.
