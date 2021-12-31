@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"sync"
 	"testing"
 
 	"github.com/google/go-tpm-tools/simulator"
@@ -514,6 +515,18 @@ func TestKDFa(t *testing.T) {
 			t.Errorf("KDFa can't match, %v, %v\n", a, b)
 		}
 	}
+}
+
+var (
+	simulatorMutex sync.Mutex
+)
+
+func pubKeyToTPMPublic(ekPubKey crypto.PublicKey) *tpm2.Public {
+	pub := DefaultKeyParams
+	pub.RSAParameters.KeyBits = uint16(uint32(ekPubKey.(*rsa.PublicKey).N.BitLen()))
+	pub.RSAParameters.ExponentRaw = uint32(ekPubKey.(*rsa.PublicKey).E)
+	pub.RSAParameters.ModulusRaw = ekPubKey.(*rsa.PublicKey).N.Bytes()
+	return &pub
 }
 
 func Tpm2MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]byte, []byte, error) {

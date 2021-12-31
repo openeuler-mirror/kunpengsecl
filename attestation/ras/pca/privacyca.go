@@ -153,10 +153,7 @@ const (
 	AlgCBC  = 0x0042
 	AlgCFB  = 0x0043
 
-	KEYSIZE   = 32
-	IDENTITY  = "IDENTITY\x00"
-	STORAGE   = "STORAGE"
-	INTEGRITY = "INTEGRITY"
+	KEYSIZE = 32
 )
 
 var (
@@ -424,10 +421,16 @@ func KDFa(alg crypto.Hash, key []byte, label string, contextU, contextV []byte, 
 	for i := 1; len(buf) < bufLen; i++ {
 		h.Reset()
 		binary.Write(h, binary.BigEndian, uint32(i))
-		h.Write([]byte(label))
-		h.Write([]byte{0})
-		h.Write(contextU)
-		h.Write(contextV)
+		if len(label) > 0 {
+			h.Write([]byte(label))
+			h.Write([]byte{0})
+		}
+		if len(contextU) > 0 {
+			h.Write(contextU)
+		}
+		if len(contextV) > 0 {
+			h.Write(contextV)
+		}
 		binary.Write(h, binary.BigEndian, uint32(bits))
 		buf = h.Sum(buf)
 	}
@@ -594,13 +597,13 @@ func MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]byte,
 	binary.Write(plaintext, binary.BigEndian, credential)
 	// step 2,
 	seed, _ := GetRandomBytes(KEYSIZE)
-	encSeed, _ := AsymmetricEncrypt(AlgRSA, AlgOAEP, ekPubKey, seed, []byte(IDENTITY))
+	encSeed, _ := AsymmetricEncrypt(AlgRSA, AlgOAEP, ekPubKey, seed, []byte("IDENTITY\x00"))
 	// step 3
-	symKey, _ := KDFa(crypto.SHA256, seed, STORAGE, name, nil, KEYSIZE*8)
+	symKey, _ := KDFa(crypto.SHA256, seed, "STORAGE", name, nil, KEYSIZE*8)
 	// step 4
 	encIdentity, _ := SymmetricEncrypt(AlgAES, AlgCFB, symKey, nil, plaintext.Bytes())
 	// step 5
-	hmacKey, _ := KDFa(crypto.SHA256, seed, INTEGRITY, nil, nil, crypto.SHA256.Size()*8)
+	hmacKey, _ := KDFa(crypto.SHA256, seed, "INTEGRITY", nil, nil, crypto.SHA256.Size()*8)
 	// step 6
 	integrityBuf := new(bytes.Buffer)
 	binary.Write(integrityBuf, binary.BigEndian, encIdentity)
@@ -610,7 +613,6 @@ func MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]byte,
 	integrity := mac.Sum(nil)
 	// last step: prepare output
 	allBlob := new(bytes.Buffer)
-	binary.Write(allBlob, binary.BigEndian, uint16(2+len(integrity)+len(encIdentity)))
 	binary.Write(allBlob, binary.BigEndian, uint16(len(integrity)))
 	binary.Write(allBlob, binary.BigEndian, integrity)
 	binary.Write(allBlob, binary.BigEndian, encIdentity)

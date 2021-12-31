@@ -19,7 +19,7 @@ var (
 		RSAParameters: &tpm2.RSAParams{
 			Symmetric: &tpm2.SymScheme{
 				Alg:     tpm2.AlgAES,
-				KeyBits: 128,
+				KeyBits: 256,
 				Mode:    tpm2.AlgCFB,
 			},
 			KeyBits:     2048,

@@ -29,13 +29,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"sync"
 	"time"
-
-	"github.com/google/go-tpm-tools/simulator"
-	"github.com/google/go-tpm/tpm2"
 )
 
 const (
@@ -283,21 +279,6 @@ func GenerateCertificate(template, parent *x509.Certificate, pubDer []byte, sign
 	return certDer, nil
 }
 
-// replace part one: start
-var (
-	simulatorMutex sync.Mutex
-)
-
-func pubKeyToTPMPublic(ekPubKey crypto.PublicKey) *tpm2.Public {
-	pub := DefaultKeyParams
-	pub.RSAParameters.KeyBits = uint16(uint32(ekPubKey.(*rsa.PublicKey).N.BitLen()))
-	pub.RSAParameters.ExponentRaw = uint32(ekPubKey.(*rsa.PublicKey).E)
-	pub.RSAParameters.ModulusRaw = ekPubKey.(*rsa.PublicKey).N.Bytes()
-	return &pub
-}
-
-// replace part one: end
-
 func EncryptIKCert(ekPubKey crypto.PublicKey, ikCert []byte, ikName []byte) (*IKCertChallenge, error) {
 	key, _ := GetRandomBytes(AesKeySize)
 	iv, _ := GetRandomBytes(AesKeySize)
@@ -306,37 +287,10 @@ func EncryptIKCert(ekPubKey crypto.PublicKey, ikCert []byte, ikName []byte) (*IK
 		return nil, err
 	}
 
-	// replace part two: start
-	simulatorMutex.Lock()
-	defer simulatorMutex.Unlock()
-
-	simulator, err := simulator.Get()
+	encKeyBlob, encSecret, err := MakeCredential(ekPubKey, key, ikName)
 	if err != nil {
-		return nil, errors.New("failed get the simulator")
+		return nil, err
 	}
-	defer simulator.Close()
-
-	ekPub := pubKeyToTPMPublic(ekPubKey)
-	protectHandle, _, err := tpm2.LoadExternal(simulator, *ekPub, tpm2.Private{}, tpm2.HandleNull)
-	if err != nil {
-		log.Println(err)
-		return nil, errors.New("failed load ekPub")
-	}
-
-	//generate the credential
-	encKeyBlob, encSecret, err := tpm2.MakeCredential(simulator, protectHandle, key, ikName)
-	if err != nil {
-		return nil, errors.New("failed the MakeCredential")
-	}
-	// replace part two: end
-
-	// use this block to replace the upper "tpm2.MakeCredential" two parts!!!
-	/*
-		encKeyBlob, encSecret, err := MakeCredential(ekPubKey, key, ikName)
-		if err != nil {
-			return nil, err
-		}
-	*/
 
 	symKeyParams := SymKeyParams{
 		// encrypted secret by ekPub, use tpm2.ActivateCredential to decrypt and get secret
