@@ -1,6 +1,6 @@
 
 subdir = attestation
-delfile=pca-root.crt pca-root.key pca-ek.crt pca-ek.key ikpri.key ikpub.key ic.crt ectest.crt ectest.key ikpritest.key ikpubtest.key ictest.crt
+delfile=pca-root.crt pca-root.key pca-ek.crt pca-ek.key ikpri.key ikpub.key ic.crt ectest.crt ectest.key ikpritest.key ikpubtest.key ictest.crt rac-log.txt ras-log.txt rahub-log.txt
 
 .PHONY: all build test clean install check vendor ci-check bat prepare sim-test sim-clean rpm rpm-clean
 all build test install: vendor
