@@ -6,6 +6,8 @@ import (
 )
 
 const clientConfig = `
+log:
+  path: "./rac-log.txt"
 racconfig:
   ikpkey: ""
   ikcert: ""
@@ -22,12 +24,16 @@ racconfig:
 `
 
 const hubConfig = `
+log:
+  path: "./rahub-log.txt"
 hubconfig:
   server: 127.0.0.1:40001
   hubport: "127.0.0.1:40003"
 `
 
 const serverConfig = `
+log:
+  path: "./ras-log.txt"
 database:
   host: localhost
   dbname: kunpengsecl
@@ -60,6 +66,7 @@ racconfig:
   trustduration: 2m0s
   digestalgorithm: sha256
 `
+
 const configFilePath = "./config.yaml"
 
 func CreateClientConfigFile() {

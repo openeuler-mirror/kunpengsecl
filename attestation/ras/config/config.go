@@ -22,7 +22,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -33,6 +32,8 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -63,6 +64,8 @@ const (
 	DbPort     = "database.port"
 	DbUser     = "database.user"
 	DbPassword = "database.password"
+	// logger
+	logPath = "log.path"
 	// RAS
 	NullString            = ""
 	extKey                = ".key"
@@ -153,6 +156,7 @@ var (
 		strPathSysRahub,
 	}
 	confG       *config
+	gLogger     *zap.Logger
 	VerboseFlag *bool = nil
 	VersionFlag *bool = nil
 	// for RAS command line parameters
@@ -223,7 +227,7 @@ type (
 	}
 )
 
-// InitRasFlags sets the ras server whole command flags.
+// InitRasFlags inits the ras server whole command flags.
 func InitRasFlags() {
 	servPort = pflag.StringP(RasPortLongFlag, RasPortShortFlag, "", RasPortHelp)
 	restPort = pflag.StringP(RasRestPortLongFlag, RasRestPortShortFlag, "", RasRestHelp)
@@ -232,7 +236,7 @@ func InitRasFlags() {
 	RasTokenFlag = pflag.BoolP(RasTokenLongFlag, RasTokenShortFlag, false, RasTokenHelp)
 }
 
-// InitRacFlags sets the rac client whole command flags.
+// InitRacFlags inits the rac client whole command flags.
 func InitRacFlags() {
 	racServer = pflag.StringP(RacServerLongFlag, RacServerShortFlag, "", RacServerHelp)
 	racTestMode = pflag.BoolP(RacTestModeLongFlag, RacTestModeShortFlag, false, RacTestModeHelp)
@@ -240,7 +244,7 @@ func InitRacFlags() {
 	VersionFlag = pflag.BoolP(VersionLongFlag, VersionShortFlag, false, VersionHelp)
 }
 
-// InitRacFlags sets the rac client whole command flags.
+// InitHubFlags inits the rahub whole command flags.
 func InitHubFlags() {
 	hubServer = pflag.StringP(HubServerLongFlag, HubServerShortFlag, "", RacServerHelp)
 	hubPort = pflag.StringP(HubPortLongFlag, HubPortShortFlag, "", HubPortHelp)
@@ -540,13 +544,68 @@ func loadConfig(cfg *config) *config {
 	return cfg
 }
 
+func initLog() {
+	var c *zap.Config
+	path := viper.GetString(logPath)
+	if VerboseFlag != nil && *VerboseFlag {
+		c = &zap.Config{
+			Level:       zap.NewAtomicLevelAt(zap.DebugLevel),
+			Development: true,
+			Encoding:    "json",
+			EncoderConfig: zapcore.EncoderConfig{
+				TimeKey:        "T",
+				LevelKey:       "L",
+				NameKey:        "N",
+				CallerKey:      "C",
+				FunctionKey:    zapcore.OmitKey,
+				MessageKey:     "M",
+				StacktraceKey:  "S",
+				LineEnding:     zapcore.DefaultLineEnding,
+				EncodeLevel:    zapcore.CapitalLevelEncoder,
+				EncodeTime:     zapcore.ISO8601TimeEncoder,
+				EncodeDuration: zapcore.StringDurationEncoder,
+				EncodeCaller:   zapcore.ShortCallerEncoder,
+			},
+			OutputPaths:      []string{"stderr", path},
+			ErrorOutputPaths: []string{"stderr", path},
+		}
+	} else {
+		c = &zap.Config{
+			Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
+			Development: false,
+			Sampling: &zap.SamplingConfig{
+				Initial:    100,
+				Thereafter: 100,
+			},
+			Encoding: "json",
+			EncoderConfig: zapcore.EncoderConfig{
+				TimeKey:        "ts",
+				LevelKey:       "level",
+				NameKey:        "logger",
+				CallerKey:      "caller",
+				FunctionKey:    zapcore.OmitKey,
+				MessageKey:     "msg",
+				StacktraceKey:  "stacktrace",
+				LineEnding:     zapcore.DefaultLineEnding,
+				EncodeLevel:    zapcore.LowercaseLevelEncoder,
+				EncodeTime:     zapcore.ISO8601TimeEncoder,
+				EncodeDuration: zapcore.SecondsDurationEncoder,
+				EncodeCaller:   zapcore.ShortCallerEncoder,
+			},
+			OutputPaths:      []string{path},
+			ErrorOutputPaths: []string{path},
+		}
+	}
+	gLogger, _ = c.Build()
+}
+
 /*
 GetDefault returns the global default config object.
 It searches the defaultConfigPath to find the first matched config.yaml.
 if it doesn't find any one, it returns the default values by code.
 Notice:
-  server must has a config.yaml to give the configuration.
-  client may not have one.
+1) server must has a config.yaml to give the configuration.
+2) client may not have one.
 */
 func GetDefault(cfType string) *config {
 	if confG != nil {
@@ -561,8 +620,10 @@ func GetDefault(cfType string) *config {
 	err := viper.ReadInConfig()
 	if err != nil {
 		fmt.Printf("read config file error: %v\n", err)
+		os.Exit(1)
 	}
 	confG = loadConfig(confG)
+	initLog()
 	return confG
 }
 
@@ -823,9 +884,58 @@ func (c *config) GetHubPort() string {
 	return c.hubConfig.hubPort
 }
 
-// Logf controls the log.Printf output with VerboseFlag
-func Logf(format string, v ...interface{}) {
-	if *VerboseFlag {
-		log.Printf(format, v...)
+// Info outputs message at Info level
+func Info(msg string) {
+	if gLogger != nil {
+		gLogger.Info(msg)
+	}
+}
+
+// Infof outputs format message at Info level
+func Infof(format string, v ...interface{}) {
+	if gLogger != nil {
+		gLogger.Sugar().Infof(format, v...)
+	}
+}
+
+// Debug outputs message at Debug level, command flag "-v" will enable this output.
+func Debug(msg string) {
+	if gLogger != nil {
+		gLogger.Debug(msg)
+	}
+}
+
+// Debugf outputs format message at Debug level, command flag "-v" will enable this output.
+func Debugf(format string, v ...interface{}) {
+	if gLogger != nil {
+		gLogger.Sugar().Debugf(format, v...)
+	}
+}
+
+// Error outputs message. Info/Debug level will also output it.
+func Error(msg string) {
+	if gLogger != nil {
+		gLogger.Error(msg)
+	}
+}
+
+// Errorf outputs format message. Info/Debug level will also output it.
+func Errorf(format string, v ...interface{}) {
+	if gLogger != nil {
+		gLogger.Sugar().Errorf(format, v...)
+	}
+}
+
+// Fatal outputs message and stop. Info/Debug level will also output it.
+func Fatal(msg string) {
+	if gLogger != nil {
+		gLogger.Fatal(msg)
+	}
+}
+
+// Fatalf outputs format message and stop. Info/Debug level will also output it.
+func Fatalf(format string, v ...interface{}) {
+	if gLogger != nil {
+		gLogger.Sugar().Fatalf(format, v...)
 	}
 }

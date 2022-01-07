@@ -4,8 +4,10 @@ database:
   password: postgres
   port: 5432
   user: postgres
+log:
+  path: ./ras-log.txt
 racconfig:
-  digestalgorithm: sha1
+  digestalgorithm: "sha1"
   hbduration: 5s
   trustduration: 2m0s
 rasconfig:
