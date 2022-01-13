@@ -1,5 +1,4 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
 You can use this software according to the terms and conditions of
 the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
@@ -11,105 +10,180 @@ See the Mulan PSL v2 for more details.
 
 Author: wucaijun
 Create: 2021-10-08
-Description: Using grpc to implement the service API.
+Description: Using grpc to implement the rasService API.
+	1. 2022-01-19	wucaijun
+		redefine SendReportRequest parameters and refine some implementations.
+	2. 2022-01-28	wucaijun
+		fix the problem that grpc occupy all the file handle, use LimitListener
+		and getSockNum to auto adjust the max limit of grpc socket handle.
+	3. 2022-01-29	wucaijun
+		add a new group communication functions to rac, these functions will try
+	to use the same grpc socket to enhance performance if possible.
+
+Notice:
+	For performance, change the process max file limit and database max connections.
+`ulimit -n 200000`			# set in the ras start bash script
+`max_connections = 1000`	# in /var/lib/pgsql/data/postgresql.conf and restart
 */
 
+// clientapi package implements the grpc communication between rac and ras.
 package clientapi
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
-	"encoding/binary"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"io/ioutil"
 	"math/big"
 	"net"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
-
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
-
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 )
 
 const (
-	constDEFAULTTIMEOUT time.Duration = 100 * time.Second
-	uint32Len                         = 4
-	digestAlgIDLen                    = 2
-	sha1DigestLen                     = 20
-	sha256DigestLen                   = 32
-	sha1AlgID                         = "0400"
-	sha256AlgID                       = "0b00"
-	sha1AlgStr                        = "sha1"
-	sha256AlgStr                      = "sha256"
-	event2SpecID                      = "Spec ID Event03"
-	specLen                           = 16
-	specStart                         = 32
-	specEnd                           = 48
+	constTimeOut time.Duration = 10 * time.Second
+
+	strSpaceLine = " \n\r"
+	strGetName   = "./get.sh"
+	strGetSh     = `#!/bin/bash
+cat $1 | awk '/open files/ { print $4 }'`
 )
 
-type service struct {
+type rasService struct {
 	UnimplementedRasServer
-	cm *cache.CacheMgr
 }
 
-// GenerateEKCert handles the generation of the EK certificate for client
-func (s *service) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
-	log.Printf("Server: receive GenerateEKCert")
-	c := config.GetDefault(config.ConfServer)
-	ip, _ := entity.GetIP()
+var (
+	ErrClientApiParameterWrong = errors.New("client api parameter wrong")
+
+	srv *grpc.Server = nil
+)
+
+func getSockNum() int {
+	pid := os.Getpid()
+	limits := fmt.Sprintf("/proc/%d/limits", pid)
+	ioutil.WriteFile(strGetName, []byte(strGetSh), 0755)
+	out, _ := exec.Command(strGetName, limits).Output()
+	totalStr := strings.Trim(string(out), strSpaceLine)
+	totalNum, _ := strconv.Atoi(totalStr)
+	sockNum := totalNum * 9 / 10
+	if totalNum-sockNum < 50 {
+		sockNum = totalNum - 50
+	}
+	os.Remove(strGetName)
+	return sockNum
+}
+
+// newRasServer creates a new rasService to support clientapi interface.
+func newRasService() *rasService {
+	return &rasService{}
+}
+
+// StartServer starts a server to provide ras rpc services.
+func StartServer(path, addr string) {
+	var err error
+	if srv != nil {
+		return
+	}
+	if addr == "" {
+		logger.L.Sugar().Errorf("listen ip:port can not be empty")
+		return
+	}
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		logger.L.Sugar().Errorf("fail to listen at %s, %v", addr, err)
+		return
+	}
+	trustmgr.CreateTrustManager("postgres",
+		"user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable")
+	srv := grpc.NewServer()
+	RegisterRasServer(srv, newRasService())
+	//logger.L.Sugar().Debugf("listen at %s", addr)
+	lis = netutil.LimitListener(lis, getSockNum())
+	err = srv.Serve(lis)
+	if err != nil {
+		logger.L.Sugar().Errorf("fail to serve, %v", err)
+	}
+}
+
+// StopServer stops the server and trust manager, release all resources.
+func StopServer() {
+	if srv == nil {
+		return
+	}
+	srv.Stop()
+	srv = nil
+	trustmgr.ReleaseTrustManager()
+}
+
+// GenerateEKCert handles the generation of the EK certificate for client.
+func (s *rasService) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
+	//logger.L.Debug("get GenerateEKCert request")
+	t := time.Now()
 	template := x509.Certificate{
-		SerialNumber:   big.NewInt(1),
-		NotBefore:      time.Now(),
-		NotAfter:       time.Now().AddDate(10, 0, 0),
-		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
+		NotBefore:    t,
+		NotAfter:     t.AddDate(10, 0, 0),
+		KeyUsage: x509.KeyUsageDigitalSignature |
+			x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
 		IsCA:           false,
 		MaxPathLenZero: true,
-		IPAddresses:    []net.IP{net.ParseIP(ip)},
+		IPAddresses:    []net.IP{net.ParseIP(config.GetIP())},
 	}
-	ekCert, err := pca.GenerateCertificate(&template, c.GetPcaKeyCert(), in.GetEkPub(), c.GetPcaPrivateKey())
+	ekCert, err := cryptotools.GenerateCertificate(&template,
+		config.GetPcaKeyCert(), in.GetEkPub(), config.GetPcaPrivateKey())
 	if err != nil {
-		return &GenerateEKCertReply{}, err
+		logger.L.Sugar().Errorf("generate EK Cert fail, %v", err)
+		return nil, err
 	}
+	//logger.L.Debug("send GenerateEKCert reply")
 	return &GenerateEKCertReply{EkCert: ekCert}, nil
 }
 
-// GenerateIKCert handles the generation of the IK certificate for client
-func (s *service) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
-	log.Printf("Server: receive GenerateIKCert and encrypt it")
-	c := config.GetDefault(config.ConfServer)
-	ip, _ := entity.GetIP()
+// GenerateIKCert handles the generation of the IK certificate for client.
+func (s *rasService) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
+	//logger.L.Debug("get GenerateIKCert request")
+	t := time.Now()
 	template := x509.Certificate{
-		SerialNumber:   big.NewInt(1),
-		NotBefore:      time.Now(),
-		NotAfter:       time.Now().AddDate(1, 0, 0),
-		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
+		NotBefore:    t,
+		NotAfter:     t.AddDate(1, 0, 0),
+		KeyUsage: x509.KeyUsageDigitalSignature |
+			x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
 		IsCA:           false,
 		MaxPathLenZero: true,
-		IPAddresses:    []net.IP{net.ParseIP(ip)},
+		IPAddresses:    []net.IP{net.ParseIP(config.GetIP())},
 	}
-	ikCertDer, err := pca.GenerateCertificate(&template, c.GetPcaKeyCert(), in.GetIkPub(), c.GetPcaPrivateKey())
+	ikCertDer, err := cryptotools.GenerateCertificate(&template,
+		config.GetPcaKeyCert(), in.GetIkPub(), config.GetPcaPrivateKey())
 	if err != nil {
-		return &GenerateIKCertReply{}, err
+		logger.L.Sugar().Errorf("generate IK Cert fail, %v", err)
+		return nil, err
 	}
 	ekCert, err := x509.ParseCertificate(in.GetEkCert())
 	if err != nil {
+		logger.L.Sugar().Errorf("parse client EK Cert fail, %v", err)
 		return nil, err
 	}
-	encIkCert, err := pca.EncryptIKCert(ekCert.PublicKey, ikCertDer, in.GetIkName())
+	encIkCert, err := cryptotools.EncryptIKCert(ekCert.PublicKey,
+		ikCertDer, in.GetIkName())
 	if err != nil {
+		logger.L.Sugar().Errorf("encrypt IK Cert with EK public key fail, %v", err)
 		return nil, err
 	}
+	//logger.L.Debug("send GenerateIKCert reply")
 	return &GenerateIKCertReply{
 		EncryptedIC:     encIkCert.EncryptedCert,
 		CredBlob:        encIkCert.SymKeyParams.CredBlob,
@@ -119,250 +193,235 @@ func (s *service) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest)
 	}, nil
 }
 
-// RegisterClient TODO: need a challenge and some statement for check nil pointer (this package functions all need this)
-func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
-	log.Printf("Server: receive RegisterClient")
-	// register and get clientId
-	ci := in.GetClientInfo().GetClientInfo()
-	cim := map[string]string{}
-	err := json.Unmarshal([]byte(ci), &cim)
+// RegisterClient registers a new client by IK certificate and its client information string.
+func (s *rasService) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
+	//logger.L.Debug("get RegisterClient request")
+	ikDer := in.GetCert()
+	ikPem, err := cryptotools.EncodeKeyCertToPEM(ikDer)
 	if err != nil {
-		return nil, err
+		logger.L.Sugar().Errorf("encode IK Cert to PEM fail, %v", err)
+		return &RegisterClientReply{ClientId: -1}, err
 	}
-	eci := &entity.ClientInfo{
-		Info: cim,
-	}
-	icDer := in.GetIc().GetCert()
-	icPem, err := pca.EncodeKeyCertToPEM(icDer)
+	client, err := trustmgr.RegisterClientByIK(string(ikPem), in.GetClientInfo())
 	if err != nil {
-		return nil, err
+		logger.L.Sugar().Errorf("register client fail, %v", err)
+		return &RegisterClientReply{ClientId: -1}, err
 	}
-	clientID, err := trustmgr.RegisterClient(eci, icPem)
-	if err != nil {
-		return nil, err
-	}
-	cfg := config.GetDefault(config.ConfServer)
-	hd := cfg.GetHBDuration()
-	td := cfg.GetTrustDuration()
-
-	s.cm.Lock()
-	defer s.cm.Unlock()
-
-	c := s.cm.CreateCache(clientID)
-	if c == nil {
-		return nil, fmt.Errorf("client %d failed to create cache", clientID)
-	}
-
+	//logger.L.Sugar().Debugf("send RegisterClient reply, ClientID=%d", client.ID)
 	return &RegisterClientReply{
-		ClientId: clientID,
+		ClientId: client.ID,
 		ClientConfig: &ClientConfig{
-			HbDurationSeconds:    int64(hd.Seconds()),
-			TrustDurationSeconds: int64(td.Seconds()),
-			DigestAlgorithm:      cfg.GetDigestAlgorithm(),
+			HbDurationSeconds:    int64(config.GetHBDuration().Seconds()),
+			TrustDurationSeconds: int64(config.GetTrustDuration().Seconds()),
+			Nonce:                0,
+			DigestAlgorithm:      config.GetDigestAlgorithm(),
 		},
 	}, nil
 }
 
-func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
-	log.Printf("Server: receive UnregisterClient")
+// UnregisterClient unregisters a client from cache and database, reserved its database record and files.
+func (s *rasService) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
 	cid := in.GetClientId()
-	result := false
-	if cid <= 0 {
-		return &UnregisterClientReply{Result: result}, fmt.Errorf("client id %v is illegal", cid)
-	}
-
-	s.cm.Lock()
-	defer s.cm.Unlock()
-
-	c := s.cm.GetCache(in.GetClientId())
-	if c != nil {
-		log.Printf("delete %d", cid)
-		s.cm.RemoveCache(cid)
-		err := trustmgr.UnRegisterClient(cid)
-		if err != nil {
-			return &UnregisterClientReply{Result: result}, fmt.Errorf("unregister failed. err: %v", err)
-		}
-		result = true
-	}
-	return &UnregisterClientReply{Result: result}, nil
+	//logger.L.Sugar().Debugf("get UnregisterClient %d request", cid)
+	trustmgr.UnRegisterClientByID(cid)
+	//logger.L.Sugar().Debugf("send UnregisterClient reply")
+	return &UnregisterClientReply{Result: true}, nil
 }
 
-func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
-	log.Printf("Server: receive SendHeartbeat")
-	var nextAction uint64
-	var nonce uint64
-	var ci = &ClientConfig{}
+// SendHeartbeat sends heart beat message to ras and get next action back.
+func (s *rasService) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
+	var out SendHeartbeatReply
 	cid := in.GetClientId()
-
-	s.cm.Lock()
-	c := s.cm.GetCache(cid)
-	s.cm.Unlock()
-
-	if c != nil {
-		var err error
-		log.Printf("hb %d", cid)
-		c.UpdateHeartBeat()
-		if c.HasCommands() {
-			nextAction = c.GetCommands()
-			nonce, err = c.CreateNonce()
-			if err != nil {
-				return nil, err
-			}
-			if (nextAction & cache.CMDSENDCONF) == cache.CMDSENDCONF {
-				ci.HbDurationSeconds = int64(config.GetDefault(config.ConfServer).GetHBDuration().Seconds())
-				ci.TrustDurationSeconds = int64(config.GetDefault(config.ConfServer).GetTrustDuration().Seconds())
-				ci.DigestAlgorithm = config.GetDefault(config.ConfServer).GetDigestAlgorithm()
-				c.ClearCommands()
-			}
-		}
-	}
-
-	return &SendHeartbeatReply{
-		NextAction: nextAction,
-		ActionParameters: &ActionParameters{
-			ClientConfig: ci,
-			Nonce:        nonce,
-		},
-	}, nil
-}
-
-func (s *service) transformManifest(report *TrustReport) ([]entity.Manifest, error) {
-	oms := report.GetManifest()
-	var tms []entity.Manifest
-	for _, om := range oms {
-		handled := false
-		var mi *entity.Manifest
-		var err error
-
-		switch strings.ToLower(om.GetType()) {
-		case "bios":
-			mi, err = UnmarshalBIOSManifest(om.GetItem(), report.GetPcrInfo().GetAlgorithm())
-		case "ima":
-			mi, err = UnmarshalIMAManifest(om.GetItem())
-		default:
-			err = fmt.Errorf("unsupported manifest type: %s", om.GetType())
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		// if type has existed
-		for _, tm := range tms {
-			if om.GetType() == tm.Type {
-				handled = true
-				tm.Items = append(tm.Items, mi.Items...)
-				break
-			}
-		}
-		if !handled {
-			tms = append(tms, *mi)
-		}
-	}
-
-	return tms, nil
-}
-
-func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
-	log.Printf("Server: receive SendReport")
-	cid := in.GetClientId()
-
-	s.cm.Lock()
-	c := s.cm.GetCache(cid)
-	s.cm.Unlock()
-
-	if c == nil {
-		return &SendReportReply{Result: false}, fmt.Errorf("unregistered client: %d", cid)
-	}
-
-	report := in.GetTrustReport()
-	// compare if alg is same as ras
-	cfg := config.GetDefault(config.ConfServer)
-	alg := report.GetPcrInfo().GetAlgorithm()
-	if alg != cfg.GetDigestAlgorithm() {
-		log.Printf("Server: the reported algorithm of client %v is wrong", report.GetClientId())
-		return &SendReportReply{Result: false}, fmt.Errorf("the reported algorithm is wrong")
-	}
-	// transform pcr info from struct in grpc to struct in ras
-	opvs := report.GetPcrInfo().GetPcrValues()
-	tpvs := map[int]string{}
-	for k, v := range opvs {
-		tpvs[int(k)] = v
-	}
-	// transform manifest from struct in grpc to struct in ras
-	tms, err := s.transformManifest(report)
+	//logger.L.Sugar().Debugf("get hb from %d", cid)
+	cmds, nonce, err := trustmgr.HandleHeartbeat(cid)
 	if err != nil {
-		return &SendReportReply{Result: false}, err
+		logger.L.Sugar().Errorf("client(%d) heart beat fail, %v", cid, err)
+		return nil, err
 	}
-	err = trustmgr.RecordReport(&entity.Report{
-		PcrInfo: entity.PcrInfo{
-			Values: tpvs,
-			Quote: entity.PcrQuote{
-				Quoted:    report.GetPcrInfo().GetPcrQuote().GetQuoted(),
-				Signature: report.GetPcrInfo().GetPcrQuote().GetSignature(),
+	if cmds == typdefs.CmdNone {
+		out = SendHeartbeatReply{
+			NextAction: cmds,
+		}
+		//logger.L.Sugar().Debugf("send reply to %d, NextActions=%d", cid, cmds)
+	} else {
+		out = SendHeartbeatReply{
+			NextAction: cmds,
+			ClientConfig: &ClientConfig{
+				HbDurationSeconds:    int64(config.GetHBDuration().Seconds()),
+				TrustDurationSeconds: int64(config.GetTrustDuration().Seconds()),
+				Nonce:                nonce,
+				DigestAlgorithm:      config.GetDigestAlgorithm(),
 			},
-		},
-		Manifest: tms,
-		ClientID: cid,
-	})
-	if err != nil {
-		return &SendReportReply{Result: false}, err
+		}
+		//logger.L.Sugar().Debugf("send reply to %d, NextActions=%d ClientConfig=%+v", cid, cmds, out.ClientConfig)
 	}
+	return &out, nil
+}
 
-	log.Printf("report %d", cid)
-	c.ClearCommands()
-	c.UpdateTrustReport()
-
+// SendReport saves the trust report from client into database/files and verifies it.
+func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
+	cid := in.GetClientId()
+	//logger.L.Sugar().Debugf("get SendReport %d request", cid)
+	var ms []typdefs.Manifest
+	ms = make([]typdefs.Manifest, 0, 3)
+	inms := in.GetManifests()
+	for _, im := range inms {
+		m := typdefs.Manifest{
+			Key:   im.Key,
+			Value: im.Value,
+		}
+		ms = append(ms, m)
+	}
+	trustReport := typdefs.TrustReport{
+		ClientID:   in.ClientId,
+		Nonce:      in.GetNonce(),
+		ClientInfo: in.GetClientInfo(),
+		Quoted:     in.GetQuoted(),
+		Signature:  in.GetSignature(),
+		Manifests:  ms,
+	}
+	//logger.L.Debug("validate report and save...")
+	_, err := trustmgr.ValidateReport(&trustReport)
+	if err != nil {
+		logger.L.Sugar().Errorf("validate client(%d) report error, %v", cid, err)
+		return &SendReportReply{Result: false}, nil
+	}
+	//logger.L.Sugar().Debugf("validate success and send reply to %d", cid)
 	return &SendReportReply{Result: true}, nil
 }
 
-func NewServer(cm *cache.CacheMgr) *service {
-	return &service{cm: cm}
-}
-
-// StartServer starts ras server and provides rpc services.
-func StartServer(addr string, cm *cache.CacheMgr) {
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatalf("Server: fail to listen at %v", err)
-		return
-	}
-	s := grpc.NewServer()
-	err = cm.Initialize()
-	if err != nil {
-		log.Fatalf("Server: initialize cache failed. err: %v", err)
-		return
-	}
-	svc := NewServer(cm)
-	RegisterRasServer(s, svc)
-	log.Printf("Server: listen at %s", addr)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Server: fail to serve %v", err)
-	}
-}
-
-type rasConn struct {
+type RasConn struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	conn   *grpc.ClientConn
 	c      RasClient
 }
 
-func makesock(addr string) (*rasConn, error) {
-	ras := &rasConn{}
+// CreateConn creates a grpc connection to remote server at addr:ip.
+func CreateConn(addr string) (*RasConn, error) {
+	ras := &RasConn{}
 	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		return nil, errors.New("Client: fail to connect " + addr)
+		logger.L.Sugar().Errorf("connect %s error, %v", addr, err)
+		return nil, typdefs.ErrConnectFailed
 	}
 	ras.conn = conn
 	ras.c = NewRasClient(conn)
-	ras.ctx, ras.cancel = context.WithTimeout(context.Background(), constDEFAULTTIMEOUT)
-	log.Printf("Client: connect to %s", addr)
+	ras.ctx, ras.cancel = context.WithTimeout(context.Background(), constTimeOut)
+	//logger.L.Sugar().Debugf("connect %s ok", addr)
 	return ras, nil
+}
+
+// ReleaseConn releases the ras connection.
+func ReleaseConn(ras *RasConn) {
+	if ras != nil {
+		ras.cancel()
+		ras.conn.Close()
+	}
+}
+
+// DoGenerateEKCertWithConn uses existing ras connection to generate an ek certificate from ras server for client.
+func DoGenerateEKCertWithConn(ras *RasConn, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
+	//logger.L.Debug("invoke GenerateEKCert...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.GenerateEKCert(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke GenerateEKCert error, %v", err)
+		return nil, err
+	}
+	//logger.L.Debug("invoke GenerateEKCert ok")
+	return bk, nil
+}
+
+// DoGenerateIKCertWithConn uses existing ras connection to generate an identity certificate from ras server for client.
+func DoGenerateIKCertWithConn(ras *RasConn, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
+	//logger.L.Debug("invoke GenerateIKCert...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.GenerateIKCert(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke GenerateIKCert error, %v", err)
+		return nil, err
+	}
+	//logger.L.Debug("invoke GenerateIKCert ok")
+	return bk, nil
+}
+
+// DoRegisterClientWithConn uses existing ras connection to register the rac to the ras server.
+func DoRegisterClientWithConn(ras *RasConn, in *RegisterClientRequest) (*RegisterClientReply, error) {
+	//logger.L.Debug("invoke RegisterClient...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.RegisterClient(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke RegisterClient error, %v", err)
+		return nil, err
+	}
+	//logger.L.Sugar().Debugf("invoke RegisterClient ok, ClientID=%d", bk.GetClientId())
+	return bk, nil
+}
+
+// DoUnregisterClientWithConn uses existing ras connection to unregister the rac from the ras server.
+func DoUnregisterClientWithConn(ras *RasConn, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
+	//logger.L.Debug("invoke UnregisterClient...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.UnregisterClient(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke UnregisterClient error, %v", err)
+		return nil, err
+	}
+	//logger.L.Sugar().Debugf("invoke UnregisterClient %v", bk.Result)
+	return bk, nil
+}
+
+// DoSendHeartbeatWithConn uses existing ras connection to send a heart beat message to the ras server.
+func DoSendHeartbeatWithConn(ras *RasConn, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
+	//logger.L.Debug("invoke SendHeartbeat...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.SendHeartbeat(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke SendHeartbeat error, %v", err)
+		return nil, err
+	}
+	/*
+		if bk.GetClientConfig() != nil {
+			logger.L.Sugar().Debugf("invoke SendHeartbeat ok, NextActions=%d ClientConfig=%+v",
+				bk.GetNextAction(), bk.GetClientConfig())
+		} else {
+			logger.L.Sugar().Debugf("invoke SendHeartbeat ok, NextActions=%d",
+				bk.GetNextAction())
+		}
+	*/
+	return bk, nil
+}
+
+// DoSendReportWithConn uses existing ras connection to send a trust report message to the ras server.
+func DoSendReportWithConn(ras *RasConn, in *SendReportRequest) (*SendReportReply, error) {
+	//logger.L.Debug("invoke SendReport...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.SendReport(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke SendReport error, %v", err)
+		return nil, err
+	}
+	//logger.L.Debug("invoke SendReport ok")
+	return bk, nil
 }
 
 // DoGenerateEKCert generates an ek certificate from ras server for client.
 func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
-	ras, err := makesock(addr)
+	//logger.L.Debug("invoke GenerateEKCert...")
+	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -371,18 +430,18 @@ func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertRe
 
 	bk, err := ras.c.GenerateEKCert(ras.ctx, in)
 	if err != nil {
-		log.Printf("Client: invoke GenerateEKCert error %v", err)
+		logger.L.Sugar().Errorf("invoke GenerateEKCert error, %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke GenerateEKCert ok")
+	//logger.L.Debug("invoke GenerateEKCert ok")
 	return bk, nil
 }
 
 // DoGenerateIKCert generates an identity certificate from ras server for client.
 func DoGenerateIKCert(addr string, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
-	ras, err := makesock(addr)
+	//logger.L.Debug("invoke GenerateIKCert...")
+	ras, err := CreateConn(addr)
 	if err != nil {
-		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -390,18 +449,18 @@ func DoGenerateIKCert(addr string, in *GenerateIKCertRequest) (*GenerateIKCertRe
 
 	bk, err := ras.c.GenerateIKCert(ras.ctx, in)
 	if err != nil {
-		log.Printf("Client: invoke GenerateIKCert error %v", err)
+		logger.L.Sugar().Errorf("invoke GenerateIKCert error, %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke GenerateIKCert ok")
+	//logger.L.Debug("invoke GenerateIKCert ok")
 	return bk, nil
 }
 
 // DoRegisterClient registers the rac to the ras server.
 func DoRegisterClient(addr string, in *RegisterClientRequest) (*RegisterClientReply, error) {
-	ras, err := makesock(addr)
+	//logger.L.Debug("invoke RegisterClient...")
+	ras, err := CreateConn(addr)
 	if err != nil {
-		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -409,18 +468,18 @@ func DoRegisterClient(addr string, in *RegisterClientRequest) (*RegisterClientRe
 
 	bk, err := ras.c.RegisterClient(ras.ctx, in)
 	if err != nil {
-		log.Printf("Client: invoke RegisterClient error %v", err)
+		logger.L.Sugar().Errorf("invoke RegisterClient error, %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke RegisterClient ok, clientID=%d", bk.GetClientId())
+	//logger.L.Sugar().Debugf("invoke RegisterClient ok, ClientID=%d", bk.GetClientId())
 	return bk, nil
 }
 
 // DoUnregisterClient unregisters the rac from the ras server.
 func DoUnregisterClient(addr string, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
-	ras, err := makesock(addr)
+	//logger.L.Debug("invoke UnregisterClient...")
+	ras, err := CreateConn(addr)
 	if err != nil {
-		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -428,18 +487,18 @@ func DoUnregisterClient(addr string, in *UnregisterClientRequest) (*UnregisterCl
 
 	bk, err := ras.c.UnregisterClient(ras.ctx, in)
 	if err != nil {
-		log.Printf("Client: invoke UnregisterClient error %v", err)
+		logger.L.Sugar().Errorf("invoke UnregisterClient error, %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke UnregisterClient %v", bk.Result)
+	//logger.L.Sugar().Debugf("invoke UnregisterClient %v", bk.Result)
 	return bk, nil
 }
 
 // DoSendHeartbeat sends a heart beat message to the ras server.
 func DoSendHeartbeat(addr string, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
-	ras, err := makesock(addr)
+	//logger.L.Debug("invoke SendHeartbeat...")
+	ras, err := CreateConn(addr)
 	if err != nil {
-		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -447,19 +506,26 @@ func DoSendHeartbeat(addr string, in *SendHeartbeatRequest) (*SendHeartbeatReply
 
 	bk, err := ras.c.SendHeartbeat(ras.ctx, in)
 	if err != nil {
-		log.Printf("Client: invoke SendHeartbeat error %v", err)
+		logger.L.Sugar().Errorf("invoke SendHeartbeat error, %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke SendHeartbeat ok")
-	//bk.NextAction = 123
+	/*
+		if bk.GetClientConfig() != nil {
+			logger.L.Sugar().Debugf("invoke SendHeartbeat ok, NextActions=%d ClientConfig=%+v",
+				bk.GetNextAction(), bk.GetClientConfig())
+		} else {
+			logger.L.Sugar().Debugf("invoke SendHeartbeat ok, NextActions=%d",
+				bk.GetNextAction())
+		}
+	*/
 	return bk, nil
 }
 
 // DoSendReport sends a trust report message to the ras server.
 func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) {
-	ras, err := makesock(addr)
+	//logger.L.Debug("invoke SendReport...")
+	ras, err := CreateConn(addr)
 	if err != nil {
-		log.Printf("%v", err)
 		return nil, err
 	}
 	defer ras.conn.Close()
@@ -467,247 +533,9 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 
 	bk, err := ras.c.SendReport(ras.ctx, in)
 	if err != nil {
-		log.Printf("Client: invoke SendReport error %v", err)
+		logger.L.Sugar().Errorf("invoke SendReport error, %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke SendReport ok")
+	//logger.L.Debug("invoke SendReport ok")
 	return bk, nil
-}
-
-func getHashValue(alg string, evt *entity.BIOSManifestItem) string {
-	algMap := map[string]string{
-		sha1AlgStr:   sha1AlgID,
-		sha256AlgStr: sha256AlgID,
-	}
-	if algID, ok := algMap[alg]; ok {
-		for _, hv := range evt.Digest.Item {
-			if hv.AlgID == algID {
-				return hv.Item
-			}
-		}
-	}
-	return ""
-}
-
-func UnmarshalBIOSManifest(content []byte, algHash string) (*entity.Manifest, error) {
-	result := &entity.Manifest{
-		Type:  "bios",
-		Items: []entity.ManifestItem{},
-	}
-	var point int64 = 0
-
-	_, err := readSHA1BIOSEventLog(content, &point)
-	if err != nil {
-		return nil, err
-	}
-	SpecID := getSpecID(content)
-	// if SpecID is "Spec ID Event03", this is a event2 log bytes stream
-	// TODO: getSpecID return "Spec ID Event03\x00", reason is unknown
-	if strings.Contains(SpecID, event2SpecID) {
-		for i := 0; ; i++ {
-			event2Log, err := readBIOSEvent2Log(content, &point)
-			if err != nil {
-				break
-			}
-			detail, err := json.Marshal(event2Log)
-			if err != nil {
-				break
-			}
-
-			result.Items = append(result.Items, entity.ManifestItem{
-				Name:   fmt.Sprint(fmt.Sprintf("%x", event2Log.BType), "-", i),
-				Value:  getHashValue(algHash, event2Log),
-				Detail: string(detail),
-			})
-		}
-	}
-	return result, nil
-}
-
-func UnmarshalIMAManifest(content []byte) (*entity.Manifest, error) {
-	result := &entity.Manifest{
-		Type: "ima",
-	}
-	str := string(content)
-	rows := strings.Split(str, "\n")
-	for _, row := range rows {
-		items := strings.Split(row, " ")
-		//the file path name may contains space chars
-		if len(items) > 5 {
-			items[4] = strings.Join(items[4:], " ")
-			items = items[:5]
-		}
-		switch len(items) {
-		case 5:
-			imi := entity.IMAManifestItem{
-				Pcr:          items[0],
-				TemplateHash: items[1],
-				TemplateName: items[2],
-				FiledataHash: items[3],
-				FilenameHint: items[4],
-			}
-			detail, err := json.Marshal(imi)
-			if err != nil {
-				return nil, err
-			}
-			result.Items = append(result.Items, entity.ManifestItem{
-				Name:   items[4],
-				Value:  items[3],
-				Detail: string(detail),
-			})
-		case 0, 1:
-			continue
-		default:
-			return nil, errors.New("ima manifest format is wrong")
-		}
-	}
-	return result, nil
-}
-
-func readSHA1BIOSEventLog(origin []byte, point *int64) (*entity.BIOSManifestItem, error) {
-	pcr, err := readUint32(origin, point)
-	if err != nil {
-		return nil, err
-	}
-	bType, err := readUint32(origin, point)
-	if err != nil {
-		return nil, err
-	}
-	digestBytes := make([]byte, sha1DigestLen)
-	digestBytes, err = readBytes(digestBytes, origin, point)
-	if err != nil {
-		return nil, err
-	}
-	dataLength, err := readUint32(origin, point)
-	if err != nil {
-		return nil, err
-	}
-	dataBytes := make([]byte, dataLength)
-	dataBytes, err = readBytes(dataBytes, origin, point)
-	if err != nil {
-		return nil, err
-	}
-
-	// real SHA1 BIOS event log in TPM1.2 doesn't have digest count and item. see detail in the doc
-	result := &entity.BIOSManifestItem{
-		Pcr:   pcr,
-		BType: bType,
-		Digest: entity.DigestValues{
-			Count: 1,
-			Item: []entity.DigestItem{
-				{
-					AlgID: sha1AlgID,
-					Item:  hex.EncodeToString(digestBytes),
-				},
-			},
-		},
-		DataLen: dataLength,
-		Data:    hex.EncodeToString(dataBytes),
-	}
-	return result, nil
-}
-
-func parseDigestValues(cnt uint32, origin []byte, point *int64) (*entity.DigestValues, error) {
-	var err error
-	dAlgIDBytes := make([]byte, digestAlgIDLen)
-	dv := &entity.DigestValues{Count: cnt}
-	for i := 0; i < int(cnt); i++ {
-		dAlgIDBytes, err = readBytes(dAlgIDBytes, origin, point)
-		if err != nil {
-			return nil, err
-		}
-		algIDStr := hex.EncodeToString(dAlgIDBytes)
-		if algIDStr == sha1AlgID {
-			dBytes := make([]byte, sha1DigestLen)
-			dBytes, err = readBytes(dBytes, origin, point)
-			if err != nil {
-				return nil, err
-			}
-			dv.Item = append(dv.Item, entity.DigestItem{
-				AlgID: sha1AlgID,
-				Item:  hex.EncodeToString(dBytes),
-			})
-		}
-		if algIDStr == sha256AlgID {
-			dBytes := make([]byte, sha256DigestLen)
-			dBytes, err = readBytes(dBytes, origin, point)
-			if err != nil {
-				return nil, err
-			}
-			dv.Item = append(dv.Item, entity.DigestItem{
-				AlgID: sha256AlgID,
-				Item:  hex.EncodeToString(dBytes),
-			})
-		}
-	}
-	return dv, nil
-}
-
-func readBIOSEvent2Log(origin []byte, point *int64) (*entity.BIOSManifestItem, error) {
-	pcr, err := readUint32(origin, point)
-	if err != nil {
-		return nil, err
-	}
-	bType, err := readUint32(origin, point)
-	if err != nil {
-		return nil, err
-	}
-	dCount, err := readUint32(origin, point)
-	if err != nil {
-		return nil, err
-	}
-	dv, err := parseDigestValues(dCount, origin, point)
-	if err != nil {
-		return nil, err
-	}
-	dataLength, err := readUint32(origin, point)
-	if err != nil {
-		return nil, err
-	}
-	dataBytes := make([]byte, dataLength)
-	dataBytes, err = readBytes(dataBytes, origin, point)
-	if err != nil {
-		return nil, err
-	}
-	result := &entity.BIOSManifestItem{
-		Pcr:     pcr,
-		BType:   bType,
-		Digest:  *dv,
-		DataLen: dataLength,
-		Data:    hex.EncodeToString(dataBytes),
-	}
-	return result, nil
-}
-
-func readBytes(target []byte, origin []byte, point *int64) ([]byte, error) {
-	end := *point + int64(len(target))
-	if *point > int64(len(origin)) || end > int64(len(origin)) {
-		return nil, errors.New("end of file")
-	}
-	copy(target, origin[*point:end])
-	*point += int64(len(target))
-	return target, nil
-}
-
-func readUint32(origin []byte, point *int64) (uint32, error) {
-	target := make([]byte, uint32Len)
-	end := *point + int64(len(target))
-	if *point > int64(len(origin)) || end > int64(len(origin)) {
-		return 0, errors.New("end of file")
-	}
-	copy(target, origin[*point:end])
-	bb := bytes.NewBuffer(target)
-	var result uint32
-	err := binary.Read(bb, binary.LittleEndian, &result)
-	if err != nil {
-		return 0, err
-	}
-	*point += int64(len(target))
-	return result, nil
-}
-
-func getSpecID(origin []byte) string {
-	result := make([]byte, specLen)
-	copy(result, origin[specStart:specEnd])
-	return string(result)
 }

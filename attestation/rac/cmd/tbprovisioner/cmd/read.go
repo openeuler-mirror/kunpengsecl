@@ -1,5 +1,4 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
 You can use this software according to the terms and conditions of
 the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
@@ -13,6 +12,7 @@ Author: wucaijun
 Create: 2021-12-02
 Description: Command line tool for tpm provision process.
 */
+
 package cmd
 
 import (
@@ -125,17 +125,17 @@ file(Default: StdOut) with the define format(Default: PEM).
 				tpmConf.BIOSLogPath = ractools.BiosLogPath
 				tpmConf.ReportHashAlg = ""
 			}
-			tp, err := ractools.OpenTPM(!rSim, &tpmConf)
+			err := ractools.OpenTPM(!rSim, &tpmConf)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)
 			}
-			defer tp.Close()
+			defer ractools.CloseTPM()
 			switch obj {
 			case ConstNVRAM:
-				nvramHandle(tp)
+				nvramHandle()
 			case ConstPCR:
-				pcrHandle(tp)
+				pcrHandle()
 			}
 		},
 	}
@@ -154,11 +154,11 @@ func init() {
 	readCmd.Flags().BoolVarP(&rSim, LongSimulator, ShortSimulator, false, ConstSimulator)
 }
 
-func nvramHandle(tp *ractools.TPM) {
+func nvramHandle() {
 	if rIndex == 0 {
 		rIndex = ractools.IndexRsa2048EKCert
 	}
-	buf, err := tp.ReadNVRAM(rIndex)
+	buf, err := ractools.ReadNVRAM(rIndex)
 	if err != nil {
 		fmt.Printf(errReadNVRAM, rIndex, err)
 		os.Exit(1)
@@ -185,8 +185,7 @@ func nvramHandle(tp *ractools.TPM) {
 	}
 }
 
-func pcrHandle(tp *ractools.TPM) {
-	_ = tp
+func pcrHandle() {
 	//fmt.Printf(errReadPCR, rIndex, err)
 	//fmt.Printf(constWritePCR, rIndex, buf)
 }

@@ -1,5 +1,4 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
 You can use this software according to the terms and conditions of
 the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
@@ -14,6 +13,7 @@ Create: 2021-12-01
 Description: Command line tool for tpm provision process.
 */
 
+// main package for tbprovisioner tools.
 package main
 
 import "gitee.com/openeuler/kunpengsecl/attestation/rac/cmd/tbprovisioner/cmd"
