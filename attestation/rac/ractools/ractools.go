@@ -277,6 +277,14 @@ func (tpm *TPM) LoadEKeyCert() error {
 	if err != nil {
 		return errFailTPMInit
 	}
+	// There is an extra zero sequence behind the physical tpm certificate,
+	// which should be removed, otherwise the certificate parsing will be wrong.
+	for i := range ekCertDer {
+		if ekCertDer[i] == 0 && ekCertDer[i+1] == 0 {
+			ekCertDer = ekCertDer[:i]
+			break
+		}
+	}
 	cfg := config.GetDefault(config.ConfClient)
 	cfg.SetEKeyCert(ekCertDer)
 	return nil
