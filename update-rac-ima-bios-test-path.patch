@@ -1,0 +1,14 @@
+diff -Nuar kunpengsecl-v1.0.0-pre/attestation/rac/ractools/entity.go kunpengsecl-v1.0.0/attestation/rac/ractools/entity.go
+--- kunpengsecl-v1.0.0-pre/attestation/rac/ractools/entity.go	2021-12-26 12:17:34.000000000 +0800
++++ kunpengsecl-v1.0.0/attestation/rac/ractools/entity.go	2022-01-21 21:51:32.085148450 +0800
+@@ -29,8 +29,8 @@
+ 
+ const (
+ 	emptyPassword   = ""
+-	TestImaLogPath  = "./ascii_runtime_measurements"
+-	TestBiosLogPath = "./binary_bios_measurements"
++	TestImaLogPath  = "/etc/attestation/default_test/ascii_runtime_measurements"
++	TestBiosLogPath = "/etc/attestation/default_test/binary_bios_measurements"
+ 	ImaLogPath      = "/sys/kernel/security/ima/ascii_runtime_measurements"
+ 	BiosLogPath     = "/sys/kernel/security/tpm0/binary_bios_measurements"
+ )
