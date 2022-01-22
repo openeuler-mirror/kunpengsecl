@@ -153,7 +153,7 @@ const (
 	AlgCBC  = 0x0042
 	AlgCFB  = 0x0043
 
-	KEYSIZE = 32
+	KEYSIZE = 16
 )
 
 var (
