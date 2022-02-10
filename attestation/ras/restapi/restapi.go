@@ -46,19 +46,22 @@ DELETE  /{id}/basevalues/{bid}  删除指定server的指定基准值
 package restapi
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
+	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"github.com/labstack/echo/v4"
 )
 
-type MyServer struct {
+type MyRestAPIServer struct {
 }
 
 func StartServer(port string) {
 	e := echo.New()
-	RegisterHandlers(e, &MyServer{})
+	RegisterHandlers(e, &MyRestAPIServer{})
 	logger.L.Sugar().Debug(e.Start(port))
 }
 
@@ -70,7 +73,9 @@ func checkJSON(ctx echo.Context) bool {
 	return false
 }
 
-func (s *MyServer) Get(ctx echo.Context) error {
+// (GET /)
+// get all nodes information
+func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}
@@ -78,23 +83,71 @@ func (s *MyServer) Get(ctx echo.Context) error {
 	return ctx.HTML(http.StatusOK, `<a href="http://example.com/">show all server information</a>`)
 }
 
-func (s *MyServer) GetConfig(ctx echo.Context) error {
-	return ctx.HTML(http.StatusOK, "current configuration")
+type cfgRecord struct {
+	HBDuration    time.Duration
+	TrustDuration time.Duration
 }
 
-func (s *MyServer) PostConfig(ctx echo.Context) error {
-	return ctx.HTML(http.StatusOK, "save new configuration")
+func genConfigJson(ctx echo.Context) *cfgRecord {
+	return &cfgRecord{
+		HBDuration:    config.GetHBDuration(),
+		TrustDuration: config.GetTrustDuration(),
+	}
 }
 
-func (s *MyServer) PostLogin(ctx echo.Context) error {
+func genConfigHtml(ctx echo.Context) string {
+	var buf bytes.Buffer
+	buf.WriteString(`<html><head><title>config</title></head><body>`)
+	buf.WriteString(`<a href="/">Up</a><br/>`)
+	buf.WriteString(`<table><tr><th>Parameter</th><th>Value</th></tr>`)
+	tmp := `<tr><td>%s</td><td>%d</td></tr>`
+	buf.WriteString(fmt.Sprintf(tmp, "Heart Beat Duration", config.GetHBDuration()))
+	buf.WriteString(fmt.Sprintf(tmp, "Trust Report Duration", config.GetTrustDuration()))
+	buf.WriteString(`</table></body></html>`)
+	return buf.String()
+}
+
+// (GET /config)
+// get ras server configuration
+func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusOK, genConfigJson(ctx))
+	}
+	return ctx.HTML(http.StatusOK, genConfigHtml(ctx))
+}
+
+// (POST /config)
+// modify ras server configuration
+func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusOK, genConfigJson(ctx))
+	}
+	return ctx.HTML(http.StatusOK, genConfigHtml(ctx))
+}
+
+// (POST /login)
+// login/logout ras server as admin
+func (s *MyRestAPIServer) PostLogin(ctx echo.Context) error {
 	return ctx.HTML(http.StatusOK, "login...")
 }
 
-func (s *MyServer) GetVersion(ctx echo.Context) error {
-	return ctx.HTML(http.StatusOK, "version 1.0.0")
+// (GET /version)
+// get ras server version information
+func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
+	if checkJSON(ctx) {
+		res := struct {
+			Version string
+		}{
+			config.RasVersion,
+		}
+		return ctx.JSON(http.StatusOK, res)
+	}
+	return ctx.HTML(http.StatusOK, config.RasVersion)
 }
 
-func (s *MyServer) GetFromTo(ctx echo.Context, from int64, to int64) error {
+// (GET /{from}/{to})
+// get nodes information from "from" node to "to" node sequentially
+func (s *MyRestAPIServer) GetFromTo(ctx echo.Context, from int64, to int64) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}
@@ -103,12 +156,16 @@ func (s *MyServer) GetFromTo(ctx echo.Context, from int64, to int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) DeleteId(ctx echo.Context, id int64) error {
+// (DELETE /{id})
+// delete node {id}
+func (s *MyRestAPIServer) DeleteId(ctx echo.Context, id int64) error {
 	res := fmt.Sprintf("delete %d", id)
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) GetId(ctx echo.Context, id int64) error {
+// (GET /{id})
+// get node {id} information
+func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}
@@ -116,12 +173,16 @@ func (s *MyServer) GetId(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) PostId(ctx echo.Context, id int64) error {
+// (POST /{id})
+// modify node {id} information
+func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
 	res := fmt.Sprintf("change server %d information", id)
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) GetIdBasevalues(ctx echo.Context, id int64) error {
+// (GET /{id}/basevalues)
+// get node {id} all base values
+func (s *MyRestAPIServer) GetIdBasevalues(ctx echo.Context, id int64) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}
@@ -129,7 +190,9 @@ func (s *MyServer) GetIdBasevalues(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) PostIdBasevalues(ctx echo.Context, id int64) error {
+// (POST /{id}/basevalues)
+// add a new base value to node {id}
+func (s *MyRestAPIServer) PostIdBasevalues(ctx echo.Context, id int64) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}
@@ -137,12 +200,16 @@ func (s *MyServer) PostIdBasevalues(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) DeleteIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
+// (DELETE /{id}/basevalues/{basevalueid})
+// delete node {id} one base value {basevalueid}
+func (s *MyRestAPIServer) DeleteIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
 	res := fmt.Sprintf("delete server %d base value %d", id, basevalueid)
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
+// (GET /{id}/basevalues/{basevalueid})
+// get node {id} one base value {basevalueid}
+func (s *MyRestAPIServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}
@@ -150,7 +217,9 @@ func (s *MyServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64, baseva
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) PostIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
+// (POST /{id}/basevalues/{basevalueid})
+// modify node {id} one base value {basevalueid}
+func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}
@@ -158,7 +227,9 @@ func (s *MyServer) PostIdBasevaluesBasevalueid(ctx echo.Context, id int64, basev
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) GetIdReports(ctx echo.Context, id int64) error {
+// (GET /{id}/reports)
+// get node {id} all reports
+func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}
@@ -166,12 +237,16 @@ func (s *MyServer) GetIdReports(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) DeleteIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
+// (DELETE /{id}/reports/{reportid})
+// delete node {id} one report {reportid}
+func (s *MyRestAPIServer) DeleteIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
 	res := fmt.Sprintf("delete server %d report %d", id, reportid)
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func (s *MyServer) GetIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
+// (GET /{id}/reports/{reportid})
+// get node {id} one report {reportid}
+func (s *MyRestAPIServer) GetIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}

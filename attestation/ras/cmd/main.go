@@ -30,10 +30,6 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi"
 )
 
-const (
-	rasVersion = "version 2.0.0"
-)
-
 // signalHandler handles the singal and save configurations.
 func signalHandler() {
 	ch := make(chan os.Signal, 1)
@@ -49,7 +45,7 @@ func signalHandler() {
 // handleGlobalFlags handles the global flags that should do something outside the config package.
 func handleGlobalFlags() {
 	if config.VersionFlag != nil && *config.VersionFlag {
-		fmt.Printf("remote attestation server(ras): %s\n", rasVersion)
+		fmt.Printf("remote attestation server(ras): %s\n", config.RasVersion)
 		os.Exit(0)
 	}
 	if config.TokenFlag != nil && *config.TokenFlag {
