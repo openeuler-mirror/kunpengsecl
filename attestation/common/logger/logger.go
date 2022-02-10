@@ -19,6 +19,8 @@ Description: log functions.
 package logger
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -61,7 +63,11 @@ func NewInfoLogger(path string) *zap.Logger {
 		OutputPaths:      []string{path},
 		ErrorOutputPaths: []string{path},
 	}
-	l, _ := c.Build()
+	l, err := c.Build()
+	if err != nil {
+		fmt.Printf("build logger error: %v\n", err)
+		return nil
+	}
 	return l
 }
 
@@ -91,6 +97,10 @@ func NewDebugLogger(path string) *zap.Logger {
 		OutputPaths:      []string{"stdout", path},
 		ErrorOutputPaths: []string{"stdout", path},
 	}
-	l, _ := c.Build()
+	l, err := c.Build()
+	if err != nil {
+		fmt.Printf("build logger error: %v\n", err)
+		return nil
+	}
 	return l
 }

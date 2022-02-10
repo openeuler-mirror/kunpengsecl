@@ -92,7 +92,7 @@ func newRasService() *rasService {
 }
 
 // StartServer starts a server to provide ras rpc services.
-func StartServer(path, addr string) {
+func StartServer(addr string) {
 	var err error
 	if srv != nil {
 		return

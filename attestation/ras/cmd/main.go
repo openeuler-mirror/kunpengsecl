@@ -22,19 +22,16 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi"
 )
 
 const (
-	rasVersion  = "version 2.0.0"
-	defaultMode = 0755
-	dirLogs     = "/logs"
-	dirReports  = "/reports"
+	rasVersion = "version 2.0.0"
 )
 
 // signalHandler handles the singal and save configurations.
@@ -73,10 +70,6 @@ func main() {
 	fileName, _ := os.Executable()
 	fmt.Printf("exec: %s, %d\n", fileName, os.Getpid())
 
-	path := filepath.Dir(fileName) // if released with go build, use this line to get the correct path for ras executable.
-	os.MkdirAll(path+dirLogs, defaultMode)
-	os.MkdirAll(path+dirReports, defaultMode)
-
 	config.InitFlags()
 	config.LoadConfigs()
 	config.HandleFlags()
@@ -84,6 +77,6 @@ func main() {
 	signalHandler()
 
 	logger.L.Debug("start server")
-	clientapi.StartServer(path+dirReports, config.GetServerPort())
-	//go restapi.StartServer(GetRestPort(), mgr)
+	go restapi.StartServer(config.GetRestPort())
+	clientapi.StartServer(config.GetServerPort())
 }

@@ -22,8 +22,11 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"math/big"
 	"net"
+	"os"
+	"path/filepath"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
@@ -35,6 +38,7 @@ import (
 
 const (
 	// path
+	defaultMode  = 0755
 	strLocalConf = "."
 	strHomeConf  = "$HOME/.config/attestation/ras"
 	strSysConf   = "/etc/attestation/ras"
@@ -52,7 +56,7 @@ const (
 	dbUserDefault = "postgres"
 	dbPortDefault = 5432
 	// logger
-	logPath = "log.path"
+	logFile = "log.file"
 	// RAS config key
 	confRootPrivKeyFile = "rasconfig.rootprivkeyfile"
 	confRootKeyCertFile = "rasconfig.rootkeycertfile"
@@ -67,7 +71,7 @@ const (
 	confDigestAlgorithm = "racconfig.digestalgorithm"
 	// RAS config default value
 	nullString      = ""
-	logFile         = "./logs/ras-log.txt"
+	rasLogFile      = "./logs/ras-log.txt"
 	keyExt          = ".key"
 	crtExt          = ".crt"
 	rootKey         = "./pca-root"
@@ -104,8 +108,8 @@ const (
 
 type (
 	rasConfig struct {
-		// logger path
-		logPath string
+		// logger file
+		logFile string
 		ip      string
 
 		// database configuration
@@ -162,10 +166,20 @@ func InitFlags() {
 // HandleFlags handles the command flags.
 func HandleFlags() {
 	// init logger
+	logF := GetLogFile()
+	logD := filepath.Dir(logF)
+	if logD == nullString {
+		logF = rasLogFile
+		logD = filepath.Dir(logF)
+	}
+	err := os.MkdirAll(logD, defaultMode)
+	if err != nil {
+		fmt.Printf("mkdir '%s' error: %v\n", logD, err)
+	}
 	if verboseFlag != nil && *verboseFlag {
-		logger.L = logger.NewDebugLogger(GetLogPath())
+		logger.L = logger.NewDebugLogger(logF)
 	} else {
-		logger.L = logger.NewInfoLogger(GetLogPath())
+		logger.L = logger.NewInfoLogger(logF)
 	}
 	// set command line input
 	if servPort != nil && *servPort != nullString {
@@ -181,7 +195,7 @@ func getConfigs() {
 	if rasCfg == nil {
 		return
 	}
-	rasCfg.logPath = viper.GetString(logPath)
+	rasCfg.logFile = viper.GetString(rasLogFile)
 	rasCfg.ip = typdefs.GetIP()
 	rasCfg.dbHost = viper.GetString(dbHost)
 	rasCfg.dbName = viper.GetString(dbName)
@@ -389,7 +403,7 @@ func SaveConfigs() {
 	if rasCfg == nil {
 		return
 	}
-	viper.Set(logPath, rasCfg.logPath)
+	viper.Set(logFile, rasCfg.logFile)
 	viper.Set(dbHost, rasCfg.dbHost)
 	viper.Set(dbName, rasCfg.dbName)
 	viper.Set(dbPort, rasCfg.dbPort)
@@ -412,12 +426,12 @@ func SaveConfigs() {
 	}
 }
 
-// GetLogPath returns the logger path configuration.
-func GetLogPath() string {
+// GetLogFile returns the logger path configuration.
+func GetLogFile() string {
 	if rasCfg == nil {
 		return logFile
 	}
-	return rasCfg.logPath
+	return rasCfg.logFile
 }
 
 // GetIP returns the ras server ip address.

@@ -5,7 +5,7 @@ database:
   port: 5432
   user: postgres
 log:
-  path: ./logs/ras-log.txt
+  file: ./logs/ras-log.txt
 racconfig:
   digestalgorithm: sha1
   hbduration: 10s

@@ -415,8 +415,8 @@ func TestPcrGroups(t *testing.T) {
 	}
 	p := NewPcrGroups()
 	for _, c := range testCases1 {
-		p.ExtendSha1(c.index, []byte(c.value))
 		d, _ := hex.DecodeString(c.value)
+		p.ExtendSha1(c.index, d)
 		h1[c.index] = sha1.New()
 		h1[c.index].Write(buf[c.index])
 		h1[c.index].Write(d)
@@ -432,8 +432,8 @@ func TestPcrGroups(t *testing.T) {
 		buf[i] = make([]byte, 32)
 	}
 	for _, c := range testCases2 {
-		p.ExtendSha256(c.index, []byte(c.value), []byte(c.name))
 		d, _ := hex.DecodeString(c.value)
+		p.ExtendSha256(c.index, d)
 		h1[c.index] = sha256.New()
 		h1[c.index].Write(buf[c.index])
 		h1[c.index].Write(d)
