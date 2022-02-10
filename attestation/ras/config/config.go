@@ -80,8 +80,8 @@ const (
 	rootKey         = "./pca-root"
 	eKey            = "./pca-ek"
 	authKey         = "./ecdsakey"
-	hbDuration      = 10  // seconds
-	trustDuration   = 120 // seconds
+	hbDuration      = 20   // seconds
+	trustDuration   = 1200 // seconds
 	digestAlgorithm = "sha1"
 	strChina        = "China"
 	strCompany      = "Company"
@@ -171,7 +171,7 @@ func HandleFlags() {
 	// init logger
 	logF := GetLogFile()
 	logD := filepath.Dir(logF)
-	if logD == nullString {
+	if logF == nullString {
 		logF = rasLogFile
 		logD = filepath.Dir(logF)
 	}
@@ -184,6 +184,7 @@ func HandleFlags() {
 	} else {
 		logger.L = logger.NewInfoLogger(logF)
 	}
+	rasCfg.logFile = logF
 	// set command line input
 	if servPort != nil && *servPort != nullString {
 		SetServerPort(*servPort)
@@ -198,7 +199,7 @@ func getConfigs() {
 	if rasCfg == nil {
 		return
 	}
-	rasCfg.logFile = viper.GetString(rasLogFile)
+	rasCfg.logFile = viper.GetString(logFile)
 	rasCfg.ip = typdefs.GetIP()
 	rasCfg.dbHost = viper.GetString(dbHost)
 	rasCfg.dbName = viper.GetString(dbName)
@@ -432,7 +433,7 @@ func SaveConfigs() {
 // GetLogFile returns the logger path configuration.
 func GetLogFile() string {
 	if rasCfg == nil {
-		return logFile
+		return rasLogFile
 	}
 	return rasCfg.logFile
 }
@@ -613,12 +614,28 @@ func GetHBDuration() time.Duration {
 	return rasCfg.hbDuration
 }
 
+// SetHBDuration returns heart beat duration configuration.
+func SetHBDuration(v time.Duration) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.hbDuration = v
+}
+
 // GetTrustDuration returns trust report expire duration configuration.
 func GetTrustDuration() time.Duration {
 	if rasCfg == nil {
 		return 0
 	}
 	return rasCfg.trustDuration
+}
+
+// SetTrustDuration returns trust report expire duration configuration.
+func SetTrustDuration(v time.Duration) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.trustDuration = v
 }
 
 // GetDigestAlgorithm returns digest algorithm configuration.

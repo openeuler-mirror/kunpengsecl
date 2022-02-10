@@ -83,15 +83,16 @@ func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 	return ctx.HTML(http.StatusOK, `<a href="http://example.com/">show all server information</a>`)
 }
 
+// TODO: add more parameters in this struct to export to outside control.
 type cfgRecord struct {
-	HBDuration    time.Duration
-	TrustDuration time.Duration
+	HBDuration    time.Duration `json:"hbduration" form:"hbduration"`
+	TrustDuration time.Duration `json:"trustduration" form:"trustduration"`
 }
 
 func genConfigJson(ctx echo.Context) *cfgRecord {
 	return &cfgRecord{
-		HBDuration:    config.GetHBDuration(),
-		TrustDuration: config.GetTrustDuration(),
+		HBDuration:    config.GetHBDuration() / time.Second,
+		TrustDuration: config.GetTrustDuration() / time.Second,
 	}
 }
 
@@ -101,14 +102,18 @@ func genConfigHtml(ctx echo.Context) string {
 	buf.WriteString(`<a href="/">Up</a><br/>`)
 	buf.WriteString(`<table><tr><th>Parameter</th><th>Value</th></tr>`)
 	tmp := `<tr><td>%s</td><td>%d</td></tr>`
-	buf.WriteString(fmt.Sprintf(tmp, "Heart Beat Duration", config.GetHBDuration()))
-	buf.WriteString(fmt.Sprintf(tmp, "Trust Report Duration", config.GetTrustDuration()))
+	buf.WriteString(fmt.Sprintf(tmp, "Heart Beat Duration", config.GetHBDuration()/time.Second))
+	buf.WriteString(fmt.Sprintf(tmp, "Trust Report Duration", config.GetTrustDuration()/time.Second))
 	buf.WriteString(`</table></body></html>`)
 	return buf.String()
 }
 
 // (GET /config)
 // get ras server configuration
+//  read config as html
+//    curl -X GET http://localhost:40002/config
+//  read config as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/config
 func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson(ctx))
@@ -118,7 +123,20 @@ func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 
 // (POST /config)
 // modify ras server configuration
+//  write config as html/form
+//    curl -X POST -d "hbduration=20" -d "trustduration=30" http://localhost:40002/config
+//  write config as json
+//    curl -X POST -H "Content-type: application/json" -d '{"hbduration": 100, "trustduration": 200}' http://localhost:40002/config
+// Notice: key name must be enclosed by "" in json format!!!
 func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
+	cfg := new(cfgRecord)
+	err := ctx.Bind(cfg)
+	if err != nil {
+		logger.L.Sugar().Debugf("config bind error: %v\n", err)
+		return err
+	}
+	config.SetHBDuration(cfg.HBDuration * time.Second)
+	config.SetTrustDuration(cfg.TrustDuration * time.Second)
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson(ctx))
 	}
