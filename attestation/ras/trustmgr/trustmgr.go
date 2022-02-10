@@ -51,7 +51,7 @@ const (
 
 	// for database management sql
 	sqlRegisterClientByIK    = `INSERT INTO client(regtime, deleted, info, ikcert) VALUES ($1, $2, $3, $4) RETURNING id`
-	sqlFindAllEnabledClients = `SELECT id, ikcert FROM client WHERE deleted=false`
+	sqlFindAllEnabledClients = `SELECT id, regtime, ikcert FROM client WHERE deleted=false`
 	sqlFindClientByID        = `SELECT regtime, deleted, info, ikcert FROM client WHERE id=$1`
 	sqlFindClientIDByIK      = `SELECT id FROM client WHERE ikcert=$1`
 	sqlFindClientFullByIK    = `SELECT id, regtime, deleted, info FROM client WHERE ikcert=$1`
@@ -85,6 +85,7 @@ func CreateTrustManager(dbType, dbConfig string) {
 	var err error
 	var id int64
 	var ik string
+	var regtime string
 	if tmgr != nil {
 		return
 	}
@@ -107,9 +108,10 @@ func CreateTrustManager(dbType, dbConfig string) {
 		return
 	}
 	for rows.Next() {
-		err = rows.Scan(&id, &ik)
+		err = rows.Scan(&id, &regtime, &ik)
 		if err == nil {
 			c := cache.NewCache()
+			c.SetRegTime(regtime)
 			c.SetIKeyCert(ik)
 			tmgr.cache[id] = c
 		}
@@ -133,8 +135,11 @@ func ReleaseTrustManager() {
 	releaseStorePipe()
 }
 
-// getCache returns the client cache ref by id or nil if not find.
-func getCache(id int64) (*cache.Cache, error) {
+// GetCache returns the client cache ref by id or nil if not find.
+func GetCache(id int64) (*cache.Cache, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
 	tmgr.mu.Lock()
 	defer tmgr.mu.Unlock()
 	c, ok := tmgr.cache[id]
@@ -166,6 +171,7 @@ func RegisterClientByIK(ikCert, info string) (*typdefs.ClientRow, error) {
 		return nil, err
 	}
 	ca := cache.NewCache()
+	ca.SetRegTime(c.RegTime.String())
 	ca.SetIKeyCert(ikCert)
 	tmgr.mu.Lock()
 	tmgr.cache[c.ID] = ca
@@ -174,10 +180,7 @@ func RegisterClientByIK(ikCert, info string) (*typdefs.ClientRow, error) {
 }
 
 func UnRegisterClientByID(id int64) {
-	if tmgr == nil {
-		return
-	}
-	_, err := getCache(id)
+	_, err := GetCache(id)
 	if err != nil {
 		return
 	}
@@ -203,10 +206,7 @@ func FindClientByIK(ikCert string) (*typdefs.ClientRow, error) {
 
 // FindClientByID gets client from database by id.
 func FindClientByID(id int64) (*typdefs.ClientRow, error) {
-	if tmgr == nil {
-		return nil, typdefs.ErrParameterWrong
-	}
-	_, err := getCache(id)
+	_, err := GetCache(id)
 	if err != nil {
 		return nil, err
 	}
@@ -243,10 +243,7 @@ func FindClientsByInfo(info string) ([]typdefs.ClientRow, error) {
 
 // HandleHeartbeat handles the heat beat request, update client cache and reply some commands.
 func HandleHeartbeat(id int64) (uint64, uint64, error) {
-	if tmgr == nil {
-		return 0, 0, typdefs.ErrParameterWrong
-	}
-	c, err := getCache(id)
+	c, err := GetCache(id)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -260,12 +257,9 @@ func HandleHeartbeat(id int64) (uint64, uint64, error) {
 // ValidateReport validates the report and returns the result.
 // use the short broken algorithm once one part doesn't match base.
 func ValidateReport(report *typdefs.TrustReport) (bool, error) {
-	if tmgr == nil {
-		return false, typdefs.ErrParameterWrong
-	}
-	c, err := getCache(report.ClientID)
+	c, err := GetCache(report.ClientID)
 	if err != nil {
-		return false, typdefs.ErrDoesnotRegistered
+		return false, err
 	}
 	// 1. use cache to check Nonce value.
 	if !c.CompareNonce(report.Nonce) {

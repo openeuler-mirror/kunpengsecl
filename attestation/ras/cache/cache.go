@@ -37,6 +37,7 @@ const (
 type (
 	// Cache stores the latest status of one RAC client and commands.
 	Cache struct {
+		regtime string
 		online  bool
 		trusted bool
 		// current commands for RAC.
@@ -56,6 +57,7 @@ type (
 // NewCache creates a new cache to save client information.
 func NewCache() *Cache {
 	c := &Cache{
+		regtime:         "",
 		online:          false,
 		trusted:         false,
 		commands:        typdefs.CmdNone,
@@ -145,4 +147,18 @@ func (c *Cache) GetIKeyCert() *x509.Certificate {
 // SetIKeyCert saves the client IK certificate in cache to enhance performance.
 func (c *Cache) SetIKeyCert(pemCert string) {
 	c.ikCert, _, _ = cryptotools.DecodeKeyCertFromPEM([]byte(pemCert))
+}
+
+// GetRegTime returns the client register time.
+func (c *Cache) GetRegTime() string {
+	return c.regtime
+}
+
+// SetRegTime saves the client register time.
+func (c *Cache) SetRegTime(v string) {
+	c.regtime = v
+}
+
+func (c *Cache) GetOnline() bool {
+	return c.online
 }

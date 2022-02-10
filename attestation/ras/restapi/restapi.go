@@ -52,7 +52,9 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"github.com/labstack/echo/v4"
 )
 
@@ -186,14 +188,53 @@ func (s *MyRestAPIServer) DeleteId(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
+type Node struct {
+	RegTime string `json:"regtime" form:"regtime"`
+	Online  bool   `json:"online" form:"online"`
+	Trusted bool   `json:"trusted" form:"trusted"`
+}
+
+func genNodeJson(ctx echo.Context, c *cache.Cache) *Node {
+	return &Node{
+		RegTime: c.GetRegTime(),
+		Online:  c.GetOnline(),
+		Trusted: c.GetTrusted(),
+	}
+}
+
+func genNodeHtml(ctx echo.Context, c *cache.Cache) string {
+	var buf bytes.Buffer
+	buf.WriteString(`<html><head><title>node</title></head><body>`)
+	buf.WriteString(`<a href="/">Up</a><br/>`)
+	buf.WriteString(`<table><tr><th>Parameter</th><th>Value</th></tr>`)
+	tmp := `<tr><td>%s</td><td>%v</td></tr>`
+	buf.WriteString(fmt.Sprintf(tmp, "Register Time", c.GetRegTime()))
+	buf.WriteString(fmt.Sprintf(tmp, "Online", c.GetOnline()))
+	buf.WriteString(fmt.Sprintf(tmp, "Trusted", c.GetTrusted()))
+	buf.WriteString(`</table></body></html>`)
+	return buf.String()
+}
+
 // (GET /{id})
 // get node {id} information
+//  read config as html
+//    curl -X GET http://localhost:40002/{id}
+//  read config as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
+	c, err := trustmgr.GetCache(id)
 	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, s)
+		if err != nil {
+			logger.L.Sugar().Debugf("get node infor error: %v\n", err)
+			return ctx.JSON(http.StatusNotFound, &Node{})
+		}
+		return ctx.JSON(http.StatusOK, genNodeJson(ctx, c))
 	}
-	res := fmt.Sprintf("get server %d all information", id)
-	return ctx.HTML(http.StatusOK, res)
+	if err != nil {
+		logger.L.Sugar().Debugf("get node infor error: %v\n", err)
+		return ctx.JSON(http.StatusNotFound, "")
+	}
+	return ctx.HTML(http.StatusOK, genNodeHtml(ctx, c))
 }
 
 // (POST /{id})
