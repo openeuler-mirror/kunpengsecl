@@ -151,6 +151,10 @@ func (s *MyRestAPIServer) PostLogin(ctx echo.Context) error {
 
 // (GET /version)
 // get ras server version information
+//  read version as html
+//    curl -X GET http://localhost:40002/version
+//  read version as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/version
 func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
 	if checkJSON(ctx) {
 		res := struct {
@@ -160,7 +164,8 @@ func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
 		}
 		return ctx.JSON(http.StatusOK, res)
 	}
-	return ctx.HTML(http.StatusOK, config.RasVersion)
+	res := fmt.Sprintf(`<html><head><title>config</title></head><body>Version: %s</body></html>`, config.RasVersion)
+	return ctx.HTML(http.StatusOK, res)
 }
 
 // (GET /{from}/{to})
