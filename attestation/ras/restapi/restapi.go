@@ -52,10 +52,35 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"github.com/labstack/echo/v4"
+)
+
+const (
+	htmlNodes = `<html><head><title>All Information</title></head><body>
+<a href="/login">login</a><br/><a href="/config">config</a><br/>
+<table border="1"><tr align="center" bgcolor="#00FF00"><th>ID</th>
+<th>RegTime</th><th>Online</th><th>Trusted</th><th>Info</th><th>Action</th></tr>`
+	htmlNodeInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td>
+<td>%v</td><td><a href="">link</a></td><td>Delete</td></tr>`
+	htmlNodeEnd = `</table></body></html>`
+
+	htmlConfig = `<html><head><title>Config Setting</title></head><body>
+<a href="/">Back</a><br/><table border="1"><form action="/config" method="post">
+<tr align="center" bgcolor="#00FF00"><th>Parameter</th><th>Value</th></tr>`
+	htmlConfigEdit = `<tr><td>%s</td><td align="center">
+<input type="text" name="%s" value="%d"/></td></tr>`
+	htmlConfigEnd = `</table><input type="submit" value="Save"/></form></body></html>`
+
+	htmlVersion = `<html><head><title>config</title></head><body>Version: %s</body></html>`
+
+	strHBDuration     = `Heart Beat Duration(s)`
+	nameHBDuration    = `hbduration`
+	strTrustDuration  = `Trust Report Duration(s)`
+	nameTrustDuration = `trustduration`
 )
 
 type MyRestAPIServer struct {
@@ -75,14 +100,33 @@ func checkJSON(ctx echo.Context) bool {
 	return false
 }
 
+func genAllNodesHtml(ctx echo.Context, nodes []typdefs.NodeInfo) string {
+	var buf bytes.Buffer
+	buf.WriteString(htmlNodes)
+	for _, n := range nodes {
+		buf.WriteString(fmt.Sprintf(htmlNodeInfo,
+			n.ID, n.RegTime, n.Online, n.Trusted))
+	}
+	buf.WriteString(htmlNodeEnd)
+	return buf.String()
+}
+
 // (GET /)
 // get all nodes information
 func (s *MyRestAPIServer) Get(ctx echo.Context) error {
+	nodes, err := trustmgr.GetAllNodes()
 	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, s)
+		if err != nil {
+			logger.L.Sugar().Debugf("get all nodes error: %v\n", err)
+			return ctx.JSON(http.StatusNotFound, []typdefs.NodeInfo{})
+		}
+		return ctx.JSON(http.StatusOK, nodes)
 	}
-	//ctx.Response().Header().Set(echo.HeaderContentType, "text/plain")
-	return ctx.HTML(http.StatusOK, `<a href="http://example.com/">show all server information</a>`)
+	if err != nil {
+		logger.L.Sugar().Debugf("get all nodes error: %v\n", err)
+		return ctx.HTML(http.StatusNotFound, "")
+	}
+	return ctx.HTML(http.StatusOK, genAllNodesHtml(ctx, nodes))
 }
 
 // TODO: add more parameters in this struct to export to outside control.
@@ -100,13 +144,12 @@ func genConfigJson(ctx echo.Context) *cfgRecord {
 
 func genConfigHtml(ctx echo.Context) string {
 	var buf bytes.Buffer
-	buf.WriteString(`<html><head><title>config</title></head><body>`)
-	buf.WriteString(`<a href="/">Up</a><br/>`)
-	buf.WriteString(`<table><tr><th>Parameter</th><th>Value</th></tr>`)
-	tmp := `<tr><td>%s</td><td>%d</td></tr>`
-	buf.WriteString(fmt.Sprintf(tmp, "Heart Beat Duration", config.GetHBDuration()/time.Second))
-	buf.WriteString(fmt.Sprintf(tmp, "Trust Report Duration", config.GetTrustDuration()/time.Second))
-	buf.WriteString(`</table></body></html>`)
+	buf.WriteString(htmlConfig)
+	buf.WriteString(fmt.Sprintf(htmlConfigEdit, strHBDuration,
+		nameHBDuration, config.GetHBDuration()/time.Second))
+	buf.WriteString(fmt.Sprintf(htmlConfigEdit, strTrustDuration,
+		nameTrustDuration, config.GetTrustDuration()/time.Second))
+	buf.WriteString(htmlConfigEnd)
 	return buf.String()
 }
 
@@ -166,7 +209,7 @@ func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
 		}
 		return ctx.JSON(http.StatusOK, res)
 	}
-	res := fmt.Sprintf(`<html><head><title>config</title></head><body>Version: %s</body></html>`, config.RasVersion)
+	res := fmt.Sprintf(htmlVersion, config.RasVersion)
 	return ctx.HTML(http.StatusOK, res)
 }
 
@@ -207,10 +250,10 @@ func genNodeHtml(ctx echo.Context, c *cache.Cache) string {
 	buf.WriteString(`<html><head><title>node</title></head><body>`)
 	buf.WriteString(`<a href="/">Up</a><br/>`)
 	buf.WriteString(`<table><tr><th>Parameter</th><th>Value</th></tr>`)
-	tmp := `<tr><td>%s</td><td>%v</td></tr>`
-	buf.WriteString(fmt.Sprintf(tmp, "Register Time", c.GetRegTime()))
-	buf.WriteString(fmt.Sprintf(tmp, "Online", c.GetOnline()))
-	buf.WriteString(fmt.Sprintf(tmp, "Trusted", c.GetTrusted()))
+	htmlTableData := `<tr><td>%s</td><td>%v</td></tr>`
+	buf.WriteString(fmt.Sprintf(htmlTableData, "Register Time", c.GetRegTime()))
+	buf.WriteString(fmt.Sprintf(htmlTableData, "Online", c.GetOnline()))
+	buf.WriteString(fmt.Sprintf(htmlTableData, "Trusted", c.GetTrusted()))
 	buf.WriteString(`</table></body></html>`)
 	return buf.String()
 }

@@ -97,6 +97,13 @@ type (
 		IKCert  string
 	}
 
+	NodeInfo struct {
+		ID      int64  `json:"id" form:"id"`
+		RegTime string `json:"regtime" form:"regtime"`
+		Online  bool   `json:"online" form:"online"`
+		Trusted bool   `json:"trusted" form:"trusted"`
+	}
+
 	// ReportRow stores one record of trust report information
 	// in database table `report`.
 	ReportRow struct {

@@ -149,6 +149,25 @@ func GetCache(id int64) (*cache.Cache, error) {
 	return nil, typdefs.ErrDoesnotRegistered
 }
 
+func GetAllNodes() ([]typdefs.NodeInfo, error) {
+	var nodes []typdefs.NodeInfo
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	tmgr.mu.Lock()
+	defer tmgr.mu.Unlock()
+	for i, v := range tmgr.cache {
+		n := typdefs.NodeInfo{
+			ID:      i,
+			RegTime: v.GetRegTime(),
+			Online:  v.GetOnline(),
+			Trusted: v.GetTrusted(),
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes, nil
+}
+
 // RegisterClientByIK registers a new client by ikCert and info. if there is a existing ik, register will fail.
 func RegisterClientByIK(ikCert, info string) (*typdefs.ClientRow, error) {
 	if tmgr == nil {
