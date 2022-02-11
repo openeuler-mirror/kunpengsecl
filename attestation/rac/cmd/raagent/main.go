@@ -110,6 +110,7 @@ func prepare() {
 
 func loop() {
 	for {
+		logger.L.Debug("send heart beat...")
 		ras, err := clientapi.CreateConn(GetServer())
 		if err != nil {
 			logger.L.Sugar().Errorf("connect ras server fail, %s", err)
@@ -119,6 +120,7 @@ func loop() {
 		rpy, err := clientapi.DoSendHeartbeatWithConn(ras,
 			&clientapi.SendHeartbeatRequest{ClientId: GetClientId()})
 		if err == nil {
+			logger.L.Debug("send heart beat ok")
 			// step 4. do what ras tells client to do by NextAction...
 			doNextAction(ras, rpy)
 		}

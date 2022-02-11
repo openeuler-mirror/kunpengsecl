@@ -85,7 +85,7 @@ func CreateTrustManager(dbType, dbConfig string) {
 	var err error
 	var id int64
 	var ik string
-	var regtime string
+	var regtime time.Time
 	if tmgr != nil {
 		return
 	}
@@ -111,7 +111,7 @@ func CreateTrustManager(dbType, dbConfig string) {
 		err = rows.Scan(&id, &regtime, &ik)
 		if err == nil {
 			c := cache.NewCache()
-			c.SetRegTime(regtime)
+			c.SetRegTime(regtime.Format(typdefs.StrTimeFormat))
 			c.SetIKeyCert(ik)
 			tmgr.cache[id] = c
 		}
@@ -149,6 +149,7 @@ func GetCache(id int64) (*cache.Cache, error) {
 	return nil, typdefs.ErrDoesnotRegistered
 }
 
+// GetAllNodes returns all client cache information to rest api.
 func GetAllNodes() ([]typdefs.NodeInfo, error) {
 	var nodes []typdefs.NodeInfo
 	if tmgr == nil {
@@ -166,6 +167,18 @@ func GetAllNodes() ([]typdefs.NodeInfo, error) {
 		nodes = append(nodes, n)
 	}
 	return nodes, nil
+}
+
+// UpdateAllNodes lets all clients to update configuration from ras in next heart beat.
+func UpdateAllNodes() {
+	if tmgr == nil {
+		return
+	}
+	tmgr.mu.Lock()
+	defer tmgr.mu.Unlock()
+	for _, n := range tmgr.cache {
+		n.SetCommands(typdefs.CmdSendConfig)
+	}
 }
 
 // RegisterClientByIK registers a new client by ikCert and info. if there is a existing ik, register will fail.
@@ -190,7 +203,7 @@ func RegisterClientByIK(ikCert, info string) (*typdefs.ClientRow, error) {
 		return nil, err
 	}
 	ca := cache.NewCache()
-	ca.SetRegTime(c.RegTime.String())
+	ca.SetRegTime(c.RegTime.Format(typdefs.StrTimeFormat))
 	ca.SetIKeyCert(ikCert)
 	tmgr.mu.Lock()
 	tmgr.cache[c.ID] = ca

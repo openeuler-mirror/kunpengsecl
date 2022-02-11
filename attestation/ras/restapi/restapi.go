@@ -182,6 +182,7 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	}
 	config.SetHBDuration(cfg.HBDuration * time.Second)
 	config.SetTrustDuration(cfg.TrustDuration * time.Second)
+	trustmgr.UpdateAllNodes()
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson(ctx))
 	}

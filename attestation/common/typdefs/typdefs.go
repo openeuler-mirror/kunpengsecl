@@ -51,6 +51,7 @@ const (
 	Sha1AlgStr      = "sha1"
 	Sha256AlgStr    = "sha256"
 	PcrMaxNum       = 24
+	StrTimeFormat   = `2006-01-02 15:04:05.999 -07:00`
 )
 
 // definitions for BIOS/IMA log parse used only in this package.
@@ -97,6 +98,7 @@ type (
 		IKCert  string
 	}
 
+	// node info for rest api query.
 	NodeInfo struct {
 		ID      int64  `json:"id" form:"id"`
 		RegTime string `json:"regtime" form:"regtime"`
