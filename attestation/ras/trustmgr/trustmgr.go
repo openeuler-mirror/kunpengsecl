@@ -33,6 +33,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -150,8 +151,8 @@ func GetCache(id int64) (*cache.Cache, error) {
 }
 
 // GetAllNodes returns all client cache information to rest api.
-func GetAllNodes() ([]typdefs.NodeInfo, error) {
-	var nodes []typdefs.NodeInfo
+func GetAllNodes() (typdefs.ArrNodeInfo, error) {
+	var nodes typdefs.ArrNodeInfo
 	if tmgr == nil {
 		return nil, typdefs.ErrParameterWrong
 	}
@@ -166,6 +167,7 @@ func GetAllNodes() ([]typdefs.NodeInfo, error) {
 		}
 		nodes = append(nodes, n)
 	}
+	sort.Sort(nodes)
 	return nodes, nil
 }
 

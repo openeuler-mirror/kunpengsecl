@@ -98,14 +98,6 @@ type (
 		IKCert  string
 	}
 
-	// node info for rest api query.
-	NodeInfo struct {
-		ID      int64  `json:"id" form:"id"`
-		RegTime string `json:"regtime" form:"regtime"`
-		Online  bool   `json:"online" form:"online"`
-		Trusted bool   `json:"trusted" form:"trusted"`
-	}
-
 	// ReportRow stores one record of trust report information
 	// in database table `report`.
 	ReportRow struct {
@@ -179,6 +171,22 @@ func GetIP() string {
 	}
 	return ""
 }
+
+type (
+	// node info for rest api query.
+	NodeInfo struct {
+		ID      int64  `json:"id" form:"id"`
+		RegTime string `json:"regtime" form:"regtime"`
+		Online  bool   `json:"online" form:"online"`
+		Trusted bool   `json:"trusted" form:"trusted"`
+	}
+
+	ArrNodeInfo []NodeInfo
+)
+
+func (ni ArrNodeInfo) Len() int           { return len(ni) }
+func (ni ArrNodeInfo) Swap(i, j int)      { ni[i], ni[j] = ni[j], ni[i] }
+func (ni ArrNodeInfo) Less(i, j int) bool { return ni[i].ID < ni[j].ID }
 
 type (
 	TrustReportInput struct {

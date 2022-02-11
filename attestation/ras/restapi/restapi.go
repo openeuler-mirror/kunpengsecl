@@ -61,9 +61,10 @@ import (
 
 const (
 	htmlNodes = `<html><head><title>All Information</title></head><body>
-<a href="/login">login</a><br/><a href="/config">config</a><br/>
-<table border="1"><tr align="center" bgcolor="#00FF00"><th>ID</th>
-<th>RegTime</th><th>Online</th><th>Trusted</th><th>Info</th><th>Action</th></tr>`
+<a href="/login">login</a><br/><a href="/version">version</a><br/>
+<a href="/config">config</a><br/><table border="1">
+<tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
+<th>Online</th><th>Trusted</th><th>Info</th><th>Action</th></tr>`
 	htmlNodeInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td>
 <td>%v</td><td><a href="">link</a></td><td>Delete</td></tr>`
 	htmlNodeEnd = `</table></body></html>`
@@ -75,7 +76,8 @@ const (
 <input type="text" name="%s" value="%d"/></td></tr>`
 	htmlConfigEnd = `</table><input type="submit" value="Save"/></form></body></html>`
 
-	htmlVersion = `<html><head><title>config</title></head><body>Version: %s</body></html>`
+	htmlVersion = `<html><head><title>Version</title></head><body>
+<a href="/">Back</a><br/>Version: %s</body></html>`
 
 	strHBDuration     = `Heart Beat Duration(s)`
 	nameHBDuration    = `hbduration`
