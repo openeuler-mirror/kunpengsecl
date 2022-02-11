@@ -48,6 +48,7 @@ package restapi
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 
@@ -60,8 +61,9 @@ import (
 )
 
 const (
+	// (GET /)
 	htmlAllList = `<html><head><title>All Nodes Information</title></head><body>
-<a href="/login">login</a><br/><a href="/version">version</a><br/>
+<a href="/login">login</a> <a href="/version">version</a>
 <a href="/config">config</a><br/><table border="1">
 <tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
 <th>Online</th><th>Trusted</th><th>Info</th><th>Action</th></tr>`
@@ -69,12 +71,7 @@ const (
 <td>%v</td><td><a href="/%d">link</a></td><td>Delete</td></tr>`
 	htmlListEnd = `</table></body></html>`
 
-	htmlOneNode = `<html><head><title>One Node Information</title></head><body>
-<a href="/">Back</a><br/><table border="1">
-<tr align="center" bgcolor="#00FF00"><th>Parameter</th><th>Value</th></tr>`
-	htmlNodeInfo = `<tr><td>%s</td><td align="center">%v</td></tr>`
-	htmlNodeEnd  = `</table></body></html>`
-
+	// (GET /config)
 	htmlConfig = `<html><head><title>Config Setting</title></head><body>
 <a href="/">Back</a><br/><table border="1"><form action="/config" method="post">
 <tr align="center" bgcolor="#00FF00"><th>Parameter</th><th>Value</th></tr>`
@@ -82,8 +79,16 @@ const (
 <input type="text" name="%s" value="%d"/></td></tr>`
 	htmlConfigEnd = `</table><input type="submit" value="Save"/></form></body></html>`
 
+	// (GET /version)
 	htmlVersion = `<html><head><title>Version</title></head><body>
 <a href="/">Back</a><br/>Version: %s</body></html>`
+
+	// (GET /{id})
+	htmlOneNode = `<html><head><title>One Node Information</title></head><body>
+<a href="/">Back</a><br/><table border="1">
+<tr align="center" bgcolor="#00FF00"><th>Parameter</th><th>Value</th></tr>`
+	htmlNodeInfo = `<tr><td>%s</td><td align="center">%v</td></tr>`
+	htmlNodeEnd  = `</table></body></html>`
 
 	strHBDuration     = `Heart Beat Duration(s)`
 	nameHBDuration    = `hbduration`
@@ -113,7 +118,7 @@ func checkJSON(ctx echo.Context) bool {
 	return false
 }
 
-func genAllNodesHtml(ctx echo.Context, nodes []typdefs.NodeInfo) string {
+func genAllListHtml(ctx echo.Context, nodes []typdefs.NodeInfo) string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlAllList)
 	for _, n := range nodes {
@@ -124,10 +129,8 @@ func genAllNodesHtml(ctx echo.Context, nodes []typdefs.NodeInfo) string {
 	return buf.String()
 }
 
-// (GET /)
-// get all nodes information
-func (s *MyRestAPIServer) Get(ctx echo.Context) error {
-	nodes, err := trustmgr.GetAllNodes()
+func showListNodesByRange(ctx echo.Context, from, to int64) error {
+	nodes, err := trustmgr.GetAllNodes(from, to)
 	if checkJSON(ctx) {
 		if err != nil {
 			logger.L.Sugar().Debugf(errNoClient, err)
@@ -139,7 +142,13 @@ func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 		logger.L.Sugar().Debugf(errNoClient, err)
 		return ctx.HTML(http.StatusNotFound, "")
 	}
-	return ctx.HTML(http.StatusOK, genAllNodesHtml(ctx, nodes))
+	return ctx.HTML(http.StatusOK, genAllListHtml(ctx, nodes))
+}
+
+// (GET /)
+// get all nodes information
+func (s *MyRestAPIServer) Get(ctx echo.Context) error {
+	return showListNodesByRange(ctx, math.MinInt64, math.MaxInt64)
 }
 
 // TODO: add more parameters in this struct to export to outside control.
@@ -230,12 +239,7 @@ func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
 // (GET /{from}/{to})
 // get nodes information from "from" node to "to" node sequentially
 func (s *MyRestAPIServer) GetFromTo(ctx echo.Context, from int64, to int64) error {
-	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, s)
-	}
-	//ctx.Response().Header().Set(echo.HeaderContentType, "text/plain")
-	res := fmt.Sprintf(`<a href="http://example.com/">from %d to %d</a>`, from, to)
-	return ctx.HTML(http.StatusOK, res)
+	return showListNodesByRange(ctx, from, to)
 }
 
 // (DELETE /{id})

@@ -150,8 +150,9 @@ func GetCache(id int64) (*cache.Cache, error) {
 	return nil, typdefs.ErrDoesnotRegistered
 }
 
-// GetAllNodes returns all client cache information to rest api.
-func GetAllNodes() (typdefs.ArrNodeInfo, error) {
+// GetAllNodes returns all clients cache information from "f" to "t"
+// and returns a list nodes to rest api.
+func GetAllNodes(f, t int64) (typdefs.ArrNodeInfo, error) {
 	var nodes typdefs.ArrNodeInfo
 	if tmgr == nil {
 		return nil, typdefs.ErrParameterWrong
@@ -159,13 +160,15 @@ func GetAllNodes() (typdefs.ArrNodeInfo, error) {
 	tmgr.mu.Lock()
 	defer tmgr.mu.Unlock()
 	for i, v := range tmgr.cache {
-		n := typdefs.NodeInfo{
-			ID:      i,
-			RegTime: v.GetRegTime(),
-			Online:  v.GetOnline(),
-			Trusted: v.GetTrusted(),
+		if f <= i && i < t {
+			n := typdefs.NodeInfo{
+				ID:      i,
+				RegTime: v.GetRegTime(),
+				Online:  v.GetOnline(),
+				Trusted: v.GetTrusted(),
+			}
+			nodes = append(nodes, n)
 		}
-		nodes = append(nodes, n)
 	}
 	sort.Sort(nodes)
 	return nodes, nil
