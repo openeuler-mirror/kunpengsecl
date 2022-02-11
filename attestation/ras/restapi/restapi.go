@@ -60,14 +60,20 @@ import (
 )
 
 const (
-	htmlNodes = `<html><head><title>All Information</title></head><body>
+	htmlAllList = `<html><head><title>All Nodes Information</title></head><body>
 <a href="/login">login</a><br/><a href="/version">version</a><br/>
 <a href="/config">config</a><br/><table border="1">
 <tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
 <th>Online</th><th>Trusted</th><th>Info</th><th>Action</th></tr>`
-	htmlNodeInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td>
-<td>%v</td><td><a href="">link</a></td><td>Delete</td></tr>`
-	htmlNodeEnd = `</table></body></html>`
+	htmlListInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td>
+<td>%v</td><td><a href="/%d">link</a></td><td>Delete</td></tr>`
+	htmlListEnd = `</table></body></html>`
+
+	htmlOneNode = `<html><head><title>One Node Information</title></head><body>
+<a href="/">Back</a><br/><table border="1">
+<tr align="center" bgcolor="#00FF00"><th>Parameter</th><th>Value</th></tr>`
+	htmlNodeInfo = `<tr><td>%s</td><td align="center">%v</td></tr>`
+	htmlNodeEnd  = `</table></body></html>`
 
 	htmlConfig = `<html><head><title>Config Setting</title></head><body>
 <a href="/">Back</a><br/><table border="1"><form action="/config" method="post">
@@ -83,6 +89,11 @@ const (
 	nameHBDuration    = `hbduration`
 	strTrustDuration  = `Trust Report Duration(s)`
 	nameTrustDuration = `trustduration`
+	strRegTime        = `Register Time`
+	strOnline         = `Online`
+	strTrusted        = `Trusted`
+
+	errNoClient = `rest api error: %v`
 )
 
 type MyRestAPIServer struct {
@@ -104,12 +115,12 @@ func checkJSON(ctx echo.Context) bool {
 
 func genAllNodesHtml(ctx echo.Context, nodes []typdefs.NodeInfo) string {
 	var buf bytes.Buffer
-	buf.WriteString(htmlNodes)
+	buf.WriteString(htmlAllList)
 	for _, n := range nodes {
-		buf.WriteString(fmt.Sprintf(htmlNodeInfo,
-			n.ID, n.RegTime, n.Online, n.Trusted))
+		buf.WriteString(fmt.Sprintf(htmlListInfo,
+			n.ID, n.RegTime, n.Online, n.Trusted, n.ID))
 	}
-	buf.WriteString(htmlNodeEnd)
+	buf.WriteString(htmlListEnd)
 	return buf.String()
 }
 
@@ -119,13 +130,13 @@ func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 	nodes, err := trustmgr.GetAllNodes()
 	if checkJSON(ctx) {
 		if err != nil {
-			logger.L.Sugar().Debugf("get all nodes error: %v\n", err)
+			logger.L.Sugar().Debugf(errNoClient, err)
 			return ctx.JSON(http.StatusNotFound, []typdefs.NodeInfo{})
 		}
 		return ctx.JSON(http.StatusOK, nodes)
 	}
 	if err != nil {
-		logger.L.Sugar().Debugf("get all nodes error: %v\n", err)
+		logger.L.Sugar().Debugf(errNoClient, err)
 		return ctx.HTML(http.StatusNotFound, "")
 	}
 	return ctx.HTML(http.StatusOK, genAllNodesHtml(ctx, nodes))
@@ -179,7 +190,7 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	cfg := new(cfgRecord)
 	err := ctx.Bind(cfg)
 	if err != nil {
-		logger.L.Sugar().Debugf("config bind error: %v\n", err)
+		logger.L.Sugar().Debugf(errNoClient, err)
 		return err
 	}
 	config.SetHBDuration(cfg.HBDuration * time.Second)
@@ -234,30 +245,14 @@ func (s *MyRestAPIServer) DeleteId(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
-type Node struct {
-	RegTime string `json:"regtime" form:"regtime"`
-	Online  bool   `json:"online" form:"online"`
-	Trusted bool   `json:"trusted" form:"trusted"`
-}
-
-func genNodeJson(ctx echo.Context, c *cache.Cache) *Node {
-	return &Node{
-		RegTime: c.GetRegTime(),
-		Online:  c.GetOnline(),
-		Trusted: c.GetTrusted(),
-	}
-}
-
+// TODO: add more information of the node
 func genNodeHtml(ctx echo.Context, c *cache.Cache) string {
 	var buf bytes.Buffer
-	buf.WriteString(`<html><head><title>node</title></head><body>`)
-	buf.WriteString(`<a href="/">Up</a><br/>`)
-	buf.WriteString(`<table><tr><th>Parameter</th><th>Value</th></tr>`)
-	htmlTableData := `<tr><td>%s</td><td>%v</td></tr>`
-	buf.WriteString(fmt.Sprintf(htmlTableData, "Register Time", c.GetRegTime()))
-	buf.WriteString(fmt.Sprintf(htmlTableData, "Online", c.GetOnline()))
-	buf.WriteString(fmt.Sprintf(htmlTableData, "Trusted", c.GetTrusted()))
-	buf.WriteString(`</table></body></html>`)
+	buf.WriteString(htmlOneNode)
+	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strRegTime, c.GetRegTime()))
+	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strOnline, c.GetOnline()))
+	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strTrusted, c.GetTrusted()))
+	buf.WriteString(htmlNodeEnd)
 	return buf.String()
 }
 
@@ -271,13 +266,19 @@ func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 	c, err := trustmgr.GetCache(id)
 	if checkJSON(ctx) {
 		if err != nil {
-			logger.L.Sugar().Debugf("get node infor error: %v\n", err)
-			return ctx.JSON(http.StatusNotFound, &Node{})
+			logger.L.Sugar().Debugf(errNoClient, err)
+			return ctx.JSON(http.StatusNotFound, &typdefs.NodeInfo{ID: id})
 		}
-		return ctx.JSON(http.StatusOK, genNodeJson(ctx, c))
+		ni := typdefs.NodeInfo{
+			ID:      id,
+			RegTime: c.GetRegTime(),
+			Online:  c.GetOnline(),
+			Trusted: c.GetTrusted(),
+		}
+		return ctx.JSON(http.StatusOK, &ni)
 	}
 	if err != nil {
-		logger.L.Sugar().Debugf("get node infor error: %v\n", err)
+		logger.L.Sugar().Debugf(errNoClient, err)
 		return ctx.JSON(http.StatusNotFound, "")
 	}
 	return ctx.HTML(http.StatusOK, genNodeHtml(ctx, c))
