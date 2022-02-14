@@ -66,9 +66,11 @@ const (
 <a href="/login">login</a> <a href="/version">version</a>
 <a href="/config">config</a><br/><table border="1">
 <tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
-<th>Online</th><th>Trusted</th><th>Info</th><th>Action</th></tr>`
+<th>Online</th><th>Trusted</th><th>Info</th><th>Trust Reports</th>
+<th>Base Values</th><th>Action</th></tr>`
 	htmlListInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td>
-<td>%v</td><td><a href="/%d">link</a></td><td>Delete</td></tr>`
+<td>%v</td><td><a href="/%d">link</a></td><td><a href="/%d/reports">link</a></td>
+<td><a href="/%d/basevalues">link</a></td><td>Delete</td></tr>`
 	htmlListEnd = `</table></body></html>`
 
 	// (GET /config)
@@ -88,7 +90,28 @@ const (
 <a href="/">Back</a><br/><table border="1">
 <tr align="center" bgcolor="#00FF00"><th>Parameter</th><th>Value</th></tr>`
 	htmlNodeInfo = `<tr><td>%s</td><td align="center">%v</td></tr>`
-	htmlNodeEnd  = `</table></body></html>`
+	htmlTableEnd = `</table></body></html>`
+
+	// (GET /{id}/basevalues)
+	htmlListBaseValues = `<html><head><title>Base Values List</title></head><body>
+<a href="/">Back</a><br/><table border="1"><tr align="center" bgcolor="#00FF00">
+<th>Index</th><th>Create Time</th><th>Name</th><th>Enabled</th><th>Verified</th>
+<th>Trusted</th><th>Pcr</th><th>Bios</th><th>Ima</th><th>Action</th></tr>`
+	htmlBaseValueInfo = `<tr><td>%d</td><td>%s</td><td>Delete</td></tr>`
+
+	// (GET /{id}/reports)
+	htmlListReports = `<html><head><title>Trust Reports List</title></head><body>
+<a href="/">Back</a><br/><b>Client %d Trust Reports List</b><br/>
+<table border="1"><tr align="center" bgcolor="#00FF00"><th>Index</th><th>Create Time</th>
+<th>Validated</th><th>Trusted</th><th>Details</th><th>Action</th></tr>`
+	htmlReportInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td><td>%v</td>
+<td><a href="/%d/reports/%d">Link</a></td><td>Delete</td></tr>`
+
+	// (GET /{id}/reports/{reportid})
+	htmlOneReport = `<html><head><title>Trust Report Detail</title></head><body>
+<a href="/%d/reports">Back</a><br/><table border="1"><tr align="center" bgcolor="#00FF00">
+<th>Parameter</th><th>Value</th></tr>`
+	htmlReportValue = `<tr><td align="center">%s</td><td>%v</td></tr>`
 
 	strHBDuration     = `Heart Beat Duration(s)`
 	nameHBDuration    = `hbduration`
@@ -123,7 +146,7 @@ func genAllListHtml(ctx echo.Context, nodes []typdefs.NodeInfo) string {
 	buf.WriteString(htmlAllList)
 	for _, n := range nodes {
 		buf.WriteString(fmt.Sprintf(htmlListInfo,
-			n.ID, n.RegTime, n.Online, n.Trusted, n.ID))
+			n.ID, n.RegTime, n.Online, n.Trusted, n.ID, n.ID, n.ID))
 	}
 	buf.WriteString(htmlListEnd)
 	return buf.String()
@@ -256,7 +279,7 @@ func genNodeHtml(ctx echo.Context, c *cache.Cache) string {
 	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strRegTime, c.GetRegTime()))
 	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strOnline, c.GetOnline()))
 	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strTrusted, c.GetTrusted()))
-	buf.WriteString(htmlNodeEnd)
+	buf.WriteString(htmlTableEnd)
 	return buf.String()
 }
 
@@ -295,14 +318,22 @@ func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
+func genBaseValuesHtml(ctx echo.Context) string {
+	var buf bytes.Buffer
+	buf.WriteString(htmlListBaseValues)
+	//buf.WriteString(fmt.Sprintf(htmlBaseValueInfo, ))
+	buf.WriteString(htmlTableEnd)
+	return buf.String()
+
+}
+
 // (GET /{id}/basevalues)
 // get node {id} all base values
 func (s *MyRestAPIServer) GetIdBasevalues(ctx echo.Context, id int64) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, s)
 	}
-	res := fmt.Sprintf("get server %d all base values", id)
-	return ctx.HTML(http.StatusOK, res)
+	return ctx.HTML(http.StatusOK, genBaseValuesHtml(ctx))
 }
 
 // (POST /{id}/basevalues)
@@ -342,14 +373,32 @@ func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, id int64
 	return ctx.HTML(http.StatusOK, res)
 }
 
+func genReportsHtml(ctx echo.Context, id int64, rows []typdefs.ReportRow) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlListReports, id))
+	for _, n := range rows {
+		buf.WriteString(fmt.Sprintf(htmlReportInfo, n.ID,
+			n.CreateTime.Format(typdefs.StrTimeFormat),
+			n.Validated, n.Trusted, n.ClientID, n.ID))
+	}
+	buf.WriteString(htmlTableEnd)
+	return buf.String()
+}
+
 // (GET /{id}/reports)
 // get node {id} all reports
 func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
+	rows, err := trustmgr.FindReportsByClientID(id)
 	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, s)
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, rows)
 	}
-	res := fmt.Sprintf("get server %d all reports", id)
-	return ctx.HTML(http.StatusOK, res)
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, genReportsHtml(ctx, id, rows))
 }
 
 // (DELETE /{id}/reports/{reportid})
@@ -359,12 +408,34 @@ func (s *MyRestAPIServer) DeleteIdReportsReportid(ctx echo.Context, id int64, re
 	return ctx.HTML(http.StatusOK, res)
 }
 
+func genReportHtml(ctx echo.Context, report *typdefs.ReportRow) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlOneReport, report.ClientID))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, "Report ID", report.ID))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, "Create Time", report.CreateTime.Format(typdefs.StrTimeFormat)))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, "Validated", report.Validated))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, "Trusted", report.Trusted))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, "Quoted", report.Quoted))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, "Signature", report.Signature))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, "PcrLog", report.PcrLog))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, "BiosLog", report.BiosLog))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, "ImaLog", report.ImaLog))
+	buf.WriteString(htmlTableEnd)
+	return buf.String()
+}
+
 // (GET /{id}/reports/{reportid})
 // get node {id} one report {reportid}
 func (s *MyRestAPIServer) GetIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
+	row, err := trustmgr.FindReportByID(reportid)
 	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, s)
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, row)
 	}
-	res := fmt.Sprintf("get server %d report %d", id, reportid)
-	return ctx.HTML(http.StatusOK, res)
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, genReportHtml(ctx, row))
 }

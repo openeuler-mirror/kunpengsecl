@@ -101,6 +101,7 @@ type (
 	// ReportRow stores one record of trust report information
 	// in database table `report`.
 	ReportRow struct {
+		ID         int64
 		ClientID   int64
 		CreateTime time.Time
 		Validated  bool
@@ -116,6 +117,7 @@ type (
 	// table `base`, which is specified by customer and will be used
 	// to verify trust report.
 	BaseRow struct {
+		ID         int64
 		ClientID   int64
 		CreateTime time.Time
 		Name       string

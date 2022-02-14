@@ -57,6 +57,8 @@ const (
 	sqlFindClientIDByIK      = `SELECT id FROM client WHERE ikcert=$1`
 	sqlFindClientFullByIK    = `SELECT id, regtime, deleted, info FROM client WHERE ikcert=$1`
 	sqlFindClientsByInfo     = `SELECT id, regtime, deleted, info, ikcert FROM client WHERE info @> $1`
+	sqlFindReportsByClientID = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
+	sqlFindReportByID        = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
 	sqlUnRegisterClientByID  = `UPDATE client SET deleted=true WHERE id=$1`
 	sqlUpdateClientByID      = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport     = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
@@ -276,6 +278,43 @@ func FindClientsByInfo(info string) ([]typdefs.ClientRow, error) {
 		cs = append(cs, c)
 	}
 	return cs, nil
+}
+
+// FindReportsByClientID returns all reports by a specified client id.
+func FindReportsByClientID(id int64) ([]typdefs.ReportRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindReportsByClientID, id)
+	if err != nil {
+		return nil, err
+	}
+	reports := make([]typdefs.ReportRow, 0, 100)
+	for rows.Next() {
+		res := typdefs.ReportRow{}
+		err2 := rows.Scan(&res.ID, &res.ClientID,
+			&res.CreateTime, &res.Validated, &res.Trusted)
+		if err2 != nil {
+			return nil, err2
+		}
+		reports = append(reports, res)
+	}
+	return reports, nil
+}
+
+// FindReportByID returns the report by a specified report id.
+func FindReportByID(id int64) (*typdefs.ReportRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	report := typdefs.ReportRow{}
+	err := tmgr.db.QueryRow(sqlFindReportByID, id).Scan(&report.ID, &report.ClientID,
+		&report.CreateTime, &report.Validated, &report.Trusted, &report.Quoted,
+		&report.Signature, &report.PcrLog, &report.BiosLog, &report.ImaLog)
+	if err != nil {
+		return nil, err
+	}
+	return &report, nil
 }
 
 // HandleHeartbeat handles the heat beat request, update client cache and reply some commands.
