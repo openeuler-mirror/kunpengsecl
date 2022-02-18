@@ -195,6 +195,10 @@ func showListNodesByRange(ctx echo.Context, from, to int64) error {
 
 // (GET /)
 // get all nodes information
+//  read all nodes information as html
+//    curl -X GET http://localhost:40002
+//  read all nodes information as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002
 func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 	return showListNodesByRange(ctx, math.MinInt64, math.MaxInt64)
 }
@@ -286,12 +290,20 @@ func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
 
 // (GET /{from}/{to})
 // get nodes information from "from" node to "to" node sequentially
+//  read a range nodes info as html
+//    curl -X GET http://localhost:40002/{from}/{to}
+//  read a range nodes info as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/{from}/{to}
 func (s *MyRestAPIServer) GetFromTo(ctx echo.Context, from int64, to int64) error {
 	return showListNodesByRange(ctx, from, to)
 }
 
 // (DELETE /{id})
 // delete node {id}
+//  delete a node by html
+//    curl -X DELETE http://localhost:40002/{id}
+//  delete a node by json
+//    curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) DeleteId(ctx echo.Context, id int64) error {
 	trustmgr.UnRegisterClientByID(id)
 	if checkJSON(ctx) {
@@ -315,9 +327,9 @@ func genNodeHtml(ctx echo.Context, c *cache.Cache) string {
 
 // (GET /{id})
 // get node {id} information
-//  read config as html
+//  read node {id} info as html
 //    curl -X GET http://localhost:40002/{id}
-//  read config as json
+//  read node {id} info as json
 //    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 	c, err := trustmgr.GetCache(id)
@@ -417,6 +429,10 @@ func genReportsHtml(ctx echo.Context, id int64, rows []typdefs.ReportRow) string
 
 // (GET /{id}/reports)
 // get node {id} all reports
+//  get node {id} all reports as html
+//    curl -X GET http://localhost:40002/{id}/reports
+//  get node {id} all reports as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/reports
 func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
 	rows, err := trustmgr.FindReportsByClientID(id)
 	if checkJSON(ctx) {
@@ -433,6 +449,10 @@ func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
 
 // (DELETE /{id}/reports/{reportid})
 // delete node {id} one report {reportid}
+//  delete node {id} report {reportid} by html
+//    curl -X DELETE http://localhost:40002/{id}/reports/{reportid}
+//  delete node {id} report {reportid} by json
+//    curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}/reports/{reportid}
 func (s *MyRestAPIServer) DeleteIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
 	err := trustmgr.DeleteReportByID(reportid)
 	if checkJSON(ctx) {
@@ -469,6 +489,10 @@ func genReportHtml(ctx echo.Context, report *typdefs.ReportRow) string {
 
 // (GET /{id}/reports/{reportid})
 // get node {id} one report {reportid}
+//  get node {id} report {reportid} as html
+//    curl -X GET http://localhost:40002/{id}/reports/{reportid}
+//  get node {id} report {reportid} as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/reports/{reportid}
 func (s *MyRestAPIServer) GetIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
 	row, err := trustmgr.FindReportByID(reportid)
 	if checkJSON(ctx) {
