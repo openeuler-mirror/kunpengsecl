@@ -62,8 +62,12 @@ import (
 
 const (
 	// (GET /)
-	htmlAllList = `<html><head><title>All Nodes Information</title></head><body>
-<a href="/login">login</a> <a href="/version">version</a>
+	htmlAllList = `<html><head><title>All Nodes Information</title>
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+</head><body><script>$(document).ready(function(){$("button").click(function(){
+$.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
+{if(status=="success"){location.reload(true);}},});});});</script>
+<a href="/login">login</a><a href="/version">version</a>
 <a href="/config">config</a><br/><table border="1">
 <tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
 <th>Online</th><th>Trusted</th><th>Info</th><th>Trust Reports</th>
@@ -107,8 +111,8 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 }},});});});</script><a href="/">Back</a><br/><b>Client %d Trust Reports List</b><br/>
 <table border="1"><tr align="center" bgcolor="#00FF00"><th>Index</th><th>Create Time</th>
 <th>Validated</th><th>Trusted</th><th>Details</th><th>Action</th></tr>`
-	htmlReportInfo = `<tr align="center" name="tr1"><td>%d</td><td>%s</td><td>%v</td>
-<td>%v</td><td><a href="/%d/reports/%d">Link</a></td><td name="td2">
+	htmlReportInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td>
+<td>%v</td><td><a href="/%d/reports/%d">Link</a></td><td>
 <button type="button" value="/%d/reports/%d">Delete</button></td></tr>`
 
 	// (GET /{id}/reports/{reportid})
