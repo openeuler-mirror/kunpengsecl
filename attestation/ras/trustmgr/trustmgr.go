@@ -59,6 +59,7 @@ const (
 	sqlFindClientsByInfo     = `SELECT id, regtime, deleted, info, ikcert FROM client WHERE info @> $1`
 	sqlFindReportsByClientID = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
 	sqlFindReportByID        = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
+	sqlDeleteReportByID      = `DELETE FROM report WHERE id=$1`
 	sqlUnRegisterClientByID  = `UPDATE client SET deleted=true WHERE id=$1`
 	sqlUpdateClientByID      = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport     = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
@@ -315,6 +316,18 @@ func FindReportByID(id int64) (*typdefs.ReportRow, error) {
 		return nil, err
 	}
 	return &report, nil
+}
+
+// DeleteReportByID deletes a specified report by report id.
+func DeleteReportByID(id int64) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Exec(sqlDeleteReportByID, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // HandleHeartbeat handles the heat beat request, update client cache and reply some commands.

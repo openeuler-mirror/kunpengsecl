@@ -100,12 +100,16 @@ const (
 	htmlBaseValueInfo = `<tr><td>%d</td><td>%s</td><td>Delete</td></tr>`
 
 	// (GET /{id}/reports)
-	htmlListReports = `<html><head><title>Trust Reports List</title></head><body>
-<a href="/">Back</a><br/><b>Client %d Trust Reports List</b><br/>
+	htmlListReports = `<html><head><title>Trust Reports List</title>
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script></head><body>
+<script>$(document).ready(function(){$("button").click(function(){$.ajax({url:this.value,
+type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
+}},});});});</script><a href="/">Back</a><br/><b>Client %d Trust Reports List</b><br/>
 <table border="1"><tr align="center" bgcolor="#00FF00"><th>Index</th><th>Create Time</th>
 <th>Validated</th><th>Trusted</th><th>Details</th><th>Action</th></tr>`
-	htmlReportInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td><td>%v</td>
-<td><a href="/%d/reports/%d">Link</a></td><td>Delete</td></tr>`
+	htmlReportInfo = `<tr align="center" name="tr1"><td>%d</td><td>%s</td><td>%v</td>
+<td>%v</td><td><a href="/%d/reports/%d">Link</a></td><td name="td2">
+<button type="button" value="/%d/reports/%d">Delete</button></td></tr>`
 
 	// (GET /{id}/reports/{reportid})
 	htmlOneReport = `<html><head><title>Trust Report Detail</title></head><body>
@@ -117,14 +121,29 @@ const (
 	nameHBDuration    = `hbduration`
 	strTrustDuration  = `Trust Report Duration(s)`
 	nameTrustDuration = `trustduration`
+	strReportID       = `Report ID`
 	strRegTime        = `Register Time`
+	strCreateTime     = `Create Time`
 	strOnline         = `Online`
 	strTrusted        = `Trusted`
+	strValidated      = `Validated`
+	strQuoted         = `Quoted`
+	strSignature      = `Signature`
+	strPcrLog         = `PcrLog`
+	strBiosLog        = `BiosLog`
+	strImaLog         = `ImaLog`
 
 	errNoClient = `rest api error: %v`
+
+	strDeleteSuccess = `delete client %d report %d success`
+	strDeleteFail    = `delete client %d report %d fail, %v`
 )
 
 type MyRestAPIServer struct {
+}
+
+type JsonResult struct {
+	Result string
 }
 
 func StartServer(port string) {
@@ -378,8 +397,8 @@ func genReportsHtml(ctx echo.Context, id int64, rows []typdefs.ReportRow) string
 	buf.WriteString(fmt.Sprintf(htmlListReports, id))
 	for _, n := range rows {
 		buf.WriteString(fmt.Sprintf(htmlReportInfo, n.ID,
-			n.CreateTime.Format(typdefs.StrTimeFormat),
-			n.Validated, n.Trusted, n.ClientID, n.ID))
+			n.CreateTime.Format(typdefs.StrTimeFormat), n.Validated,
+			n.Trusted, n.ClientID, n.ID, n.ClientID, n.ID))
 	}
 	buf.WriteString(htmlTableEnd)
 	return buf.String()
@@ -404,22 +423,35 @@ func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
 // (DELETE /{id}/reports/{reportid})
 // delete node {id} one report {reportid}
 func (s *MyRestAPIServer) DeleteIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
-	res := fmt.Sprintf("delete server %d report %d", id, reportid)
-	return ctx.HTML(http.StatusOK, res)
+	err := trustmgr.DeleteReportByID(reportid)
+	if checkJSON(ctx) {
+		res := JsonResult{}
+		if err != nil {
+			res.Result = fmt.Sprintf(strDeleteFail, id, reportid, err)
+			return ctx.JSON(http.StatusOK, res)
+		}
+		res.Result = fmt.Sprintf(strDeleteSuccess, id, reportid)
+		return ctx.JSON(http.StatusOK, res)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteSuccess, id, reportid))
 }
 
 func genReportHtml(ctx echo.Context, report *typdefs.ReportRow) string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf(htmlOneReport, report.ClientID))
-	buf.WriteString(fmt.Sprintf(htmlReportValue, "Report ID", report.ID))
-	buf.WriteString(fmt.Sprintf(htmlReportValue, "Create Time", report.CreateTime.Format(typdefs.StrTimeFormat)))
-	buf.WriteString(fmt.Sprintf(htmlReportValue, "Validated", report.Validated))
-	buf.WriteString(fmt.Sprintf(htmlReportValue, "Trusted", report.Trusted))
-	buf.WriteString(fmt.Sprintf(htmlReportValue, "Quoted", report.Quoted))
-	buf.WriteString(fmt.Sprintf(htmlReportValue, "Signature", report.Signature))
-	buf.WriteString(fmt.Sprintf(htmlReportValue, "PcrLog", report.PcrLog))
-	buf.WriteString(fmt.Sprintf(htmlReportValue, "BiosLog", report.BiosLog))
-	buf.WriteString(fmt.Sprintf(htmlReportValue, "ImaLog", report.ImaLog))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strReportID, report.ID))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strCreateTime,
+		report.CreateTime.Format(typdefs.StrTimeFormat)))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strValidated, report.Validated))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strTrusted, report.Trusted))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strQuoted, report.Quoted))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strSignature, report.Signature))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strPcrLog, report.PcrLog))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strBiosLog, report.BiosLog))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strImaLog, report.ImaLog))
 	buf.WriteString(htmlTableEnd)
 	return buf.String()
 }
