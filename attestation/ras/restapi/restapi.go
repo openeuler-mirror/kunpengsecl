@@ -74,7 +74,8 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
 <th>Base Values</th><th>Action</th></tr>`
 	htmlListInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td>
 <td>%v</td><td><a href="/%d">link</a></td><td><a href="/%d/reports">link</a></td>
-<td><a href="/%d/basevalues">link</a></td><td>Delete</td></tr>`
+<td><a href="/%d/basevalues">link</a></td>
+<td><button type="button" value="/%d">Delete</button></td></tr>`
 	htmlListEnd = `</table></body></html>`
 
 	// (GET /config)
@@ -139,8 +140,9 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 
 	errNoClient = `rest api error: %v`
 
-	strDeleteSuccess = `delete client %d report %d success`
-	strDeleteFail    = `delete client %d report %d fail, %v`
+	strDeleteClientSuccess = `delete client %d success`
+	strDeleteReportSuccess = `delete client %d report %d success`
+	strDeleteReportFail    = `delete client %d report %d fail, %v`
 )
 
 type MyRestAPIServer struct {
@@ -168,8 +170,8 @@ func genAllListHtml(ctx echo.Context, nodes []typdefs.NodeInfo) string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlAllList)
 	for _, n := range nodes {
-		buf.WriteString(fmt.Sprintf(htmlListInfo,
-			n.ID, n.RegTime, n.Online, n.Trusted, n.ID, n.ID, n.ID))
+		buf.WriteString(fmt.Sprintf(htmlListInfo, n.ID, n.RegTime,
+			n.Online, n.Trusted, n.ID, n.ID, n.ID, n.ID))
 	}
 	buf.WriteString(htmlListEnd)
 	return buf.String()
@@ -291,8 +293,13 @@ func (s *MyRestAPIServer) GetFromTo(ctx echo.Context, from int64, to int64) erro
 // (DELETE /{id})
 // delete node {id}
 func (s *MyRestAPIServer) DeleteId(ctx echo.Context, id int64) error {
-	res := fmt.Sprintf("delete %d", id)
-	return ctx.HTML(http.StatusOK, res)
+	trustmgr.UnRegisterClientByID(id)
+	if checkJSON(ctx) {
+		res := JsonResult{}
+		res.Result = fmt.Sprintf(strDeleteClientSuccess, id)
+		return ctx.JSON(http.StatusOK, res)
+	}
+	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteClientSuccess, id))
 }
 
 // TODO: add more information of the node
@@ -431,16 +438,16 @@ func (s *MyRestAPIServer) DeleteIdReportsReportid(ctx echo.Context, id int64, re
 	if checkJSON(ctx) {
 		res := JsonResult{}
 		if err != nil {
-			res.Result = fmt.Sprintf(strDeleteFail, id, reportid, err)
+			res.Result = fmt.Sprintf(strDeleteReportFail, id, reportid, err)
 			return ctx.JSON(http.StatusOK, res)
 		}
-		res.Result = fmt.Sprintf(strDeleteSuccess, id, reportid)
+		res.Result = fmt.Sprintf(strDeleteReportSuccess, id, reportid)
 		return ctx.JSON(http.StatusOK, res)
 	}
 	if err != nil {
 		return err
 	}
-	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteSuccess, id, reportid))
+	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteReportSuccess, id, reportid))
 }
 
 func genReportHtml(ctx echo.Context, report *typdefs.ReportRow) string {
