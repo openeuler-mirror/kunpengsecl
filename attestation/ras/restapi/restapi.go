@@ -551,9 +551,11 @@ func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
 		Ima:        ima,
 	}
 	trustmgr.SaveBaseValue(row)
+	/* // no use???
 	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusFound, s)
+		return ctx.JSON(http.StatusFound, row)
 	}
+	*/
 	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/basevalues", id))
 }
 

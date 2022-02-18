@@ -451,24 +451,23 @@ func ActivateIKCert(in *IKCertInput) ([]byte, error) {
 	if tpmRef == nil {
 		return nil, ErrFailTPMInit
 	}
-	recoveredCredential, err := tpm2.ActivateCredential(tpmRef.dev,
-		tpmRef.ik.handle, tpmRef.ek.handle, emptyPassword,
-		emptyPassword, in.CredBlob, in.EncryptedSecret)
+	sessHandle, _, err := tpm2.StartAuthSession(tpmRef.dev, tpm2.HandleNull, tpm2.HandleNull, make([]byte, 16),
+		nil, tpm2.SessionPolicy, tpm2.AlgNull, tpm2.AlgSHA256)
 	if err != nil {
 		return nil, errors.New("StartAuthSession() failed, error:" + err.Error())
 	}
-	defer tpm2.FlushContext(tpm.dev, sessHandle)
+	defer tpm2.FlushContext(tpmRef.dev, sessHandle)
 
-	if _, err := tpm2.PolicySecret(tpm.dev, tpm2.HandleEndorsement,
+	if _, err := tpm2.PolicySecret(tpmRef.dev, tpm2.HandleEndorsement,
 		tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession},
 		sessHandle, nil, nil, nil, 0); err != nil {
 		return nil, errors.New("PolicySecret() failed, error:" + err.Error())
 	}
 
-	recoveredCredential, err := tpm2.ActivateCredentialUsingAuth(tpm.dev, []tpm2.AuthCommand{
+	recoveredCredential, err := tpm2.ActivateCredentialUsingAuth(tpmRef.dev, []tpm2.AuthCommand{
 		{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession, Auth: []byte(emptyPassword)},
 		{Session: sessHandle, Attributes: tpm2.AttrContinueSession, Auth: []byte(emptyPassword)},
-	}, tpm.IK.Handle, tpm.EK.Handle, in.CredBlob, in.EncryptedSecret)
+	}, tpmRef.ik.handle, tpmRef.ek.handle, in.CredBlob, in.EncryptedSecret)
 	if err != nil {
 		return nil, errors.New("ActivateCredentialWithAuth error:" + err.Error())
 	}
@@ -529,13 +528,6 @@ func GetClientInfo() (string, error) {
 	clientInfo["version"] = "1.0.0"
 	strCI, err := json.Marshal(clientInfo)
 	return string(strCI), err
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {

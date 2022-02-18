@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 
 PKGPATH=pkg
->>>>>>> 4b441a9 (architecture v3 for ras to enhance performance, test ok, no rest api.)
 TESTEES=./ractools
 RACPATH = ./cmd/raagent
 HUBPATH = ./cmd/rahub
