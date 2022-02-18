@@ -29,7 +29,7 @@ paths:
                   $ref: '#/components/schemas/ServerInfo'
   /{id}:
     get:
-      description: get a specified server's info
+      description: get a specific server's info
       parameters:
         - name: id
           in: path
@@ -39,7 +39,7 @@ paths:
             format: int64
       responses:
         '200':
-          description: return a specified server's info
+          description: return a specific server's info
           content:
             text/plain:
               schema:
@@ -52,7 +52,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/ServerInfo'
     post:
-      description: modify a specified server's info
+      description: modify a specific server's info
       parameters:
         - name: id
           in: path
@@ -62,12 +62,12 @@ paths:
             format: int64
       responses:
         '200':
-          description: success change a specified server's info
+          description: success change a specific server's info
       security:
         - servermgt_oauth2:
           - write:servers
     delete:
-      description: delete a specified server
+      description: delete a specific server
       parameters:
         - name: id
           in: path
@@ -77,13 +77,13 @@ paths:
             format: int64
       responses:
         '200':
-          description: success delete a specified server
+          description: success delete a specific server
       security:
         - servermgt_oauth2:
           - write:servers
   /{from}/{to}:
     get:
-      description: get a specified list of servers' info
+      description: get a specific list of servers' info
       parameters:
         - name: from
           in: path
@@ -99,7 +99,7 @@ paths:
             format: int64
       responses:
         '200':
-          description: a specified server's info
+          description: a specific server's info
           content:
             text/plain:
               schema:
@@ -113,7 +113,7 @@ paths:
                   $ref: '#/components/schemas/ServerInfo'
   /{id}/reports:
     get:
-      description: get a specified server's all reports
+      description: get a specific server's all reports
       parameters:
         - name: id
           in: path
@@ -123,7 +123,7 @@ paths:
             format: int64
       responses:
         '200':
-          description: return a specified server's all reports
+          description: return a specific server's all reports
           content:
             text/plain:
               schema:
@@ -137,7 +137,7 @@ paths:
                   $ref: '#/components/schemas/ReportInfo'
   /{id}/reports/{reportid}:
     get:
-      description: get a specified server's specified report
+      description: get a specific server's specific report
       parameters:
         - name: id
           in: path
@@ -153,7 +153,7 @@ paths:
             format: int64
       responses:
         '200':
-          description: return a specified server's specified report
+          description: return a specific server's specific report
           content:
             text/plain:
               schema:
@@ -166,7 +166,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/ReportInfo'
     delete:
-      description: delete a specified server's specified report
+      description: delete a specific server's specific report
       parameters:
         - name: id
           in: path
@@ -182,13 +182,13 @@ paths:
             format: int64
       responses:
         '200':
-          description: success delete a specified server's specified report
+          description: success delete a specific server's specific report
       security:
         - servermgt_oauth2:
           - write:servers
   /{id}/basevalues:
     get:
-      description: get a specified server's all base values
+      description: get a specific server's all base values
       parameters:
         - name: id
           in: path
@@ -198,7 +198,31 @@ paths:
             format: int64
       responses:
         '200':
-          description: return a specified server's all base values
+          description: return a specific server's all base values
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BaseValueInfo'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BaseValueInfo'
+  /{id}/newbasevalue:
+    get:
+      description: get a specific server's new base value page
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: return a specific server's new empty base value
           content:
             text/plain:
               schema:
@@ -211,7 +235,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/BaseValueInfo'
     post:
-      description: add a new base value to a specified server
+      description: add a new base value to a specific server
       parameters:
         - name: id
           in: path
@@ -221,13 +245,13 @@ paths:
             format: int64
       responses:
         '200':
-          description: success add a new base value to a specified server
+          description: success add a new base value to a specific server
       security:
         - servermgt_oauth2:
           - write:servers
   /{id}/basevalues/{basevalueid}:
     get:
-      description: get a specified server's specified base values
+      description: get a specific server's specific base values
       parameters:
         - name: id
           in: path
@@ -243,7 +267,7 @@ paths:
             format: int64
       responses:
         '200':
-          description: return a specified server's specified base values
+          description: return a specific server's specific base values
           content:
             text/plain:
               schema:
@@ -256,7 +280,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/BaseValueInfo'
     post:
-      description: modify a specified base value to a specified server
+      description: modify a specific base value to a specific server
       parameters:
         - name: id
           in: path
@@ -272,12 +296,12 @@ paths:
             format: int64
       responses:
         '200':
-          description: success modify a specified base value to a specified server
+          description: success modify a specific base value to a specific server
       security:
         - servermgt_oauth2:
           - write:servers
     delete:
-      description: delete a specified server's specified base value
+      description: delete a specific server's specific base value
       parameters:
         - name: id
           in: path
@@ -293,7 +317,7 @@ paths:
             format: int64
       responses:
         '200':
-          description: success delete a specified server's specified base value
+          description: success delete a specific server's specific base value
       security:
         - servermgt_oauth2:
           - write:servers

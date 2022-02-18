@@ -51,19 +51,22 @@ const (
 	constRacDefault = 5000
 
 	// for database management sql
-	sqlRegisterClientByIK    = `INSERT INTO client(regtime, deleted, info, ikcert) VALUES ($1, $2, $3, $4) RETURNING id`
-	sqlFindAllEnabledClients = `SELECT id, regtime, ikcert FROM client WHERE deleted=false`
-	sqlFindClientByID        = `SELECT regtime, deleted, info, ikcert FROM client WHERE id=$1`
-	sqlFindClientIDByIK      = `SELECT id FROM client WHERE ikcert=$1`
-	sqlFindClientFullByIK    = `SELECT id, regtime, deleted, info FROM client WHERE ikcert=$1`
-	sqlFindClientsByInfo     = `SELECT id, regtime, deleted, info, ikcert FROM client WHERE info @> $1`
-	sqlFindReportsByClientID = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
-	sqlFindReportByID        = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
-	sqlDeleteReportByID      = `DELETE FROM report WHERE id=$1`
-	sqlUnRegisterClientByID  = `UPDATE client SET deleted=true WHERE id=$1`
-	sqlUpdateClientByID      = `UPDATE client SET info=$2 WHERE id=$1`
-	sqlInsertTrustReport     = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlInsertBase            = `INSERT INTO base(clientid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	sqlRegisterClientByIK       = `INSERT INTO client(regtime, deleted, info, ikcert) VALUES ($1, $2, $3, $4) RETURNING id`
+	sqlFindAllEnabledClients    = `SELECT id, regtime, ikcert FROM client WHERE deleted=false`
+	sqlFindClientByID           = `SELECT regtime, deleted, info, ikcert FROM client WHERE id=$1`
+	sqlFindClientIDByIK         = `SELECT id FROM client WHERE ikcert=$1`
+	sqlFindClientFullByIK       = `SELECT id, regtime, deleted, info FROM client WHERE ikcert=$1`
+	sqlFindClientsByInfo        = `SELECT id, regtime, deleted, info, ikcert FROM client WHERE info @> $1`
+	sqlFindReportsByClientID    = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
+	sqlFindReportByID           = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
+	sqlFindBaseValuesByClientID = `SELECT id, createtime, name, enabled, verified, trusted FROM base WHERE clientid=$1 ORDER BY createtime ASC`
+	sqlFindBaseValueByID        = `SELECT id, clientid, createtime, name, enabled, verified, trusted, pcr, bios, ima FROM base WHERE id=$1`
+	sqlDeleteReportByID         = `DELETE FROM report WHERE id=$1`
+	sqlDeleteBaseValueByID      = `DELETE FROM base WHERE id=$1`
+	sqlUnRegisterClientByID     = `UPDATE client SET deleted=true WHERE id=$1`
+	sqlUpdateClientByID         = `UPDATE client SET info=$2 WHERE id=$1`
+	sqlInsertTrustReport        = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlInsertBase               = `INSERT INTO base(clientid, createtime, enabled, verified, trusted, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 )
 
 type (
@@ -281,7 +284,7 @@ func FindClientsByInfo(info string) ([]typdefs.ClientRow, error) {
 	return cs, nil
 }
 
-// FindReportsByClientID returns all reports by a specified client id.
+// FindReportsByClientID returns all reports by a specific client id.
 func FindReportsByClientID(id int64) ([]typdefs.ReportRow, error) {
 	if tmgr == nil {
 		return nil, typdefs.ErrParameterWrong
@@ -303,7 +306,7 @@ func FindReportsByClientID(id int64) ([]typdefs.ReportRow, error) {
 	return reports, nil
 }
 
-// FindReportByID returns the report by a specified report id.
+// FindReportByID returns the report by a specific report id.
 func FindReportByID(id int64) (*typdefs.ReportRow, error) {
 	if tmgr == nil {
 		return nil, typdefs.ErrParameterWrong
@@ -318,12 +321,62 @@ func FindReportByID(id int64) (*typdefs.ReportRow, error) {
 	return &report, nil
 }
 
-// DeleteReportByID deletes a specified report by report id.
+// DeleteReportByID deletes a specific report by report id.
 func DeleteReportByID(id int64) error {
 	if tmgr == nil {
 		return typdefs.ErrParameterWrong
 	}
 	_, err := tmgr.db.Exec(sqlDeleteReportByID, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// FindBaseValuesByClientID returns all base values by a specific client id.
+func FindBaseValuesByClientID(id int64) ([]typdefs.BaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindBaseValuesByClientID, id)
+	if err != nil {
+		return nil, err
+	}
+	basevalues := make([]typdefs.BaseRow, 0, 20)
+	for rows.Next() {
+		res := typdefs.BaseRow{}
+		err2 := rows.Scan(&res.ID, &res.CreateTime, &res.Name,
+			&res.Enabled, &res.Verified, &res.Trusted)
+		if err2 != nil {
+			return nil, err2
+		}
+		basevalues = append(basevalues, res)
+	}
+	return basevalues, nil
+}
+
+// FindBaseValueByID returns a specific base value by base value id.
+func FindBaseValueByID(id int64) (*typdefs.BaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	basevalue := &typdefs.BaseRow{}
+	err := tmgr.db.QueryRow(sqlFindBaseValueByID, id).Scan(&basevalue.ID,
+		&basevalue.ClientID, &basevalue.CreateTime, &basevalue.Name,
+		&basevalue.Enabled, &basevalue.Verified, &basevalue.Trusted,
+		&basevalue.Pcr, &basevalue.Bios, &basevalue.Ima)
+	if err != nil {
+		return nil, err
+	}
+	return basevalue, nil
+}
+
+// DeleteBaseValueByID deletes a specific base value by base value id.
+func DeleteBaseValueByID(id int64) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Exec(sqlDeleteBaseValueByID, id)
 	if err != nil {
 		return err
 	}
@@ -519,6 +572,10 @@ func pushToStorePipe(v interface{}) {
 	}
 }
 
+func SaveBaseValue(row *typdefs.BaseRow) {
+	go pushToStorePipe(row)
+}
+
 func handleStorePipe(i int) {
 	for {
 		if chDb == nil {
@@ -537,8 +594,8 @@ func handleStorePipe(i int) {
 				logger.L.Sugar().Errorf("insert trust report error, result %v, %v", res, err)
 			}
 		case *typdefs.BaseRow:
-			res, err := storeDb.Exec(sqlInsertBase, v.ClientID,
-				v.CreateTime, v.Enabled, v.Name, v.Pcr, v.Bios, v.Ima)
+			res, err := storeDb.Exec(sqlInsertBase, v.ClientID, v.CreateTime,
+				v.Enabled, v.Verified, v.Trusted, v.Name, v.Pcr, v.Bios, v.Ima)
 			if err != nil {
 				logger.L.Sugar().Errorf("insert base error, result %v, %v", res, err)
 			}

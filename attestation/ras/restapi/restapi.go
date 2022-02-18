@@ -48,8 +48,10 @@ package restapi
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
@@ -67,8 +69,8 @@ const (
 </head><body><script>$(document).ready(function(){$("button").click(function(){
 $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
 {if(status=="success"){location.reload(true);}},});});});</script>
-<a href="/login">login</a><a href="/version">version</a>
-<a href="/config">config</a><br/><table border="1">
+<a href="/login">login</a>&emsp;<a href="/version">version</a>
+&emsp;<a href="/config">config</a><br/><table border="1">
 <tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
 <th>Online</th><th>Trusted</th><th>Info</th><th>Trust Reports</th>
 <th>Base Values</th><th>Action</th></tr>`
@@ -98,11 +100,38 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
 	htmlTableEnd = `</table></body></html>`
 
 	// (GET /{id}/basevalues)
-	htmlListBaseValues = `<html><head><title>Base Values List</title></head><body>
-<a href="/">Back</a><br/><table border="1"><tr align="center" bgcolor="#00FF00">
+	htmlListBaseValues = `<html><head><title>Base Values List</title>
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script></head><body>
+<script>$(document).ready(function(){$("button").click(function(){$.ajax({url:this.value,
+type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
+}},});});});</script><a href="/">Back</a>&emsp;<a href="/%d/newbasevalue">Add</a><br/>
+<table border="1"><tr align="center" bgcolor="#00FF00">
 <th>Index</th><th>Create Time</th><th>Name</th><th>Enabled</th><th>Verified</th>
 <th>Trusted</th><th>Pcr</th><th>Bios</th><th>Ima</th><th>Action</th></tr>`
-	htmlBaseValueInfo = `<tr><td>%d</td><td>%s</td><td>Delete</td></tr>`
+	htmlBaseValueInfo = `<tr><td>%d</td><td>%s</td><td>%s</td><td>%v</td>
+<td>%v</td><td>%v</td><td><a href="/%d/basevalues/%d">Link</a></td>
+<td><a href="/%d/basevalues/%d">Link</a></td><td><a href="/%d/basevalues/%d">Link</a></td>
+<td><button type="button" value="/%d/basevalues/%d">Delete</button></td></tr>`
+
+	// (GET /{id}/basevalues/{basevalueid})
+	htmlOneBaseValue = `<html><head><title>Base Value Detail</title></head><body>
+<a href="/%d/basevalues">Back</a><br/><table border="1"><tr align="center" bgcolor="#00FF00">
+<th>Parameter</th><th>Value</th></tr>`
+	htmlBaseValue = `<tr><td align="center">%s</td><td>%v</td></tr>`
+
+	// (GET /{id}/newbasevalue)
+	htmlNewBaseValue = `<html><head><title>New Base Value</title></head><body>
+<a href="/%d/basevalues">Back</a><br/>
+<form action="/%d/newbasevalue" method="post" enctype="multipart/form-data">
+<table border="1"><tr align="center" bgcolor="#00FF00">
+<th>Parameter</th><th>Value</th></tr>
+<tr><td>Name</td><td><input type="text" name="Name" /></td></tr>
+<tr><td>Enabled</td><td><select name="Enabled"><option value ="true">True</option>
+<option value ="false">False</option></select></td></tr>
+<tr><td>PCR Base Value File</td><td><input type="file" name="Pcr" /></td></tr>
+<tr><td>BIOS Base Value File</td><td><input type="file" name="Bios" /></td></tr>
+<tr><td>IMA Base Value File</td><td><input type="file" name="Ima" /></td></tr>
+</table><br/><input type="submit" value="Save" /></form></body></html>`
 
 	// (GET /{id}/reports)
 	htmlListReports = `<html><head><title>Trust Reports List</title>
@@ -137,12 +166,21 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 	strPcrLog         = `PcrLog`
 	strBiosLog        = `BiosLog`
 	strImaLog         = `ImaLog`
+	strName           = "Name"
+	strEnabled        = "Enabled"
+	strVerified       = "Verified"
+	strPCR            = "Pcr"
+	strBIOS           = "Bios"
+	strIMA            = "Ima"
+	strBaseValueID    = `BaseValue ID`
 
 	errNoClient = `rest api error: %v`
 
-	strDeleteClientSuccess = `delete client %d success`
-	strDeleteReportSuccess = `delete client %d report %d success`
-	strDeleteReportFail    = `delete client %d report %d fail, %v`
+	strDeleteClientSuccess    = `delete client %d success`
+	strDeleteReportSuccess    = `delete client %d report %d success`
+	strDeleteReportFail       = `delete client %d report %d fail, %v`
+	strDeleteBaseValueSuccess = `delete client %d base value %d success`
+	strDeleteBaseValueFail    = `delete client %d base value %d fail, %v`
 )
 
 type MyRestAPIServer struct {
@@ -360,49 +398,84 @@ func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func genBaseValuesHtml(ctx echo.Context) string {
+func genBaseValuesHtml(ctx echo.Context, id int64, rows []typdefs.BaseRow) string {
 	var buf bytes.Buffer
-	buf.WriteString(htmlListBaseValues)
-	//buf.WriteString(fmt.Sprintf(htmlBaseValueInfo, ))
+	buf.WriteString(fmt.Sprintf(htmlListBaseValues, id))
+	for _, n := range rows {
+		buf.WriteString(fmt.Sprintf(htmlBaseValueInfo, n.ID,
+			n.CreateTime.Format(typdefs.StrTimeFormat), n.Name, n.Enabled,
+			n.Verified, n.Trusted, id, n.ID, id, n.ID, id, n.ID, id, n.ID))
+	}
 	buf.WriteString(htmlTableEnd)
 	return buf.String()
-
 }
 
 // (GET /{id}/basevalues)
 // get node {id} all base values
 func (s *MyRestAPIServer) GetIdBasevalues(ctx echo.Context, id int64) error {
+	rows, err := trustmgr.FindBaseValuesByClientID(id)
 	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, s)
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, rows)
 	}
-	return ctx.HTML(http.StatusOK, genBaseValuesHtml(ctx))
-}
-
-// (POST /{id}/basevalues)
-// add a new base value to node {id}
-func (s *MyRestAPIServer) PostIdBasevalues(ctx echo.Context, id int64) error {
-	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, s)
+	if err != nil {
+		return err
 	}
-	res := fmt.Sprintf("post server %d to add a new base values", id)
-	return ctx.HTML(http.StatusOK, res)
+	return ctx.HTML(http.StatusOK, genBaseValuesHtml(ctx, id, rows))
 }
 
 // (DELETE /{id}/basevalues/{basevalueid})
 // delete node {id} one base value {basevalueid}
 func (s *MyRestAPIServer) DeleteIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
-	res := fmt.Sprintf("delete server %d base value %d", id, basevalueid)
-	return ctx.HTML(http.StatusOK, res)
+	err := trustmgr.DeleteBaseValueByID(basevalueid)
+	if checkJSON(ctx) {
+		res := JsonResult{}
+		if err != nil {
+			res.Result = fmt.Sprintf(strDeleteBaseValueFail, id, basevalueid, err)
+			return ctx.JSON(http.StatusOK, res)
+		}
+		res.Result = fmt.Sprintf(strDeleteBaseValueSuccess, id, basevalueid)
+		return ctx.JSON(http.StatusOK, res)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteBaseValueSuccess, id, basevalueid))
+}
+
+func genBaseValueHtml(ctx echo.Context, basevalue *typdefs.BaseRow) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlOneBaseValue, basevalue.ClientID))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strBaseValueID, basevalue.ID))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strCreateTime,
+		basevalue.CreateTime.Format(typdefs.StrTimeFormat)))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strName, basevalue.Name))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strEnabled, basevalue.Enabled))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strVerified, basevalue.Verified))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strTrusted, basevalue.Trusted))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strPCR, basevalue.Pcr))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strBIOS, basevalue.Bios))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strIMA, basevalue.Ima))
+	buf.WriteString(htmlTableEnd)
+	return buf.String()
 }
 
 // (GET /{id}/basevalues/{basevalueid})
 // get node {id} one base value {basevalueid}
 func (s *MyRestAPIServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
+	row, err := trustmgr.FindBaseValueByID(basevalueid)
 	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, s)
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, row)
 	}
-	res := fmt.Sprintf("get server %d base value %d", id, basevalueid)
-	return ctx.HTML(http.StatusOK, res)
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, genBaseValueHtml(ctx, row))
 }
 
 // (POST /{id}/basevalues/{basevalueid})
@@ -413,6 +486,69 @@ func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, id int64
 	}
 	res := fmt.Sprintf("post server %d to modify base value %d", id, basevalueid)
 	return ctx.HTML(http.StatusOK, res)
+}
+
+func genNewBaseValueHtml(ctx echo.Context, id int64) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlNewBaseValue, id, id))
+	return buf.String()
+}
+
+// (GET /{id}/newbasevalue)
+func (s *MyRestAPIServer) GetIdNewbasevalue(ctx echo.Context, id int64) error {
+	return ctx.HTML(http.StatusOK, genNewBaseValueHtml(ctx, id))
+}
+
+func (s *MyRestAPIServer) getFile(ctx echo.Context, name string) (string, error) {
+	param, err := ctx.FormFile(name)
+	if err != nil {
+		return "", err
+	}
+	file, err := param.Open()
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// (POST /{id}/newbasevalue)
+func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
+	name := ctx.FormValue(strName)
+	sEnv := ctx.FormValue(strEnabled)
+	enabled, _ := strconv.ParseBool(sEnv)
+	pcr, err := s.getFile(ctx, strPCR)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	bios, err := s.getFile(ctx, strBIOS)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	ima, err := s.getFile(ctx, strIMA)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	row := &typdefs.BaseRow{
+		ClientID:   id,
+		CreateTime: time.Now(),
+		Name:       name,
+		Enabled:    enabled,
+		Verified:   false,
+		Trusted:    false,
+		Pcr:        pcr,
+		Bios:       bios,
+		Ima:        ima,
+	}
+	trustmgr.SaveBaseValue(row)
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusFound, s)
+	}
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/basevalues", id))
 }
 
 func genReportsHtml(ctx echo.Context, id int64, rows []typdefs.ReportRow) string {

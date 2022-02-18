@@ -161,9 +161,6 @@ type ClientInterface interface {
 	// GetIdBasevalues request
 	GetIdBasevalues(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostIdBasevalues request
-	PostIdBasevalues(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// DeleteIdBasevaluesBasevalueid request
 	DeleteIdBasevaluesBasevalueid(ctx context.Context, id int64, basevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -172,6 +169,12 @@ type ClientInterface interface {
 
 	// PostIdBasevaluesBasevalueid request
 	PostIdBasevaluesBasevalueid(ctx context.Context, id int64, basevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIdNewbasevalue request
+	GetIdNewbasevalue(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostIdNewbasevalue request
+	PostIdNewbasevalue(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetIdReports request
 	GetIdReports(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -303,18 +306,6 @@ func (c *Client) GetIdBasevalues(ctx context.Context, id int64, reqEditors ...Re
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostIdBasevalues(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostIdBasevaluesRequest(c.Server, id)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) DeleteIdBasevaluesBasevalueid(ctx context.Context, id int64, basevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteIdBasevaluesBasevalueidRequest(c.Server, id, basevalueid)
 	if err != nil {
@@ -341,6 +332,30 @@ func (c *Client) GetIdBasevaluesBasevalueid(ctx context.Context, id int64, basev
 
 func (c *Client) PostIdBasevaluesBasevalueid(ctx context.Context, id int64, basevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostIdBasevaluesBasevalueidRequest(c.Server, id, basevalueid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIdNewbasevalue(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIdNewbasevalueRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostIdNewbasevalue(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostIdNewbasevalueRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -699,40 +714,6 @@ func NewGetIdBasevaluesRequest(server string, id int64) (*http.Request, error) {
 	return req, nil
 }
 
-// NewPostIdBasevaluesRequest generates requests for PostIdBasevalues
-func NewPostIdBasevaluesRequest(server string, id int64) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/%s/basevalues", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = operationPath[1:]
-	}
-	operationURL := url.URL{
-		Path: operationPath,
-	}
-
-	queryURL := serverURL.ResolveReference(&operationURL)
-
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewDeleteIdBasevaluesBasevalueidRequest generates requests for DeleteIdBasevaluesBasevalueid
 func NewDeleteIdBasevaluesBasevalueidRequest(server string, id int64, basevalueid int64) (*http.Request, error) {
 	var err error
@@ -839,6 +820,74 @@ func NewPostIdBasevaluesBasevalueidRequest(server string, id int64, basevalueid 
 	}
 
 	operationPath := fmt.Sprintf("/%s/basevalues/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIdNewbasevalueRequest generates requests for GetIdNewbasevalue
+func NewGetIdNewbasevalueRequest(server string, id int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/newbasevalue", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostIdNewbasevalueRequest generates requests for PostIdNewbasevalue
+func NewPostIdNewbasevalueRequest(server string, id int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/newbasevalue", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = operationPath[1:]
 	}
@@ -1045,9 +1094,6 @@ type ClientWithResponsesInterface interface {
 	// GetIdBasevalues request
 	GetIdBasevaluesWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdBasevaluesResponse, error)
 
-	// PostIdBasevalues request
-	PostIdBasevaluesWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*PostIdBasevaluesResponse, error)
-
 	// DeleteIdBasevaluesBasevalueid request
 	DeleteIdBasevaluesBasevalueidWithResponse(ctx context.Context, id int64, basevalueid int64, reqEditors ...RequestEditorFn) (*DeleteIdBasevaluesBasevalueidResponse, error)
 
@@ -1056,6 +1102,12 @@ type ClientWithResponsesInterface interface {
 
 	// PostIdBasevaluesBasevalueid request
 	PostIdBasevaluesBasevalueidWithResponse(ctx context.Context, id int64, basevalueid int64, reqEditors ...RequestEditorFn) (*PostIdBasevaluesBasevalueidResponse, error)
+
+	// GetIdNewbasevalue request
+	GetIdNewbasevalueWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdNewbasevalueResponse, error)
+
+	// PostIdNewbasevalue request
+	PostIdNewbasevalueWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*PostIdNewbasevalueResponse, error)
 
 	// GetIdReports request
 	GetIdReportsWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdReportsResponse, error)
@@ -1283,27 +1335,6 @@ func (r GetIdBasevaluesResponse) StatusCode() int {
 	return 0
 }
 
-type PostIdBasevaluesResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-}
-
-// Status returns HTTPResponse.Status
-func (r PostIdBasevaluesResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PostIdBasevaluesResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type DeleteIdBasevaluesBasevalueidResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1362,6 +1393,49 @@ func (r PostIdBasevaluesBasevalueidResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PostIdBasevaluesBasevalueidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetIdNewbasevalueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]BaseValueInfo
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIdNewbasevalueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIdNewbasevalueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostIdNewbasevalueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostIdNewbasevalueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostIdNewbasevalueResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1523,15 +1597,6 @@ func (c *ClientWithResponses) GetIdBasevaluesWithResponse(ctx context.Context, i
 	return ParseGetIdBasevaluesResponse(rsp)
 }
 
-// PostIdBasevaluesWithResponse request returning *PostIdBasevaluesResponse
-func (c *ClientWithResponses) PostIdBasevaluesWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*PostIdBasevaluesResponse, error) {
-	rsp, err := c.PostIdBasevalues(ctx, id, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostIdBasevaluesResponse(rsp)
-}
-
 // DeleteIdBasevaluesBasevalueidWithResponse request returning *DeleteIdBasevaluesBasevalueidResponse
 func (c *ClientWithResponses) DeleteIdBasevaluesBasevalueidWithResponse(ctx context.Context, id int64, basevalueid int64, reqEditors ...RequestEditorFn) (*DeleteIdBasevaluesBasevalueidResponse, error) {
 	rsp, err := c.DeleteIdBasevaluesBasevalueid(ctx, id, basevalueid, reqEditors...)
@@ -1557,6 +1622,24 @@ func (c *ClientWithResponses) PostIdBasevaluesBasevalueidWithResponse(ctx contex
 		return nil, err
 	}
 	return ParsePostIdBasevaluesBasevalueidResponse(rsp)
+}
+
+// GetIdNewbasevalueWithResponse request returning *GetIdNewbasevalueResponse
+func (c *ClientWithResponses) GetIdNewbasevalueWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdNewbasevalueResponse, error) {
+	rsp, err := c.GetIdNewbasevalue(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIdNewbasevalueResponse(rsp)
+}
+
+// PostIdNewbasevalueWithResponse request returning *PostIdNewbasevalueResponse
+func (c *ClientWithResponses) PostIdNewbasevalueWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*PostIdNewbasevalueResponse, error) {
+	rsp, err := c.PostIdNewbasevalue(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostIdNewbasevalueResponse(rsp)
 }
 
 // GetIdReportsWithResponse request returning *GetIdReportsResponse
@@ -1836,25 +1919,6 @@ func ParseGetIdBasevaluesResponse(rsp *http.Response) (*GetIdBasevaluesResponse,
 	return response, nil
 }
 
-// ParsePostIdBasevaluesResponse parses an HTTP response from a PostIdBasevaluesWithResponse call
-func ParsePostIdBasevaluesResponse(rsp *http.Response) (*PostIdBasevaluesResponse, error) {
-	bodyBytes, err := ioutil.ReadAll(rsp.Body)
-	defer rsp.Body.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PostIdBasevaluesResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	}
-
-	return response, nil
-}
-
 // ParseDeleteIdBasevaluesBasevalueidResponse parses an HTTP response from a DeleteIdBasevaluesBasevalueidWithResponse call
 func ParseDeleteIdBasevaluesBasevalueidResponse(rsp *http.Response) (*DeleteIdBasevaluesBasevalueidResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -1912,6 +1976,54 @@ func ParsePostIdBasevaluesBasevalueidResponse(rsp *http.Response) (*PostIdBaseva
 	}
 
 	response := &PostIdBasevaluesBasevalueidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetIdNewbasevalueResponse parses an HTTP response from a GetIdNewbasevalueWithResponse call
+func ParseGetIdNewbasevalueResponse(rsp *http.Response) (*GetIdNewbasevalueResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIdNewbasevalueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []BaseValueInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/plain) unsupported
+
+	}
+
+	return response, nil
+}
+
+// ParsePostIdNewbasevalueResponse parses an HTTP response from a PostIdNewbasevalueWithResponse call
+func ParsePostIdNewbasevalueResponse(rsp *http.Response) (*PostIdNewbasevalueResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostIdNewbasevalueResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2032,9 +2144,6 @@ type ServerInterface interface {
 	// (GET /{id}/basevalues)
 	GetIdBasevalues(ctx echo.Context, id int64) error
 
-	// (POST /{id}/basevalues)
-	PostIdBasevalues(ctx echo.Context, id int64) error
-
 	// (DELETE /{id}/basevalues/{basevalueid})
 	DeleteIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error
 
@@ -2043,6 +2152,12 @@ type ServerInterface interface {
 
 	// (POST /{id}/basevalues/{basevalueid})
 	PostIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error
+
+	// (GET /{id}/newbasevalue)
+	GetIdNewbasevalue(ctx echo.Context, id int64) error
+
+	// (POST /{id}/newbasevalue)
+	PostIdNewbasevalue(ctx echo.Context, id int64) error
 
 	// (GET /{id}/reports)
 	GetIdReports(ctx echo.Context, id int64) error
@@ -2200,24 +2315,6 @@ func (w *ServerInterfaceWrapper) GetIdBasevalues(ctx echo.Context) error {
 	return err
 }
 
-// PostIdBasevalues converts echo context to params.
-func (w *ServerInterfaceWrapper) PostIdBasevalues(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "id" -------------
-	var id int64
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
-	}
-
-	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostIdBasevalues(ctx, id)
-	return err
-}
-
 // DeleteIdBasevaluesBasevalueid converts echo context to params.
 func (w *ServerInterfaceWrapper) DeleteIdBasevaluesBasevalueid(ctx echo.Context) error {
 	var err error
@@ -2291,6 +2388,40 @@ func (w *ServerInterfaceWrapper) PostIdBasevaluesBasevalueid(ctx echo.Context) e
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PostIdBasevaluesBasevalueid(ctx, id, basevalueid)
+	return err
+}
+
+// GetIdNewbasevalue converts echo context to params.
+func (w *ServerInterfaceWrapper) GetIdNewbasevalue(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetIdNewbasevalue(ctx, id)
+	return err
+}
+
+// PostIdNewbasevalue converts echo context to params.
+func (w *ServerInterfaceWrapper) PostIdNewbasevalue(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostIdNewbasevalue(ctx, id)
 	return err
 }
 
@@ -2398,10 +2529,11 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/:id", wrapper.GetId)
 	router.POST(baseURL+"/:id", wrapper.PostId)
 	router.GET(baseURL+"/:id/basevalues", wrapper.GetIdBasevalues)
-	router.POST(baseURL+"/:id/basevalues", wrapper.PostIdBasevalues)
 	router.DELETE(baseURL+"/:id/basevalues/:basevalueid", wrapper.DeleteIdBasevaluesBasevalueid)
 	router.GET(baseURL+"/:id/basevalues/:basevalueid", wrapper.GetIdBasevaluesBasevalueid)
 	router.POST(baseURL+"/:id/basevalues/:basevalueid", wrapper.PostIdBasevaluesBasevalueid)
+	router.GET(baseURL+"/:id/newbasevalue", wrapper.GetIdNewbasevalue)
+	router.POST(baseURL+"/:id/newbasevalue", wrapper.PostIdNewbasevalue)
 	router.GET(baseURL+"/:id/reports", wrapper.GetIdReports)
 	router.DELETE(baseURL+"/:id/reports/:reportid", wrapper.DeleteIdReportsReportid)
 	router.GET(baseURL+"/:id/reports/:reportid", wrapper.GetIdReportsReportid)
@@ -2411,29 +2543,30 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -24,6 +24,8 @@ CREATE TABLE base (
     clientid BIGINT,
     createtime TIMESTAMPTZ,
     enabled BOOLEAN,
+    verified BOOLEAN,
+    trusted BOOLEAN,
     name TEXT,
     pcr TEXT,
     bios TEXT,
