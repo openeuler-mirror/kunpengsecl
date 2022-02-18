@@ -495,6 +495,8 @@ func genNewBaseValueHtml(ctx echo.Context, id int64) string {
 }
 
 // (GET /{id}/newbasevalue)
+//  get a empty page as html for new base value, no need for json!!!
+//    curl -X GET http://localhost:40002/{id}/newbasevalue
 func (s *MyRestAPIServer) GetIdNewbasevalue(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, genNewBaseValueHtml(ctx, id))
 }
@@ -517,6 +519,10 @@ func (s *MyRestAPIServer) getFile(ctx echo.Context, name string) (string, error)
 }
 
 // (POST /{id}/newbasevalue)
+//  save node {id} a new base value by html
+//    curl -X POST -H "Content-type: multipart/form-data" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/1/newbasevalue
+//  save node {id} a new base value by json
+//    curl -X POST -H "Content-type: multipart/form-data" -F "Name=test;type=application/json" -F "Enabled=true;type=application/json" -F "Pcr=@./cmd_history;type=application/json" -F "Bios=@./cmd_history;type=application/json" -F "Ima=@./cmd_history;type=application/json" http://localhost:40002/{id}/newbasevalue
 func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
 	name := ctx.FormValue(strName)
 	sEnv := ctx.FormValue(strEnabled)
