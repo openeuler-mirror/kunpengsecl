@@ -313,10 +313,26 @@ func (tpm *TPM) GenerateIKey() error {
 
 // ActivateIKCert decrypts the IkCert from the input, and return it in PEM format
 func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
-	recoveredCredential, err := tpm2.ActivateCredential(tpm.dev, tpm.IK.Handle, tpm.EK.Handle,
-		emptyPassword, emptyPassword, in.CredBlob, in.EncryptedSecret)
+	var err error
+	sessHandle, _, err := tpm2.StartAuthSession(tpm.dev, tpm2.HandleNull, tpm2.HandleNull, make([]byte, 16),
+		nil, tpm2.SessionPolicy, tpm2.AlgNull, tpm2.AlgSHA256)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("StartAuthSession() failed, error:" + err.Error())
+	}
+	defer tpm2.FlushContext(tpm.dev, sessHandle)
+
+	if _, err := tpm2.PolicySecret(tpm.dev, tpm2.HandleEndorsement,
+		tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession},
+		sessHandle, nil, nil, nil, 0); err != nil {
+		return nil, errors.New("PolicySecret() failed, error:" + err.Error())
+	}
+
+	recoveredCredential, err := tpm2.ActivateCredentialUsingAuth(tpm.dev, []tpm2.AuthCommand{
+		{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession, Auth: []byte(emptyPassword)},
+		{Session: sessHandle, Attributes: tpm2.AttrContinueSession, Auth: []byte(emptyPassword)},
+	}, tpm.IK.Handle, tpm.EK.Handle, in.CredBlob, in.EncryptedSecret)
+	if err != nil {
+		return nil, errors.New("ActivateCredentialWithAuth error:" + err.Error())
 	}
 
 	var alg, mode uint16

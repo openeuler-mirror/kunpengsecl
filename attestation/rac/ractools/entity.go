@@ -49,7 +49,14 @@ var (
 		Type:    tpm2.AlgRSA,
 		NameAlg: tpm2.AlgSHA256,
 		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent | tpm2.FlagSensitiveDataOrigin |
-			tpm2.FlagUserWithAuth | tpm2.FlagDecrypt | tpm2.FlagRestricted,
+			tpm2.FlagAdminWithPolicy | tpm2.FlagDecrypt | tpm2.FlagRestricted,
+
+		AuthPolicy: tpmutil.U16Bytes{0x83, 0x71, 0x97, 0x67, 0x44, 0x84,
+			0xB3, 0xF8, 0x1A, 0x90, 0xCC, 0x8D,
+			0x46, 0xA5, 0xD7, 0x24, 0xFD, 0x52,
+			0xD7, 0x6E, 0x06, 0x52, 0x0B, 0x64,
+			0xF2, 0xA1, 0xDA, 0x1B, 0x33, 0x14,
+			0x69, 0xAA},
 		RSAParameters: &tpm2.RSAParams{
 			Symmetric: &tpm2.SymScheme{
 				Alg:     tpm2.AlgAES,
@@ -58,6 +65,23 @@ var (
 			},
 			KeyBits:     2048,
 			ExponentRaw: 0,
+			ModulusRaw: tpmutil.U16Bytes{ //256 zeros
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		},
 	}
 	// according to TCG specification, 7.3.4.2 Template H-1: RSA 2048
