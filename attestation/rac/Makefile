@@ -23,24 +23,28 @@ clean:
 	@rm -rf pkg
 
 install: build
-	sudo mkdir -p $(ETCTAR)/rac $(ETCTAR)/rahub $(ETCTAR)/auth_file $(SHARETAR)/rac $(DOCTAR)/rac $(DOCTAR)/rahub
-	sudo install -m 555 pkg/raagent $(BINTAR)
-	sudo install -m 555 pkg/rahub $(BINTAR)
-	sudo install -m 555 pkg/tbprovisioner $(BINTAR)
-	sudo install -m 644 $(RACPATH)/config.yaml $(ETCTAR)/rac
-	sudo install -m 644 $(HUBPATH)/config.yaml $(ETCTAR)/rahub
-	sudo install -m 644 $(RACPATH)/ascii_runtime_measurements $(ETCTAR)/auth_file
-	sudo install -m 644 $(RACPATH)/binary_bios_measurements $(ETCTAR)/auth_file
-	sudo install -m 555 $(SCRPATH)/*.sh $(SHARETAR)/rac
-	sudo install -m 644 $(TOPPATH)/README.md $(DOCTAR)/rac
-	sudo install -m 644 $(TOPPATH)/README.en.md $(DOCTAR)/rac
-	sudo install -m 644 $(TOPPATH)/LICENSE $(DOCTAR)/rac
-	sudo install -m 644 $(TOPPATH)/README.md $(DOCTAR)/rahub
-	sudo install -m 644 $(TOPPATH)/README.en.md $(DOCTAR)/rahub
-	sudo install -m 644 $(TOPPATH)/LICENSE $(DOCTAR)/rahub
+	sudo mkdir -p $(DESTDIR)$(ETCTAR)/rac $(DESTDIR)$(ETCTAR)/rahub $(DESTDIR)$(ETCTAR)/auth_file $(DESTDIR)$(SHARETAR)/rac $(DESTDIR)$(DOCTAR)/rac $(DESTDIR)$(DOCTAR)/rahub $(DESTDIR)$(BINTAR)
+	sudo install -m 555 pkg/raagent $(DESTDIR)$(BINTAR)
+	sudo install -m 555 pkg/rahub $(DESTDIR)$(BINTAR)
+	sudo install -m 555 pkg/tbprovisioner $(DESTDIR)$(BINTAR)
+	sudo install -m 644 $(RACPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rac
+	sudo install -m 644 $(HUBPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rahub
+	sudo install -m 644 $(RACPATH)/ascii_runtime_measurements $(DESTDIR)$(ETCTAR)/auth_file
+	sudo install -m 644 $(RACPATH)/binary_bios_measurements $(DESTDIR)$(ETCTAR)/auth_file
+	sudo install -m 555 $(SCRPATH)/*.sh $(DESTDIR)$(SHARETAR)/rac
+	sudo install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rac
+	sudo install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rac
+	sudo install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/rac
+	sudo install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rahub
+	sudo install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rahub
+	sudo install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/rahub
 
 uninstall:
+ifeq ($(DESTDIR),)
 	@sudo rm -rf $(BINTAR)/raagent $(BINTAR)/rahub $(BINTAR)/tbprovisioner $(BINTAR)/ras $(ETCTAR) $(SHARETAR) $(DOCTAR)
+else
+	@sudo rm -rf $(DESTDIR)
+endif
 
 check:
 	$(shell go env GOPATH)/bin/golangci-lint run -e gofmt -e gocyclo -e errorlint -e gosec
