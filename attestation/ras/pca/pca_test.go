@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -189,4 +191,24 @@ func TestNilJudge(t *testing.T) {
 		t.Error("GenerateCertificate doesn't handle nil input corretly")
 	}
 
+}
+func TestVerifyCert(t *testing.T) {
+	ekFile := "ECC_EK_cert.bin"
+	ekCert, _, err := DecodeKeyCertFromNVFile(ekFile)
+	assert.NoError(t, err)
+	rootFile := "root.crt"
+	rootCert, _, err := DecodeKeyCertFromFile(rootFile)
+	assert.NoError(t, err)
+	ok := verifyCert(ekCert, rootCert)
+	if ok {
+		fmt.Println("success!")
+	} else {
+		fmt.Println("failed!")
+	}
+}
+func TestDecodeCertFromNVFile(t *testing.T) {
+	filename := "ECC_EK_cert.bin"
+	cert, _, err := DecodeKeyCertFromNVFile(filename)
+	assert.NoError(t, err)
+	fmt.Println(cert)
 }

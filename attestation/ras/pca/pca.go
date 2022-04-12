@@ -251,6 +251,26 @@ func DecodeKeyCertFromFile(fileName string) (*x509.Certificate, []byte, error) {
 	return DecodeKeyCertFromPEM(data)
 }
 
+//DecodeKeyCertFromNVFile decode the cert from NVRAM's file
+func DecodeKeyCertFromNVFile(fileName string) (*x509.Certificate, []byte, error) {
+	data, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, nil, err
+	}
+	//remove excess 0
+	for i := range data {
+		if data[i] == 0 && data[i+1] == 0 {
+			data = data[:i]
+			break
+		}
+	}
+	cert, err := x509.ParseCertificate(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cert, data, nil
+}
+
 var (
 	serialNumber int64 = 1
 	snMutex      sync.Mutex
@@ -307,4 +327,21 @@ func EncryptIKCert(ekPubKey crypto.PublicKey, ikCert []byte, ikName []byte) (*IK
 		SymKeyParams:  symKeyParams,
 	}
 	return &ikCertChallenge, nil
+}
+
+//verifyCert verify the cert is valid by rootCert
+/*
+	Next step will to add the rootCert to the CertPool
+	and verify the cert chain
+*/
+func verifyCert(cert *x509.Certificate, rootCerts *x509.Certificate) bool {
+	roots := x509.NewCertPool()
+	roots.AddCert(rootCerts)
+	opts := x509.VerifyOptions{
+		Roots: roots,
+	}
+	if _, err := cert.Verify(opts); err != nil {
+		return false
+	}
+	return true
 }
