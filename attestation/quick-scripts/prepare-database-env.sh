@@ -9,6 +9,7 @@ case $osv in
         sudo apt-get install $ubuntu_deps
         ;;
     openEuler|CentOS)
+        sudo dnf -y install openldap-devel
         sudo dnf -y --allowerasing install $openeuler_deps
         sudo su - postgres <<EOF
 initdb --pgdata="/var/lib/pgsql/data" --auth=ident
