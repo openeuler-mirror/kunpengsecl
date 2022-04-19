@@ -417,12 +417,12 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 		return false, err
 	}
 	// 3. check pcr log
-	_, err = checkPcrLog(c, report, row)
+	_, err = checkPcrLog(report, row)
 	if err != nil {
 		return false, err
 	}
 	// 4. check bios and ima log
-	_, err = checkBiosAndImaLog(c, report, row)
+	_, err = checkBiosAndImaLog(report, row)
 	if err != nil {
 		return false, err
 	}
@@ -475,7 +475,7 @@ func pcrLogToMap(pcrLog []byte) map[int]string {
 	return m
 }
 
-func checkPcrLog(c *cache.Cache, report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, error) {
+func checkPcrLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, error) {
 	pcrLog := findManifest(report, typdefs.StrPcr)
 	pcrMap := pcrLogToMap(pcrLog)
 	//use PCRselection to calculate PCRdigest
@@ -512,7 +512,7 @@ func findManifest(report *typdefs.TrustReport, key string) []byte {
 	return []byte{}
 }
 
-func checkBiosAndImaLog(c *cache.Cache, report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, error) {
+func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, error) {
 	bLog := findManifest(report, typdefs.StrBios)
 	btLog, _ := typdefs.TransformBIOSBinLogToTxt(bLog)
 	pcrs := typdefs.NewPcrGroups()

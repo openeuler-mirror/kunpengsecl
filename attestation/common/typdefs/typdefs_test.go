@@ -390,16 +390,18 @@ func TestReadSHA1BIOSEventLog(t *testing.T) {
 }
 
 func TestPcrGroups(t *testing.T) {
+	val := "abc"
+	na := "filename"
 	testCases1 := []struct {
 		index int
 		value string
 		name  string
 	}{
-		{2, "abc", "filename"},
-		{1, "abc", "filename"},
-		{2, "abc", "filename"},
-		{2, "abc", "filename"},
-		{1, "abc", "filename"},
+		{2, val, na},
+		{1, val, na},
+		{2, val, na},
+		{2, val, na},
+		{1, val, na},
 	}
 	testCases2 := []struct {
 		index int

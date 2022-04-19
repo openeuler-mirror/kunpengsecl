@@ -204,7 +204,7 @@ func checkJSON(ctx echo.Context) bool {
 	return false
 }
 
-func genAllListHtml(ctx echo.Context, nodes []typdefs.NodeInfo) string {
+func genAllListHtml(nodes []typdefs.NodeInfo) string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlAllList)
 	for _, n := range nodes {
@@ -228,7 +228,7 @@ func showListNodesByRange(ctx echo.Context, from, to int64) error {
 		logger.L.Sugar().Debugf(errNoClient, err)
 		return ctx.HTML(http.StatusNotFound, "")
 	}
-	return ctx.HTML(http.StatusOK, genAllListHtml(ctx, nodes))
+	return ctx.HTML(http.StatusOK, genAllListHtml(nodes))
 }
 
 // (GET /)
@@ -247,14 +247,14 @@ type cfgRecord struct {
 	TrustDuration time.Duration `json:"trustduration" form:"trustduration"`
 }
 
-func genConfigJson(ctx echo.Context) *cfgRecord {
+func genConfigJson() *cfgRecord {
 	return &cfgRecord{
 		HBDuration:    config.GetHBDuration() / time.Second,
 		TrustDuration: config.GetTrustDuration() / time.Second,
 	}
 }
 
-func genConfigHtml(ctx echo.Context) string {
+func genConfigHtml() string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlConfig)
 	buf.WriteString(fmt.Sprintf(htmlConfigEdit, strHBDuration,
@@ -273,9 +273,9 @@ func genConfigHtml(ctx echo.Context) string {
 //    curl -X GET -H "Content-type: application/json" http://localhost:40002/config
 func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, genConfigJson(ctx))
+		return ctx.JSON(http.StatusOK, genConfigJson())
 	}
-	return ctx.HTML(http.StatusOK, genConfigHtml(ctx))
+	return ctx.HTML(http.StatusOK, genConfigHtml())
 }
 
 // (POST /config)
@@ -296,9 +296,9 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	config.SetTrustDuration(cfg.TrustDuration * time.Second)
 	trustmgr.UpdateAllNodes()
 	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, genConfigJson(ctx))
+		return ctx.JSON(http.StatusOK, genConfigJson())
 	}
-	return ctx.HTML(http.StatusOK, genConfigHtml(ctx))
+	return ctx.HTML(http.StatusOK, genConfigHtml())
 }
 
 // (POST /login)
@@ -353,7 +353,7 @@ func (s *MyRestAPIServer) DeleteId(ctx echo.Context, id int64) error {
 }
 
 // TODO: add more information of the node
-func genNodeHtml(ctx echo.Context, c *cache.Cache) string {
+func genNodeHtml(c *cache.Cache) string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlOneNode)
 	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strRegTime, c.GetRegTime()))
@@ -388,7 +388,7 @@ func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 		logger.L.Sugar().Debugf(errNoClient, err)
 		return ctx.JSON(http.StatusNotFound, "")
 	}
-	return ctx.HTML(http.StatusOK, genNodeHtml(ctx, c))
+	return ctx.HTML(http.StatusOK, genNodeHtml(c))
 }
 
 // (POST /{id})
@@ -398,7 +398,7 @@ func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func genBaseValuesHtml(ctx echo.Context, id int64, rows []typdefs.BaseRow) string {
+func genBaseValuesHtml(id int64, rows []typdefs.BaseRow) string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf(htmlListBaseValues, id))
 	for _, n := range rows {
@@ -423,7 +423,7 @@ func (s *MyRestAPIServer) GetIdBasevalues(ctx echo.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	return ctx.HTML(http.StatusOK, genBaseValuesHtml(ctx, id, rows))
+	return ctx.HTML(http.StatusOK, genBaseValuesHtml(id, rows))
 }
 
 // (DELETE /{id}/basevalues/{basevalueid})
@@ -445,7 +445,7 @@ func (s *MyRestAPIServer) DeleteIdBasevaluesBasevalueid(ctx echo.Context, id int
 	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteBaseValueSuccess, id, basevalueid))
 }
 
-func genBaseValueHtml(ctx echo.Context, basevalue *typdefs.BaseRow) string {
+func genBaseValueHtml(basevalue *typdefs.BaseRow) string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf(htmlOneBaseValue, basevalue.ClientID))
 	buf.WriteString(fmt.Sprintf(htmlBaseValue, strBaseValueID, basevalue.ID))
@@ -475,7 +475,7 @@ func (s *MyRestAPIServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64,
 	if err != nil {
 		return err
 	}
-	return ctx.HTML(http.StatusOK, genBaseValueHtml(ctx, row))
+	return ctx.HTML(http.StatusOK, genBaseValueHtml(row))
 }
 
 // (POST /{id}/basevalues/{basevalueid})
@@ -488,7 +488,7 @@ func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, id int64
 	return ctx.HTML(http.StatusOK, res)
 }
 
-func genNewBaseValueHtml(ctx echo.Context, id int64) string {
+func genNewBaseValueHtml(id int64) string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf(htmlNewBaseValue, id, id))
 	return buf.String()
@@ -498,7 +498,7 @@ func genNewBaseValueHtml(ctx echo.Context, id int64) string {
 //  get a empty page as html for new base value, no need for json!!!
 //    curl -X GET http://localhost:40002/{id}/newbasevalue
 func (s *MyRestAPIServer) GetIdNewbasevalue(ctx echo.Context, id int64) error {
-	return ctx.HTML(http.StatusOK, genNewBaseValueHtml(ctx, id))
+	return ctx.HTML(http.StatusOK, genNewBaseValueHtml(id))
 }
 
 func (s *MyRestAPIServer) getFile(ctx echo.Context, name string) (string, error) {
@@ -559,7 +559,7 @@ func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
 	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/basevalues", id))
 }
 
-func genReportsHtml(ctx echo.Context, id int64, rows []typdefs.ReportRow) string {
+func genReportsHtml(id int64, rows []typdefs.ReportRow) string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf(htmlListReports, id))
 	for _, n := range rows {
@@ -588,7 +588,7 @@ func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	return ctx.HTML(http.StatusOK, genReportsHtml(ctx, id, rows))
+	return ctx.HTML(http.StatusOK, genReportsHtml(id, rows))
 }
 
 // (DELETE /{id}/reports/{reportid})
@@ -614,7 +614,7 @@ func (s *MyRestAPIServer) DeleteIdReportsReportid(ctx echo.Context, id int64, re
 	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteReportSuccess, id, reportid))
 }
 
-func genReportHtml(ctx echo.Context, report *typdefs.ReportRow) string {
+func genReportHtml(report *typdefs.ReportRow) string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf(htmlOneReport, report.ClientID))
 	buf.WriteString(fmt.Sprintf(htmlReportValue, strReportID, report.ID))
@@ -648,5 +648,5 @@ func (s *MyRestAPIServer) GetIdReportsReportid(ctx echo.Context, id int64, repor
 	if err != nil {
 		return err
 	}
-	return ctx.HTML(http.StatusOK, genReportHtml(ctx, row))
+	return ctx.HTML(http.StatusOK, genReportHtml(row))
 }

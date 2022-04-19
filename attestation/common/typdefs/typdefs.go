@@ -596,6 +596,38 @@ func parseIMALine(line []byte) (int, [][]byte, error) {
 	return index, words, nil
 }
 
+func handleIMALine(pcrs *PcrGroups, line []byte) (bool, error) {
+	t1 := make([]byte, Sha1DigestLen)
+	s1 := make([]byte, Sha1DigestLen)
+	index, words, err := parseIMALine(line)
+	if err != nil {
+		return false, err
+	}
+	if len(words) == imaLogItemNum {
+		_, err = hex.Decode(t1, words[1]) // TemplateHash to verify
+		if err != nil {
+			return false, ErrImaLogFormatWrong
+		}
+		switch string(words[2]) {
+		case StrIma:
+			_, err = hex.Decode(s1, words[3]) // FiledataHash
+			if err != nil {
+				return false, ErrImaLogFormatWrong
+			}
+			pcrs.ExtendIMALog(index, s1, words[4])
+			if !bytes.Equal(t1, pcrs.Sha1Pcrs[index]) {
+				return false, ErrValidateIMAFail
+			}
+		case StrImaNg:
+			pcrs.ExtendIMANGLog(index, words[3], words[4])
+			if !bytes.Equal(t1, pcrs.Sha256Pcrs[index]) {
+				return false, ErrValidateIMAFail
+			}
+		}
+	}
+	return false, ErrImaLogFormatWrong
+}
+
 // ExtendPCRWithIMALog first verifies the bios aggregate, then extends ima
 // logs into pcr and verifies them one by one.
 // TODO: needs to test sha1/sha256/ima/ima-ng all cases, now just test ima/sha1.
@@ -609,34 +641,10 @@ func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte) (bool, error) {
 	if !bytes.Equal(ws[3], []byte(aggr)) {
 		return false, ErrBiosAggregateFail
 	}
-	t1 := make([]byte, Sha1DigestLen)
-	s1 := make([]byte, Sha1DigestLen)
 	for _, line := range lines {
-		index, words, err := parseIMALine(line)
-		if err != nil {
-			return false, err
-		}
-		if len(words) == imaLogItemNum {
-			_, err = hex.Decode(t1, words[1]) // TemplateHash to verify
-			if err != nil {
-				return false, ErrImaLogFormatWrong
-			}
-			switch string(words[2]) {
-			case StrIma:
-				_, err = hex.Decode(s1, words[3]) // FiledataHash
-				if err != nil {
-					return false, ErrImaLogFormatWrong
-				}
-				pcrs.ExtendIMALog(index, s1, words[4])
-				if !bytes.Equal(t1, pcrs.Sha1Pcrs[index]) {
-					return false, ErrValidateIMAFail
-				}
-			case StrImaNg:
-				pcrs.ExtendIMANGLog(index, words[3], words[4])
-				if !bytes.Equal(t1, pcrs.Sha256Pcrs[index]) {
-					return false, ErrValidateIMAFail
-				}
-			}
+		ret, err := handleIMALine(pcrs, line)
+		if !ret {
+			return ret, err
 		}
 	}
 	return true, nil
@@ -667,12 +675,11 @@ func compareImaToBaseInfo(line [][]byte, baseInfo [][][]byte, isMatched []bool) 
 		if len(baseInfo[i]) < 3 {
 			continue
 		}
-		if !isMatched[i] {
-			if bytes.Equal(line[4], baseInfo[i][2]) && // compare filename
-				bytes.Equal(line[3], baseInfo[i][1]) { // compare hash value
-				isMatched[i] = true
-				return true
-			}
+		if !isMatched[i] &&
+			bytes.Equal(line[4], baseInfo[i][2]) && // compare filename
+			bytes.Equal(line[3], baseInfo[i][1]) { // compare hash value
+			isMatched[i] = true
+			return true
 		}
 	}
 	return false
@@ -703,12 +710,9 @@ func CompareIMALog(baseFile string, imaLog string) bool {
 	}
 	isMatched := make([]bool, len(base)) // record whether the base is matched or not
 	for _, line := range ima {
-		if compareImaToBaseInfo(line, base, isMatched) {
-			//fmt.Printf("compare ok at %d: %s\n", i, line)
-			if areAllMatched(isMatched) {
-				//fmt.Printf("end=%d\n", i)
-				return true
-			}
+		if compareImaToBaseInfo(line, base, isMatched) &&
+			areAllMatched(isMatched) {
+			return true
 		}
 	}
 	return false

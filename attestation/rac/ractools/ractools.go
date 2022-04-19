@@ -257,7 +257,7 @@ func SetDigestAlg(alg string) {
 	}
 	tpmRef.config.ReportHashAlg = alg
 	if algID, ok := algIdMap[alg]; ok {
-		pcrSelectionAll.Hash = algID // FIXME: ???
+		pcrSelectionAll.Hash = algID
 	}
 }
 
@@ -458,7 +458,7 @@ func ActivateIKCert(in *IKCertInput) ([]byte, error) {
 	}
 	defer tpm2.FlushContext(tpmRef.dev, sessHandle)
 
-	if _, err := tpm2.PolicySecret(tpmRef.dev, tpm2.HandleEndorsement,
+	if _, err = tpm2.PolicySecret(tpmRef.dev, tpm2.HandleEndorsement,
 		tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession},
 		sessHandle, nil, nil, nil, 0); err != nil {
 		return nil, errors.New("PolicySecret() failed, error:" + err.Error())
