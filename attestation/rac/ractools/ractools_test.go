@@ -1,5 +1,6 @@
 package ractools
 
+/*
 import (
 	"bytes"
 	"crypto"
@@ -421,6 +422,10 @@ func TestPreparePCRsTest(t *testing.T) {
 			return
 		}
 		pcrs, err := tpm.readPcrs(pcrSelectionAll)
+		fmt.Println("PCRS:")
+		for i, v := range pcrs {
+			fmt.Printf(" %02d: %v\n", i, v)
+		}
 		if err != nil {
 			t.Errorf("read PCRs failed, err: %v", err)
 		}
@@ -505,3 +510,4 @@ func TestGenerateEKey(t *testing.T) {
 		t.Errorf("GenerateEKey generated 100 EK without error, unexpected")
 	}
 }
+*/

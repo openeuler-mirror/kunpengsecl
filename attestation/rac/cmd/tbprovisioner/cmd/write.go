@@ -1,5 +1,4 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
 You can use this software according to the terms and conditions of
 the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
@@ -13,6 +12,7 @@ Author: wucaijun
 Create: 2021-12-02
 Description: Command line tool for tpm provision process.
 */
+
 package cmd
 
 import (
@@ -67,12 +67,12 @@ The data comes from input or from a file. Default input data is PEM format.
 				tpmConf.BIOSLogPath = ractools.BiosLogPath
 				tpmConf.ReportHashAlg = ""
 			}
-			tp, err := ractools.OpenTPM(!wSim, &tpmConf)
+			err = ractools.OpenTPM(!wSim, &tpmConf)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)
 			}
-			defer tp.Close()
+			defer ractools.CloseTPM()
 			if wIndex == 0 {
 				wIndex = ractools.IndexRsa2048EKCert
 			}
@@ -80,10 +80,10 @@ The data comes from input or from a file. Default input data is PEM format.
 			if wType == ConstDER {
 				block, _ := pem.Decode(buf)
 				if block != nil {
-					err = tp.WriteNVRAM(wIndex, block.Bytes)
+					err = ractools.WriteNVRAM(wIndex, block.Bytes)
 				}
 			} else {
-				err = tp.WriteNVRAM(wIndex, buf)
+				err = ractools.WriteNVRAM(wIndex, buf)
 			}
 			if err != nil {
 				fmt.Printf(errWriteNVRAM, wIndex, err)

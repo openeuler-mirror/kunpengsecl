@@ -1,299 +1,119 @@
 package trustmgr
 
+/*
 import (
-	"math/rand"
+	"encoding/json"
+	"fmt"
+	"os"
 	"testing"
 	"time"
-
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
-	"github.com/stretchr/testify/assert"
 )
 
-type testValidator struct {
-}
-
-func (tv *testValidator) Validate(report *entity.Report) error {
-	return nil
-}
-
-type testExtractor struct {
-}
-
-func (tv *testExtractor) Extract(report *entity.Report, mInfo *entity.MeasurementInfo) error {
-	mInfo.ClientID = report.ClientID
-	mInfo.PcrInfo = report.PcrInfo
-	for _, mf := range report.Manifest {
-		for _, mi := range mf.Items {
-			mInfo.Manifest = append(mInfo.Manifest, entity.Measurement{
-				Type:  mf.Type,
-				Name:  mi.Name,
-				Value: mi.Value,
-			})
-		}
-	}
-	return nil
-}
-
-var (
-	pcrInfo = entity.PcrInfo{
-		Values: map[int]string{
-			1: "pcr value 1",
-			2: "pcr value 2",
-		},
-		Quote: entity.PcrQuote{
-			Quoted: []byte("test quote"),
-		},
-	}
-
-	biosItem1 = entity.ManifestItem{
-		Name:   "test bios name1",
-		Value:  "test bios value1",
-		Detail: "test bios detail1",
-	}
-
-	biosItem2 = entity.ManifestItem{
-		Name:   "test bios name2",
-		Value:  "test bios value2",
-		Detail: "test bios detail2",
-	}
-
-	imaItem1 = entity.ManifestItem{
-		Name:   "test ima name1",
-		Value:  "test ima value1",
-		Detail: "test ima detail1",
-	}
-
-	biosManifest = entity.Manifest{
-		Type: "bios",
-		Items: []entity.ManifestItem{
-			0: biosItem1,
-			1: biosItem2,
-		},
-	}
-
-	imaManifest = entity.Manifest{
-		Type: "ima",
-		Items: []entity.ManifestItem{
-			0: imaItem1,
-		},
-	}
-
-	clientInfo = entity.ClientInfo{
-		Info: map[string]string{
-			"client_name":        "test_client",
-			"client_type":        "test_type",
-			"client_description": "test description",
-		},
-	}
+const (
+	constPath = "/reports"
+	constDB   = "postgres"
+	constDNS  = "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
 )
 
-func TestRecordReport(t *testing.T) {
-	test.CreateServerConfigFile()
-	defer test.RemoveConfigFile()
-	err := RecordReport(&entity.Report{})
-	assert.Error(t, err)
-	vm := new(testValidator)
-	SetValidator(vm)
-	ex := new(testExtractor)
-	SetExtractor(ex)
-	cfg := config.GetDefault(config.ConfServer)
-	ic := createRandomCert()
-
-	clientID, err := RegisterClient(&clientInfo, ic)
-	assert.NoError(t, err)
-	_, err = RegisterClient(&clientInfo, ic)
-	assert.Error(t, err)
-
-	testReport := &entity.Report{
-		PcrInfo: pcrInfo,
-		Manifest: []entity.Manifest{
-			0: biosManifest,
-			1: imaManifest,
-		},
-		ClientID:   clientID,
-		ClientInfo: clientInfo,
-	}
-
-	err = RecordReport(testReport)
-	assert.NoError(t, err)
-
-	client, err := GetRegisterClientById(clientID)
-	assert.NoError(t, err)
-	_, err = GetRegisterClientById(-999)
-	assert.Error(t, err)
-
-	testBeginBVVer := client.BaseValueVer
-
-	info, err := GetAllClientInfoByID(clientID)
-	assert.NoError(t, err)
-	assert.Equal(t, info, clientInfo.Info)
-	_, err = GetAllClientInfoByID(-999)
-	assert.Error(t, err)
-
-	// test auto-update
-	cfg.SetMgrStrategy(config.RasAutoUpdateStrategy)
-	// test all update
-	cfg.SetAutoUpdateConfig(entity.AutoUpdateConfig{IsAllUpdate: true})
-	err = RecordReport(testReport)
-	assert.NoError(t, err)
-	client, err = GetRegisterClientById(clientID)
-	assert.NoError(t, err)
-	assert.Equal(t, testBeginBVVer, client.BaseValueVer)
-
-	testReport.Manifest[0].Items[0].Value = "test changed value 1"
-	err = RecordReport(testReport)
-	assert.NoError(t, err)
-	client, err = GetRegisterClientById(clientID)
-	assert.NoError(t, err)
-	assert.Equal(t, testBeginBVVer+1, client.BaseValueVer)
-	testBeginBVVer++
-	// test not all update
-	cfg.SetAutoUpdateConfig(entity.AutoUpdateConfig{
-		IsAllUpdate:   false,
-		UpdateClients: []int64{clientID},
-	})
-	err = RecordReport(testReport)
-	assert.NoError(t, err)
-	client, err = GetRegisterClientById(clientID)
-	assert.NoError(t, err)
-	assert.Equal(t, testBeginBVVer, client.BaseValueVer)
-
-	testReport.Manifest[0].Items[0].Value = "test changed value 2"
-	err = RecordReport(testReport)
-	assert.NoError(t, err)
-	client, err = GetRegisterClientById(clientID)
-	assert.NoError(t, err)
-	assert.Equal(t, testBeginBVVer+1, client.BaseValueVer)
-	testBeginBVVer++
-
-	// test client is not in the list
-	cfg.SetAutoUpdateConfig(entity.AutoUpdateConfig{
-		IsAllUpdate:   false,
-		UpdateClients: []int64{clientID + 10},
-	})
-	err = RecordReport(testReport)
-	assert.NoError(t, err)
-	client, err = GetRegisterClientById(clientID)
-	assert.NoError(t, err)
-	assert.Equal(t, testBeginBVVer, client.BaseValueVer)
+func TestCreateAndClose(t *testing.T) {
+	path, _ := os.Getwd()
+	mgr, _ := NewTrustMgr(path+constPath, constDB, constDNS)
+	defer mgr.Close()
 }
 
-func TestIsMeasurementUpdate(t *testing.T) {
-	test.CreateServerConfigFile()
-	config.GetDefault(config.ConfServer)
-	defer test.RemoveConfigFile()
-
-	mea1 := entity.MeasurementInfo{
-		ClientID: 1,
-		PcrInfo:  pcrInfo,
-		Manifest: []entity.Measurement{
-			0: {
-				Type:  "bios",
-				Name:  "bios name1",
-				Value: "bios value1",
-			},
-			1: {
-				Type:  "ima",
-				Name:  "ima name1",
-				Value: "ima value1",
-			},
-		},
+func TestRegisterClientByAK(t *testing.T) {
+	clients := []struct {
+		AK   string
+		Info string
+	}{
+		{"1", `{"ip": "10.0.0.1", "name": "wucaijun1", "num": 123}`},
+		{"2", `{"ip": "10.0.0.2", "name": "wucaijun2", "num": 123}`},
+		{"3", `{"ip": "10.0.0.3", "name": "wucaijun3", "num": 123}`},
+		{"4", `{"ip": "10.0.0.4", "name": "wucaijun4", "num": 123}`},
+		{"5", `{"ip": "10.0.0.5", "name": "wucaijun5", "num": 123}`},
+		{"6", `{"ip": "10.0.0.6", "name": "wucaijun6", "num": 123}`},
+		{"7", `{"ip": "10.0.0.7", "name": "wucaijun7", "num": 123}`},
 	}
-	mea2 := entity.MeasurementInfo{
-		ClientID: 1,
-		PcrInfo:  pcrInfo,
-		Manifest: []entity.Measurement{
-			0: {
-				Type:  "bios",
-				Name:  "bios name1",
-				Value: "bios value1",
-			},
-			1: {
-				Type:  "ima",
-				Name:  "ima name1",
-				Value: "ima value1",
-			},
-		},
+	path, _ := os.Getwd()
+	mgr, _ := NewTrustMgr(path+constPath, constDB, constDNS)
+	defer mgr.Close()
+	for _, c := range clients {
+		mgr.RegisterClientByAK(c.AK+time.Now().Format("06-01-02-15-04-05.999"), c.Info)
 	}
-	result := isMeasurementUpdate(&mea1, &mea2)
-	assert.False(t, result)
-
-	mea2.Manifest[0].Type = "ima"
-	result = isMeasurementUpdate(&mea1, &mea2)
-	assert.True(t, result)
 }
 
-func createRandomCert() []byte {
-	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	strBytes := []byte(str)
-	randomCert := []byte{}
-	ra := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := 0; i < 6; i++ {
-		randomCert = append(randomCert, strBytes[ra.Intn(len(strBytes))])
+func TestFindClient(t *testing.T) {
+	path, _ := os.Getwd()
+	mgr, _ := NewTrustMgr(path+constPath, constDB, constDNS)
+	defer mgr.Close()
+	ak := "AK" + time.Now().Format("06-01-02-15-04-05") + "KA"
+	info := fmt.Sprintf(`{"ip": "8.8.8.%d", "name": "google DNS", "last": %d}`, time.Now().Second(), time.Now().Second())
+	c, err := mgr.RegisterClientByAK(ak, info)
+	if err != nil {
+		t.Logf("register fail %v", err)
 	}
-	return randomCert
-}
-
-func TestNoDB(t *testing.T) {
-	test.CreateServerConfigFile()
-	config.GetDefault(config.ConfServer).SetHost("")
-	defer test.RemoveConfigFile()
-
-	db, err := getPostgreSQLDAO()
+	c1, err := mgr.FindClientByAK(c.AK)
 	if err == nil {
-		db.Destroy()
-		dbDAO = nil
+		t.Logf("find client by ak=%s, c=%v\n", c1.AK, c1)
+	} else {
+		t.Errorf("find by ak error: %v", err)
 	}
-	_, err = RegisterClient(nil, nil)
-	assert.Error(t, err)
-	err = UnRegisterClient(0)
-	assert.Error(t, err)
-	_, err = GetLatestReportById(0)
-	assert.Error(t, err)
-	_, err = isFirstReport(0)
-	assert.Error(t, err)
-	_, err = GetAllRegisteredClientID()
-	assert.Error(t, err)
-	_, err = GetAllClientID()
-	assert.Error(t, err)
-	_, err = GetBaseValueById(0)
-	assert.Error(t, err)
-	_, err = GetRegisterClientById(0)
-	assert.Error(t, err)
-	err = SaveBaseValueById(0, nil)
-	assert.Error(t, err)
-	err = UpdateRegisterClient(nil)
-	assert.Error(t, err)
-	err = AddContainer(nil)
-	assert.Error(t, err)
-	err = AddContainerBaseValue(nil)
-	assert.Error(t, err)
-	_, err = GetContainerByUUId("")
-	assert.Error(t, err)
-	_, err = GetContainerBaseValueByUUId("")
-	assert.Error(t, err)
-	err = UpdateContainerStatusByUUId("", false)
-	assert.Error(t, err)
-	_, err = GetAllContainerUUIds()
-	assert.Error(t, err)
-	_, err = GetDeviceById(0)
-	assert.Error(t, err)
-	_, err = GetDeviceBaseValueById(0)
-	assert.Error(t, err)
-	err = AddDevice(nil)
-	assert.Error(t, err)
-	err = AddDeviceBaseValue(nil)
-	assert.Error(t, err)
-	err = UpdateDeviceStatusById(0, false)
-	assert.Error(t, err)
-	_, err = GetAllDeviceIds()
-	assert.Error(t, err)
-	_, err = GetAllClientInfoByID(0)
-	assert.Error(t, err)
-	err = UpdateRegisterStatusById(0, false)
-	assert.Error(t, err)
-	_, err = GetClientInfoByID(0, nil)
-	assert.Error(t, err)
+	c2, err := mgr.FindClientByID(c.ID)
+	if err == nil {
+		t.Logf("find client by id=%d, c=%v\n", c2.ID, c2)
+	} else {
+		t.Errorf("find by id error: %v", err)
+	}
+	info2 := `{"name": "google DNS"}`
+	c3, err := mgr.FindClientsByInfo(info2)
+	if err == nil {
+		t.Logf("find client by info=%s\n", info2)
+		for i, v := range c3 {
+			t.Logf("  %d, %v\n", i, v)
+		}
+	} else {
+		t.Errorf("find by info error: %v", err)
+	}
 }
+
+func TestSaveReport(t *testing.T) {
+	path, _ := os.Getwd()
+	mgr, _ := NewTrustMgr(path+constPath, constDB, constDNS)
+	defer mgr.Close()
+	ak := "AK" + time.Now().Format("06-01-02-15-04-05") + "KA"
+	info := fmt.Sprintf(`{"ip": "8.8.8.%d", "name": "google DNS", "last": %d}`, time.Now().Second(), time.Now().Second())
+	c, err := mgr.RegisterClientByAK(ak, info)
+	if err != nil {
+		t.Logf("register fail %v", err)
+	}
+	_ = c
+	//mgr.SaveReport(c.ID, []byte("haha"))
+}
+
+func TestJson(t *testing.T) {
+	a := IndexFile{
+		[]BaseInfo{
+			{"basefile", "bpcrfile", "biosfile", true},
+		},
+		[]ReportInfo{
+			{time.Now().Format("2006-01-02 15:04:05"), "report1", "rpcr1", "quote", true},
+			{"2021-01-02 15:04:05", "report2", "rpcr2", "quote", false},
+			{"2021-01-03 15:04:05", "report3", "rpcr3", "quote", true},
+		},
+	}
+	str, _ := json.Marshal(a)
+	fmt.Printf("%s\n", str)
+
+	b := make(map[string]string)
+	b["os"] = "ubuntu"
+	b["ip"] = "10.1.1.1"
+	b["version"] = "1.0"
+	str, _ = json.Marshal(b)
+	fmt.Printf("%s\n", str)
+
+	var aa IndexFile
+	m := []byte(`{"Base":[{"BaseFile":"base","BiosFile":"bios==","Enabled":true}],"Report":[{"ReceiveTime":"2021-01-13","ReportFile":"report","RpcrFile":"rpcr","QuoteFile":"quote","Verified":true},{"ReceiveTime":"2021-01-14","ReportFile":"report2","RpcrFile":"rpcr2","QuoteFile":"quote2"}]}`)
+	json.Unmarshal(m, &aa)
+	fmt.Printf("aa:%v\n", aa)
+}
+*/

@@ -1,5 +1,6 @@
 package clientapi
 
+/*
 import (
 	"encoding/json"
 	"encoding/pem"
@@ -103,3 +104,4 @@ func TestRaHub(t *testing.T) {
 	t.Logf("Client: invoke UnregisterClient %v", u.Result)
 
 }
+*/

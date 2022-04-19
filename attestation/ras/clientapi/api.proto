@@ -34,16 +34,8 @@ message GenerateIKCertReply {
 }
 
 message RegisterClientRequest {
-  Cert ic = 1;
-  ClientInfo clientInfo = 2;
-}
-
-message Cert {
   bytes cert = 1;
-}
-
-message ClientInfo {
-  string clientInfo = 1;
+  string clientInfo = 2;
 }
 
 message RegisterClientReply {
@@ -54,7 +46,8 @@ message RegisterClientReply {
 message ClientConfig {
   int64 hbDurationSeconds = 1;
   int64 trustDurationSeconds = 2;
-  string digestAlgorithm = 3;
+  uint64 nonce = 3;
+  string digestAlgorithm = 4;
 }
 
 message UnregisterClientRequest {
@@ -71,40 +64,21 @@ message SendHeartbeatRequest {
 
 message SendHeartbeatReply {
   uint64 nextAction = 1;
-  ActionParameters actionParameters = 2;
-}
-
-message ActionParameters {
-  uint64 nonce = 1;
-  ClientConfig clientConfig = 2;
+  ClientConfig clientConfig = 3;
 }
 
 message SendReportRequest {
   int64 clientId = 1;
-  TrustReport trustReport = 2;
-}
-
-message TrustReport {
-  PcrInfo pcrInfo = 1;
-  repeated Manifest manifest = 2;
-  int64 clientId = 3;
-  ClientInfo clientInfo = 4;
-}
-
-message PcrInfo{
-  map<int32, string> pcrValues = 1;
-  PcrQuote pcrQuote = 2;
-  string algorithm = 3;
-}
-
-message PcrQuote {
-  bytes quoted = 1;
-  bytes signature = 2;
+  uint64 nonce = 2;
+  string clientInfo = 3;
+  bytes quoted = 4;
+  bytes signature = 5;
+  repeated Manifest manifests = 6;
 }
 
 message Manifest{
-  string type = 1;
-  bytes item = 2;
+  string key = 1;
+  bytes value = 2;
 }
 
 message SendReportReply {

@@ -1,12 +1,11 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of
+the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
     http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
-PURPOSE.
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 Author: jiayunhao
@@ -18,25 +17,21 @@ package ractools
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/binary"
+	"crypto"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
-	"log"
 	"os/exec"
 	"strings"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/verifier"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -70,8 +65,6 @@ const (
 	IndexRsa3072EKCertH6   uint32 = 0x01C0001C
 	IndexRsa4096EKCertH7   uint32 = 0x01C0001E
 
-	biosStr      = "bios"
-	imaStr       = "ima"
 	tpmDevPath1  = "/dev/tpmrm0"
 	tpmDevPath2  = "/dev/tpm0"
 	blockSize    = 1024
@@ -117,13 +110,61 @@ System Information
 	Wake-up Type: Power Switch
 	SKU Number: Not Applicable
 	Family: Not Applicable`
+
+	emptyPassword   = ""
+	TestImaLogPath  = "./ascii_runtime_measurements"
+	TestBiosLogPath = "./binary_bios_measurements"
+	ImaLogPath      = "/sys/kernel/security/ima/ascii_runtime_measurements"
+	BiosLogPath     = "/sys/kernel/security/tpm0/binary_bios_measurements"
+)
+
+type (
+	tpm struct {
+		config *TPMConfig
+		useHW  bool
+		dev    io.ReadWriteCloser
+		ek     endorsementKey
+		ik     attestationKey
+	}
+
+	TPMConfig struct {
+		IMALogPath    string
+		BIOSLogPath   string
+		ReportHashAlg string
+	}
+
+	endorsementKey struct {
+		pub      crypto.PublicKey
+		handle   tpmutil.Handle
+		alg      string
+		password string
+	}
+
+	attestationKey struct {
+		pub      crypto.PublicKey
+		handle   tpmutil.Handle
+		alg      string
+		password string
+		name     []byte
+	}
+
+	IKCertInput struct {
+		// CredBlob & EncryptedSecret are created by MakeCredential, and will be given as input to ActivateCredential
+		CredBlob        []byte // the protected key used to encrypt IK Cert
+		EncryptedSecret []byte // the pretected secret related to protection of CredBlob
+		EncryptedCert   []byte // the encrypted IK Cert, will be decypted with the key recovered from CredBlob & EncryptedSecret, decrypted Cert will be in PEM format
+		DecryptAlg      string // the algorithm & scheme used to decrypt the IK Cert
+		DecryptParam    []byte // the parameter required by the decrypt algorithm to decrypt the IK Cert
+		// if DecryptAlg == "AES128-CBC" then it is the IV used to decrypt IK Cert together with the key recovered from CredBlob & EncryptedSecret
+	}
 )
 
 var (
-	tpmRef         *TPM = nil
-	errWrongParams      = errors.New("wrong input parameter")
-	errFailTPMInit      = errors.New("couldn't start tpm or init key/certificate")
-	algStrMap           = map[tpm2.Algorithm]string{
+	ErrWrongParams = errors.New("wrong input parameter")
+	ErrFailTPMInit = errors.New("couldn't start tpm or init key/certificate")
+	ErrReadPCRFail = errors.New("Failed to read all PCRs")
+
+	algStrMap = map[tpm2.Algorithm]string{
 		tpm2.AlgSHA1:   "SHA1",
 		tpm2.AlgSHA256: "SHA256",
 		tpm2.AlgSHA384: "SHA384",
@@ -135,32 +176,113 @@ var (
 		"sha384": tpm2.AlgSHA384,
 		"sha512": tpm2.AlgSHA512,
 	}
+
+	// PCR7 is for SecureBoot.
+	pcrSelectionNil  = tpm2.PCRSelection{Hash: tpm2.AlgSHA1, PCRs: []int{}}
+	pcrSelection0    = tpm2.PCRSelection{Hash: tpm2.AlgSHA1, PCRs: []int{0}}
+	pcrSelection0to7 = tpm2.PCRSelection{Hash: tpm2.AlgSHA1, PCRs: []int{0, 1, 2, 3, 4, 5, 6, 7}}
+	pcrSelection7    = tpm2.PCRSelection{Hash: tpm2.AlgSHA1, PCRs: []int{7}}
+	pcrSelectionAll  = tpm2.PCRSelection{Hash: tpm2.AlgSHA1,
+		PCRs: []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+			12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}}
+
+	// according to TCG specification, B.3.3  Template L-1: RSA 2048 (Storage)
+	// https://trustedcomputinggroup.org/wp-content/uploads/TCG_IWG_EKCredentialProfile_v2p4_r3.pdf
+	EKParams = tpm2.Public{
+		Type:    tpm2.AlgRSA,
+		NameAlg: tpm2.AlgSHA256,
+		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent |
+			tpm2.FlagSensitiveDataOrigin | tpm2.FlagDecrypt |
+			tpm2.FlagUserWithAuth | tpm2.FlagRestricted,
+		RSAParameters: &tpm2.RSAParams{
+			Symmetric: &tpm2.SymScheme{
+				Alg:     tpm2.AlgAES,
+				KeyBits: 128,
+				Mode:    tpm2.AlgCFB,
+			},
+			KeyBits:     2048,
+			ExponentRaw: 0,
+		},
+	}
+
+	// according to TCG specification, 7.3.4.2 Template H-1: RSA 2048
+	// https://trustedcomputinggroup.org/wp-content/uploads/TPM-2p0-Keys-for-Device-Identity-and-Attestation_v1_r12_pub10082021.pdf
+	IKParams = tpm2.Public{
+		Type:    tpm2.AlgRSA,
+		NameAlg: tpm2.AlgSHA256,
+		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent |
+			tpm2.FlagSensitiveDataOrigin | tpm2.FlagSign |
+			tpm2.FlagUserWithAuth | tpm2.FlagRestricted,
+		RSAParameters: &tpm2.RSAParams{
+			Sign: &tpm2.SigScheme{
+				Alg:  tpm2.AlgRSASSA,
+				Hash: tpm2.AlgSHA256,
+			},
+			KeyBits:     2048,
+			ExponentRaw: 0,
+		},
+	}
+
+	tpmRef *tpm = nil
 )
+
+// GetEKPub returns EK public key
+func GetEKPub() crypto.PublicKey {
+	if tpmRef == nil {
+		return nil
+	}
+	return tpmRef.ek.pub
+}
+
+// GetIKPub returns IK public key
+func GetIKPub() crypto.PublicKey {
+	if tpmRef == nil {
+		return nil
+	}
+	return tpmRef.ik.pub
+}
+
+// GetIKName returns IK name
+func GetIKName() []byte {
+	if tpmRef == nil {
+		return nil
+	}
+	return tpmRef.ik.name
+}
+
+// SetDigestAlg method update the Digest alg used to get pcrs and to do the quote.
+func SetDigestAlg(alg string) {
+	if tpmRef == nil {
+		return
+	}
+	tpmRef.config.ReportHashAlg = alg
+	if algID, ok := algIdMap[alg]; ok {
+		pcrSelectionAll.Hash = algID
+	}
+}
 
 // OpenTPM uses either a physical TPM device(default/useHW=true) or a
 // simulator(-t/useHW=false), returns a global TPM object variable.
-func OpenTPM(useHW bool, conf *TPMConfig) (*TPM, error) {
+func OpenTPM(useHW bool, conf *TPMConfig) error {
 	if tpmRef != nil {
-		return tpmRef, nil
+		return nil
 	}
 	if conf == nil {
-		return nil, errWrongParams
+		return ErrWrongParams
 	}
-	tpmRef = &TPM{
+	tpmRef = &tpm{
 		config: conf,
 		useHW:  useHW,
 		dev:    nil,
 	}
-	tpmRef.SetDigestAlg(conf.ReportHashAlg)
-
+	SetDigestAlg(conf.ReportHashAlg)
 	var err error
 	if useHW {
-		tpmRef, err = openTpmChip(tpmRef)
+		err = openTpmChip()
 	} else {
-		tpmRef, err = openTpmSimulator(tpmRef)
+		err = openTpmSimulator()
 	}
-
-	return tpmRef, err
+	return err
 }
 
 // openTpmChip opens TPM hardware chip and reads EC from NVRAM.
@@ -168,68 +290,67 @@ func OpenTPM(useHW bool, conf *TPMConfig) (*TPM, error) {
 //   User should use tbprovisioner command tool to write the EC
 // into TPM NVRAM before running raagent or the TPM chip already
 // has EC in NVRAM when it comes from manufactories.
-func openTpmChip(tpm *TPM) (*TPM, error) {
+func openTpmChip() error {
 	var err error
-	tpm.dev, err = tpm2.OpenTPM(tpmDevPath1)
+	tpmRef.dev, err = tpm2.OpenTPM(tpmDevPath1)
 	if err != nil {
-		tpm.dev, err = tpm2.OpenTPM(tpmDevPath2)
+		tpmRef.dev, err = tpm2.OpenTPM(tpmDevPath2)
 	}
-	if err != nil {
-		return nil, errFailTPMInit
-	}
-	return tpm, nil
+	return err
 }
 
 // openTpmSimulator opens TPM simulator.
 // EK/IK key and certificate should be loaded/generated from files by config.
-func openTpmSimulator(tpm *TPM) (*TPM, error) {
+func openTpmSimulator() error {
 	// GetWithFixedSeedInsecure behaves like Get() expect that all of the
 	// internal hierarchy seeds are derived from the input seed. So every
 	// time we reopen the simulator, we can always get the same ek for the
 	// same input.
 	var err error
-	tpm.dev, err = simulator.GetWithFixedSeedInsecure(int64(0))
-	if err != nil {
-		return nil, errFailTPMInit
-	}
-	return tpm, nil
+	tpmRef.dev, err = simulator.GetWithFixedSeedInsecure(int64(0))
+	return err
 }
 
-// Close closes an open tpm device and flushes tpm resources.
-func (tpm *TPM) Close() {
-	if tpm == nil {
+// CloseTPM closes an open tpm device and flushes tpm resources.
+func CloseTPM() {
+	if tpmRef == nil {
 		return
 	}
-
-	//remove ekHandle and ikHandle
-	if tpm.EK.Handle != tpmutil.Handle(0) {
-		tpm2.FlushContext(tpm.dev, tpm.EK.Handle)
+	if tpmRef.ek.handle != tpmutil.Handle(0) {
+		tpm2.FlushContext(tpmRef.dev, tpmRef.ek.handle)
 	}
-	if tpm.IK.Handle != tpmutil.Handle(0) {
-		tpm2.FlushContext(tpm.dev, tpm.IK.Handle)
+	if tpmRef.ik.handle != tpmutil.Handle(0) {
+		tpm2.FlushContext(tpmRef.dev, tpmRef.ik.handle)
 	}
-
-	if err := tpm.dev.Close(); err != nil {
-		log.Printf("close TPM error: %v\n", err)
-	}
+	tpmRef.dev.Close()
 	tpmRef = nil
 }
 
 // DefineNVRAM defines the index space as size length in the NVRAM
-func (tpm *TPM) DefineNVRAM(idx uint32, size uint16) error {
-	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead | tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
-	return tpm2.NVDefineSpace(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
+func DefineNVRAM(idx uint32, size uint16) error {
+	if tpmRef == nil {
+		return ErrFailTPMInit
+	}
+	attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead |
+		tpm2.AttrWriteSTClear | tpm2.AttrReadSTClear
+	return tpm2.NVDefineSpace(tpmRef.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
 		emptyPassword, emptyPassword, nil, attr, size)
 }
 
 // UndefineNVRAM frees the index space in the NVRAM
-func (tpm *TPM) UndefineNVRAM(idx uint32) error {
-	return tpm2.NVUndefineSpace(tpm.dev, emptyPassword, tpm2.HandleOwner,
+func UndefineNVRAM(idx uint32) error {
+	if tpmRef == nil {
+		return ErrFailTPMInit
+	}
+	return tpm2.NVUndefineSpace(tpmRef.dev, emptyPassword, tpm2.HandleOwner,
 		tpmutil.Handle(idx))
 }
 
 // WriteNVRAM writes the data at index into the NVRAM
-func (tpm *TPM) WriteNVRAM(idx uint32, data []byte) error {
+func WriteNVRAM(idx uint32, data []byte) error {
+	if tpmRef == nil {
+		return ErrFailTPMInit
+	}
 	l := uint16(len(data))
 	offset := uint16(0)
 	end := uint16(0)
@@ -241,7 +362,7 @@ func (tpm *TPM) WriteNVRAM(idx uint32, data []byte) error {
 			end = offset + blockSize
 			l -= blockSize
 		}
-		err := tpm2.NVWrite(tpm.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
+		err := tpm2.NVWrite(tpmRef.dev, tpm2.HandleOwner, tpmutil.Handle(idx),
 			emptyPassword, data[offset:end], offset)
 		if err != nil {
 			return err
@@ -252,28 +373,39 @@ func (tpm *TPM) WriteNVRAM(idx uint32, data []byte) error {
 }
 
 // ReadNVRAM reads the data at index from the NVRAM
-func (tpm *TPM) ReadNVRAM(idx uint32) ([]byte, error) {
-	return tpm2.NVReadEx(tpm.dev, tpmutil.Handle(idx), tpm2.HandleOwner, emptyPassword, 0)
+func ReadNVRAM(idx uint32) ([]byte, error) {
+	if tpmRef == nil {
+		return nil, ErrFailTPMInit
+	}
+	return tpm2.NVReadEx(tpmRef.dev, tpmutil.Handle(idx),
+		tpm2.HandleOwner, emptyPassword, 0)
 }
 
 // GenerateEKey generates the ek key by tpm2, gets the handle and public part
-func (tpm *TPM) GenerateEKey() error {
+func GenerateEKey() error {
 	var err error
+	if tpmRef == nil {
+		return ErrFailTPMInit
+	}
 	// for TPM chip, maybe need to load EKParams from NVRAM to create the
 	// same EK as the saved EC in NVRAM, need to test!!!
-	tpm.EK.Handle, tpm.EK.Pub, err = tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement,
-		pcrSelectionNil, emptyPassword, emptyPassword, EKParams)
+	tpmRef.ek.handle, tpmRef.ek.pub, err = tpm2.CreatePrimary(tpmRef.dev,
+		tpm2.HandleEndorsement, pcrSelectionNil,
+		emptyPassword, emptyPassword, EKParams)
 	if err != nil {
-		tpm.EK.Handle = tpmutil.Handle(0)
-		tpm.EK.Pub = nil
+		tpmRef.ek.handle = tpmutil.Handle(0)
+		tpmRef.ek.pub = nil
 		return err
 	}
 	return nil
 }
 
 // LoadEKeyCert reads ek certificate from NVRAM, the simulator is the same
-func (tpm *TPM) LoadEKeyCert() error {
-	ekCertDer, err := tpm.ReadNVRAM(IndexRsa2048EKCert)
+func LoadEKeyCert() error {
+	if tpmRef == nil {
+		return ErrFailTPMInit
+	}
+	/*ekCertDer, err := ReadNVRAM(IndexRsa2048EKCert)
 	if err != nil {
 		return errFailTPMInit
 	}
@@ -286,64 +418,68 @@ func (tpm *TPM) LoadEKeyCert() error {
 		}
 	}
 	cfg := config.GetDefault(config.ConfClient)
-	cfg.SetEKeyCert(ekCertDer)
+	SetEKeyCert(ekCertDer)*/
 	return nil
 }
 
 // GenerateIKey generates the ik key as a primary key by tpm2, gets the handle, public
 // and name fields to use later
-func (tpm *TPM) GenerateIKey() error {
+func GenerateIKey() error {
 	var err error
-	tpm.IK.Handle, tpm.IK.Pub, err = tpm2.CreatePrimary(tpm.dev, tpm2.HandleEndorsement,
-		pcrSelectionNil, emptyPassword, emptyPassword, IKParams)
+	if tpmRef == nil {
+		return ErrFailTPMInit
+	}
+	tpmRef.ik.handle, tpmRef.ik.pub, err = tpm2.CreatePrimary(tpmRef.dev,
+		tpm2.HandleEndorsement, pcrSelectionNil,
+		emptyPassword, emptyPassword, IKParams)
 	if err != nil {
-		tpm.IK.Handle = tpmutil.Handle(0)
-		tpm.IK.Pub = nil
+		tpmRef.ik.handle = tpmutil.Handle(0)
+		tpmRef.ik.pub = nil
 		return err
 	}
-	_, ikName, _, err := tpm2.ReadPublic(tpm.dev, tpm.IK.Handle)
+	_, ikName, _, err := tpm2.ReadPublic(tpmRef.dev, tpmRef.ik.handle)
 	if err != nil {
 		return err
 	}
-	tpm.IK.Password = emptyPassword
-	tpm.IK.Name = ikName
-
+	tpmRef.ik.password = emptyPassword
+	tpmRef.ik.name = ikName
 	return nil
 }
 
 // ActivateIKCert decrypts the IkCert from the input, and return it in PEM format
-func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
-	var err error
-	sessHandle, _, err := tpm2.StartAuthSession(tpm.dev, tpm2.HandleNull, tpm2.HandleNull, make([]byte, 16),
+func ActivateIKCert(in *IKCertInput) ([]byte, error) {
+	if tpmRef == nil {
+		return nil, ErrFailTPMInit
+	}
+	sessHandle, _, err := tpm2.StartAuthSession(tpmRef.dev, tpm2.HandleNull, tpm2.HandleNull, make([]byte, 16),
 		nil, tpm2.SessionPolicy, tpm2.AlgNull, tpm2.AlgSHA256)
 	if err != nil {
 		return nil, errors.New("StartAuthSession() failed, error:" + err.Error())
 	}
-	defer tpm2.FlushContext(tpm.dev, sessHandle)
+	defer tpm2.FlushContext(tpmRef.dev, sessHandle)
 
-	if _, err := tpm2.PolicySecret(tpm.dev, tpm2.HandleEndorsement,
+	if _, err = tpm2.PolicySecret(tpmRef.dev, tpm2.HandleEndorsement,
 		tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession},
 		sessHandle, nil, nil, nil, 0); err != nil {
 		return nil, errors.New("PolicySecret() failed, error:" + err.Error())
 	}
 
-	recoveredCredential, err := tpm2.ActivateCredentialUsingAuth(tpm.dev, []tpm2.AuthCommand{
+	recoveredCredential, err := tpm2.ActivateCredentialUsingAuth(tpmRef.dev, []tpm2.AuthCommand{
 		{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession, Auth: []byte(emptyPassword)},
 		{Session: sessHandle, Attributes: tpm2.AttrContinueSession, Auth: []byte(emptyPassword)},
-	}, tpm.IK.Handle, tpm.EK.Handle, in.CredBlob, in.EncryptedSecret)
+	}, tpmRef.ik.handle, tpmRef.ek.handle, in.CredBlob, in.EncryptedSecret)
 	if err != nil {
 		return nil, errors.New("ActivateCredentialWithAuth error:" + err.Error())
 	}
-
 	var alg, mode uint16
 	switch in.DecryptAlg {
-	case pca.Encrypt_Alg: //AES128_CBC
-		alg, mode = pca.AlgAES, pca.AlgCBC
+	case cryptotools.Encrypt_Alg: //AES128_CBC
+		alg, mode = cryptotools.AlgAES, cryptotools.AlgCBC
 	default:
 		return nil, err
 	}
-
-	IKCert, err := pca.SymmetricDecrypt(alg, mode, recoveredCredential, in.DecryptParam, in.EncryptedCert)
+	IKCert, err := cryptotools.SymmetricDecrypt(alg, mode,
+		recoveredCredential, in.DecryptParam, in.EncryptedCert)
 	if err != nil {
 		return nil, err
 	}
@@ -351,23 +487,23 @@ func (tpm *TPM) ActivateIKCert(in *IKCertInput) ([]byte, error) {
 }
 
 // GetClientInfo returns json format client information.
-// If useHW is false, use testfile
 // TODO: add some other information
-func GetClientInfo(useHW bool) (string, error) {
-	//Execute dmidecode shell-commands to acquire information
-	//remind: need sudo permission
+func GetClientInfo() (string, error) {
 	var err error
 	var out0 bytes.Buffer
 	var out1 bytes.Buffer
 	var out2 bytes.Buffer
-	var ip string
-	if useHW {
+	if tpmRef == nil {
+		return "", ErrFailTPMInit
+	}
+	if tpmRef.useHW {
+		// execute dmidecode shell-commands to acquire information
+		// remind: need sudo permission
 		cmd0 := exec.Command("dmidecode", "-t", "0")
 		cmd0.Stdout = &out0
 		if err = cmd0.Run(); err != nil {
 			return "", err
 		}
-
 		cmd1 := exec.Command("dmidecode", "-t", "1")
 		cmd1.Stdout = &out1
 		if err = cmd1.Run(); err != nil {
@@ -382,241 +518,102 @@ func GetClientInfo(useHW bool) (string, error) {
 	if err = cmd2.Run(); err != nil {
 		return "", err
 	}
-	ip, _ = entity.GetIP()
-
 	clientInfo := map[string]string{}
-	//Intercept the information we need
 	start0 := strings.Index(out0.String(), "BIOS Information")
 	start1 := strings.Index(out1.String(), "System Information")
 	clientInfo["bios"] = out0.String()[start0:]
 	clientInfo["system"] = out1.String()[start1:]
 	clientInfo["os"] = out2.String()
-	clientInfo["ip"] = ip
+	clientInfo["ip"] = typdefs.GetIP()
 	clientInfo["version"] = "1.0.0"
-
 	strCI, err := json.Marshal(clientInfo)
 	return string(strCI), err
 }
 
-func getManifest(imaPath, biosPath string) ([]Manifest, error) {
-	var manifest []Manifest
-	f, err := ioutil.ReadFile(imaPath)
-	if err == nil {
-		manifest = append(manifest, Manifest{Type: "ima", Content: f})
+func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {
+	var buf bytes.Buffer
+	var digBuf []byte
+	switch pcrSelection.Hash {
+	case tpm2.AlgSHA1:
+		digBuf = make([]byte, typdefs.Sha1DigestLen*2)
+	case tpm2.AlgSHA256:
+		digBuf = make([]byte, typdefs.Sha256DigestLen*2)
 	}
-
-	f, err = ioutil.ReadFile(biosPath)
-	if err == nil {
-		manifest = append(manifest, Manifest{Type: "bios", Content: f})
-	}
-
-	return manifest, err
-}
-
-//Get the hash value of TrustReportIn, as user data of Quote
-func (t *TrustReportIn) hash() []byte {
-	buf := new(bytes.Buffer)
-	b64 := make([]byte, 8)
-	binary.BigEndian.PutUint64(b64, t.Nonce)
-	buf.Write(b64)
-	binary.BigEndian.PutUint64(b64, uint64(t.ClientId))
-	buf.Write(b64)
-	buf.WriteString(t.ClientInfo)
-	bHash := sha256.New()
-	bHash.Write(buf.Bytes())
-	return bHash.Sum(nil)
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func (tpm *TPM) readPcrs(pcrSelection tpm2.PCRSelection) (map[int][]byte, error) {
-
 	numPCRs := len(pcrSelection.PCRs)
-	out := map[int][]byte{}
-
-	for i := 0; i < numPCRs; i += 8 {
-		// Build a selection structure, specifying 8 PCRs at a time
-		end := min(i+8, numPCRs)
+	// read pcr one by one by ordering
+	for i := 0; i < numPCRs; i++ {
 		pcrSel := tpm2.PCRSelection{
 			Hash: pcrSelection.Hash,
-			PCRs: pcrSelection.PCRs[i:end],
+			PCRs: []int{i},
 		}
-
 		// Ask the TPM for those PCR values.
-		ret, err := tpm2.ReadPCRs(tpm.dev, pcrSel)
+		ret, err := tpm2.ReadPCRs(tpmRef.dev, pcrSel)
 		if err != nil {
-			log.Printf("ReadPCRs(%+v) failed: %v", pcrSel, err)
 			return nil, err
 		}
-
 		// Keep track of the PCRs we were actually given.
 		for pcr, digest := range ret {
-			out[pcr] = digest
+			hex.Encode(digBuf, digest)
+			buf.Write(digBuf)
+			switch pcrSelection.Hash {
+			case tpm2.AlgSHA1:
+				buf.WriteString(fmt.Sprintf(" sha1 %02d\n", pcr))
+			case tpm2.AlgSHA256:
+				buf.WriteString(fmt.Sprintf(" sha256 %02d\n", pcr))
+			}
 		}
 	}
-
-	if len(out) != numPCRs {
-		return nil, errors.New("Failed to read all PCRs")
-	}
-	return out, nil
+	return buf.Bytes(), nil
 }
 
-// createTrustReport collects some information, then returns the TrustReport
-func (tpm *TPM) createTrustReport(useHW bool, pcrSelection tpm2.PCRSelection, tRepIn *TrustReportIn) (*TrustReport, error) {
-	pcrmp, err := tpm.readPcrs(pcrSelection)
+// GetTrustReport takes a nonce input, generates the current trust report
+func GetTrustReport(clientID int64, nonce uint64) (*typdefs.TrustReport, error) {
+	if tpmRef == nil {
+		return nil, ErrFailTPMInit
+	}
+	clientInfo, err := GetClientInfo()
 	if err != nil {
-		return &TrustReport{}, err
+		return nil, err
 	}
-
-	pcrValues := map[int32]string{}
-	for key, pcr := range pcrmp {
-		pcrValues[(int32)(key)] = hex.EncodeToString(pcr)
-	}
-
-	//we use TrustReportIn as user data of Quote to guarantee its integrity
-	attestation, signature, err := tpm2.Quote(tpm.dev, tpm.IK.Handle,
-		tpm.IK.Password, emptyPassword, tRepIn.hash(), pcrSelection, tpm2.AlgNull)
-	if err != nil {
-		return &TrustReport{}, err
-	}
-
-	jsonSig, err := json.Marshal(signature)
-	if err != nil {
-		return &TrustReport{}, err
-	}
-
-	pcrinfo := PcrInfo{algStrMap[pcrSelection.Hash], pcrValues, PcrQuote{Quoted: attestation, Signature: jsonSig}}
-
-	var manifest []Manifest
-	manifest, err = getManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
-	if err != nil {
-		log.Printf("GetManifest Failed, error: %s. Go without manifests", err)
-	}
-
-	return &TrustReport{pcrinfo, manifest, tRepIn.ClientId, tRepIn.ClientInfo}, nil
-}
-
-//GetTrustReport method take a nonce input, generate and return the current trust report
-func (tpm *TPM) GetTrustReport(nonce uint64, clientID int64) (*TrustReport, error) {
-	clientInfo, err := GetClientInfo(tpm.useHW)
-	if err != nil {
-		log.Printf("GetClientInfo failed, error : %v. Go with empty info\n", err)
-	}
-	tRepIn := TrustReportIn{
+	tRepIn := typdefs.TrustReportInput{
+		ClientID:   clientID,
 		Nonce:      nonce,
-		ClientId:   clientID,
 		ClientInfo: clientInfo,
 	}
-	return tpm.createTrustReport(tpm.useHW, pcrSelectionAll, &tRepIn)
-}
-
-// SetDigestAlg method update the Digest alg used to get pcrs and to do the quote.
-func (tpm *TPM) SetDigestAlg(alg string) {
-	tpm.config.ReportHashAlg = alg
-	if algID, ok := algIdMap[alg]; ok {
-		pcrSelectionAll.Hash = algID
-	}
-}
-
-// PreparePCRsTest method replay the bios/ima manifests into pcrs in test mode.
-func (tpm *TPM) PreparePCRsTest() error {
-	if tpm.useHW {
-		return nil
-	}
-
-	// read the manifest files into memory
-	manifest, err := getManifest(tpm.config.IMALogPath, tpm.config.BIOSLogPath)
+	//we use TrustReportIn as user data of Quote to guarantee its integrity
+	quoted, signature, err := tpm2.Quote(tpmRef.dev,
+		tpmRef.ik.handle, tpmRef.ik.password, emptyPassword,
+		tRepIn.Hash(), pcrSelectionAll, tpm2.AlgNull)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// replay bios manifest
-	biosContent := getManifestContent(manifest, biosStr)
-	if biosContent != nil {
-		tpm.replayBIOSManifestTest(biosContent)
-	}
-	// replay ima manifest
-	imaContent := getManifestContent(manifest, imaStr)
-	if imaContent != nil {
-		tpm.replayIMAManifestTest(imaContent)
-	}
-
-	return nil
-}
-
-func getManifestContent(ms []Manifest, t string) []byte {
-	for _, m := range ms {
-		if m.Type == t {
-			return m.Content
-		}
-	}
-	return nil
-}
-
-func (tpm *TPM) replayBIOSManifestTest(content []byte) error {
-	mi, err := clientapi.UnmarshalBIOSManifest(content, tpm.config.ReportHashAlg)
+	jsonSignature, err := json.Marshal(signature)
 	if err != nil {
-		return fmt.Errorf("unmarshal bios manifest failed: %v", err)
+		return nil, err
 	}
-
-	//use bios manifest to replay pcrs
-	realPCR := createRealPCRExtender(tpm.config.ReportHashAlg, tpm)
-	if realPCR == nil {
-		return fmt.Errorf("bios manifest replay create real PCR extender failed")
-	}
-	err = verifier.ExtendPCRForBIOSItems(realPCR, mi.Items)
+	pcrLog, err := readPcrLog(pcrSelectionAll)
 	if err != nil {
-		return fmt.Errorf("pcr extend failed (use bios): %v", err)
+		return nil, err
 	}
-
-	return nil
-}
-
-func (tpm *TPM) replayIMAManifestTest(content []byte) error {
-	mi, err := clientapi.UnmarshalIMAManifest(content)
+	biosLog, err := ioutil.ReadFile(tpmRef.config.BIOSLogPath)
 	if err != nil {
-		return fmt.Errorf("unmarshal ima manifest failed: %v", err)
+		return nil, err
 	}
-
-	//use ima manifest to replay pcrs
-	realPCR := createRealPCRExtender(tpm.config.ReportHashAlg, tpm)
-	if realPCR == nil {
-		return fmt.Errorf("ima manifest replay create real PCR extender failed")
-	}
-	_, err = verifier.ExtendPCRForIMAItems(tpm.config.ReportHashAlg, realPCR, mi.Items)
+	imaLog, err := ioutil.ReadFile(tpmRef.config.IMALogPath)
 	if err != nil {
-		return fmt.Errorf("pcr extend failed (use ima): %v", err)
+		return nil, err
 	}
-
-	return nil
-}
-
-type realPCRExtender struct {
-	tpm     *TPM
-	algname string
-}
-
-func (pe *realPCRExtender) ExtendPCRRaw(id uint32, v []byte) error {
-	if algID, ok := algIdMap[pe.algname]; ok {
-		return tpm2.PCRExtend(pe.tpm.dev, tpmutil.Handle(id), algID, v, emptyPassword)
-
+	report := typdefs.TrustReport{
+		ClientID:   tRepIn.ClientID,
+		Nonce:      tRepIn.Nonce,
+		ClientInfo: tRepIn.ClientInfo,
+		Quoted:     quoted,
+		Signature:  jsonSignature,
+		Manifests: []typdefs.Manifest{
+			{Key: typdefs.StrPcr, Value: pcrLog},
+			{Key: typdefs.StrBios, Value: biosLog},
+			{Key: typdefs.StrIma, Value: imaLog},
+		},
 	}
-	return fmt.Errorf("real pcr extend failed: unsupported algorithm")
-}
-
-func (pe *realPCRExtender) ExtendPCR(id uint32, v string) error {
-	newDigestBytes, err := hex.DecodeString(v)
-	if err != nil {
-		return fmt.Errorf("decode digest failed")
-	}
-	return pe.ExtendPCRRaw(id, newDigestBytes)
-}
-
-func createRealPCRExtender(algname string, tpm *TPM) *realPCRExtender {
-	return &realPCRExtender{algname: algname, tpm: tpm}
+	return &report, nil
 }

@@ -1,5 +1,4 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
 You can use this software according to the terms and conditions of
 the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
@@ -10,10 +9,11 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 Author: wucaijun
-Create: 2021-09-17
-Description: Store RAS and RAC configurations.
+Create: 2022-01-17
+Description: config package for ras.
 */
 
+// config package for ras.
 package config
 
 import (
@@ -21,921 +21,627 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
+	"math/big"
+	"net"
 	"os"
-	"os/signal"
-	"strings"
-	"syscall"
+	"path/filepath"
 	"time"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
-	// app
-	appRas   = "ras"
-	appRac   = "rac"
-	appRahub = "rahub"
-	// path
-	strPathLocal     = "."
-	strPathLocalConf = "./config"
-	strPathHomeConf  = "$HOME/.config/attestation/"
-	strPathSysConf   = "/etc/attestation/"
-	strPathHomeRas   = strPathHomeConf + appRas
-	strPathHomeRac   = strPathHomeConf + appRac
-	strPathHomeRahub = strPathHomeConf + appRahub
-	strPathSysRas    = strPathSysConf + appRas
-	strPathSysRac    = strPathSysConf + appRac
-	strPathSysRahub  = strPathSysConf + appRahub
-	// normal
-	ConfName   = "config"
-	ConfExt    = "yaml"
-	ConfServer = "server"
-	ConfClient = "client"
-	ConfHub    = "hub"
-	// database
-	DbHost     = "database.host"
-	DbName     = "database.dbname"
-	DbPort     = "database.port"
-	DbUser     = "database.user"
-	DbPassword = "database.password"
-	// logger
-	logPath = "log.path"
-	// RAS
-	NullString            = ""
-	extKey                = ".key"
-	extCert               = ".crt"
-	RasRootKeyFileDefault = "./pca-root"
-	RasPcaKeyFileDefault  = "./pca-ek"
-	RasRootPrivKeyFile    = "rasconfig.rootprivkeyfile"
-	RasRootKeyCertFile    = "rasconfig.rootkeycertfile"
-	RasPcaPrivKeyFile     = "rasconfig.pcaprivkeyfile"
-	RasPcaKeyCertFile     = "rasconfig.pcakeycertfile"
-	RasPort               = "rasconfig.port" // server listen port
-	RasPortLongFlag       = "port"
-	RasPortShortFlag      = "p"
-	RasPortHelp           = "this app service listen at [IP]:PORT"
-	RasRestPort           = "rasconfig.rest" // rest listen port
-	RasRestPortLongFlag   = "rest"
-	RasRestPortShortFlag  = "r"
-	RasRestHelp           = "this app rest interface listen at [IP]:PORT"
-	VerboseLongFlag       = "verbose"
-	VerboseShortFlag      = "v"
-	VerboseHelp           = "show more detail running information"
-	VersionLongFlag       = "version"
-	VersionShortFlag      = "V"
-	VersionHelp           = "show version number and quit"
-	RasTokenLongFlag      = "token"
-	RasTokenShortFlag     = "T"
-	RasTokenHelp          = "generate test token and quit"
-	RasMgrStrategy        = "rasconfig.mgrstrategy"
-	RasAutoStrategy       = "auto"
-	RasAutoUpdateStrategy = "auto-update"
-	RasChangeTime         = "rasconfig.changetime"
-	RasExtRules           = "rasconfig.basevalue-extract-rules"
-	RasAutoUpdateConfig   = "rasconfig.auto-update-config"
-	RasAuthKeyFile        = "rasconfig.authkeyfile"
-	RasAuthKeyFileDefault = "./ecdsakey"
-	// RAC
-	RacIKeyCertFileDefault     = "./ic"
-	RacEKeyCertFile            = "racconfig.ekcert"
-	RacIKeyCertFile            = "racconfig.ikcert"
-	RacEKFileDefaultTest       = "./ectest"
-	RacIKeyCertFileDefaultTest = "./ictest"
-	RacEKeyCertFileTest        = "racconfig.ekcerttest"
-	RacIKeyCertFileTest        = "racconfig.ikcerttest"
-	RacServer                  = "racconfig.server" // client connect to server
-	RacServerLongFlag          = "server"
-	RacServerShortFlag         = "s"
-	RacServerHelp              = "connect attestation server at IP:PORT"
-	RacTestModeLongFlag        = "test"
-	RacTestModeShortFlag       = "t"
-	RacTestModeHelp            = "run in test mode[true] or not[false/default]"
-	RacHbDuration              = "racconfig.hbduration"
-	RacDefaultHbDuration       = 10 // seconds
-	RacTrustDuration           = "racconfig.trustduration"
-	RacDefaultTrustDuration    = 120 // seconds
-	RacClientId                = "racconfig.clientid"
-	RacNullClientId            = -1
-	RacPassword                = "racconfig.password"
-	RacDefaultPassword         = ""
-	RacDigestAlgorithm         = "racconfig.digestalgorithm"
-	RacDigestAlgorithmSHA256   = "sha256"
-	// Hub
-	HubServer          = "hubconfig.server"
-	HubServerLongFlag  = "server"
-	HubServerShortFlag = "s"
-	HubPort            = "hubconfig.hubport"
-	HubPortLongFlag    = "hubport"
-	HubPortShortFlag   = "p"
-	HubPortHelp        = "rahub listen at [IP]:PORT"
-)
+	// golbal definition
+	RasVersion = "2.0.0"
 
-var (
-	defaultRasConfigPath = []string{
-		strPathLocal,
-		strPathLocalConf,
-		strPathHomeRas,
-		strPathSysRas,
-	}
-	defaultRacConfigPath = []string{
-		strPathLocal,
-		strPathLocalConf,
-		strPathHomeRac,
-		strPathSysRac,
-	}
-	defaultRahubConfigPath = []string{
-		strPathLocal,
-		strPathLocalConf,
-		strPathHomeRahub,
-		strPathSysRahub,
-	}
-	confG       *config
-	gLogger     *zap.Logger
-	VerboseFlag *bool = nil
-	VersionFlag *bool = nil
-	// for RAS command line parameters
-	servPort     *string = nil
-	restPort     *string = nil
-	RasTokenFlag *bool   = nil
-	// for RAC command line parameters
-	racServer   *string = nil
-	racTestMode *bool   = nil
-	// for HUB command line parameters
-	hubServer *string = nil
-	hubPort   *string = nil
+	// path
+	defaultMode  = 0755
+	strLocalConf = "."
+	strHomeConf  = "$HOME/.config/attestation/ras"
+	strSysConf   = "/etc/attestation/ras"
+	// config file name
+	confName = "config"
+	confExt  = "yaml"
+	// database
+	dbHost        = "database.host"
+	dbName        = "database.name"
+	dbPort        = "database.port"
+	dbUser        = "database.user"
+	dbPassword    = "database.password"
+	dbHostDefault = "localhost"
+	dbNameDefault = "kunpengsecl"
+	dbUserDefault = "postgres"
+	dbPortDefault = 5432
+	// logger
+	logFile = "log.file"
+	// RAS config key
+	confRootPrivKeyFile = "rasconfig.rootprivkeyfile"
+	confRootKeyCertFile = "rasconfig.rootkeycertfile"
+	confPcaPrivKeyFile  = "rasconfig.pcaprivkeyfile"
+	confPcaKeyCertFile  = "rasconfig.pcakeycertfile"
+	confServerPort      = "rasconfig.serverport"
+	confRestPort        = "rasconfig.restport"
+	confAuthKeyFile     = "rasconfig.authkeyfile"
+	confSerialNumber    = "rasconfig.serialnumber"
+	confHbDuration      = "racconfig.hbduration"
+	confTrustDuration   = "racconfig.trustduration"
+	confDigestAlgorithm = "racconfig.digestalgorithm"
+	// RAS config default value
+	nullString      = ""
+	rasLogFile      = "./logs/ras-log.txt"
+	keyExt          = ".key"
+	crtExt          = ".crt"
+	rootKey         = "./pca-root"
+	eKey            = "./pca-ek"
+	authKey         = "./ecdsakey"
+	hbDuration      = 20   // seconds
+	trustDuration   = 1200 // seconds
+	digestAlgorithm = "sha1"
+	strChina        = "China"
+	strCompany      = "Company"
+	strRootCA       = "Root CA"
+	strPrivacyCA    = "Privacy CA"
+	// server listen port
+	lflagServerPort = "port"
+	sflagServerPort = "p"
+	helpServerPort  = "the server listens at [IP]:PORT"
+	// rest api listen port
+	lflagRestPort = "rest"
+	sflagRestPort = "r"
+	helpRestPort  = "the rest interface listens at [IP]:PORT"
+	// token output
+	lflagToken = "token"
+	sflagToken = "T"
+	helpToken  = "generate test token for rest api"
+	// version output
+	lflagVersion = "version"
+	sflagVersion = "V"
+	helpVersion  = "show version number and quit"
+	// verbose output
+	lflagVerbose = "verbose"
+	sflagVerbose = "v"
+	helpVerbose  = "show running debug information"
 )
 
 type (
-	dbConfig struct {
-		host     string
-		dbName   string
-		user     string
-		password string
-		port     int
-	}
 	rasConfig struct {
-		rootPrivKeyFile  string
-		rootKeyCertFile  string
-		rootPrivKey      crypto.PrivateKey
-		rootKeyCert      *x509.Certificate
-		pcaPrivKeyFile   string
-		pcaKeyCertFile   string
-		pcaPrivKey       crypto.PrivateKey
-		pcaKeyCert       *x509.Certificate
-		servPort         string
-		restPort         string
-		mgrStrategy      string
-		authKeyFile      string
-		changeTime       time.Time
-		extractRules     entity.ExtractRules
-		autoUpdateConfig entity.AutoUpdateConfig
-	}
-	racConfig struct {
-		// for TPM chip
-		eKeyCert     []byte
-		iKeyCertFile string
-		iKeyCert     []byte
-		// for simulator test
-		eKeyCertFileTest string
-		eKeyCertTest     []byte
-		iKeyCertFileTest string
-		iKeyCertTest     []byte
-		server           string
-		testMode         bool
-		hbDuration       time.Duration // heartbeat duration
-		trustDuration    time.Duration // trust state duration
-		clientId         int64
-		password         string
-		digestAlgorithm  string
-	}
-	hubConfig struct {
-		server  string
-		hubPort string
-	}
-	config struct {
-		confType string
-		dbConfig
-		rasConfig
-		racConfig
-		hubConfig
+		// logger file
+		logFile string
+		ip      string
+
+		// database configuration
+		dbHost     string
+		dbName     string
+		dbUser     string
+		dbPassword string
+		dbPort     int
+
+		// ras configuration
+		rootPrivKeyFile string
+		rootKeyCertFile string
+		rootPrivKey     crypto.PrivateKey
+		rootKeyCert     *x509.Certificate
+		pcaPrivKeyFile  string
+		pcaKeyCertFile  string
+		pcaPrivKey      crypto.PrivateKey
+		pcaKeyCert      *x509.Certificate
+		servPort        string
+		restPort        string
+		authKeyFile     string
+
+		// rac configuration
+		hbDuration      time.Duration // heartbeat duration
+		trustDuration   time.Duration // trust state duration
+		digestAlgorithm string
 	}
 )
 
-// InitRasFlags inits the ras server whole command flags.
-func InitRasFlags() {
-	servPort = pflag.StringP(RasPortLongFlag, RasPortShortFlag, "", RasPortHelp)
-	restPort = pflag.StringP(RasRestPortLongFlag, RasRestPortShortFlag, "", RasRestHelp)
-	VerboseFlag = pflag.BoolP(VerboseLongFlag, VerboseShortFlag, false, VerboseHelp)
-	VersionFlag = pflag.BoolP(VersionLongFlag, VersionShortFlag, false, VersionHelp)
-	RasTokenFlag = pflag.BoolP(RasTokenLongFlag, RasTokenShortFlag, false, RasTokenHelp)
+var (
+	defaultPaths = []string{
+		strLocalConf,
+		strHomeConf,
+		strSysConf,
+	}
+	rasCfg      *rasConfig
+	servPort    *string = nil
+	restPort    *string = nil
+	VersionFlag *bool   = nil
+	verboseFlag *bool   = nil
+	TokenFlag   *bool   = nil
+)
+
+// InitFlags inits the ras server command flags.
+func InitFlags() {
+	servPort = pflag.StringP(lflagServerPort, sflagServerPort, nullString, helpServerPort)
+	restPort = pflag.StringP(lflagRestPort, sflagRestPort, nullString, helpRestPort)
+	TokenFlag = pflag.BoolP(lflagToken, sflagToken, false, helpToken)
+	VersionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
+	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, false, helpVerbose)
+	pflag.Parse()
 }
 
-// InitRacFlags inits the rac client whole command flags.
-func InitRacFlags() {
-	racServer = pflag.StringP(RacServerLongFlag, RacServerShortFlag, "", RacServerHelp)
-	racTestMode = pflag.BoolP(RacTestModeLongFlag, RacTestModeShortFlag, false, RacTestModeHelp)
-	VerboseFlag = pflag.BoolP(VerboseLongFlag, VerboseShortFlag, false, VerboseHelp)
-	VersionFlag = pflag.BoolP(VersionLongFlag, VersionShortFlag, false, VersionHelp)
+// HandleFlags handles the command flags.
+func HandleFlags() {
+	// init logger
+	logF := GetLogFile()
+	logD := filepath.Dir(logF)
+	if logF == nullString {
+		logF = rasLogFile
+		logD = filepath.Dir(logF)
+	}
+	err := os.MkdirAll(logD, defaultMode)
+	if err != nil {
+		fmt.Printf("mkdir '%s' error: %v\n", logD, err)
+	}
+	if verboseFlag != nil && *verboseFlag {
+		logger.L = logger.NewDebugLogger(logF)
+	} else {
+		logger.L = logger.NewInfoLogger(logF)
+	}
+	rasCfg.logFile = logF
+	// set command line input
+	if servPort != nil && *servPort != nullString {
+		SetServerPort(*servPort)
+	}
+	if restPort != nil && *restPort != nullString {
+		SetRestPort(*restPort)
+	}
 }
 
-// InitHubFlags inits the rahub whole command flags.
-func InitHubFlags() {
-	hubServer = pflag.StringP(HubServerLongFlag, HubServerShortFlag, "", RacServerHelp)
-	hubPort = pflag.StringP(HubPortLongFlag, HubPortShortFlag, "", HubPortHelp)
-	VerboseFlag = pflag.BoolP(VerboseLongFlag, VerboseShortFlag, false, VerboseHelp)
-	VersionFlag = pflag.BoolP(VersionLongFlag, VersionShortFlag, false, VersionHelp)
-}
-
-func SetupSignalHandler() {
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-ch
-		Save()
-		os.Exit(0)
-	}()
-}
-
-func getRootKeyCert(c *config) {
-	var err error
-	if c == nil {
+// getConfigs gets all config from config.yaml file.
+func getConfigs() {
+	if rasCfg == nil {
 		return
 	}
-	c.rasConfig.rootPrivKeyFile = viper.GetString(RasRootPrivKeyFile)
-	if c.rasConfig.rootPrivKeyFile != NullString {
-		c.rasConfig.rootPrivKey, _, err = pca.DecodePrivateKeyFromFile(c.rasConfig.rootPrivKeyFile)
-		if err != nil {
-			c.rasConfig.rootPrivKey = nil
-			c.rasConfig.rootPrivKeyFile = NullString
-		}
-	} else {
-		c.rasConfig.rootPrivKey = nil
+	rasCfg.logFile = viper.GetString(logFile)
+	rasCfg.ip = typdefs.GetIP()
+	rasCfg.dbHost = viper.GetString(dbHost)
+	rasCfg.dbName = viper.GetString(dbName)
+	rasCfg.dbPort = viper.GetInt(dbPort)
+	rasCfg.dbUser = viper.GetString(dbUser)
+	rasCfg.dbPassword = viper.GetString(dbPassword)
+	rasCfg.servPort = viper.GetString(confServerPort)
+	rasCfg.restPort = viper.GetString(confRestPort)
+	rasCfg.authKeyFile = viper.GetString(confAuthKeyFile)
+	rasCfg.hbDuration = viper.GetDuration(confHbDuration)
+	rasCfg.trustDuration = viper.GetDuration(confTrustDuration)
+	rasCfg.digestAlgorithm = viper.GetString(confDigestAlgorithm)
+	cryptotools.SetSerialNumber(viper.GetInt64(confSerialNumber))
+}
+
+// getRootKeyCert loads root private key and certificate from files.
+func getRootKeyCert() {
+	var err error
+	if rasCfg == nil {
+		return
 	}
-	c.rasConfig.rootKeyCertFile = viper.GetString(RasRootKeyCertFile)
-	if c.rasConfig.rootKeyCertFile != NullString {
-		c.rasConfig.rootKeyCert, _, err = pca.DecodeKeyCertFromFile(c.rasConfig.rootKeyCertFile)
+	rasCfg.rootPrivKeyFile = viper.GetString(confRootPrivKeyFile)
+	if rasCfg.rootPrivKeyFile != nullString {
+		rasCfg.rootPrivKey, _, err = cryptotools.DecodePrivateKeyFromFile(rasCfg.rootPrivKeyFile)
 		if err != nil {
-			c.rasConfig.rootKeyCert = nil
-			c.rasConfig.rootKeyCertFile = NullString
-			c.rasConfig.rootPrivKey = nil
-			c.rasConfig.rootPrivKeyFile = NullString
+			rasCfg.rootPrivKey = nil
+			rasCfg.rootPrivKeyFile = nullString
 		}
 	} else {
-		c.rasConfig.rootKeyCert = nil
-		c.rasConfig.rootPrivKey = nil
-		c.rasConfig.rootPrivKeyFile = NullString
+		rasCfg.rootPrivKey = nil
+	}
+	rasCfg.rootKeyCertFile = viper.GetString(confRootKeyCertFile)
+	if rasCfg.rootKeyCertFile != nullString {
+		rasCfg.rootKeyCert, _, err = cryptotools.DecodeKeyCertFromFile(rasCfg.rootKeyCertFile)
+		if err != nil {
+			rasCfg.rootKeyCert = nil
+			rasCfg.rootKeyCertFile = nullString
+			rasCfg.rootPrivKey = nil
+			rasCfg.rootPrivKeyFile = nullString
+		}
+	} else {
+		rasCfg.rootKeyCert = nil
+		rasCfg.rootPrivKey = nil
+		rasCfg.rootPrivKeyFile = nullString
 	}
 	// if no loading root ca key/cert, create and self-signing one
-	if c.rasConfig.rootPrivKey == nil {
-		// modify pca.RootTemplate fields
-		priv, _ := rsa.GenerateKey(rand.Reader, pca.RsaKeySize)
+	if rasCfg.rootPrivKey == nil {
+		// modify rootTemplate fields
+		t := time.Now()
+		rootTemplate := x509.Certificate{
+			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
+			Subject: pkix.Name{
+				Country:      []string{strChina},
+				Organization: []string{strCompany},
+				CommonName:   strRootCA,
+			},
+			NotBefore:             t.Add(-10 * time.Second),
+			NotAfter:              t.AddDate(10, 0, 0),
+			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+			BasicConstraintsValid: true,
+			IsCA:                  true,
+			MaxPathLen:            2,
+			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
+		}
+		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
 		// self signing
-		certDer, err := x509.CreateCertificate(rand.Reader, &pca.RootTemplate, &pca.RootTemplate, &priv.PublicKey, priv)
+		certDer, err := x509.CreateCertificate(rand.Reader, &rootTemplate,
+			&rootTemplate, &priv.PublicKey, priv)
 		if err != nil {
-			fmt.Println("couldn't create root key and certificate")
 			return
 		}
-		c.rasConfig.rootKeyCert, err = x509.ParseCertificate(certDer)
+		rasCfg.rootKeyCert, err = x509.ParseCertificate(certDer)
 		if err == nil {
-			c.rasConfig.rootPrivKey = priv
-			c.rasConfig.rootPrivKeyFile = RasRootKeyFileDefault + extKey
-			c.rasConfig.rootKeyCertFile = RasRootKeyFileDefault + extCert
-			pca.EncodePrivateKeyToFile(priv, c.rasConfig.rootPrivKeyFile)
-			pca.EncodeKeyCertToFile(certDer, c.rasConfig.rootKeyCertFile)
+			rasCfg.rootPrivKey = priv
+			rasCfg.rootPrivKeyFile = rootKey + keyExt
+			rasCfg.rootKeyCertFile = rootKey + crtExt
+			cryptotools.EncodePrivateKeyToFile(priv, rasCfg.rootPrivKeyFile)
+			cryptotools.EncodeKeyCertToFile(certDer, rasCfg.rootKeyCertFile)
 		}
 	}
 }
 
-func getPcaKeyCert(c *config) {
+// getPcaKeyCert loads privacy ca(pca) private key and certificate from files.
+func getPcaKeyCert() {
 	var err error
-	if c == nil {
+	if rasCfg == nil {
 		return
 	}
-	c.rasConfig.pcaPrivKeyFile = viper.GetString(RasPcaPrivKeyFile)
-	if c.rasConfig.pcaPrivKeyFile != NullString {
-		c.rasConfig.pcaPrivKey, _, err = pca.DecodePrivateKeyFromFile(c.rasConfig.pcaPrivKeyFile)
+	rasCfg.pcaPrivKeyFile = viper.GetString(confPcaPrivKeyFile)
+	if rasCfg.pcaPrivKeyFile != nullString {
+		rasCfg.pcaPrivKey, _, err = cryptotools.DecodePrivateKeyFromFile(rasCfg.pcaPrivKeyFile)
 		if err != nil {
-			c.rasConfig.pcaPrivKey = nil
-			c.rasConfig.pcaPrivKeyFile = NullString
+			rasCfg.pcaPrivKey = nil
+			rasCfg.pcaPrivKeyFile = nullString
 		}
 	} else {
-		c.rasConfig.pcaPrivKey = nil
+		rasCfg.pcaPrivKey = nil
 	}
-	c.rasConfig.pcaKeyCertFile = viper.GetString(RasPcaKeyCertFile)
-	if c.rasConfig.pcaKeyCertFile != NullString {
-		c.rasConfig.pcaKeyCert, _, err = pca.DecodeKeyCertFromFile(c.rasConfig.pcaKeyCertFile)
+	rasCfg.pcaKeyCertFile = viper.GetString(confPcaKeyCertFile)
+	if rasCfg.pcaKeyCertFile != nullString {
+		rasCfg.pcaKeyCert, _, err = cryptotools.DecodeKeyCertFromFile(rasCfg.pcaKeyCertFile)
 		if err != nil {
-			c.rasConfig.pcaKeyCert = nil
-			c.rasConfig.pcaKeyCertFile = NullString
-			c.rasConfig.pcaPrivKey = nil
-			c.rasConfig.pcaPrivKeyFile = NullString
+			rasCfg.pcaKeyCert = nil
+			rasCfg.pcaKeyCertFile = nullString
+			rasCfg.pcaPrivKey = nil
+			rasCfg.pcaPrivKeyFile = nullString
 		}
 	} else {
-		c.rasConfig.pcaKeyCert = nil
-		c.rasConfig.pcaPrivKey = nil
-		c.rasConfig.pcaPrivKeyFile = NullString
+		rasCfg.pcaKeyCert = nil
+		rasCfg.pcaPrivKey = nil
+		rasCfg.pcaPrivKeyFile = nullString
 	}
-	if c.rasConfig.pcaPrivKey == nil {
-		// modify pca.PcaTemplate fields
-		priv, _ := rsa.GenerateKey(rand.Reader, pca.RsaKeySize)
+	if rasCfg.pcaPrivKey == nil {
+		// modify rootTemplate fields
+		t := time.Now()
+		rootTemplate := x509.Certificate{
+			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
+			Subject: pkix.Name{
+				Country:      []string{strChina},
+				Organization: []string{strCompany},
+				CommonName:   strRootCA,
+			},
+			NotBefore:             t.Add(-10 * time.Second),
+			NotAfter:              t.AddDate(10, 0, 0),
+			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+			BasicConstraintsValid: true,
+			IsCA:                  true,
+			MaxPathLen:            2,
+			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
+		}
+		pcaTemplate := x509.Certificate{
+			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
+			Subject: pkix.Name{
+				Country:      []string{strChina},
+				Organization: []string{strCompany},
+				CommonName:   strPrivacyCA,
+			},
+			NotBefore:             t.Add(-10 * time.Second),
+			NotAfter:              t.AddDate(1, 0, 0),
+			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			BasicConstraintsValid: true,
+			IsCA:                  true,
+			MaxPathLenZero:        false,
+			MaxPathLen:            1,
+			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
+		}
+		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
 		// sign by root ca
-		certDer, err := x509.CreateCertificate(rand.Reader, &pca.PcaTemplate, &pca.RootTemplate, &priv.PublicKey, c.rasConfig.rootPrivKey)
+		certDer, err := x509.CreateCertificate(rand.Reader, &pcaTemplate,
+			&rootTemplate, &priv.PublicKey, rasCfg.rootPrivKey)
 		if err != nil {
-			fmt.Println("couldn't create pca ek key and certificate")
 			return
 		}
-		c.rasConfig.pcaKeyCert, err = x509.ParseCertificate(certDer)
+		rasCfg.pcaKeyCert, err = x509.ParseCertificate(certDer)
 		if err == nil {
-			c.rasConfig.pcaPrivKey = priv
-			c.rasConfig.pcaPrivKeyFile = RasPcaKeyFileDefault + extKey
-			c.rasConfig.pcaKeyCertFile = RasPcaKeyFileDefault + extCert
-			pca.EncodePrivateKeyToFile(priv, c.rasConfig.pcaPrivKeyFile)
-			pca.EncodeKeyCertToFile(certDer, c.rasConfig.pcaKeyCertFile)
+			rasCfg.pcaPrivKey = priv
+			rasCfg.pcaPrivKeyFile = eKey + keyExt
+			rasCfg.pcaKeyCertFile = eKey + crtExt
+			cryptotools.EncodePrivateKeyToFile(priv, rasCfg.pcaPrivKeyFile)
+			cryptotools.EncodeKeyCertToFile(certDer, rasCfg.pcaKeyCertFile)
 		}
 	}
 }
 
-func getServerConf(c *config) {
-	if c == nil {
+// LoadConfigs searches and loads config from config.yaml file.
+func LoadConfigs() {
+	if rasCfg != nil {
 		return
 	}
-	c.dbConfig.host = viper.GetString(DbHost)
-	c.dbConfig.dbName = viper.GetString(DbName)
-	c.dbConfig.port = viper.GetInt(DbPort)
-	c.dbConfig.user = viper.GetString(DbUser)
-	c.dbConfig.password = viper.GetString(DbPassword)
-	c.rasConfig.servPort = viper.GetString(RasPort)
-	c.rasConfig.restPort = viper.GetString(RasRestPort)
-	c.rasConfig.mgrStrategy = viper.GetString(RasMgrStrategy)
-	c.rasConfig.authKeyFile = viper.GetString(RasAuthKeyFile)
-	c.rasConfig.changeTime = viper.GetTime(RasChangeTime)
-	var ers entity.ExtractRules
-	if viper.UnmarshalKey(RasExtRules, &ers) == nil {
-		c.rasConfig.extractRules = ers
-	} else {
-		c.rasConfig.extractRules = entity.ExtractRules{}
-	}
-	var auc entity.AutoUpdateConfig
-	if viper.UnmarshalKey(RasAutoUpdateConfig, &auc) == nil {
-		c.rasConfig.autoUpdateConfig = auc
-	} else {
-		c.rasConfig.autoUpdateConfig = entity.AutoUpdateConfig{}
-	}
-	c.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
-	c.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
-	c.racConfig.digestAlgorithm = viper.GetString(RacDigestAlgorithm)
-	// set command line input
-	if servPort != nil && *servPort != "" {
-		c.rasConfig.servPort = *servPort
-	}
-	if restPort != nil && *restPort != "" {
-		c.rasConfig.restPort = *restPort
-	}
-	getRootKeyCert(c)
-	getPcaKeyCert(c)
-}
 
-func getClientEKeyCertTest(c *config) {
-	var err error
-	if c == nil {
-		return
+	// set default values
+	rasCfg = &rasConfig{
+		// default database
+		dbHost:     dbHostDefault,
+		dbName:     dbNameDefault,
+		dbUser:     dbUserDefault,
+		dbPassword: dbUserDefault,
+		dbPort:     dbPortDefault,
+		// default rac configure
+		hbDuration:      hbDuration,
+		trustDuration:   trustDuration,
+		digestAlgorithm: digestAlgorithm,
 	}
-	c.racConfig.eKeyCertFileTest = viper.GetString(RacEKeyCertFileTest)
-	if c.racConfig.eKeyCertFileTest != NullString {
-		_, c.racConfig.eKeyCertTest, err = pca.DecodeKeyCertFromFile(c.racConfig.eKeyCertFileTest)
-		if err != nil {
-			c.racConfig.eKeyCertTest = nil
-			c.racConfig.eKeyCertFileTest = NullString
-		}
-	} else {
-		c.racConfig.eKeyCertTest = nil
+	// set config.yaml loading name and path
+	viper.SetConfigName(confName)
+	viper.SetConfigType(confExt)
+	for _, s := range defaultPaths {
+		viper.AddConfigPath(s)
 	}
-}
-
-func getClientIKeyCertTest(c *config) {
-	var err error
-	if c == nil {
-		return
-	}
-	c.racConfig.iKeyCertFileTest = viper.GetString(RacIKeyCertFileTest)
-	if c.racConfig.iKeyCertFileTest != NullString {
-		_, c.racConfig.iKeyCertTest, err = pca.DecodeKeyCertFromFile(c.racConfig.iKeyCertFileTest)
-		if err != nil {
-			c.racConfig.iKeyCertTest = nil
-			c.racConfig.iKeyCertFileTest = NullString
-		}
-	} else {
-		c.racConfig.iKeyCertTest = nil
-	}
-}
-
-func getClientIKeyCert(c *config) {
-	var err error
-	if c == nil {
-		return
-	}
-	c.racConfig.iKeyCertFile = viper.GetString(RacIKeyCertFile)
-	if c.racConfig.iKeyCertFile != NullString {
-		_, c.racConfig.iKeyCert, err = pca.DecodeKeyCertFromFile(c.racConfig.iKeyCertFile)
-		if err != nil {
-			c.racConfig.iKeyCert = nil
-			c.racConfig.iKeyCertFile = NullString
-		}
-	} else {
-		c.racConfig.iKeyCert = nil
-	}
-}
-
-func getClientConf(c *config) {
-	if c == nil {
-		return
-	}
-	c.racConfig.server = viper.GetString(RacServer)
-	c.racConfig.hbDuration = viper.GetDuration(RacHbDuration)
-	c.racConfig.trustDuration = viper.GetDuration(RacTrustDuration)
-	c.racConfig.clientId = viper.GetInt64(RacClientId)
-	c.racConfig.password = viper.GetString(RacPassword)
-	c.racConfig.digestAlgorithm = viper.GetString(RacDigestAlgorithm)
-	// set command line input
-	if racServer != nil && *racServer != "" {
-		c.racConfig.server = *racServer
-	}
-	if racTestMode != nil {
-		c.racConfig.testMode = *racTestMode
-	}
-	if c.racConfig.testMode {
-		// in test mode, load EK/IK and certificate from files
-		// because simulator couldn't save them.
-		getClientEKeyCertTest(c)
-		getClientIKeyCertTest(c)
-	} else {
-		// in TPM only load IK/IC
-		getClientIKeyCert(c)
-	}
-}
-
-func getHubConf(c *config) {
-	if c == nil {
-		return
-	}
-	c.hubConfig.server = viper.GetString(HubServer)
-	c.hubConfig.hubPort = viper.GetString(HubPort)
-	// set command line input
-	if hubServer != nil && *hubServer != "" {
-		c.hubConfig.server = *hubServer
-	}
-	if hubPort != nil && *hubPort != "" {
-		c.hubConfig.hubPort = *hubPort
-	}
-}
-
-// setConfigPaths sets the config paths for different apps
-func setConfigPaths(cfg *config) *config {
-	var s string
-	viper.SetConfigName(ConfName)
-	viper.SetConfigType(ConfExt)
-	switch cfg.confType {
-	case ConfServer:
-		for _, s = range defaultRasConfigPath {
-			viper.AddConfigPath(s)
-		}
-	case ConfClient:
-		for _, s = range defaultRacConfigPath {
-			viper.AddConfigPath(s)
-		}
-	case ConfHub:
-		for _, s = range defaultRahubConfigPath {
-			viper.AddConfigPath(s)
-		}
-	}
-	return cfg
-}
-
-// setConfigDefaults sets default configurations for different apps
-func setConfigDefaults(cfg *config) *config {
-	switch cfg.confType {
-	case ConfServer:
-	case ConfClient:
-		viper.SetDefault(RacHbDuration, RacDefaultHbDuration)
-		viper.SetDefault(RacTrustDuration, RacDefaultTrustDuration)
-		viper.SetDefault(RacClientId, RacNullClientId)
-		viper.SetDefault(RacPassword, RacDefaultPassword)
-		viper.SetDefault(RacDigestAlgorithm, RacDigestAlgorithmSHA256)
-	case ConfHub:
-	}
-	return cfg
-}
-
-func loadConfig(cfg *config) *config {
-	switch cfg.confType {
-	case ConfServer:
-		getServerConf(cfg)
-	case ConfClient:
-		getClientConf(cfg)
-	case ConfHub:
-		getHubConf(cfg)
-	}
-	return cfg
-}
-
-func initLog() {
-	var c *zap.Config
-	path := viper.GetString(logPath)
-	if VerboseFlag != nil && *VerboseFlag {
-		c = &zap.Config{
-			Level:       zap.NewAtomicLevelAt(zap.DebugLevel),
-			Development: true,
-			Encoding:    "json",
-			EncoderConfig: zapcore.EncoderConfig{
-				TimeKey:        "T",
-				LevelKey:       "L",
-				NameKey:        "N",
-				CallerKey:      "C",
-				FunctionKey:    zapcore.OmitKey,
-				MessageKey:     "M",
-				StacktraceKey:  "S",
-				LineEnding:     zapcore.DefaultLineEnding,
-				EncodeLevel:    zapcore.CapitalLevelEncoder,
-				EncodeTime:     zapcore.ISO8601TimeEncoder,
-				EncodeDuration: zapcore.StringDurationEncoder,
-				EncodeCaller:   zapcore.ShortCallerEncoder,
-			},
-			OutputPaths:      []string{"stderr", path},
-			ErrorOutputPaths: []string{"stderr", path},
-		}
-	} else {
-		c = &zap.Config{
-			Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
-			Development: false,
-			Sampling: &zap.SamplingConfig{
-				Initial:    100,
-				Thereafter: 100,
-			},
-			Encoding: "json",
-			EncoderConfig: zapcore.EncoderConfig{
-				TimeKey:        "ts",
-				LevelKey:       "level",
-				NameKey:        "logger",
-				CallerKey:      "caller",
-				FunctionKey:    zapcore.OmitKey,
-				MessageKey:     "msg",
-				StacktraceKey:  "stacktrace",
-				LineEnding:     zapcore.DefaultLineEnding,
-				EncodeLevel:    zapcore.LowercaseLevelEncoder,
-				EncodeTime:     zapcore.ISO8601TimeEncoder,
-				EncodeDuration: zapcore.SecondsDurationEncoder,
-				EncodeCaller:   zapcore.ShortCallerEncoder,
-			},
-			OutputPaths:      []string{path},
-			ErrorOutputPaths: []string{path},
-		}
-	}
-	gLogger, _ = c.Build()
-}
-
-/*
-GetDefault returns the global default config object.
-It searches the defaultConfigPath to find the first matched config.yaml.
-if it doesn't find any one, it returns the default values by code.
-Notice:
-1) server must has a config.yaml to give the configuration.
-2) client may not have one.
-*/
-func GetDefault(cfType string) *config {
-	if confG != nil {
-		return confG
-	}
-
-	confG = &config{}
-	confG.confType = strings.ToLower(cfType)
-	confG = setConfigPaths(confG)
-	confG = setConfigDefaults(confG)
-
 	err := viper.ReadInConfig()
 	if err != nil {
-		fmt.Printf("read config file error: %v\n", err)
-		os.Exit(1)
+		//fmt.Printf("read config file error: %v\n", err)
+		return
 	}
-	confG = loadConfig(confG)
-	initLog()
-	return confG
+	getConfigs()
+	getRootKeyCert()
+	getPcaKeyCert()
 }
 
-func saveRasConfig(cfg *config) {
-	viper.Set(DbHost, cfg.dbConfig.host)
-	viper.Set(DbName, cfg.dbConfig.dbName)
-	viper.Set(DbPort, cfg.dbConfig.port)
-	viper.Set(DbUser, cfg.dbConfig.user)
-	viper.Set(DbPassword, cfg.dbConfig.password)
-	viper.Set(RasRootPrivKeyFile, cfg.rasConfig.rootPrivKeyFile)
-	viper.Set(RasRootKeyCertFile, cfg.rasConfig.rootKeyCertFile)
-	viper.Set(RasPcaPrivKeyFile, cfg.rasConfig.pcaPrivKeyFile)
-	viper.Set(RasPcaKeyCertFile, cfg.rasConfig.pcaKeyCertFile)
-	viper.Set(RasPort, cfg.rasConfig.servPort)
-	viper.Set(RasRestPort, cfg.rasConfig.restPort)
-	viper.Set(RasMgrStrategy, cfg.rasConfig.mgrStrategy)
-	viper.Set(RasAuthKeyFile, cfg.rasConfig.authKeyFile)
-	viper.Set(RasChangeTime, cfg.rasConfig.changeTime)
-	viper.Set(RasAutoUpdateConfig, cfg.rasConfig.autoUpdateConfig)
-	// store common configuration for all client
-	viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
-	viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
-	viper.Set(RacDigestAlgorithm, cfg.racConfig.digestAlgorithm)
-}
-
-func saveRacConfig(cfg *config) {
-	// store common part
-	if cfg.racConfig.testMode {
-		viper.Set(RacEKeyCertFileTest, cfg.racConfig.eKeyCertFileTest)
-		viper.Set(RacIKeyCertFileTest, cfg.racConfig.iKeyCertFileTest)
-	} else {
-		viper.Set(RacIKeyCertFile, cfg.racConfig.iKeyCertFile)
+// SaveConfigs saves all config variables to the config.yaml file.
+func SaveConfigs() {
+	if rasCfg == nil {
+		return
 	}
-	viper.Set(RacServer, cfg.racConfig.server)
-	viper.Set(RacHbDuration, cfg.racConfig.hbDuration)
-	viper.Set(RacTrustDuration, cfg.racConfig.trustDuration)
-	viper.Set(RacDigestAlgorithm, cfg.racConfig.digestAlgorithm)
-	// store special configuration for this client
-	viper.Set(RacClientId, cfg.racConfig.clientId)
-	viper.Set(RacPassword, cfg.racConfig.password)
-}
-
-func saveRahubConfig(cfg *config) {
-	viper.Set(HubServer, cfg.hubConfig.server)
-	viper.Set(HubPort, cfg.hubConfig.hubPort)
-}
-
-// Save saves all config variables to the config.yaml file.
-func Save() {
-	if confG != nil {
-		switch confG.confType {
-		case ConfServer:
-			saveRasConfig(confG)
-		case ConfClient:
-			saveRacConfig(confG)
-		case ConfHub:
-			saveRahubConfig(confG)
-		}
-		err := viper.WriteConfig()
-		if err != nil {
-			_ = viper.SafeWriteConfig()
-		}
+	viper.Set(logFile, rasCfg.logFile)
+	viper.Set(dbHost, rasCfg.dbHost)
+	viper.Set(dbName, rasCfg.dbName)
+	viper.Set(dbPort, rasCfg.dbPort)
+	viper.Set(dbUser, rasCfg.dbUser)
+	viper.Set(dbPassword, rasCfg.dbPassword)
+	viper.Set(confRootPrivKeyFile, rasCfg.rootPrivKeyFile)
+	viper.Set(confRootKeyCertFile, rasCfg.rootKeyCertFile)
+	viper.Set(confPcaPrivKeyFile, rasCfg.pcaPrivKeyFile)
+	viper.Set(confPcaKeyCertFile, rasCfg.pcaKeyCertFile)
+	viper.Set(confServerPort, rasCfg.servPort)
+	viper.Set(confRestPort, rasCfg.restPort)
+	viper.Set(confAuthKeyFile, rasCfg.authKeyFile)
+	viper.Set(confSerialNumber, cryptotools.GetSerialNumber())
+	viper.Set(confHbDuration, rasCfg.hbDuration)
+	viper.Set(confTrustDuration, rasCfg.trustDuration)
+	viper.Set(confDigestAlgorithm, rasCfg.digestAlgorithm)
+	err := viper.WriteConfig()
+	if err != nil {
+		_ = viper.SafeWriteConfig()
 	}
 }
 
-// for dbConfig handle
-
-func (c *config) GetHost() string {
-	return c.dbConfig.host
-}
-
-func (c *config) SetHost(host string) {
-	c.dbConfig.host = host
-}
-
-func (c *config) GetDBName() string {
-	return c.dbConfig.dbName
-}
-
-func (c *config) SetDBName(dbName string) {
-	c.dbConfig.dbName = dbName
-}
-
-func (c *config) GetDBPort() int {
-	return c.dbConfig.port
-}
-
-func (c *config) SetDBPort(port int) {
-	c.dbConfig.port = port
-}
-
-func (c *config) GetUser() string {
-	return c.dbConfig.user
-}
-
-func (c *config) SetUser(user string) {
-	c.dbConfig.user = user
-}
-
-func (c *config) GetPassword() string {
-	return c.dbConfig.password
-}
-
-func (c *config) SetPassword(password string) {
-	c.dbConfig.password = password
-}
-
-// for rasConfig handle
-
-func (c *config) GetMgrStrategy() string {
-	return c.rasConfig.mgrStrategy
-}
-
-func (c *config) SetMgrStrategy(s string) {
-	c.rasConfig.mgrStrategy = s
-	c.rasConfig.changeTime = time.Now()
-}
-
-func (c *config) GetChangeTime() time.Time {
-	return c.rasConfig.changeTime
-}
-
-func (c *config) SetExtractRules(e entity.ExtractRules) {
-	c.rasConfig.extractRules = e
-}
-
-func (c *config) GetExtractRules() entity.ExtractRules {
-	return c.rasConfig.extractRules
-}
-
-func (c *config) SetAutoUpdateConfig(a entity.AutoUpdateConfig) {
-	c.rasConfig.autoUpdateConfig = a
-}
-
-func (c *config) GetAutoUpdateConfig() entity.AutoUpdateConfig {
-	return c.rasConfig.autoUpdateConfig
-}
-
-func (c *config) GetPort() string {
-	return c.rasConfig.servPort
-}
-
-func (c *config) GetRestPort() string {
-	return c.rasConfig.restPort
-}
-
-func (c *config) GetRootPrivateKey() crypto.PrivateKey {
-	return c.rasConfig.rootPrivKey
-}
-
-func (c *config) GetRootKeyCert() *x509.Certificate {
-	return c.rasConfig.rootKeyCert
-}
-
-func (c *config) GetPcaPrivateKey() crypto.PrivateKey {
-	return c.rasConfig.pcaPrivKey
-}
-
-func (c *config) GetPcaKeyCert() *x509.Certificate {
-	return c.rasConfig.pcaKeyCert
-}
-
-func (c *config) GetAuthKeyFile() string {
-	return c.rasConfig.authKeyFile
-}
-
-func (c *config) SetAuthKeyFile(filename string) {
-	c.rasConfig.authKeyFile = filename
-}
-
-// for racConfig handle
-
-func (c *config) GetEKeyCert() []byte {
-	return c.racConfig.eKeyCert
-}
-
-func (c *config) SetEKeyCert(ec []byte) {
-	c.racConfig.eKeyCert = ec
-}
-
-func (c *config) GetIKeyCert() []byte {
-	return c.racConfig.iKeyCert
-}
-
-func (c *config) SetIKeyCert(icDer []byte) {
-	c.racConfig.iKeyCert = icDer
-	c.racConfig.iKeyCertFile = RacIKeyCertFileDefault + extCert
-	pca.EncodeKeyCertToFile(icDer, c.racConfig.iKeyCertFile)
-}
-
-func (c *config) GetEKeyCertTest() []byte {
-	return c.racConfig.eKeyCertTest
-}
-
-func (c *config) SetEKeyCertTest(ecDer []byte) {
-	c.racConfig.eKeyCertTest = ecDer
-	c.racConfig.eKeyCertFileTest = RacEKFileDefaultTest + extCert
-	pca.EncodeKeyCertToFile(ecDer, c.racConfig.eKeyCertFileTest)
-}
-
-func (c *config) GetIKeyCertTest() []byte {
-	return c.racConfig.iKeyCertTest
-}
-
-func (c *config) SetIKeyCertTest(icDer []byte) {
-	c.racConfig.iKeyCertTest = icDer
-	c.racConfig.iKeyCertFileTest = RacIKeyCertFileDefaultTest + extCert
-	pca.EncodeKeyCertToFile(icDer, c.racConfig.iKeyCertFileTest)
-}
-
-func (c *config) GetServer() string {
-	return c.racConfig.server
-}
-
-func (c *config) GetTestMode() bool {
-	return c.racConfig.testMode
-}
-
-func (c *config) GetTrustDuration() time.Duration {
-	return c.racConfig.trustDuration
-}
-
-func (c *config) SetTrustDuration(d time.Duration) {
-	c.racConfig.trustDuration = d
-}
-
-func (c *config) GetHBDuration() time.Duration {
-	return c.racConfig.hbDuration
-}
-
-func (c *config) SetHBDuration(d time.Duration) {
-	c.racConfig.hbDuration = d
-}
-
-func (c *config) GetClientId() int64 {
-	return c.racConfig.clientId
-}
-
-func (c *config) SetClientId(id int64) {
-	c.racConfig.clientId = id
-}
-
-func (c *config) GetDigestAlgorithm() string {
-	return c.racConfig.digestAlgorithm
-}
-
-func (c *config) SetDigestAlgorithm(algorithm string) {
-	c.racConfig.digestAlgorithm = algorithm
-}
-
-// for hubConfig handle
-
-func (c *config) GetHubServer() string {
-	return c.hubConfig.server
-}
-
-func (c *config) GetHubPort() string {
-	return c.hubConfig.hubPort
-}
-
-// Info outputs message at Info level
-func Info(msg string) {
-	if gLogger != nil {
-		gLogger.Info(msg)
+// GetLogFile returns the logger path configuration.
+func GetLogFile() string {
+	if rasCfg == nil {
+		return rasLogFile
 	}
+	return rasCfg.logFile
 }
 
-// Infof outputs format message at Info level
-func Infof(format string, v ...interface{}) {
-	if gLogger != nil {
-		gLogger.Sugar().Infof(format, v...)
+// GetIP returns the ras server ip address.
+func GetIP() string {
+	if rasCfg == nil {
+		return ""
 	}
+	return rasCfg.ip
 }
 
-// Debug outputs message at Debug level, command flag "-v" will enable this output.
-func Debug(msg string) {
-	if gLogger != nil {
-		gLogger.Debug(msg)
+// GetDBHost returns the database host configuration.
+func GetDBHost() string {
+	if rasCfg == nil {
+		return ""
 	}
+	return rasCfg.dbHost
 }
 
-// Debugf outputs format message at Debug level, command flag "-v" will enable this output.
-func Debugf(format string, v ...interface{}) {
-	if gLogger != nil {
-		gLogger.Sugar().Debugf(format, v...)
+// SetDBHost sets the database host configuration.
+func SetDBHost(host string) {
+	if rasCfg == nil {
+		return
 	}
+	rasCfg.dbHost = host
 }
 
-// Error outputs message. Info/Debug level will also output it.
-func Error(msg string) {
-	if gLogger != nil {
-		gLogger.Error(msg)
+// GetDBName returns the database name configuration.
+func GetDBName() string {
+	if rasCfg == nil {
+		return ""
 	}
+	return rasCfg.dbName
 }
 
-// Errorf outputs format message. Info/Debug level will also output it.
-func Errorf(format string, v ...interface{}) {
-	if gLogger != nil {
-		gLogger.Sugar().Errorf(format, v...)
+// SetDBName sets the database name configuration.
+func SetDBName(dbName string) {
+	if rasCfg == nil {
+		return
 	}
+	rasCfg.dbName = dbName
 }
 
-// Fatal outputs message and stop. Info/Debug level will also output it.
-func Fatal(msg string) {
-	if gLogger != nil {
-		gLogger.Fatal(msg)
+// GetDBPort returns the database port configuration.
+func GetDBPort() int {
+	if rasCfg == nil {
+		return -1
 	}
+	return rasCfg.dbPort
 }
 
-// Fatalf outputs format message and stop. Info/Debug level will also output it.
-func Fatalf(format string, v ...interface{}) {
-	if gLogger != nil {
-		gLogger.Sugar().Fatalf(format, v...)
+// SetDBPort sets the database port configuration.
+func SetDBPort(port int) {
+	if rasCfg == nil {
+		return
 	}
+	rasCfg.dbPort = port
+}
+
+// GetDBUser returns the database user name configuration.
+func GetDBUser() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.dbUser
+}
+
+// SetDBUser sets the database user name configuration.
+func SetDBUser(user string) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.dbUser = user
+}
+
+// GetDBPassword returns the database user password configuration.
+func GetDBPassword() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.dbPassword
+}
+
+// SetDBPassword sets the database user password configuration.
+func SetDBPassword(password string) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.dbPassword = password
+}
+
+// GetServerPort returns the ras service ip:port configuration.
+func GetServerPort() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.servPort
+}
+
+// SetServerPort sets the ras service ip:port configuration.
+func SetServerPort(s string) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.servPort = s
+}
+
+// GetRestPort returns the ras restful api interface ip:port configuration.
+func GetRestPort() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.restPort
+}
+
+// SetRestPort sets the ras restful api interface ip:port configuration.
+func SetRestPort(s string) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.restPort = s
+}
+
+// GetRootPrivateKey returns the root private key configuration.
+func GetRootPrivateKey() crypto.PrivateKey {
+	if rasCfg == nil {
+		return nil
+	}
+	return rasCfg.rootPrivKey
+}
+
+// GetRootKeyCert returns the root key certificate configuration.
+func GetRootKeyCert() *x509.Certificate {
+	if rasCfg == nil {
+		return nil
+	}
+	return rasCfg.rootKeyCert
+}
+
+// GetPcaPrivateKey returns the pca private key configuration.
+func GetPcaPrivateKey() crypto.PrivateKey {
+	if rasCfg == nil {
+		return nil
+	}
+	return rasCfg.pcaPrivKey
+}
+
+// GetPcaKeyCert returns the pca key certificate configuration.
+func GetPcaKeyCert() *x509.Certificate {
+	if rasCfg == nil {
+		return nil
+	}
+	return rasCfg.pcaKeyCert
+}
+
+// GetAuthKeyFile returns the auth token key configuration.
+func GetAuthKeyFile() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.authKeyFile
+}
+
+// SetAuthKeyFile sets the auth token key configuration.
+func SetAuthKeyFile(filename string) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.authKeyFile = filename
+}
+
+// GetHBDuration returns heart beat duration configuration.
+func GetHBDuration() time.Duration {
+	if rasCfg == nil {
+		return 0
+	}
+	return rasCfg.hbDuration
+}
+
+// SetHBDuration returns heart beat duration configuration.
+func SetHBDuration(v time.Duration) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.hbDuration = v
+}
+
+// GetTrustDuration returns trust report expire duration configuration.
+func GetTrustDuration() time.Duration {
+	if rasCfg == nil {
+		return 0
+	}
+	return rasCfg.trustDuration
+}
+
+// SetTrustDuration returns trust report expire duration configuration.
+func SetTrustDuration(v time.Duration) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.trustDuration = v
+}
+
+// GetDigestAlgorithm returns digest algorithm configuration.
+func GetDigestAlgorithm() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.digestAlgorithm
 }

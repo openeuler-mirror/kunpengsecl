@@ -1,0 +1,21 @@
+database:
+  host: localhost
+  name: kunpengsecl
+  password: postgres
+  port: 5432
+  user: postgres
+log:
+  file: ./logs/ras-log.txt
+racconfig:
+  digestalgorithm: sha1
+  hbduration: 10s
+  trustduration: 2m0s
+rasconfig:
+  authkeyfile: ./ecdsakey.pub
+  pcakeycertfile: ""
+  pcaprivkeyfile: ""
+  restport: 127.0.0.1:40002
+  rootkeycertfile: ""
+  rootprivkeyfile: ""
+  serialnumber: 0
+  serverport: 127.0.0.1:40001

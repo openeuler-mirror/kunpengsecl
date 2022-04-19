@@ -1,145 +1,41 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of
+the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
     http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
-PURPOSE.
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
 Author: wucaijun/lixinda
 Create: 2021-11-12
 Description: Implement a privacy CA to sign identity key(AIK).
-
-<<A Practical Guide to TPM2.0>>
-	--Using the Trusted Platform Module in the New Age of Security
-	    Will Arthur and David Challener
-	    With Kenneth Goldman
-
-FIGURE 9-1. Activating a Credential (CHAPTER 9/Page 109)
-        Credential Provider(Privacy CA)                 TPM
-                            Public Key, TPM Encryption Key Certificate
-                                            <<===
-1.         Validate Certificate chain <=
-2.                 Examine Public Key <=
-3.                Generate Credential <=
-4.Generate Secret and wrap Credential <=
-5.        Generate Seed, encrypt Seed <=
-              with TPM Encryption Key
-6.     Use Seed in KDF (with Name) to <=
-        derive HMAC key and Symmetric
-        Key, Wrap Secret in Symmetric
-        Key and protect with HMAC Key
-                                Credential wrapped by Secret,
-                    Secret wrapped by Symmetric Key derived from Seed,
-                            Seed encrypted by TPM Encryption Key.
-                                            ===>>
-                                                    1.=> Decrypt Seed using TPM Encryption Key.
-                                                    2.=> Compute Name.
-                                                    3.=> Use Seed KDF (with Name) to derive
-                                                         HMAC Key and Symmetric Key.
-                                                    4.=> Use Symmetric Key to unwrap Secret.
-                                                    5.=> Use Secret to unwrap Credential.
-
-The following happens at the credential provider: (Page 110)
-1. The credential provider receives the Key's public area and a certificate for
-an Encryption Key. The Encryption Key is typically a primary key in the
-endorsement hierarchy, and its certificate is issued by the TPM and/or platform
-manufacturer.
-2. The credential provider walks the Encryption Key certificate chain back to
-the issuer's root. Typically, the provider verifies that the Encryption Key is
-fixed to a known compliant hardware TPM.
-3. The provider examines the Key's public area and decides whether to issue a
-certificate, and what the certificate should say. In a typical case, the
-provider issues a certificate for a restricted Key that is fixed to the TPM.
-4. The requester may have tried to alter the Key's public area attributes.
-This attack won't be successful. See step 5 in the process that occurs at the
-TPM.
-5. The provider generates a credential for the Key.
-6. The provider generates a Secret that is used to protect the credential.
-Typically, this is a symmetric encryption key, but it can be a secret used to
-generate encryption and integrity keys. The format and use of this secret aren't
-mandated by the TCG.
-7. The provider generates a 'Seed' to a key derivation function(KDF). If the
-Encryption Key is an RSA key, the Seed is simply a random number, because an
-RSA key can directly encrypt and decrypt. If the Decryption Key is an elliptic
-curve cryptography(ECC) key, a more complex procedure using a Diffie-Hellman
-protocol is required.
-8. This Seed is encrypted by the Encryption Key public key. It can later only
-be decrypted by the TPM.
-9. The Seed is used in a TCG-specified KDF to generate a symmetric encryption
-key and an HMAC key. The symmetric key is used to encrypt the Secret, and the
-HMAC key provides integrity. Subtle but important is that the KDF also uses
-the key's Name. You'll see why later.
-10. The encrypted Secret and its integrity value are sent to the TPM in a
-credential blob. The encrypted Seed is sent as well.
-
-If you follow all this, you have the following:
-#) A credential protected by a Secret
-#) A Secret encrypted by a key derived from a Seed and the key's Name
-#) A Seed encrypted by a TPM Encryption Key
-
-These thins happen at the TPM:
-1. The encrypted Seed is applied against the TPM Encryption Key, and the Seed
-is recovered. The Seed remains inside the TPM.
-2. The TPM computes the loaded key's Name.
-3. The Name and the Seed are combined using the same TCG KDF to produce a
-symmetric encryption key and an HMAC key.
-4. The two keys are applied to the protected Secret, checking its integrity
-and decrypting it.
-5. This is where an attack on the key's public area attributes is detected.
-If the attacker presents a key to the credential provider that is different
-from the key loaded in the TPM, the Name will differ, and thus the symmetric
-and HMAC keys will differ, and this step will fail.
-6. The TPM returns the Secret.
-
-Outside the TPM, the Secret is applied to the credential in some agreed upon
-way. This can be as simple as using the Secret as a symmetric decryption key
-to decrypt the credential. This protocol assures the credential provider that
-the credential can only be recovered if:
-#) The TPM has the private key associated with the Encryption key certificate.
-#) The TPM has a key identical to the one presented to the credential provider.
-The privacy administrator should control the use of the Endorsement Key, both
-as a signing key and in the activate-credential protocol, and thus control its
-correlation to another TPM key.
-
-Other Privacy Considerations
-The TPM owner can clear the storage hierarchy, changing the storage primary
-seed and effectively erasing all storage hierarchy keys.
-The platform owner controls the endorsement hierarchy. The platform owner
-typically doesn't allow the endorsement primary seed to be changed, because
-this would render the existing TPM certificates useless, with no way to recover.
-The user can create other primary keys in the endorsement hierarchy using a
-random number in the template. The user can erase these keys by flushing the
-key from the TPM, deleting external copies, and forgetting the random number.
-However, these keys do not have a manufacturer certificate.
-When keys are used to sign(attest to) certain data, the attestation response
-structure contains what are possibly privacy-sensitive fields: resetCount(the
-number of times the TPM has been reset), restartCount(the number of times the
-TPM has been restarted or resumed), and the firmware version. Although these
-values don't map directly to a TPM, they can aid in correlation.
-To avoid this issue, the values are obfuscated when the signing key isn't in
-the endorsement or platform hierarchy. The obfuscation is consistent when
-using the same key so the receiver can detect a change in the values while
-not seeing the actual values.
+	1. 2022-01-17	change the ras/pca package to common/cryptotools.
 */
 
-package pca
+// cryptotools package provides the common crypto and format functions for use.
+package cryptotools
 
 import (
 	"bytes"
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/binary"
+	"encoding/pem"
 	"errors"
+	"io/ioutil"
 	"math"
+	"math/big"
+	"sync/atomic"
 )
 
 const (
@@ -152,12 +48,52 @@ const (
 	AlgOFB  = 0x0041
 	AlgCBC  = 0x0042
 	AlgCFB  = 0x0043
-
 	KEYSIZE = 16
+
+	Encrypt_Alg    = "AES128-CBC"
+	AesKeySize     = 16
+	RsaKeySize     = 2048
+	headPrivKey    = "PRIVATE KEY"
+	headPubKey     = "PUBLIC KEY"
+	headRsaPrivKey = "RSA PRIVATE KEY"
+	headRsaPubKey  = "RSA PUBLIC KEY"
+	modKey         = 0600
+	headCert       = "CERTIFICATE"
+	modCert        = 0644
+)
+
+type (
+	IKCertChallenge struct {
+		EncryptedCert []byte
+		SymKeyParams  SymKeyParams
+	}
+
+	SymKeyParams struct {
+		CredBlob        []byte
+		EncryptedSecret []byte
+		// the algorithm & scheme used to encrypt the IK Cert
+		EncryptAlg string
+		// the parameter required by the encrypt algorithm to decrypt the IK Cert
+		// if encryptAlg == "AES128-CBC" then it is the IV used to encrypt IK Cert
+		// together with the key recovered from credBlob & encryptedSecret
+		EncryptParam []byte
+	}
+
+	TPMAsymKeyParams struct {
+		TPMAsymAlgorithm string
+		TPMEncscheme     string
+	}
 )
 
 var (
-	ErrUnsupported = errors.New("unsupported parameters")
+	serialNumber int64 = 1
+
+	// error definition
+	ErrEncodeDER   = errors.New("failed to encode DER []byte")
+	ErrEncodePEM   = errors.New("failed to encode PEM information")
+	ErrDecodePEM   = errors.New("failed to decode PEM information")
+	ErrParseKey    = errors.New("failed to parse the key")
+	ErrWrongParams = errors.New("wrong input parameter")
 )
 
 // GetRandomBytes gets random bytes
@@ -280,7 +216,7 @@ func SymmetricEncrypt(alg, mod uint16, key, iv, plaintext []byte) ([]byte, error
 			return aesCTREncDec(key, iv, plaintext)
 		}
 	}
-	return []byte{}, ErrUnsupported
+	return []byte{}, ErrWrongParams
 }
 
 // SymmetricDecrypt uses key/iv to decrypt the ciphertext with symmetric algorithm/mode.
@@ -298,7 +234,7 @@ func SymmetricDecrypt(alg, mod uint16, key, iv, ciphertext []byte) ([]byte, erro
 			return aesCTREncDec(key, iv, ciphertext)
 		}
 	}
-	return []byte{}, ErrUnsupported
+	return []byte{}, ErrWrongParams
 }
 
 // AsymmetricEncrypt encrypts a byte array by public key and label using RSA
@@ -312,7 +248,7 @@ func AsymmetricEncrypt(alg, mod uint16, pubKey crypto.PublicKey, plaintext, labe
 			return rsa.EncryptPKCS1v15(rand.Reader, pubKey.(*rsa.PublicKey), plaintext)
 		}
 	}
-	return []byte{}, ErrUnsupported
+	return []byte{}, ErrWrongParams
 }
 
 // AsymmetricDecrypt decrypts a byte array by private key and label using RSA
@@ -326,7 +262,7 @@ func AsymmetricDecrypt(alg, mod uint16, priKey crypto.PrivateKey, ciphertext, la
 			return rsa.DecryptPKCS1v15(rand.Reader, priKey.(*rsa.PrivateKey), ciphertext)
 		}
 	}
-	return []byte{}, ErrUnsupported
+	return []byte{}, ErrWrongParams
 }
 
 /*
@@ -414,7 +350,7 @@ set to 0.
 func KDFa(alg crypto.Hash, key []byte, label string, contextU, contextV []byte, bits int) ([]byte, error) {
 	bufLen := ((bits + 7) / 8)
 	if bufLen > math.MaxInt16 {
-		return []byte{}, ErrUnsupported
+		return []byte{}, ErrWrongParams
 	}
 	buf := []byte{}
 	h := hmac.New(alg.New, key)
@@ -443,6 +379,7 @@ func KDFa(alg crypto.Hash, key []byte, label string, contextU, contextV []byte, 
 }
 
 /*
+---
 Trusted Platform Module Library
 Part 1: Architecture
 Family "2.0"
@@ -577,6 +514,7 @@ hash) in the buffer ahead of the encIdentity.
 6. Compute the HMAC over the encIdentity from step 4
      outerHMAC := HMAC(HMACkey, encIdentity || Name)
 
+---
 Also reference
 Trusted Platform Module Library
 Part 3: Commands
@@ -585,11 +523,123 @@ Level 00 Revision 01.59
 November 8, 2019
 Page 72
 12.6 TPM2_MakeCredential
-*/
 
+---
+Another book: <<A Practical Guide to TPM2.0>>
+	Using the Trusted Platform Module in the New Age of Security
+		Will Arthur and David Challener
+		With Kenneth Goldman
+
+FIGURE 9-1. Activating a Credential (CHAPTER 9/Page 109)
+        Credential Provider(Privacy CA)                 TPM
+                            Public Key, TPM Encryption Key Certificate
+                                            <<===
+1.         Validate Certificate chain <=
+2.                 Examine Public Key <=
+3.                Generate Credential <=
+4.Generate Secret and wrap Credential <=
+5.        Generate Seed, encrypt Seed <=
+              with TPM Encryption Key
+6.     Use Seed in KDF (with Name) to <=
+        derive HMAC key and Symmetric
+        Key, Wrap Secret in Symmetric
+        Key and protect with HMAC Key
+                                Credential wrapped by Secret,
+                    Secret wrapped by Symmetric Key derived from Seed,
+                            Seed encrypted by TPM Encryption Key.
+                                            ===>>
+                                                    1.=> Decrypt Seed using TPM Encryption Key.
+                                                    2.=> Compute Name.
+                                                    3.=> Use Seed KDF (with Name) to derive
+                                                         HMAC Key and Symmetric Key.
+                                                    4.=> Use Symmetric Key to unwrap Secret.
+                                                    5.=> Use Secret to unwrap Credential.
+
+The following happens at the credential provider: (Page 110)
+1. The credential provider receives the Key's public area and a certificate for
+an Encryption Key. The Encryption Key is typically a primary key in the
+endorsement hierarchy, and its certificate is issued by the TPM and/or platform
+manufacturer.
+2. The credential provider walks the Encryption Key certificate chain back to
+the issuer's root. Typically, the provider verifies that the Encryption Key is
+fixed to a known compliant hardware TPM.
+3. The provider examines the Key's public area and decides whether to issue a
+certificate, and what the certificate should say. In a typical case, the
+provider issues a certificate for a restricted Key that is fixed to the TPM.
+4. The requester may have tried to alter the Key's public area attributes.
+This attack won't be successful. See step 5 in the process that occurs at the
+TPM.
+5. The provider generates a credential for the Key.
+6. The provider generates a Secret that is used to protect the credential.
+Typically, this is a symmetric encryption key, but it can be a secret used to
+generate encryption and integrity keys. The format and use of this secret aren't
+mandated by the TCG.
+7. The provider generates a 'Seed' to a key derivation function(KDF). If the
+Encryption Key is an RSA key, the Seed is simply a random number, because an
+RSA key can directly encrypt and decrypt. If the Decryption Key is an elliptic
+curve cryptography(ECC) key, a more complex procedure using a Diffie-Hellman
+protocol is required.
+8. This Seed is encrypted by the Encryption Key public key. It can later only
+be decrypted by the TPM.
+9. The Seed is used in a TCG-specified KDF to generate a symmetric encryption
+key and an HMAC key. The symmetric key is used to encrypt the Secret, and the
+HMAC key provides integrity. Subtle but important is that the KDF also uses
+the key's Name. You'll see why later.
+10. The encrypted Secret and its integrity value are sent to the TPM in a
+credential blob. The encrypted Seed is sent as well.
+
+If you follow all this, you have the following:
+#) A credential protected by a Secret
+#) A Secret encrypted by a key derived from a Seed and the key's Name
+#) A Seed encrypted by a TPM Encryption Key
+
+These thins happen at the TPM:
+1. The encrypted Seed is applied against the TPM Encryption Key, and the Seed
+is recovered. The Seed remains inside the TPM.
+2. The TPM computes the loaded key's Name.
+3. The Name and the Seed are combined using the same TCG KDF to produce a
+symmetric encryption key and an HMAC key.
+4. The two keys are applied to the protected Secret, checking its integrity
+and decrypting it.
+5. This is where an attack on the key's public area attributes is detected.
+If the attacker presents a key to the credential provider that is different
+from the key loaded in the TPM, the Name will differ, and thus the symmetric
+and HMAC keys will differ, and this step will fail.
+6. The TPM returns the Secret.
+
+Outside the TPM, the Secret is applied to the credential in some agreed upon
+way. This can be as simple as using the Secret as a symmetric decryption key
+to decrypt the credential. This protocol assures the credential provider that
+the credential can only be recovered if:
+#) The TPM has the private key associated with the Encryption key certificate.
+#) The TPM has a key identical to the one presented to the credential provider.
+The privacy administrator should control the use of the Endorsement Key, both
+as a signing key and in the activate-credential protocol, and thus control its
+correlation to another TPM key.
+
+Other Privacy Considerations
+The TPM owner can clear the storage hierarchy, changing the storage primary
+seed and effectively erasing all storage hierarchy keys.
+The platform owner controls the endorsement hierarchy. The platform owner
+typically doesn't allow the endorsement primary seed to be changed, because
+this would render the existing TPM certificates useless, with no way to recover.
+The user can create other primary keys in the endorsement hierarchy using a
+random number in the template. The user can erase these keys by flushing the
+key from the TPM, deleting external copies, and forgetting the random number.
+However, these keys do not have a manufacturer certificate.
+When keys are used to sign(attest to) certain data, the attestation response
+structure contains what are possibly privacy-sensitive fields: resetCount(the
+number of times the TPM has been reset), restartCount(the number of times the
+TPM has been restarted or resumed), and the firmware version. Although these
+values don't map directly to a TPM, they can aid in correlation.
+To avoid this issue, the values are obfuscated when the signing key isn't in
+the endorsement or platform hierarchy. The obfuscation is consistent when
+using the same key so the receiver can detect a change in the values while
+not seeing the actual values.
+*/
 func MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]byte, []byte, error) {
 	if len(credential) == 0 || len(name) == 0 || len(credential) > crypto.SHA256.Size() {
-		return nil, nil, ErrUnsupported
+		return nil, nil, ErrWrongParams
 	}
 	// step 1, size(uint16) + content
 	plaintext := new(bytes.Buffer)
@@ -617,4 +667,225 @@ func MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]byte,
 	binary.Write(allBlob, binary.BigEndian, integrity)
 	binary.Write(allBlob, binary.BigEndian, encIdentity)
 	return allBlob.Bytes(), encSeed, nil
+}
+
+// EncodeKeyPubPartToDER encodes the private key public part into a der []byte.
+func EncodeKeyPubPartToDER(key crypto.PrivateKey) ([]byte, error) {
+	var err error
+	var derData []byte
+	switch priv := key.(type) {
+	case *rsa.PrivateKey:
+		derData, err = x509.MarshalPKIXPublicKey(priv.Public())
+		if err != nil {
+			return nil, err
+		}
+		return derData, nil
+	case *ecdsa.PrivateKey:
+	case ed25519.PrivateKey:
+	}
+	return derData, ErrEncodeDER
+}
+
+// EncodePublicKeyToPEM encodes the public key to a pem []byte.
+func EncodePublicKeyToPEM(pub crypto.PublicKey) ([]byte, error) {
+	var pemData []byte
+	switch pub.(type) {
+	case *rsa.PublicKey:
+		derBuf, err := x509.MarshalPKIXPublicKey(pub)
+		if err != nil {
+			return nil, err
+		}
+		pemData = pem.EncodeToMemory(
+			&pem.Block{
+				Type:  headPubKey,
+				Bytes: derBuf,
+			},
+		)
+		return pemData, nil
+	case *ecdsa.PublicKey:
+	case ed25519.PublicKey:
+	}
+	return nil, ErrEncodePEM
+}
+
+// EncodePublicKeyToFile encodes the public key to a file as pem format.
+func EncodePublicKeyToFile(pub crypto.PublicKey, fileName string) error {
+	data, _ := EncodePublicKeyToPEM(pub)
+	return ioutil.WriteFile(fileName, data, modKey)
+}
+
+// EncodePrivateKeyToPEM encodes the private key to a pem []byte.
+func EncodePrivateKeyToPEM(priv crypto.PrivateKey) ([]byte, error) {
+	var pemData []byte
+	switch priv.(type) {
+	case *rsa.PrivateKey:
+		derBuf, err := x509.MarshalPKCS8PrivateKey(priv)
+		if err != nil {
+			return nil, err
+		}
+		pemData = pem.EncodeToMemory(
+			&pem.Block{
+				Type:  headPrivKey,
+				Bytes: derBuf,
+			},
+		)
+		return pemData, nil
+	case *ecdsa.PrivateKey:
+	case ed25519.PrivateKey:
+	}
+	return nil, ErrEncodePEM
+}
+
+// EncodePrivateKeyToFile encodes the private key to a file as pem format.
+func EncodePrivateKeyToFile(priv crypto.PrivateKey, fileName string) error {
+	data, _ := EncodePrivateKeyToPEM(priv)
+	return ioutil.WriteFile(fileName, data, modKey)
+}
+
+// EncodeKeyCertToPEM encodes the der form key certificate to a pem []byte.
+func EncodeKeyCertToPEM(certDer []byte) ([]byte, error) {
+	pemData := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  headCert,
+			Bytes: certDer,
+		},
+	)
+	return pemData, nil
+}
+
+// EncodeKeyCertToFile encodes the der form key certificate to a pem file.
+func EncodeKeyCertToFile(certDer []byte, fileName string) error {
+	data, err := EncodeKeyCertToPEM(certDer)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(fileName, data, modCert)
+}
+
+// DecodePublicKeyFromPEM decodes a pem []byte to get the public key.
+func DecodePublicKeyFromPEM(pemData []byte) (crypto.PublicKey, []byte, error) {
+	block, _ := pem.Decode(pemData)
+	if block == nil || block.Type != headPubKey {
+		return nil, nil, ErrDecodePEM
+	}
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, nil, ErrParseKey
+	}
+	return pub, block.Bytes, nil
+}
+
+// DecodePublicKeyFromFile decodes a pem file to get the public key.
+func DecodePublicKeyFromFile(fileName string) (crypto.PublicKey, []byte, error) {
+	data, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, nil, err
+	}
+	return DecodePublicKeyFromPEM(data)
+}
+
+// DecodePrivateKeyFromPEM decodes a pem []byte to get the private key.
+func DecodePrivateKeyFromPEM(pemData []byte) (crypto.PrivateKey, []byte, error) {
+	block, _ := pem.Decode(pemData)
+	if block == nil || block.Type != headPrivKey {
+		return nil, nil, ErrDecodePEM
+	}
+	priv, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, nil, ErrParseKey
+	}
+	return priv, block.Bytes, nil
+}
+
+// DecodePrivateKeyFromFile decodes a pem file to get the private key.
+func DecodePrivateKeyFromFile(fileName string) (crypto.PrivateKey, []byte, error) {
+	data, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, nil, err
+	}
+	return DecodePrivateKeyFromPEM(data)
+}
+
+// DecodeKeyCertFromPEM decodes the key certificate from a pem format []byte.
+func DecodeKeyCertFromPEM(pemData []byte) (*x509.Certificate, []byte, error) {
+	block, _ := pem.Decode(pemData)
+	if block == nil {
+		return nil, nil, ErrDecodePEM
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, nil, ErrParseKey
+	}
+	return cert, block.Bytes, nil
+}
+
+// DecodeKeyCertFromFile decodes a pem file to get the key certificate.
+func DecodeKeyCertFromFile(fileName string) (*x509.Certificate, []byte, error) {
+	data, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, nil, err
+	}
+	return DecodeKeyCertFromPEM(data)
+}
+
+// SetSerialNumber inits the global serial number.
+func SetSerialNumber(n int64) {
+	serialNumber = n
+}
+
+// GetSerialNumber returns the new global serial number for certificate.
+func GetSerialNumber() int64 {
+	return atomic.AddInt64(&serialNumber, 1)
+}
+
+// GenerateCertificate generate a certificate according to template, signed by signer parent/key.
+func GenerateCertificate(template, parent *x509.Certificate, pubDer []byte, signer crypto.PrivateKey) ([]byte, error) {
+	if template == nil || parent == nil || len(pubDer) == 0 || signer == nil {
+		return nil, ErrWrongParams
+	}
+	pubKey, err := x509.ParsePKIXPublicKey(pubDer)
+	if err != nil {
+		return nil, err
+	}
+
+	template.SerialNumber = big.NewInt(GetSerialNumber())
+
+	certDer, err := x509.CreateCertificate(rand.Reader, template, parent, pubKey, signer)
+	if err != nil {
+		return nil, err
+	}
+	return certDer, nil
+}
+
+// EncryptIKCert uses a random key to encrypt the IKCert and seals this random key with MakeCredential.
+// Then only the coresponding TPM which has the EK could unseal this random key with ActiveCredential
+// and decrypt the IKCert.
+func EncryptIKCert(ekPubKey crypto.PublicKey, ikCert []byte, ikName []byte) (*IKCertChallenge, error) {
+	key, _ := GetRandomBytes(AesKeySize)
+	iv, _ := GetRandomBytes(AesKeySize)
+	encIKCert, err := SymmetricEncrypt(AlgAES, AlgCBC, key, iv, ikCert)
+	if err != nil {
+		return nil, err
+	}
+
+	encKeyBlob, encSecret, err := MakeCredential(ekPubKey, key, ikName)
+	if err != nil {
+		return nil, err
+	}
+
+	symKeyParams := SymKeyParams{
+		// encrypted secret by ekPub, use tpm2.ActivateCredential to decrypt and get secret
+		EncryptedSecret: encSecret,
+		// encrypted key by secret, use AES128 CFB to decrypt and get key
+		CredBlob: encKeyBlob,
+		// use this algorithm(AES128 CBC) + iv + key to decrypt ikCret
+		EncryptAlg:   Encrypt_Alg,
+		EncryptParam: iv,
+	}
+	ikCertChallenge := IKCertChallenge{
+		// encrypted ikCert by key
+		EncryptedCert: encIKCert,
+		SymKeyParams:  symKeyParams,
+	}
+	return &ikCertChallenge, nil
 }
