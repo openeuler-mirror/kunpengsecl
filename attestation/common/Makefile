@@ -1,6 +1,6 @@
 
 PKGPATH=pkg
-TESTEES=./cryptotools ./logger ./typdefs ./verifier
+TESTEES=./cryptotools ./logger ./typdefs
 
 all: build
 
