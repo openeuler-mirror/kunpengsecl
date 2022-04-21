@@ -18,7 +18,7 @@ test:
 build: 
 	go build -mod=vendor -o $(PKGPATH)/ractools ractools/*.go
 	go build -mod=vendor -o $(PKGPATH)/raagent cmd/raagent/*.go
-	go build -mod=vendor -o $(PKGPATH)/tbprovisioner cmd/tbprovisioner/*.go
+	#go build -mod=vendor -o $(PKGPATH)/tbprovisioner cmd/tbprovisioner/*.go
 	go build -mod=vendor -o $(PKGPATH)/rahub cmd/rahub/*.go
 
 
