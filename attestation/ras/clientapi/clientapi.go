@@ -53,7 +53,7 @@ import (
 )
 
 const (
-	constTimeOut time.Duration = 10 * time.Second
+	constTimeOut time.Duration = 20 * time.Second
 
 	strSpaceLine = " \n\r"
 	strGetName   = "./get.sh"

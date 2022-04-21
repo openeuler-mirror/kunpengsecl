@@ -44,14 +44,16 @@ const (
 	confEKeyCertTest    = "racconfig.ekcerttest"
 	confIKeyCertTest    = "racconfig.ikcerttest"
 	confDigestAlgorithm = "racconfig.digestalgorithm"
+	confSeed            = "racconfig.seed"
 	// raagent config default value
-	nullString = ""
-	logFile    = "./rac-log.txt"
-	keyExt     = ".key"
-	crtExt     = ".crt"
-	ikCert     = "./ic"
-	ekCertTest = "./ectest"
-	ikCertTest = "./ictest"
+	nullString   = ""
+	logFile      = "./rac-log.txt"
+	keyExt       = ".key"
+	crtExt       = ".crt"
+	ikCert       = "./ic"
+	ekCertTest   = "./ectest"
+	ikCertTest   = "./ictest"
+	confNullSeed = -1
 	// ras server listen ip:port
 	lflagServer = "server"
 	sflagServer = "s"
@@ -87,6 +89,7 @@ type (
 		// for simulator test
 		eKeyCertTest string
 		iKeyCertTest string
+		seed         int64
 	}
 )
 
@@ -228,6 +231,7 @@ func loadConfigs() {
 	racCfg.clientId = viper.GetInt64(confClientID)
 	racCfg.password = viper.GetString(confPassword)
 	racCfg.digest = viper.GetString(confDigestAlgorithm)
+	racCfg.seed = viper.GetInt64(confSeed)
 }
 
 // saveConfigs saves all config variables to the config.yaml file.
@@ -242,6 +246,7 @@ func saveConfigs() {
 	viper.Set(confHbDuration, racCfg.hbDuration)
 	viper.Set(confTrustDuration, racCfg.trustDuration)
 	viper.Set(confDigestAlgorithm, racCfg.digest)
+	viper.Set(confSeed, racCfg.seed)
 	if racCfg.testMode {
 		viper.Set(confEKeyCertTest, racCfg.eKeyCertTest)
 		viper.Set(confIKeyCertTest, racCfg.iKeyCertTest)
@@ -391,4 +396,14 @@ func SetDigestAlgorithm(algorithm string) {
 		return
 	}
 	racCfg.digest = algorithm
+}
+
+// GetSeed returns the tpm-simulator seed configuration.
+func GetSeed() int64 {
+	return racCfg.seed
+}
+
+// SetSeed sets the tpm-simulator seed configuration.
+func SetSeed(seed int64) {
+	racCfg.seed = seed
 }

@@ -19,7 +19,11 @@ Description: raagent main package entry.
 package main
 
 import (
+	"crypto/rand"
 	"crypto/x509"
+	"log"
+	"math"
+	"math/big"
 	"os"
 	"time"
 
@@ -42,7 +46,14 @@ func main() {
 
 	logger.L.Debug("open tpm...")
 	tpmConf := createTPMConfig(GetTestMode())
-	err := ractools.OpenTPM(!GetTestMode(), tpmConf)
+	if GetSeed() == -1 {
+		random, err0 := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+		if err0 != nil {
+			log.Fatalf("Client: generate seed failed, error: %s", err0)
+		}
+		SetSeed(random.Int64())
+	}
+	err := ractools.OpenTPM(!GetTestMode(), tpmConf, GetSeed())
 	if err != nil {
 		logger.L.Sugar().Errorf("open tpm failed, %s", err)
 		os.Exit(1)
@@ -73,7 +84,7 @@ func prepare() {
 	logger.L.Debug("generate EK success")
 	logger.L.Debug("load EK certificate...")
 	generateEKeyCert(ras)
-	err = ractools.LoadEKeyCert()
+	err = LoadEKeyCert()
 	if err != nil {
 		logger.L.Sugar().Errorf("load EK certificate failed, %s", err)
 	}
@@ -135,6 +146,7 @@ func createTPMConfig(testMode bool) *ractools.TPMConfig {
 		tpmConf.IMALogPath = ractools.TestImaLogPath
 		tpmConf.BIOSLogPath = ractools.TestBiosLogPath
 		tpmConf.ReportHashAlg = typdefs.Sha1AlgStr
+		tpmConf.SeedPath = ractools.TestSeedPath
 	} else {
 		tpmConf.IMALogPath = ractools.ImaLogPath
 		tpmConf.BIOSLogPath = ractools.BiosLogPath
@@ -171,6 +183,25 @@ func generateEKeyCert(ras *clientapi.RasConn) {
 			ractools.WriteNVRAM(ractools.IndexRsa2048EKCert, ek)
 		}
 	}
+}
+
+// LoadEKeyCert reads ek certificate from NVRAM, the simulator is the same
+func LoadEKeyCert() error {
+	ekCertDer, err := ractools.ReadNVRAM(ractools.IndexRsa2048EKCert)
+	if err != nil {
+		logger.L.Sugar().Errorf("can't read Ek Cert der data, %v", err)
+		return err
+	}
+	// There is an extra zero sequence behind the physical tpm certificate,
+	// which should be removed, otherwise the certificate parsing will be wrong.
+	for i := range ekCertDer {
+		if ekCertDer[i] == 0 && ekCertDer[i+1] == 0 {
+			ekCertDer = ekCertDer[:i]
+			break
+		}
+	}
+	SetEKeyCert(ekCertDer)
+	return nil
 }
 
 // generateIKeyCert gets the IK public from tpm simulator and sends to PCA
