@@ -69,7 +69,7 @@ else
 fi
 
 # compute true HBDuration
-latestHBTime=$(cat ${DST}/ras/echo.txt | awk '/receive SendHeartbeat/ {gsub("^.*:","",$2);print $2}' | tail -n 3)
+latestHBTime=$(cat ${DST}/ras/echo.txt | awk '/receive SendHeartbeat/ {gsub("^.*:","",$2);gsub("^0","",$2);print $2}' | tail -n 3)
 echo "Latest 3 HB time: ${latestHBTime}" | tee -a ${DST}/control.txt
 time1=$(echo ${latestHBTime} | awk '{print $1}')
 time2=$(echo ${latestHBTime} | awk '{print $2}')

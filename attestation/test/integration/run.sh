@@ -19,6 +19,8 @@ run () {
     else
         echo "specified test $1 doesn't exist"
     fi
+
+    rm /tmp/kunpengsecl-test-* -rf
 }
 
 echo "Please check log ${LOG} for more test details"

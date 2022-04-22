@@ -84,12 +84,12 @@ curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" 
 RESPONSE3=$(curl http://localhost:40002/config)
 echo ${RESPONSE3} | tee -a ${DST}/control.txt
 ### analyse the ras testing data
-MGRSTRATEGY1=$(echo $RESPONSE1 | jq -r '.' | grep -A 1 "mgrStrategy" | awk '/value/ {gsub("\"","");gsub("\\","");print $2}')
-MGRSTRATEGY2=$(echo $RESPONSE3 | jq -r '.' | grep -A 1 "mgrStrategy" | awk '/value/ {gsub("\"","");gsub("\\","");print $2}')
-EXTRACTRULES1=$(echo $RESPONSE1 | jq -r '.' | grep -A 1 "extractRules" | awk '/value/ {gsub("\"","");gsub("\\","");print $2}')
-EXTRACTRULES2=$(echo $RESPONSE3 | jq -r '.' | grep -A 1 "extractRules" | awk '/value/ {gsub("\"","");gsub("\\","");print $2}')
-AUTOUPDATE1=$(echo $RESPONSE1 | jq -r '.' | grep -A 1 "autoUpdateConfig" | awk '/value/ {gsub("\"","");gsub("\\","");print $2}')
-AUTOUPDATE2=$(echo $RESPONSE3 | jq -r '.' | grep -A 1 "autoUpdateConfig" | awk '/value/ {gsub("\"","");gsub("\\","");print $2}')
+MGRSTRATEGY1=$(echo $RESPONSE1 | jq -r '.' | grep -A 1 "mgrStrategy" | awk '/value/ {gsub("\"","");print $2}')
+MGRSTRATEGY2=$(echo $RESPONSE3 | jq -r '.' | grep -A 1 "mgrStrategy" | awk '/value/ {gsub("\"","");print $2}')
+EXTRACTRULES1=$(echo $RESPONSE1 | jq -r '.' | grep -A 1 "extractRules" | awk '/value/ {gsub("\"","");gsub("\\\\","");print $2}')
+EXTRACTRULES2=$(echo $RESPONSE3 | jq -r '.' | grep -A 1 "extractRules" | awk '/value/ {gsub("\"","");gsub("\\\\","");print $2}')
+AUTOUPDATE1=$(echo $RESPONSE1 | jq -r '.' | grep -A 1 "autoUpdateConfig" | awk '/value/ {gsub("\"","");gsub("\\\\","");print $2}')
+AUTOUPDATE2=$(echo $RESPONSE3 | jq -r '.' | grep -A 1 "autoUpdateConfig" | awk '/value/ {gsub("\"","");gsub("\\\\","");print $2}')
 STR4="auto1"
 STR5="{PcrRule:{PcrSelection:[1,2,3,4,5]},ManifestRules:[{MType:bios1,Name:[newName1,newName2]},{MType:ima1,Name:[newName1,newName2]}]}"
 STR6="{IsAllUpdate:true,UpdateClients:[1]}"
