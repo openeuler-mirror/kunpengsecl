@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option go_package = "gitee.com/openeuler/kunpengsecl/attestation/demo/qca_demo/qapi";
+
+service Qca {
+    rpc GetReport (GetReportRequest) returns (GetReportReply) {}
+}
+
+message GetReportRequest {
+    int64 uuid = 1;
+    buffer usr_data = 2;
+    buffer report = 3;
+    bool with_tcb = 4;
+}
+
+message GetReportReply {
+    buffer tee_report = 1;
+}
+
+message buffer {
+    uint32 size = 1;
+    bytes buf = 2;
+}
