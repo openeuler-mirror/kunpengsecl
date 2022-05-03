@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"time"
+	"unsafe"
 
 	"github.com/spf13/viper"
 )
@@ -38,6 +39,8 @@ var (
 	c_usr_data       C.ra_buffer_data
 	c_report         C.ra_buffer_data
 	c_with_tcb       C.bool
+	c_usrdata_buf    *C.char
+	c_report_buf     *C.char
 	str_usrdata_buf  string
 	str_report_buf   string
 	go_report        *Go_ra_buffer_data = &Go_ra_buffer_data{}
@@ -68,19 +71,27 @@ func LoadConfigs() {
 func GetTAReport(ta_uuid int64, usr_data *Go_ra_buffer_data, report *Go_ra_buffer_data, with_tcb bool) *Go_ra_buffer_data {
 	// format conversion: Go -> C
 	c_ta_uuid = C.__int64_t(ta_uuid)
+
 	c_usr_data.size = C.__uint32_t(usr_data.Size)
 	str_usrdata_buf = string(usr_data.Buf)
-	c_usr_data.buf = (*C.uchar)(C.CString(str_usrdata_buf))
+	c_usrdata_buf = C.CString(str_usrdata_buf)
+	temp_buf0 := unsafe.Pointer(c_usrdata_buf)
+	c_usr_data.buf = (*C.uchar)(temp_buf0)
+
 	c_report.size = C.__uint32_t(report.Size)
 	str_report_buf = string(report.Buf)
-	c_report.buf = (*C.uchar)(C.CString(str_report_buf))
+	c_report_buf = C.CString(str_report_buf)
+	temp_buf1 := unsafe.Pointer(c_report_buf)
+	c_report.buf = (*C.uchar)(temp_buf1)
+
 	c_with_tcb = C.bool(with_tcb)
 
 	c_ra_buffer_data = C.RemoteAttestReport(c_ta_uuid, &c_usr_data, &c_report, c_with_tcb) // can not put Go pointer as parameter in C function!!!
 
 	// format conversion: C -> Go
 	go_report.Size = uint32(c_ra_buffer_data.size)
-	go_report.Buf = []byte(C.GoString((*C.char)(c_ra_buffer_data.buf))) // empty line has some impacts on output?
+	temp_buf2 := unsafe.Pointer(c_ra_buffer_data.buf)
+	go_report.Buf = []byte(C.GoString((*C.char)(temp_buf2)))
 
 	return go_report
 }
