@@ -12,6 +12,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"unsafe"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
 	"github.com/spf13/pflag"
@@ -61,7 +62,7 @@ type (
 	testReport struct {
 		teerep *qapi.Buffer
 	}
-	atterterConfig struct {
+	attesterConfig struct {
 		server    string
 		basevalue string
 		mspolicy  int
@@ -91,7 +92,9 @@ var (
 	ServerFlag    *string         = nil
 	BasevalueFlag *string         = nil
 	MspolicyFlag  *int            = nil
-	attesterConf  *atterterConfig = nil
+	attesterConf  *attesterConfig = nil
+	c_rep_buf     *C.char
+	c_mf_buf      *C.char
 )
 
 func InitFlags() {
@@ -108,7 +111,7 @@ func LoadConfigs() {
 	if attesterConf != nil {
 		return
 	}
-	attesterConf = &atterterConfig{}
+	attesterConf = &attesterConfig{}
 	viper.SetConfigName(ConfName)
 	viper.SetConfigType(ConfExt)
 	for _, s := range defaultPaths {
@@ -201,7 +204,9 @@ func verifySig(rep testReport) bool {
 	var str_rep_buf string
 	crep.size = C.__uint32_t(rep.teerep.Size)
 	str_rep_buf = string(rep.teerep.Buf)
-	crep.buf = (*C.uchar)(C.CString(str_rep_buf))
+	c_rep_buf = C.CString(str_rep_buf)
+	temp_buf := unsafe.Pointer(c_rep_buf)
+	crep.buf = (*C.uchar)(temp_buf)
 	result := C.VerifySignature(&crep)
 	return bool(result)
 }
@@ -214,7 +219,9 @@ func validate(mf testReport, bv string) bool {
 	cbv.Mmem = C.CString(bv) // just for test
 	crep.size = C.__uint32_t(mf.teerep.Size)
 	str_mf_buf = string(mf.teerep.Buf)
-	crep.buf = (*C.uchar)(C.CString(str_mf_buf))
+	c_mf_buf = C.CString(str_mf_buf)
+	temp_buf := unsafe.Pointer(c_mf_buf)
+	crep.buf = (*C.uchar)(temp_buf)
 	result := C.Validate(&crep, &cbv)
 	return bool(result)
 }
