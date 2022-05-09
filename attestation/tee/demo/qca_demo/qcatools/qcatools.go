@@ -91,6 +91,7 @@ func GetTAReport(ta_uuid int64, usr_data *Go_ra_buffer_data, report *Go_ra_buffe
 	// format conversion: C -> Go
 	go_report.Size = uint32(c_ra_buffer_data.size)
 	temp_buf2 := unsafe.Pointer(c_ra_buffer_data.buf)
+
 	go_report.Buf = []byte(C.GoString((*C.char)(temp_buf2)))
 
 	return go_report

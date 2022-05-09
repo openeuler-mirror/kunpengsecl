@@ -2,6 +2,8 @@
 package attestertools
 
 /*
+#cgo CFLAGS: -I/usr/local/include
+#cgo LDFLAGS: -L/usr/local/lib -lcrypto
 #include "../../../tverlib/verifier/verifier.h"
 #include "../../../tverlib/verifier/verifier.c"
 */
@@ -200,7 +202,7 @@ func getReport(ta *trustApp) testReport {
 
 // invoke verifier lib to verify
 func verifySig(rep testReport) bool {
-	var crep C.TAreport
+	var crep C.buffer_data
 	var str_rep_buf string
 	crep.size = C.__uint32_t(rep.teerep.Size)
 	str_rep_buf = string(rep.teerep.Buf)
@@ -213,15 +215,15 @@ func verifySig(rep testReport) bool {
 
 // invoke verifier lib to validate
 func validate(mf testReport, bv string) bool {
-	var crep C.TAreport
-	var cbv C.BaseValue
+	var crep C.buffer_data
+	var mtype int32 = 1
 	var str_mf_buf string
-	cbv.Mmem = C.CString(bv) // just for test
+	cbv := C.CString(bv)
 	crep.size = C.__uint32_t(mf.teerep.Size)
 	str_mf_buf = string(mf.teerep.Buf)
 	c_mf_buf = C.CString(str_mf_buf)
 	temp_buf := unsafe.Pointer(c_mf_buf)
 	crep.buf = (*C.uchar)(temp_buf)
-	result := C.Validate(&crep, &cbv)
+	result := C.VerifyManifest(&crep, C.int(mtype), cbv)
 	return bool(result)
 }
