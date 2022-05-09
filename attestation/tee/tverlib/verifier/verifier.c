@@ -1,11 +1,11 @@
 #include "verifier.h"
 
-bool VerifySignature(TAreport *report) {
+bool VerifySignature(buffer_data *report) {
     printf("Verify success!\n");
     return true;
 }
 
-bool Validate(TAreport *manifest, BaseValue *basevalue) {
+bool VerifyManifest(buffer_data *data,int type,char *filename) {
     printf("Validate success!\n");
     return true;
 }

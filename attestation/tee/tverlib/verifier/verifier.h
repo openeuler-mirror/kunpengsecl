@@ -8,7 +8,7 @@ typedef struct
 {
     __uint32_t size;
     __uint8_t *buf;
-} TAreport;
+} buffer_data;
 
 typedef struct
 {
@@ -17,8 +17,8 @@ typedef struct
     char* Mimg;
 } BaseValue;
 
-bool VerifySignature(TAreport *report);
+bool VerifySignature(buffer_data *report);
 
-bool Validate(TAreport *manifest, BaseValue *basevalue);
+bool VerifyManifest(buffer_data *data,int type,char *filename);
 
 #endif
