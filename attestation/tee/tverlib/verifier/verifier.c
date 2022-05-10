@@ -11,17 +11,147 @@
 #define RESERVE 33
 #define SIGNATURE 513
 #define CERT 513
-
-bool VerifySignature(buffer_data *report) {
-    printf("Verify success!\n");
-    return true;
-}
-
+#define PRIVATEKEY "./private_key.pem"
+#define PUBLICKEY "./public_key.pem"
 TAreport *Convert(buffer_data *data);
 bool VerifyProcess(TAreport *report, int type, char *filename);
 BaseValue *loadbasevalue(char *uuid, char *filename);
 bool compare(int type, TAreport *report, BaseValue *basevalue);
 
+//interface 
+bool VerifySignature(buffer_data *report);
+
+bool verifysig(uint8_t *data,uint8_t *sig,uint8_t *cert);
+bool translateBuf(buffer_data report,TAreport *tareport);
+
+//testSignature will generate a signature by the private_key.pem file
+void testSignature(char *digest,char *sig)
+{  
+   char buf[256]={0};
+   //get private key from file
+	FILE *fp = fopen(PRIVATEKEY,"r");
+	if(fp==NULL){
+		printf("read file failed\n");
+	}
+	RSA *privKey = PEM_read_RSAPrivateKey(fp,NULL,NULL,NULL);
+	if(privKey==NULL){
+		printf("failed get private key\n");
+	}
+	fclose(fp);
+   int nOutLen = strlen(sig);
+	int rt = 0;
+	rt = RSA_sign(NID_sha256,digest,SHA256_DIGEST_LENGTH,sig,&nOutLen,privKey);
+	if(rt!=1){
+		printf("sig failed\n");
+	}
+   
+}
+   /* 
+	verifysig will to verify the signature which in report by RSA_verify
+	buf: input data and is a byte array 
+	sig: the signature block by RSA_sign generated and is a byte array
+	cert:input cert: byte array of the DER representation 
+	*/
+bool verifysig(uint8_t *data,uint8_t *sig,uint8_t *cert){
+	int status = EXIT_SUCCESS;
+	int rc = 1; //OpenSSL return code
+	int data_len = sizeof(data);
+	int sig_len = strlen(sig);
+   int cert_len = strlen(cert);
+	if (data_len<=0||sig_len<=0||cert_len<=0){
+		status = EXIT_FAILURE;
+		return false;
+	}
+
+	/* step 1:  hash the data store in digest 
+	*/
+	uint8_t digest[SHA256_DIGEST_LENGTH];
+	SHA256(data,strlen(data),digest);
+   int nOutLen = strlen(sig);
+   testSignature(digest,sig);
+    /* step 2: extract the RSA public key from the x509 certificate
+	*/
+   //get public key from file
+	FILE* fp = fopen(PUBLICKEY,"r");
+	if(fp==NULL){
+		printf("read file failed\n");
+	}
+	RSA *pubKey = PEM_read_RSA_PUBKEY(fp,NULL,NULL,NULL);
+	if(pubKey==NULL){ 
+		printf("failed get public key\n");
+	}
+	fclose(fp);
+   
+   //step 3: using the RSA_verify to verify the signature is validate
+	/*
+	verifies that the signature sigbuf of size 
+	siglen matches a given message digest m of size m_len. 
+	type denotes the message digest algorithm that was used to 
+	generate the signature. rsa is the signer's public key.
+	*/
+	rc = RSA_verify(NID_sha256,digest,SHA256_DIGEST_LENGTH,sig,256,pubKey);
+	if (rc != 1){
+		status = EXIT_FAILURE;
+		return false;
+	}
+	return true;
+}
+
+//translateBuf will translate the buffer_date to TAreport
+bool translateBuf(buffer_data report,TAreport *tareport){
+	memcpy(tareport,report.buf,report.size);
+	return true;
+
+}
+bool VerifySignature(buffer_data *report) {
+	//get the report from buffer
+	TAreport tareport;
+	int rt = translateBuf(*report,&tareport);
+	if(rt!=1){
+		printf("translate is failed!\n");
+      return false;
+	}
+	//1. verify the signature by the public key from the cert and digest(is a quoted)
+
+	char *data = "testdata";
+   char sig[] = "ac90984b642d241161e90b6795c481f1ed0b065dbe713a7f4c562ba99ed91996b2b5fa0bf9319dfead8c98d0e58e10c890b4f628cd8d030b637ff4cf1a12642f4a27aafe794130057b94672c35af27727ad057fc83c8a22e499ab77e3cabe8ee1a0643edc0381e9d837f93ac6de4e0d7657a07e0ad0125ba79ba357a1682d4a7070bd1fe80d900105fdc5b32ec72211cd50e535775e604b880536d94e1e4cfc04710182ca9924decf215071ef50c5af87e178e125a2d5554f0ec07604daf6098dc1dd1b6b69dc813c89fdb2ad5849c125306fd058bf6447bb15251d67ebb4207fb4defde05b2609e029c009ecb18ad5ebbfa67e974057e48376501cc6190ee83";
+   rt = verifysig(data,sig,tareport.cert);
+	if(rt != 1){
+		return false;	
+	}
+    printf("Verify success!\n");
+    return true;
+}
+// int main(){
+// 	TAreport report = {
+// 		"1.0",   //version
+// 		"20220504",		//timestamp
+// 		"1001",		//nonce
+// 		"",			//uuid
+// 		"",			//alg
+// 		"",			//
+// 		"",			//hash
+// 		"",
+// 		"ac90984b642d241161e90b6795c481f1ed0b065dbe713a7f4c562ba99ed91996b2b5fa0bf9319dfead8c98d0e58e10c890b4f628cd8d030b637ff4cf1a12642f4a27aafe794130057b94672c35af27727ad057fc83c8a22e499ab77e3cabe8ee1a0643edc0381e9d837f93ac6de4e0d7657a07e0ad0125ba79ba357a1682d4a7070bd1fe80d900105fdc5b32ec72211cd50e535775e604b880536d94e1e4cfc04710182ca9924decf215071ef50c5af87e178e125a2d5554f0ec07604daf6098dc1dd1b6b69dc813c89fdb2ad5849c125306fd058bf6447bb15251d67ebb4207fb4defde05b2609e029c009ecb18ad5ebbfa67e974057e48376501cc6190ee83",
+// 		"testcert",
+// 	};
+// 	int size = 0;
+// 	for(int i=0;i<10;i++)
+// 		size += len[i];
+// 	buffer_data r = {
+// 		size,
+// 		&report
+// 	};
+// 	int rt = VerifySignature(&r);
+// 	if(rt!=1){
+// 		printf("verify is failed!");
+// 	}
+//    return 0;
+// }
+// bool Validate(buffer_data *manifest, BaseValue *basevalue) {
+//     printf("Validate success!\n");
+//     return true;
+// }
 bool VerifyManifest(buffer_data *data, int type, char *filename)
 {
    bool result = false;
