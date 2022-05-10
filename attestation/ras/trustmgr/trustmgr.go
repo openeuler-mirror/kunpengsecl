@@ -33,8 +33,10 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -512,6 +514,7 @@ func findManifest(report *typdefs.TrustReport, key string) []byte {
 	return []byte{}
 }
 
+//根据bios和imaLog扩展pcr并且把bios和ima存到cache中
 func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, error) {
 	bLog := findManifest(report, typdefs.StrBios)
 	btLog, _ := typdefs.TransformBIOSBinLogToTxt(bLog)
@@ -521,6 +524,276 @@ func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bo
 	row.BiosLog = string(btLog)
 	row.ImaLog = string(imaLog)
 	return typdefs.ExtendPCRWithIMALog(pcrs, imaLog)
+}
+
+func HandleBaseValue(report *typdefs.TrustReport) error {
+	switch config.GetMgrStrategy() {
+	// if mgrStrategy is auto-update, save base value of rac which in the update list
+	case config.AutoUpdateStrategy:
+		{
+			err := recordAutoUpdateReport(report)
+			if err != nil {
+				return err
+			}
+		}
+
+	// if mgrStrategy is auto, and if this is the first report of this RAC, extract base value
+	case config.AutoStrategy:
+		{
+			isFirstReport, err := isFirstReport(report.ClientID)
+			if err != nil {
+				return err
+			}
+			baseValue := typdefs.BaseRow{}
+			if isFirstReport {
+				err = extract(report, &baseValue)
+				if err != nil {
+					return err
+				}
+				// TODO:1.保证一个ClientID的基准值同时只有一个Enabled=TRUE
+				// 2.完善Name字段
+				baseValue.ClientID = report.ClientID
+				baseValue.CreateTime = time.Now()
+				baseValue.Enabled = false
+				baseValue.Verified = false
+				baseValue.Trusted = false
+				SaveBaseValue(&baseValue)
+			}
+		}
+	}
+	return nil
+}
+
+func recordAutoUpdateReport(report *typdefs.TrustReport) error {
+	if isClientAutoUpdate(report.ClientID) {
+		historyBase, err := FindBaseValuesByClientID(report.ClientID)
+		if err != nil {
+			return err
+		}
+		newBase := typdefs.BaseRow{}
+		oldBase := typdefs.BaseRow{}
+		// 如果该client已经存在基准值，则后续的抽取模板和存在的基准值保持一致，
+		// 否则，抽取模板从config读取
+		if len(historyBase) != 0 {
+			oldBase = historyBase[len(historyBase)-1]
+			newBase = typdefs.BaseRow{
+				ClientID: report.ClientID,
+			}
+		}
+		err = extract(report, &newBase)
+		if err != nil {
+			return err
+		}
+		// TODO:1.保证一个ClientID的基准值同时只有一个Enabled=TRUE
+		// 2.完善Name字段
+		if isBaseUpdate(&oldBase, &newBase) {
+			newBase.ClientID = report.ClientID
+			newBase.CreateTime = time.Now()
+			newBase.Enabled = false
+			newBase.Verified = false
+			newBase.Trusted = false
+			SaveBaseValue(&newBase)
+		}
+	}
+	return nil
+}
+
+func isClientAutoUpdate(clientID int64) bool {
+	// if all update
+	if config.GetAutoUpdateConfig().IsAllUpdate {
+		return true
+	}
+	clients := config.GetAutoUpdateConfig().UpdateClients
+	for _, c := range clients {
+		if clientID == c {
+			return true
+		}
+	}
+	return false
+}
+
+func isBaseUpdate(oldBase *typdefs.BaseRow, newBase *typdefs.BaseRow) bool {
+	// compare pcr
+	if oldBase.Pcr != newBase.Pcr {
+		return true
+	}
+	// compare bios
+	if oldBase.Bios != newBase.Bios {
+		return true
+	}
+	// compare ima
+	if oldBase.Ima != newBase.Ima {
+		return true
+	}
+	return false
+}
+
+func isFirstReport(clientId int64) (bool, error) {
+	if tmgr == nil {
+		return false, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindReportsByClientID, clientId)
+	if err != nil {
+		return false, err
+	}
+	// because isFirstReport is judged after saving report, len(rows) == 1
+	if !rows.Next() {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func extract(report *typdefs.TrustReport, basevalue *typdefs.BaseRow) error {
+	//pcr抽取
+	err := extractPCR(report, basevalue)
+	if err != nil {
+		return err
+	}
+	//bios抽取
+	err = extractBIOS(report, basevalue)
+	if err != nil {
+		return err
+	}
+	//ima抽取
+	err = extractIMA(report, basevalue)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Verify(baseValue *typdefs.BaseRow, report *typdefs.TrustReport) error {
+	newBaseValue := typdefs.BaseRow{
+		ClientID: report.ClientID,
+	}
+	err := extractBIOS(report, &newBaseValue)
+	if err != nil {
+		return err
+	}
+	if baseValue.Pcr != newBaseValue.Pcr {
+		return fmt.Errorf("pcr manifest verification failed")
+	}
+	if baseValue.Bios != newBaseValue.Bios {
+		return fmt.Errorf("bios manifest verification failed")
+	}
+	if baseValue.Ima != newBaseValue.Ima {
+		return fmt.Errorf("ima manifest verification failed")
+	}
+
+	return nil
+}
+
+func extractPCR(report *typdefs.TrustReport, mInfo *typdefs.BaseRow) error {
+	pcrLog := findManifest(report, typdefs.StrPcr)
+	pcrMap := pcrLogToMap(pcrLog)
+	pcrSelection := config.GetExtractRules().PcrRule.PcrSelection
+	var buf bytes.Buffer
+	for _, n := range pcrSelection {
+		if v, ok := pcrMap[n]; ok {
+			buf.WriteString(v)
+			buf.WriteString("\n")
+		} else {
+			return fmt.Errorf("extract failed. pcr number %v doesn't exist in this report", n)
+		}
+	}
+	mInfo.Pcr = buf.String()
+	return nil
+}
+
+func extractBIOS(report *typdefs.TrustReport, mInfo *typdefs.BaseRow) error {
+	biosNames := getBiosExtractTemplate(mInfo)
+	var buf bytes.Buffer
+	// reset manifest to append extract result
+	bLog := findManifest(report, typdefs.StrBios)
+	btLog, _ := typdefs.TransformBIOSBinLogToTxt(bLog)
+	lines := bytes.Split(btLog, typdefs.NewLine)
+	for _, bn := range biosNames {
+		isFound := false
+		for _, ln := range lines {
+			words := bytes.Split(ln, typdefs.Space)
+			if bn == string(words[2]) {
+				isFound = true
+				buf.WriteString(bn + " ") //name sha1Hash sha256:sha256Hash
+				buf.WriteString(string(words[3]) + " ")
+				buf.WriteString(string(words[4]))
+				buf.WriteString("\n")
+				break
+			}
+		}
+		if !isFound {
+			return fmt.Errorf("extract failed. bios manifest name %v doesn't exist in this report", bn)
+		}
+	}
+	mInfo.Bios = buf.String()
+	return nil
+}
+
+func getBiosExtractTemplate(mInfo *typdefs.BaseRow) []string {
+	var biosNames []string
+	mRule := config.GetExtractRules().ManifestRules
+	if mInfo.ClientID == 0 {
+		for _, rule := range mRule {
+			if strings.ToLower(rule.MType) == typdefs.StrBios {
+				biosNames = rule.Name
+				break
+			}
+		}
+	} else {
+		lines := bytes.Split([]byte(mInfo.Bios), typdefs.NewLine)
+		for _, ln := range lines {
+			words := bytes.Split(ln, typdefs.Space)
+			biosNames = append(biosNames, string(words[0]))
+		}
+	}
+	return biosNames
+}
+
+func getIMAExtractTemplate(mInfo *typdefs.BaseRow) []string {
+	var imaNames []string
+	if mInfo.ClientID == 0 {
+		for _, rule := range config.GetExtractRules().ManifestRules {
+			if strings.ToLower(rule.MType) == typdefs.StrIma {
+				imaNames = rule.Name
+				break
+			}
+		}
+	} else {
+		lines := bytes.Split([]byte(mInfo.Ima), typdefs.NewLine)
+		for _, ln := range lines {
+			words := bytes.Split(ln, typdefs.Space)
+			imaNames = append(imaNames, string(words[2]))
+		}
+	}
+	return imaNames
+}
+
+func extractIMA(report *typdefs.TrustReport, mInfo *typdefs.BaseRow) error {
+	imaNames := getIMAExtractTemplate(mInfo)
+	var buf bytes.Buffer
+	// reset manifest to append extract result
+	imaLog := findManifest(report, typdefs.StrIma)
+	lines := bytes.Split(imaLog, typdefs.NewLine)
+	for _, in := range imaNames {
+		isFound := false
+		for _, line := range lines {
+			words := bytes.Split(line, typdefs.Space)
+			if string(words[4]) == in {
+				isFound = true
+				buf.WriteString(string(words[2]) + " ") //type filedata-hash filename-hint
+				buf.WriteString(string(words[3]) + " ")
+				buf.WriteString(string(words[4]))
+				buf.WriteString("\n")
+				break
+			}
+		}
+		if !isFound {
+			return fmt.Errorf("extract failed. ima manifest name %v doesn't exist in this report", in)
+		}
+	}
+	mInfo.Ima = buf.String()
+	return nil
 }
 
 const (
