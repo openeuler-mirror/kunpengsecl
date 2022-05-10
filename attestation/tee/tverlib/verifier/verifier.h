@@ -9,6 +9,8 @@
 #include <openssl/x509.h>
 #include <openssl/sha.h>
 #include <openssl/bio.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
 #include <openssl/objects.h>
 
 //Attester will send the report by this type
