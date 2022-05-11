@@ -19,3 +19,23 @@ rasconfig:
   rootprivkeyfile: ""
   serialnumber: 0
   serverport: 127.0.0.1:40001
+  mgrstrategy: auto-update
+  auto-update-config:
+    isallupdate: false
+    updateclients: []
+  basevalue-extract-rules:
+    manifest:
+    - name:
+      - 8-0
+      - 80000008-1
+      type: bios
+    - name:
+      - boot_aggregate
+      - /etc/modprobe.d/tuned.conf
+      type: ima
+    pcrinfo:
+      pcrselection:
+      - 1
+      - 2
+      - 3
+      - 4

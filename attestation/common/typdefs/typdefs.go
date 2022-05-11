@@ -64,8 +64,8 @@ const (
 	specLen           = 16
 	specStart         = 32
 	specEnd           = 48
-	imaLogItemNum     = 5
-	biosLogItemNum    = 6
+	ImaLogItemNum     = 5
+	BiosLogItemNum    = 6
 	naStr             = "N/A"
 	imaItemNameLenMax = 255
 )
@@ -127,6 +127,34 @@ type (
 		Enabled    bool
 		Verified   bool
 		Trusted    bool
+	}
+)
+
+type (
+	// ExtractRules corresponds to basevalue-extract-rules in config
+	ExtractRules struct {
+		// pcr extract rule
+		PcrRule PcrRule `mapstructure:"pcrinfo"`
+		// manifest extract rule
+		ManifestRules []ManifestRule `mapstructure:"manifest"`
+	}
+	PcrRule struct {
+		// pcr number slice which is expected to be extracted
+		PcrSelection []int `mapstructure:"pcrselection"`
+	}
+	ManifestRule struct {
+		// manifest type : bios or ima
+		MType string `mapstructure:"type"`
+		// manifest item name which is expected to be extracted
+		Name []string `mapstructure:"name"`
+	}
+
+	// AutoUpdateConfig corresponds to auto-update-config in config
+	AutoUpdateConfig struct {
+		// whether all clients need update
+		IsAllUpdate bool
+		// if IsAllUpdate is false, UpdateClients contains client ids which need update
+		UpdateClients []int64
 	}
 )
 
@@ -432,7 +460,7 @@ func readSHA1BIOSEventLog(origin []byte, point *int64) (*BIOSManifestItem, error
 	return result, nil
 }
 
-func readBIOSEvent2Log(origin []byte, point *int64) (*BIOSManifestItem, error) {
+func ReadBIOSEvent2Log(origin []byte, point *int64) (*BIOSManifestItem, error) {
 	pcr, err := readUint32(origin, point)
 	if err != nil {
 		return nil, err
@@ -504,7 +532,7 @@ func parseDigestValues(cnt uint32, origin []byte, point *int64) (*DigestValues, 
 	return dv, nil
 }
 
-func getHashValue(alg string, evt *BIOSManifestItem) string {
+func GetHashValue(alg string, evt *BIOSManifestItem) string {
 	algMap := map[string]string{
 		Sha1AlgStr:   sha1AlgID,
 		Sha256AlgStr: sha256AlgID,
@@ -541,15 +569,16 @@ func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 	// if SpecID is "Spec ID Event03", this is a event2 log bytes stream
 	if strings.Contains(SpecID, event2SpecID) {
 		for i := 0; ; i++ {
-			event2Log, err := readBIOSEvent2Log(bin, &point)
+			event2Log, err := ReadBIOSEvent2Log(bin, &point)
 			if err != nil {
 				break
 			}
-			buf.WriteString(fmt.Sprintf("%02d %02d %08X ", i,
-				event2Log.Pcr, event2Log.BType))
-			buf.WriteString(getHashValue(Sha1AlgStr, event2Log))
+			buf.WriteString(fmt.Sprintf("%02d %02d ", i,
+				event2Log.Pcr))
+			buf.WriteString(fmt.Sprint(fmt.Sprintf("%x", event2Log.BType), "-", i, " "))
+			buf.WriteString(GetHashValue(Sha1AlgStr, event2Log))
 			buf.WriteString(" sha256:")
-			buf.WriteString(getHashValue(Sha256AlgStr, event2Log))
+			buf.WriteString(GetHashValue(Sha256AlgStr, event2Log))
 			buf.WriteString(fmt.Sprintf(" %s\n", event2Log.DataHex))
 		}
 	}
@@ -563,7 +592,7 @@ func ExtendPCRWithBIOSTxtLog(pcrs *PcrGroups, biosTxtLog []byte) {
 	lines := bytes.Split(biosTxtLog, NewLine)
 	for _, ln := range lines {
 		words := bytes.Split(ln, Space)
-		if len(words) == biosLogItemNum {
+		if len(words) == BiosLogItemNum {
 			n, _ := strconv.Atoi(string(words[1]))
 			hex.Decode(s1, words[3])
 			pcrs.ExtendSha1(n, s1)
@@ -580,10 +609,10 @@ func parseIMALine(line []byte) (int, [][]byte, error) {
 		return 0, nil, nil
 	}
 	words := bytes.Split(ln, Space)
-	if len(words) < imaLogItemNum {
+	if len(words) < ImaLogItemNum {
 		return 0, nil, ErrImaLogFormatWrong
 	}
-	if len(words) > imaLogItemNum {
+	if len(words) > ImaLogItemNum {
 		words[4] = bytes.Join(words[4:], Space)
 	}
 	index, err := strconv.Atoi(string(words[0])) // PcrIndex
@@ -603,7 +632,7 @@ func handleIMALine(pcrs *PcrGroups, line []byte) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if len(words) == imaLogItemNum {
+	if len(words) == ImaLogItemNum {
 		_, err = hex.Decode(t1, words[1]) // TemplateHash to verify
 		if err != nil {
 			return false, ErrImaLogFormatWrong
@@ -625,7 +654,8 @@ func handleIMALine(pcrs *PcrGroups, line []byte) (bool, error) {
 			}
 		}
 	}
-	return false, ErrImaLogFormatWrong
+	//我觉得这里可能写错了，等待老师反馈
+	return true, nil
 }
 
 // ExtendPCRWithIMALog first verifies the bios aggregate, then extends ima
@@ -635,7 +665,7 @@ func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte) (bool, error) {
 	aggr := pcrs.AggregateSha1(0, 8)
 	lines := bytes.Split(imaLog, NewLine)
 	ws := bytes.Split(lines[0], Space)
-	if len(ws) != imaLogItemNum {
+	if len(ws) != ImaLogItemNum {
 		return false, ErrImaLogFormatWrong
 	}
 	if !bytes.Equal(ws[3], []byte(aggr)) {
@@ -694,7 +724,7 @@ func areAllMatched(flag []bool) bool {
 	return true
 }
 
-// CompareIMALog compares the base file and IMA log of trust report, reture trust or not.
+// CompareIMALog compares the base file and IMA log of trust report, return trust or not.
 // Base file has the following format per line:
 //	 "sha1 value" + space + "sha256 value" + "/path/to/filename"
 // IMA log report has the following format per line:

@@ -286,6 +286,12 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 		logger.L.Sugar().Errorf("validate client(%d) report error, %v", cid, err)
 		return &SendReportReply{Result: false}, nil
 	}
+
+	err = trustmgr.HandleBaseValue(&trustReport)
+	if err != nil {
+		logger.L.Sugar().Errorf("handle client(%d) basevalue error, %v", cid, err)
+		return &SendReportReply{Result: false}, nil
+	}
 	//logger.L.Sugar().Debugf("validate success and send reply to %d", cid)
 	return &SendReportReply{Result: true}, nil
 }

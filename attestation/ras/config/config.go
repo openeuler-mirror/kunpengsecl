@@ -107,6 +107,13 @@ const (
 	lflagVerbose = "verbose"
 	sflagVerbose = "v"
 	helpVerbose  = "show running debug information"
+	//mgr strategy
+	mgrStrategy        = "rasconfig.mgrstrategy"
+	AutoStrategy       = "auto"
+	AutoUpdateStrategy = "auto-update"
+	changeTime         = "rasconfig.changetime"
+	extRules           = "rasconfig.basevalue-extract-rules"
+	autoUpdateConfig   = "rasconfig.auto-update-config"
 )
 
 type (
@@ -123,18 +130,21 @@ type (
 		dbPort     int
 
 		// ras configuration
-		rootPrivKeyFile string
-		rootKeyCertFile string
-		rootPrivKey     crypto.PrivateKey
-		rootKeyCert     *x509.Certificate
-		pcaPrivKeyFile  string
-		pcaKeyCertFile  string
-		pcaPrivKey      crypto.PrivateKey
-		pcaKeyCert      *x509.Certificate
-		servPort        string
-		restPort        string
-		authKeyFile     string
-
+		rootPrivKeyFile  string
+		rootKeyCertFile  string
+		rootPrivKey      crypto.PrivateKey
+		rootKeyCert      *x509.Certificate
+		pcaPrivKeyFile   string
+		pcaKeyCertFile   string
+		pcaPrivKey       crypto.PrivateKey
+		pcaKeyCert       *x509.Certificate
+		servPort         string
+		restPort         string
+		authKeyFile      string
+		changeTime       time.Time
+		mgrStrategy      string
+		extractRules     typdefs.ExtractRules
+		autoUpdateConfig typdefs.AutoUpdateConfig
 		// rac configuration
 		hbDuration      time.Duration // heartbeat duration
 		trustDuration   time.Duration // trust state duration
@@ -212,6 +222,19 @@ func getConfigs() {
 	rasCfg.hbDuration = viper.GetDuration(confHbDuration)
 	rasCfg.trustDuration = viper.GetDuration(confTrustDuration)
 	rasCfg.digestAlgorithm = viper.GetString(confDigestAlgorithm)
+	rasCfg.mgrStrategy = viper.GetString(mgrStrategy)
+	var ers typdefs.ExtractRules
+	if viper.UnmarshalKey(extRules, &ers) == nil {
+		rasCfg.extractRules = ers
+	} else {
+		rasCfg.extractRules = typdefs.ExtractRules{}
+	}
+	var auc typdefs.AutoUpdateConfig
+	if viper.UnmarshalKey(autoUpdateConfig, &auc) == nil {
+		rasCfg.autoUpdateConfig = auc
+	} else {
+		rasCfg.autoUpdateConfig = typdefs.AutoUpdateConfig{}
+	}
 	cryptotools.SetSerialNumber(viper.GetInt64(confSerialNumber))
 }
 
@@ -524,6 +547,27 @@ func SetDBPassword(password string) {
 		return
 	}
 	rasCfg.dbPassword = password
+}
+
+func GetMgrStrategy() string {
+	return rasCfg.mgrStrategy
+}
+
+func SetMgrStrategy(s string) {
+	rasCfg.mgrStrategy = s
+	rasCfg.changeTime = time.Now()
+}
+
+func GetExtractRules() typdefs.ExtractRules {
+	return rasCfg.extractRules
+}
+
+func SetAutoUpdateConfig(auc typdefs.AutoUpdateConfig) {
+	rasCfg.autoUpdateConfig = auc
+}
+
+func GetAutoUpdateConfig() typdefs.AutoUpdateConfig {
+	return rasCfg.autoUpdateConfig
 }
 
 // GetServerPort returns the ras service ip:port configuration.
