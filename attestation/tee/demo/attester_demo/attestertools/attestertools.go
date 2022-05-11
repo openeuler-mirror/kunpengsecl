@@ -207,8 +207,8 @@ func verifySig(rep testReport) bool {
 	crep.size = C.__uint32_t(rep.teerep.Size)
 	str_rep_buf = string(rep.teerep.Buf)
 	c_rep_buf = C.CString(str_rep_buf)
-	temp_buf := unsafe.Pointer(c_rep_buf)
-	crep.buf = (*C.uchar)(temp_buf)
+	defer C.free(unsafe.Pointer(c_rep_buf))
+	crep.buf = (*C.uchar)(unsafe.Pointer(c_rep_buf))
 	result := C.VerifySignature(&crep)
 	return bool(result)
 }
@@ -219,11 +219,12 @@ func validate(mf testReport, bv string) bool {
 	var mtype int32 = 1
 	var str_mf_buf string
 	cbv := C.CString(bv)
+	defer C.free(unsafe.Pointer(cbv))
 	crep.size = C.__uint32_t(mf.teerep.Size)
 	str_mf_buf = string(mf.teerep.Buf)
 	c_mf_buf = C.CString(str_mf_buf)
-	temp_buf := unsafe.Pointer(c_mf_buf)
-	crep.buf = (*C.uchar)(temp_buf)
+	defer C.free(unsafe.Pointer(c_mf_buf))
+	crep.buf = (*C.uchar)(unsafe.Pointer(c_mf_buf))
 	result := C.VerifyManifest(&crep, C.int(mtype), cbv)
 	return bool(result)
 }
