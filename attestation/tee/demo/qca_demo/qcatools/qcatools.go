@@ -26,7 +26,7 @@ const (
 type (
 	Go_ra_buffer_data struct {
 		Size uint32
-		Buf  []byte
+		Buf  []uint8
 	}
 	qcaConfig struct {
 		server string
@@ -34,18 +34,25 @@ type (
 )
 
 var (
-	c_ra_buffer_data C.ra_buffer_data
+	// store C data which convert from Go
+	c_ra_buffer_data C.struct_ra_buffer_data
 	c_ta_uuid        C.__int64_t
-	c_usr_data       C.ra_buffer_data
-	c_report         C.ra_buffer_data
+	c_usr_data       C.struct_ra_buffer_data
+	c_param_set      C.struct_ra_buffer_data
+	c_report         C.struct_ra_buffer_data
 	c_with_tcb       C.bool
-	c_usrdata_buf    *C.char
-	c_report_buf     *C.char
-	str_usrdata_buf  string
-	str_report_buf   string
-	go_report        *Go_ra_buffer_data = &Go_ra_buffer_data{}
-	qcacfg           *qcaConfig         = nil
-	defaultPaths                        = []string{
+
+	// used for pointer conversion between Go and C
+	up_usr_data  unsafe.Pointer
+	up_param_set unsafe.Pointer
+	up_report    unsafe.Pointer
+
+	// store Go data which convert from C
+	go_report *Go_ra_buffer_data = &Go_ra_buffer_data{}
+
+	// server side config
+	qcacfg       *qcaConfig = nil
+	defaultPaths            = []string{
 		strPath,
 	}
 )
@@ -68,30 +75,32 @@ func LoadConfigs() {
 	qcacfg.server = viper.GetString(Server)
 }
 
-func GetTAReport(ta_uuid int64, usr_data *Go_ra_buffer_data, report *Go_ra_buffer_data, with_tcb bool) *Go_ra_buffer_data {
+func GetTAReport(ta_uuid int64, usr_data *Go_ra_buffer_data, param_set *Go_ra_buffer_data, report *Go_ra_buffer_data, with_tcb bool) *Go_ra_buffer_data {
 	// format conversion: Go -> C
 	c_ta_uuid = C.__int64_t(ta_uuid)
 
 	c_usr_data.size = C.__uint32_t(usr_data.Size)
-	str_usrdata_buf = string(usr_data.Buf)
-	c_usrdata_buf = C.CString(str_usrdata_buf)
-	defer C.free(unsafe.Pointer(c_usrdata_buf))
-	c_usr_data.buf = (*C.uchar)(unsafe.Pointer(c_usrdata_buf))
+	up_usr_data = C.CBytes(usr_data.Buf)
+	c_usr_data.buf = (*C.uchar)(up_usr_data)
+	defer C.free(up_usr_data)
+
+	c_param_set.size = C.__uint32_t(param_set.Size)
+	up_param_set = C.CBytes(param_set.Buf)
+	c_param_set.buf = (*C.uchar)(up_param_set)
+	defer C.free(up_param_set)
 
 	c_report.size = C.__uint32_t(report.Size)
-	str_report_buf = string(report.Buf)
-	c_report_buf = C.CString(str_report_buf)
-	defer C.free(unsafe.Pointer(c_report_buf))
-	c_report.buf = (*C.uchar)(unsafe.Pointer(c_report_buf))
+	up_report = C.CBytes(report.Buf)
+	c_report.buf = (*C.uchar)(up_report)
+	defer C.free(up_report)
 
 	c_with_tcb = C.bool(with_tcb)
 
-	c_ra_buffer_data = C.RemoteAttestReport(c_ta_uuid, &c_usr_data, &c_report, c_with_tcb) // can not put Go pointer as parameter in C function!!!
+	c_ra_buffer_data = C.RemoteAttestReport(c_ta_uuid, &c_usr_data, &c_param_set, &c_report, c_with_tcb) // can not put Go pointer as parameter in C function!!!
 
 	// format conversion: C -> Go
 	go_report.Size = uint32(c_ra_buffer_data.size)
-
-	go_report.Buf = []byte(C.GoString((*C.char)(unsafe.Pointer(c_ra_buffer_data.buf))))
+	go_report.Buf = []uint8(C.GoBytes(unsafe.Pointer(c_ra_buffer_data.buf), C.int(go_report.Size)))
 
 	return go_report
 }

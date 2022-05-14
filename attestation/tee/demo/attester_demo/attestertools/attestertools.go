@@ -55,11 +55,12 @@ const (
 
 type (
 	trustApp struct {
-		ctx     context.Context
-		uuid    int64
-		usrdata *qapi.Buffer
-		report  *qapi.Buffer
-		withtcb bool
+		ctx      context.Context
+		uuid     int64
+		usrdata  *qapi.Buffer
+		paramset *qapi.Buffer
+		report   *qapi.Buffer
+		withtcb  bool
 	}
 	testReport struct {
 		teerep *qapi.Buffer
@@ -80,6 +81,10 @@ var (
 			Size: 100,
 			Buf:  ini_buf[:],
 		},
+		paramset: &qapi.Buffer{
+			Size: 100,
+			Buf:  ini_buf[:],
+		},
 		report: &qapi.Buffer{
 			Size: 100,
 			Buf:  ini_buf[:],
@@ -95,8 +100,8 @@ var (
 	BasevalueFlag *string         = nil
 	MspolicyFlag  *int            = nil
 	attesterConf  *attesterConfig = nil
-	c_rep_buf     *C.char
-	c_mf_buf      *C.char
+	up_rep_buf    unsafe.Pointer
+	up_mf_buf     unsafe.Pointer
 )
 
 func InitFlags() {
@@ -163,7 +168,7 @@ func StartAttester() {
 		} else {
 			log.Print("Verify signature success!")
 		}
-		verify_result = validate(rep, attesterConf.basevalue)
+		verify_result = validate(rep, attesterConf.mspolicy, attesterConf.basevalue)
 		if !verify_result {
 			log.Print("validate failed!")
 		} else {
@@ -180,10 +185,11 @@ func StartAttester() {
 func getReport(ta *trustApp) testReport {
 	result := testReport{}
 	reqID := qapi.GetReportRequest{
-		Uuid:    ta.uuid,
-		UsrData: ta.usrdata,
-		Report:  ta.report,
-		WithTcb: ta.withtcb,
+		Uuid:     ta.uuid,
+		UsrData:  ta.usrdata,
+		ParamSet: ta.paramset,
+		Report:   ta.report,
+		WithTcb:  ta.withtcb,
 	}
 
 	rpyID, err := qapi.DoGetReport(ta.ctx, &reqID)
@@ -195,7 +201,12 @@ func getReport(ta *trustApp) testReport {
 	result = testReport{
 		teerep: rpyID.GetTeeReport(),
 	}
-	log.Printf("Get TA report success: %v\n", string(result.teerep.Buf))
+	/* Test whether the expected data is received */
+	// log.Print("Get TA report success:\n")
+	// for i := 0; i < int(result.teerep.Size); i++ {
+	// 	fmt.Printf("index%d is 0x%x; ", i, result.teerep.Buf[i])
+	// }
+	// fmt.Print("\n")
 
 	return result
 }
@@ -203,28 +214,24 @@ func getReport(ta *trustApp) testReport {
 // invoke verifier lib to verify
 func verifySig(rep testReport) bool {
 	var crep C.buffer_data
-	var str_rep_buf string
 	crep.size = C.__uint32_t(rep.teerep.Size)
-	str_rep_buf = string(rep.teerep.Buf)
-	c_rep_buf = C.CString(str_rep_buf)
-	defer C.free(unsafe.Pointer(c_rep_buf))
-	crep.buf = (*C.uchar)(unsafe.Pointer(c_rep_buf))
-	result := C.VerifySignature(&crep)
-	return bool(result)
+	up_rep_buf = C.CBytes(rep.teerep.Buf)
+	defer C.free(up_rep_buf)
+	crep.buf = (*C.uchar)(up_rep_buf)
+	// result := C.VerifySignature(&crep)
+	result := false
+	return result
 }
 
 // invoke verifier lib to validate
-func validate(mf testReport, bv string) bool {
+func validate(mf testReport, mtype int, bv string) bool {
 	var crep C.buffer_data
-	var mtype int32 = 1
-	var str_mf_buf string
 	cbv := C.CString(bv)
 	defer C.free(unsafe.Pointer(cbv))
 	crep.size = C.__uint32_t(mf.teerep.Size)
-	str_mf_buf = string(mf.teerep.Buf)
-	c_mf_buf = C.CString(str_mf_buf)
-	defer C.free(unsafe.Pointer(c_mf_buf))
-	crep.buf = (*C.uchar)(unsafe.Pointer(c_mf_buf))
+	up_mf_buf = C.CBytes(mf.teerep.Buf)
+	defer C.free(up_mf_buf)
+	crep.buf = (*C.uchar)(up_mf_buf)
 	result := C.VerifyManifest(&crep, C.int(mtype), cbv)
 	return bool(result)
 }

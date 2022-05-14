@@ -12,6 +12,10 @@ var (
 		Size: 0,
 		Buf:  nil,
 	}
+	paramset *qcatools.Go_ra_buffer_data = &qcatools.Go_ra_buffer_data{
+		Size: 0,
+		Buf:  nil,
+	}
 	report *qcatools.Go_ra_buffer_data = &qcatools.Go_ra_buffer_data{
 		Size: 0,
 		Buf:  nil,
@@ -26,9 +30,11 @@ func DoGetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, er
 	_ = ctx // ignore the unused warning
 	usrdata.Size = in.UsrData.Size
 	usrdata.Buf = in.UsrData.Buf
+	paramset.Size = in.ParamSet.Size
+	paramset.Buf = in.ParamSet.Buf
 	report.Size = in.Report.Size
 	report.Buf = in.Report.Buf
-	rep := qcatools.GetTAReport(in.Uuid, usrdata, report, in.WithTcb)
+	rep := qcatools.GetTAReport(in.Uuid, usrdata, report, paramset, in.WithTcb)
 	brep.Size = rep.Size
 	brep.Buf = rep.Buf
 	rpy := GetReportReply{
