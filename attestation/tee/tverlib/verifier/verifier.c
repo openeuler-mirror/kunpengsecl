@@ -154,6 +154,12 @@ bool VerifySignature(buffer_data *report) {
 // }
 bool VerifyManifest(buffer_data *data, int type, char *filename)
 {
+   /* Test whether the expected data is received */
+   // for (int i = 0; i < data->size; i++)
+   // {
+   //    printf("index%d is 0x%x;\n", i, data->buf[i]);
+   // }
+   
    bool result = false;
    TAreport *report = Convert(data);
    printf("report-version:%s\n", report->version);

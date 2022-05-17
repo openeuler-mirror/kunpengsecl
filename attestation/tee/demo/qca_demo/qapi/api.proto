@@ -9,8 +9,9 @@ service Qca {
 message GetReportRequest {
     int64 uuid = 1;
     buffer usr_data = 2;
-    buffer report = 3;
-    bool with_tcb = 4;
+    buffer param_set = 3;
+    buffer report = 4;
+    bool with_tcb = 5;
 }
 
 message GetReportReply {
