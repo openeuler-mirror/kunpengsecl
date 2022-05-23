@@ -21,7 +21,7 @@ bool compare(int type, TAreport *report, BaseValue *basevalue);
 //interface 
 bool VerifySignature(buffer_data *report);
 
-bool verifysig(uint8_t *data,uint8_t *sig,uint8_t *cert);
+bool verifysig(uint8_t *data,uint32_t data_len,uint8_t *sig,uint32_t sig_len,uint8_t *cert,uint32_t cert_len);
 bool translateBuf(buffer_data report,TAreport *tareport);
 
 //testSignature will generate a signature by the private_key.pem file
@@ -52,12 +52,9 @@ void testSignature(char *digest,char *sig)
 	sig: the signature block by RSA_sign generated and is a byte array
 	cert:input cert: byte array of the DER representation 
 	*/
-bool verifysig(uint8_t *data,uint8_t *sig,uint8_t *cert){
+bool verifysig(uint8_t *data,uint32_t data_len,uint8_t *sig,uint32_t sig_len,uint8_t *cert,uint32_t cert_len){
 	int status = EXIT_SUCCESS;
 	int rc = 1; //OpenSSL return code
-	int data_len = sizeof(data);
-	int sig_len = strlen(sig);
-   int cert_len = strlen(cert);
 	if (data_len<=0||sig_len<=0||cert_len<=0){
 		status = EXIT_FAILURE;
 		return false;
@@ -66,21 +63,43 @@ bool verifysig(uint8_t *data,uint8_t *sig,uint8_t *cert){
 	/* step 1:  hash the data store in digest 
 	*/
 	uint8_t digest[SHA256_DIGEST_LENGTH];
-	SHA256(data,strlen(data),digest);
-   int nOutLen = strlen(sig);
-   testSignature(digest,sig);
+	SHA256(data,data_len,digest);
+   // int nOutLen = strlen(sig);
+   // testSignature(digest,sig);
     /* step 2: extract the RSA public key from the x509 certificate
 	*/
-   //get public key from file
-	FILE* fp = fopen(PUBLICKEY,"r");
-	if(fp==NULL){
-		printf("read file failed\n");
+	BIO *bio = NULL;
+	EVP_PKEY *key = NULL;
+	//create a new memory buf
+	bio = BIO_new_mem_buf(cert,cert_len);
+	if (rc!=1){
+		status = EXIT_FAILURE;
+		return false;
 	}
-	RSA *pubKey = PEM_read_RSA_PUBKEY(fp,NULL,NULL,NULL);
-	if(pubKey==NULL){ 
-		printf("failed get public key\n");
+	X509 *c = d2i_X509_bio(bio,NULL);
+	key = X509_get_pubkey(c);
+	if(rc != 1){
+		status = EXIT_FAILURE;
+		return false;
 	}
-	fclose(fp);
+   //make sure the public key is an RSA key
+/*From:
+	https://www.openssl.org/docs/man3.0/man3/EVP_PKEY_type.html
+	*/
+	// if(EVP_PKEY_base_id(key)!=EVP_PKEY_RSA){
+	// 	status = EXIT_FAILURE;
+	// 	return 0;
+	// }
+   // //get public key from file
+	// FILE* fp = fopen(PUBLICKEY,"r");
+	// if(fp==NULL){
+	// 	printf("read file failed\n");
+	// }
+	// RSA *pubKey = PEM_read_RSA_PUBKEY(fp,NULL,NULL,NULL);
+	// if(pubKey==NULL){ 
+	// 	printf("failed get public key\n");
+	// }
+	// fclose(fp);
    
    //step 3: using the RSA_verify to verify the signature is validate
 	/*
@@ -89,11 +108,11 @@ bool verifysig(uint8_t *data,uint8_t *sig,uint8_t *cert){
 	type denotes the message digest algorithm that was used to 
 	generate the signature. rsa is the signer's public key.
 	*/
-	rc = RSA_verify(NID_sha256,digest,SHA256_DIGEST_LENGTH,sig,256,pubKey);
-	if (rc != 1){
-		status = EXIT_FAILURE;
-		return false;
-	}
+	// rc = RSA_verify(NID_sha256,digest,SHA256_DIGEST_LENGTH,sig,sig_len,EVP_PKEY_get1_RSA(key));
+	// if (rc != 1){
+	// 	status = EXIT_FAILURE;
+	// 	return false;
+	// }
 	return true;
 }
 
@@ -148,6 +167,23 @@ bool getAkCertFromReport(buffer_data report,buffer_data *akcert){
    return false;
    
 }
+//getSignDataFromReport will get the data witch will be signatured
+bool getSignDataFromReport(buffer_data report,buffer_data *signdata){
+   if(report.size<=0){
+      printf("report is null");
+      return false;
+   }
+   struct report_response * report_data;
+   report_data = (struct report_response *)report.buf;
+   uint32_t data_offset;
+   data_offset = report_data->params[5].data.blob.data_offset;
+   if(sizeof(data_offset)!=0){
+      signdata->buf = report.buf;
+      signdata->size = data_offset;
+      return true;
+   }
+   return false;
+}
 bool VerifySignature(buffer_data *report) {
 	//get the report from buffer
    buffer_data akcert;
@@ -162,23 +198,28 @@ bool VerifySignature(buffer_data *report) {
       printf("get AkSign From Report is failed!\n");
       return 0;
    }
-   
+   buffer_data signdata;
+   rt = getSignDataFromReport(*report,&signdata);
+   if(!rt){
+      printf("get Sign Data From Report is failed!\n");
+      return 0;
+   }
 	// TAreport tareport;
 	// rt = translateBuf(*report,&tareport);
 	// if(rt){
 	// 	printf("translate is failed!\n");
    //    return false;
 	// }
-	// //1. verify the signature by the public key from the cert and digest(is a quoted)
+	//1. verify the signature by the public key from the cert and digest(is a quoted)
 
 	// char *data = "testdata";
    // char sig[] = "ac90984b642d241161e90b6795c481f1ed0b065dbe713a7f4c562ba99ed91996b2b5fa0bf9319dfead8c98d0e58e10c890b4f628cd8d030b637ff4cf1a12642f4a27aafe794130057b94672c35af27727ad057fc83c8a22e499ab77e3cabe8ee1a0643edc0381e9d837f93ac6de4e0d7657a07e0ad0125ba79ba357a1682d4a7070bd1fe80d900105fdc5b32ec72211cd50e535775e604b880536d94e1e4cfc04710182ca9924decf215071ef50c5af87e178e125a2d5554f0ec07604daf6098dc1dd1b6b69dc813c89fdb2ad5849c125306fd058bf6447bb15251d67ebb4207fb4defde05b2609e029c009ecb18ad5ebbfa67e974057e48376501cc6190ee83";
-   // rt = verifysig(data,sig,tareport.cert);
-	// if(rt){
-	// 	return false;	
-	// }
-    printf("Verify success!\n");
-    return true;
+   rt = verifysig(signdata.buf,signdata.size,signak.buf,signak.size,akcert.buf,akcert.size);
+	if(!rt){
+		return false;	
+	}
+   printf("Verify success!\n");
+   return true;
 }
 //  int main(){
 // // 	TAreport report = {
