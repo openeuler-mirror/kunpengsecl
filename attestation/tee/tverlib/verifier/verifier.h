@@ -12,7 +12,7 @@
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include <openssl/objects.h>
-
+#include <assert.h>
 //QCAlib
 #define KEY_TAG_TYPE_MOVE_BITS 28
 #define RA_INTEGER (1 << KEY_TAG_TYPE_MOVE_BITS)
@@ -65,7 +65,33 @@ struct ra_params_set_t {
     uint32_t param_count;
     struct ra_params params[0];
 } __attribute__((__packed__));
-
+enum ra_alg_types {
+    RA_ALG_RSA_3072     = 0x20000,
+    RA_ALG_RSA_4096     = 0x20001,  // PSS padding
+    RA_ALG_SHA_256      = 0x20002,
+    RA_ALG_SHA_384      = 0x20003,
+    RA_ALG_SHA_512      = 0x20004,
+    RA_ALG_ECDSA        = 0x20005,
+    RA_ALG_ED25519      = 0x20006,
+    RA_ALG_SM2_DSA_SM3  = 0x20007,
+    RA_ALG_SM3          = 0x20008,
+};
+enum ra_tags {
+    /*整数类型*/
+    RA_TAG_SIGN_TYPE     = RA_INTEGER | 0,
+    RA_TAG_HASH_TYPE     = RA_INTEGER | 1,
+    /*字节流类型*/
+    RA_TAG_QTA_IMG_HASH  = RA_BYTES   | 0,
+    RA_TAG_TA_IMG_HASH   = RA_BYTES   | 1,
+    RA_TAG_QTA_MEM_HASH  = RA_BYTES   | 2,
+    RA_TAG_TA_MEM_HASH   = RA_BYTES   | 3,
+    RA_TAG_RESERVED      = RA_BYTES   | 4,
+    RA_TAG_AK_PUB        = RA_BYTES   | 5,
+    RA_TAG_SIGN_DRK      = RA_BYTES   | 6,
+    RA_TAG_SIGN_AK       = RA_BYTES   | 7,
+    RA_TAG_CERT_DRK      = RA_BYTES   | 8,
+    RA_TAG_CERT_AK       = RA_BYTES   | 9,
+};
 #define NODE_LEN 8
 typedef struct tee_uuid {
     uint32_t timeLow;
@@ -90,7 +116,22 @@ struct __attribute__((__packed__)) report_response {
      * (5)ak_cert []
      */
 };
-
+#define KEY_PURPOSE_SIZE 32 //test
+struct ak_cert {
+uint32_t version;
+uint64_t ts;
+char purpose[KEY_PURPOSE_SIZE];
+uint32_t param_count;
+struct ra_params params[0];
+/* following buffer data:
+* (1)qta_img_hash []
+ * (2)qta_mem_hash []
+ * (3)reserverd []
+ * (4)ak_pub []
+* (5)sign_drk []
+* (6)cert_drk []
+*/
+} __attribute__ ((__packed__));
 const int len[]={4,8,32,64,2,32,32,32,512,512};
 
 bool VerifySignature(buffer_data *report);
