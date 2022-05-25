@@ -16,6 +16,7 @@ message GetReportRequest {
 
 message GetReportReply {
     buffer tee_report = 1;
+    bytes nonce = 2;
 }
 
 message buffer {

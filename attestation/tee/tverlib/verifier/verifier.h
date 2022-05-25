@@ -134,8 +134,8 @@ struct ra_params params[0];
 } __attribute__ ((__packed__));
 const int len[]={4,8,32,64,2,32,32,32,512,512};
 
-bool VerifySignature(buffer_data *report);
+bool tee_verify_signature(buffer_data *report);
 
-bool VerifyManifest(buffer_data *data,int type,char *filename);
+bool tee_verify(buffer_data *data,int type,char *filename);
 
 #endif

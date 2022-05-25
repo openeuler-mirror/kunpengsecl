@@ -11,6 +11,7 @@ import "C"
 
 import (
 	"context"
+	"crypto/rand"
 	"log"
 	"net"
 	"os"
@@ -32,14 +33,22 @@ const (
 	lflagServer = "server"
 	sflagServer = "S"
 	helpServer  = "specify the IP address of the port to be connected"
-	// basevalue set
+	// basevalue file path set
 	lflagBasevalue = "basevalue"
 	sflagBasevalue = "B"
-	helpBasevalue  = "set the reference value to be compared"
+	helpBasevalue  = "set the file path of basevalue to be read"
 	// measure policy set
 	lflagMeasure = "mspolicy"
 	sflagMeasure = "M"
 	helpMeasure  = "set a measurement policy to be used"
+	// QTA's uuid set
+	lflagUuid = "uuid"
+	sflagUuid = "U"
+	helpUuid  = "specify the QTA to be verifier"
+	// app usage scenario
+	lflagScenario = "scenario"
+	sflagScenario = "C"
+	helpScenario  = "set the app usage scenario"
 	// app name
 	appAttester = "attester"
 	// config file name
@@ -51,6 +60,8 @@ const (
 	Server    = "attesterconfig.server"
 	Basevalue = "attesterconfig.basevalue"
 	Mspolicy  = "attesterconfig.mspolicy"
+	Uuid      = "attesterconfig.uuid"
+	Scenario  = "attesterconfig.scenario"
 )
 
 type (
@@ -62,34 +73,23 @@ type (
 		report   *qapi.Buffer
 		withtcb  bool
 	}
-	testReport struct {
-		teerep *qapi.Buffer
-	}
 	attesterConfig struct {
 		server    string
 		basevalue string
 		mspolicy  int
+		uuid      int64
+		scenario  int
 	}
 )
 
 var (
-	ini_buf [100]byte
 	test_ta *trustApp = &trustApp{
-		ctx:  context.Background(),
-		uuid: 1,
-		usrdata: &qapi.Buffer{
-			Size: 100,
-			Buf:  ini_buf[:],
-		},
-		paramset: &qapi.Buffer{
-			Size: 100,
-			Buf:  ini_buf[:],
-		},
-		report: &qapi.Buffer{
-			Size: 100,
-			Buf:  ini_buf[:],
-		},
-		withtcb: false,
+		ctx:      context.Background(),
+		uuid:     -1,
+		usrdata:  &qapi.Buffer{},
+		paramset: &qapi.Buffer{},
+		report:   &qapi.Buffer{},
+		withtcb:  false,
 	}
 	verify_result bool = false
 	defaultPaths       = []string{
@@ -99,6 +99,8 @@ var (
 	ServerFlag    *string         = nil
 	BasevalueFlag *string         = nil
 	MspolicyFlag  *int            = nil
+	UuidFlag      *int64          = nil
+	ScenarioFlag  *int            = nil
 	attesterConf  *attesterConfig = nil
 	up_rep_buf    unsafe.Pointer
 	up_mf_buf     unsafe.Pointer
@@ -110,6 +112,8 @@ func InitFlags() {
 	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
 	BasevalueFlag = pflag.StringP(lflagBasevalue, sflagBasevalue, "", helpBasevalue)
 	MspolicyFlag = pflag.IntP(lflagMeasure, sflagMeasure, -1, helpMeasure)
+	UuidFlag = pflag.Int64P(lflagUuid, sflagUuid, -1, helpUuid)
+	ScenarioFlag = pflag.IntP(lflagScenario, sflagScenario, 0, helpScenario)
 	pflag.Parse()
 }
 
@@ -132,6 +136,8 @@ func LoadConfigs() {
 	attesterConf.server = viper.GetString(Server)
 	attesterConf.basevalue = viper.GetString(Basevalue)
 	attesterConf.mspolicy = viper.GetInt(Mspolicy)
+	attesterConf.uuid = viper.GetInt64(Uuid)
+	attesterConf.scenario = viper.GetInt(Scenario)
 }
 
 func HandleFlags() {
@@ -142,12 +148,23 @@ func HandleFlags() {
 	}
 	if ServerFlag != nil && *ServerFlag != "" {
 		attesterConf.server = *ServerFlag
+		log.Printf("TEE Server: %s", attesterConf.server) // just for test!
 	}
 	if BasevalueFlag != nil && *BasevalueFlag != "" {
 		attesterConf.basevalue = *BasevalueFlag
+		log.Printf("TEE Basevalue File Path: %s", attesterConf.basevalue) // just for test!
 	}
 	if MspolicyFlag != nil && *MspolicyFlag != -1 {
 		attesterConf.mspolicy = *MspolicyFlag
+		log.Printf("TEE Measurement: %d", attesterConf.mspolicy) // just for test!
+	}
+	if UuidFlag != nil && *UuidFlag != -1 {
+		attesterConf.uuid = *UuidFlag
+		log.Printf("TEE Uuid: %d", attesterConf.uuid) // just for test!
+	}
+	if ScenarioFlag != nil && *ScenarioFlag != 0 {
+		attesterConf.scenario = *ScenarioFlag
+		log.Printf("TEE Scenario: %d", attesterConf.scenario)
 	}
 }
 
@@ -161,14 +178,18 @@ func StartAttester() {
 	defer conn.Close()
 	if conn != nil {
 		log.Printf("Connection %s success!", attesterConf.server)
-		rep := getReport(test_ta)
-		verify_result = verifySig(rep)
+		test_ta, err = iniTAParameter(test_ta)
+		if err != nil {
+			log.Printf("Init TA parameter failed! %v", err)
+		}
+		test_ta.report = getReport(test_ta)
+		verify_result = verifySig(test_ta.report)
 		if !verify_result {
 			log.Print("Verify signature failed!")
 		} else {
 			log.Print("Verify signature success!")
 		}
-		verify_result = validate(rep, attesterConf.mspolicy, attesterConf.basevalue)
+		verify_result = validate(test_ta.report, attesterConf.mspolicy, attesterConf.basevalue)
 		if !verify_result {
 			log.Print("validate failed!")
 		} else {
@@ -181,9 +202,25 @@ func StartAttester() {
 	log.Print("Stop Attester......")
 }
 
+// Initialize the parameters of TA
+func iniTAParameter(ta *trustApp) (*trustApp, error) {
+	ta.uuid = attesterConf.uuid
+	// create nonce value to defend against replay attacks
+	nonce := make([]byte, 8)
+	size, err := rand.Read(nonce)
+	if err != nil {
+		return test_ta, err
+	}
+	ta.usrdata.Size = uint32(size)
+	ta.usrdata.Buf = append(ta.usrdata.Buf, nonce...)
+	ta.paramset.Size = 1
+	ta.paramset.Buf = append(ta.paramset.Buf, byte(attesterConf.scenario))
+
+	return ta, nil
+}
+
 // remote invoke qca api to get the TA's info
-func getReport(ta *trustApp) testReport {
-	result := testReport{}
+func getReport(ta *trustApp) *qapi.Buffer {
 	reqID := qapi.GetReportRequest{
 		Uuid:     ta.uuid,
 		UsrData:  ta.usrdata,
@@ -195,43 +232,56 @@ func getReport(ta *trustApp) testReport {
 	rpyID, err := qapi.DoGetReport(ta.ctx, &reqID)
 	if err != nil {
 		log.Printf("Get TA infomation failed, error: %v", err)
-		return result
+		return ta.report
 	}
 
-	result = testReport{
-		teerep: rpyID.GetTeeReport(),
+	// Verify that if the Nonce value is tampered with
+	for i := 0; i < int(ta.usrdata.Size); i++ {
+		if ta.usrdata.Buf[i] != rpyID.Nonce[i] {
+			log.Print("Nonce value returned does not match!")
+			return ta.report
+		}
 	}
+	log.Print("The returned nonce value is not modified unexpectedly!")
+
+	ta.report.Size = rpyID.TeeReport.Size
+	ta.report.Buf = rpyID.TeeReport.Buf
+
 	/* Test whether the expected data is received */
 	// log.Print("Get TA report success:\n")
-	// for i := 0; i < int(result.teerep.Size); i++ {
-	// 	fmt.Printf("index%d is 0x%x; ", i, result.teerep.Buf[i])
+	// for i := 0; i < int(ta.report.Size); i++ {
+	// 	fmt.Printf("index%d is 0x%x; ", i, ta.report.Buf[i])
 	// }
 	// fmt.Print("\n")
 
-	return result
+	return ta.report
 }
 
 // invoke verifier lib to verify
-func verifySig(rep testReport) bool {
+func verifySig(rep *qapi.Buffer) bool {
 	var crep C.buffer_data
-	crep.size = C.__uint32_t(rep.teerep.Size)
-	up_rep_buf = C.CBytes(rep.teerep.Buf)
+	rep = &qapi.Buffer{}
+	crep.size = C.__uint32_t(rep.Size)
+	up_rep_buf = C.CBytes(rep.Buf)
 	defer C.free(up_rep_buf)
 	crep.buf = (*C.uchar)(up_rep_buf)
-	// result := C.VerifySignature(&crep)
+	// result := C.tee_verify_signature(&crep)
 	result := false
 	return result
 }
 
 // invoke verifier lib to validate
-func validate(mf testReport, mtype int, bv string) bool {
+func validate(mf *qapi.Buffer, mtype int, bv string) bool {
+	_ = mtype // ignore the unused warning
 	var crep C.buffer_data
+	mf = &qapi.Buffer{}
 	cbv := C.CString(bv)
 	defer C.free(unsafe.Pointer(cbv))
-	crep.size = C.__uint32_t(mf.teerep.Size)
-	up_mf_buf = C.CBytes(mf.teerep.Buf)
+	crep.size = C.__uint32_t(mf.Size)
+	up_mf_buf = C.CBytes(mf.Buf)
 	defer C.free(up_mf_buf)
 	crep.buf = (*C.uchar)(up_mf_buf)
-	result := C.VerifyManifest(&crep, C.int(mtype), cbv)
-	return bool(result)
+	// result := C.tee_verify(&crep, C.int(mtype), cbv)
+	result := false
+	return result
 }
