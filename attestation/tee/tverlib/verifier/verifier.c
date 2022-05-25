@@ -1,28 +1,29 @@
 #include "verifier.h"
+#include "common.h"
 
-#define MAXSIZE 1000
-#define VERSION 5
-#define TIMESTAMP 9
-#define NONCE 33
-#define UUID 65
-#define ALG 3
-#define IMAGE_HASH 33
-#define HASH 33
-#define RESERVE 33
-#define SIGNATURE 513
-#define CERT 513
-#define PRIVATEKEY "./private_key.pem"
-#define PUBLICKEY "./public_key.pem"
-TAreport *Convert(buffer_data *data);
-bool VerifyProcess(TAreport *report, int type, char *filename);
-BaseValue *loadbasevalue(char *uuid, char *filename);
-bool compare(int type, TAreport *report, BaseValue *basevalue);
+static void error(const char *msg);
+static void file_error(const char *s);
+static TA_report *Convert(buffer_data *buf_data);
+// static void parse_uuid(uint8_t *uuid, TEE_UUID buf_uuid);
+static void read_bytes(void *input, size_t size, size_t nmemb, uint8_t* output, size_t *offset);
+static base_value *LoadBaseValue(const TA_report *report, char *filename);
+static void str_to_uuid(const char *str, uint8_t *uuid);
+static void uuid_to_str(const uint8_t *uuid, char *str);
+static void str_to_hash(const char *str, uint8_t *hash);
+static void hash_to_str(const uint8_t *hash, char *str);
+static void hex2str(const uint8_t *source, int source_len, char *dest);
+static void str2hex(const char *source, int source_len, uint8_t *dest);
+static char *file_to_buffer(char *file, size_t *file_length);
+static bool Compare(int type, TA_report *report, base_value *basevalue);
+static bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size);
+static void test_print(uint8_t *printed,int printed_size,char *printed_name);
+static void save_basevalue(const base_value *bv);
 
 //interface 
 bool VerifySignature(buffer_data *report);
 
 bool verifysig(buffer_data *data,buffer_data *sign,buffer_data *akcert,int scenario);
-bool translateBuf(buffer_data report,TAreport *tareport);
+bool translateBuf(buffer_data report,TA_report *tareport);
 bool getNOASdata(buffer_data *akcert,buffer_data *signdata,buffer_data *signdrk,buffer_data *certdrk,buffer_data *akpub);
 //testSignature will generate a signature by the private_key.pem file
 void testSignature(char *digest,char *sig)
@@ -260,7 +261,7 @@ bool verifysig(buffer_data *data,buffer_data *sign,buffer_data *akcert,int scena
 
 // }
 //translateBuf will translate the buffer_date to TAreport
-bool translateBuf(buffer_data report,TAreport *tareport){
+bool translateBuf(buffer_data report,TA_report *tareport){
 	memcpy(tareport,report.buf,report.size);
 	return true;
 
@@ -708,417 +709,388 @@ bool tee_verify_signature(buffer_data *report) {
 //     printf("Validate success!\n");
 //     return true;
 // }
-bool tee_verify(buffer_data *data, int type, char *filename)
-{
-   /* Test whether the expected data is received */
-   // for (int i = 0; i < data->size; i++)
-   // {
-   //    printf("index%d is 0x%x;\n", i, data->buf[i]);
-   // }
-   
-   bool result = false;
-   TAreport *report = Convert(data);
-   printf("report-version:%s\n", report->version);
-   printf("report-timestamp:%s\n", report->timestamp);
-   printf("report-uuid:%s\n", report->uuid);
-   printf("report-image-hash:%s\n", report->image_hash);
-   printf("report-hash:%s\n", report->hash);
-   result = VerifyProcess(report, type, filename);
-   if (result == true)
-   {
-      printf("%s\n", "Verification succeeded");
-   }
-   else
-   {
-      printf("%s\n", "Verification failed");
-   }
-   return result;
+void error(const char *msg) {
+    printf("%s\n", msg);
+    exit(EXIT_FAILURE);
 }
 
-//Read data stream from buffer and convert to structure
-TAreport *Convert(buffer_data *data)
-{
-   TAreport *report;
-   if (data == NULL)
-   {
-      printf("%s\n", "illegal pointer,the buffer data is null");
-      return NULL;
-   }
-   int bufsize = data->size;
-   report = (TAreport *)malloc(sizeof(TAreport));
-   char *init="0";
-   strcpy(report->version,init);
-   strcpy(report->timestamp,init);
-   strcpy(report->nonce,init);
-   strcpy(report->uuid,init);
-   strcpy(report->alg,init);
-   strcpy(report->image_hash,init);
-   strcpy(report->hash,init);
-   strcpy(report->reserve,init);
-   strcpy(report->signature,init);
-   strcpy(report->cert,init);
-   if(strlen(data->buf)!=bufsize){
-      printf("%s\n","bufsize error");
-      return report;
-   }
-   int j = 0;
-   for (int i = 0; i < VERSION ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->version[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","version convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-   for (int i = 0; i < TIMESTAMP ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->timestamp[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","timestamp convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-   for (int i = 0; i < NONCE ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->nonce[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","nonce convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-   for (int i = 0; i < UUID ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->uuid[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","uuid convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-   for (int i = 0; i < ALG ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->alg[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","alg convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-   for (int i = 0; i < IMAGE_HASH ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->image_hash[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","imagehash convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-   for (int i = 0; i < HASH ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->hash[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","hash convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-   for (int i = 0; i < RESERVE ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->reserve[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","reverse convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-   for (int i = 0; i < SIGNATURE ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->signature[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","signature convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-   for (int i = 0; i < CERT ; i++, j++)
-   {
-      if (data->buf[j] != ' ' && j < bufsize - 1)
-      {
-         report->cert[i] = data->buf[j];
-      }
-      else
-      {
-         if (data->buf[j] == ' ')
-         {
-            printf("%s\n","cert convert complete");
-            j++;
-            break;
-         }
-         else
-         {
-            printf("%s\n","bufdata is over");
-            return report;
-         }
-      }
-   }
-
-   return report;
+void file_error(const char *s) {
+    printf("Couldn't open file: %s\n", s);
+    exit(EXIT_FAILURE);
 }
 
-//verify the measurement value
-bool VerifyProcess(TAreport *report, int type, char *filename)
-{
-   bool verified = false;
-   char *init="0";
-   if (type != 1 && type != 2)
-   {
-      printf("%s\n", "the type-value is incorrect");
-      return verified;
-   }
-   if (report == NULL)
-   {
-      printf("%s\n", "the report is null");
-      return verified;
-   }
-   if (filename == NULL)
-   {
-      printf("%s\n", "the filename is null");
-      return verified;
-   }
-   if (strcmp(report->uuid,init) == 0){
-      printf("%s\n", "the report is empty");
-      return verified;
-   }
-   BaseValue *basevalue = loadbasevalue(report->uuid, filename); //use uuid to select which basevalue we need
-   verified = compare(type, report, basevalue);                  //compare the report with the basevalue
-   free(report);
-   return verified;
-}
-
-BaseValue *loadbasevalue(char *uuid, char *filename)
-{
-   BaseValue *basevalue;
-   if (uuid == NULL)
-   {
-      printf("%s\n", "the uuid is null");
-      return NULL;
-   }
-   if (filename == NULL)
-   {
-      printf("%s\n", "the filename is null");
-      return NULL;
-   }
-   basevalue = (BaseValue *)malloc(sizeof(BaseValue));
-   char *init="0";
-   strcpy(basevalue->uuid,init);
-   strcpy(basevalue->valueinfo[0],init);
-   strcpy(basevalue->valueinfo[1],init);
-   //open the file which stores the basevalue
-   FILE *fp;
-   if ((fp = fopen(filename, "r")) == NULL)
-   { // namefile=file path
-      printf("%s\n", "Fail to open file!");
-      exit(0); //fail to open and exit the function
-   }
-   else
-   { //use uuid to select which basevalue we need
-      char buf[MAXSIZE], save[MAXSIZE];
-      while ((fgets(buf, MAXSIZE, fp)) != NULL)
-      {
-         strcpy(save, buf);
-         char *p = strtok(buf, " ");
-         if (strcmp(p, uuid) == 0)
-         {
-            sscanf(save, "%64s %32s %32s", basevalue->uuid, basevalue->valueinfo[0], basevalue->valueinfo[1]);
-            break;
-         }
-      }
-      if (strcmp(basevalue->uuid,init) == 0)
-      {
-         printf("%s\n", "can't search the corresponding basevalue");
-      }
-      else
-      {
-         printf("basevalue-uuid:%s\n", basevalue->uuid);
-         printf("basevalue-image-measurement:%s\n", basevalue->valueinfo[0]);
-         printf("basevalue-hash-measurement:%s\n", basevalue->valueinfo[1]);
-      }
-   }
-   fclose(fp);
-   return basevalue;
-}
-
-bool compare(int type, TAreport *report, BaseValue *basevalue)
-{
-   bool compared = false;
-   if (type != 1 && type != 2)
-   {
-      printf("%s\n", "type is incorrect,can't do compatation");
-      return compared;
-   }
-   if (report == NULL)
-   {
-      printf("%s\n", "TAreport is null,can't do compatation");
-      return compared;
-   }
-   if (basevalue == NULL)
-   {
-      printf("%s\n", "basevalue is null,can't do compatation");
-      return compared;
-   }
-   if (strcmp(basevalue->uuid,"0") == 0)
-   {
-      printf("%s\n", "basevalue is not be found,can't do compatation");
-      return compared;
-   }
-   if (type == 1)
-   {
-      if (strcmp(report->image_hash, basevalue->valueinfo[0]) == 0)
-      {
-         compared = true;
-         printf("%s\n", "the image-measurement is true");
-      }
-      else
-      {
-         printf("%s\n", "the image-measurement is false");
-      }
-   }
-   else if (type == 2)
-   {
-      if (strcmp(report->hash, basevalue->valueinfo[1]) == 0)
-      {
-         compared = true;
-         printf("%s\n", "the hash-measurement is true");
-      }
-      else
-      {
-         printf("%s\n", "the hash-measurement is false");
-      }
-   }
-   free(basevalue); //free basevalue
-   printf("finish comparation\n");
-   return compared;
+void test_print(uint8_t *printed,int printed_size,char *printed_name) {
+    printf("%s:",printed_name);
+    for(int i=0;i<printed_size;i++){
+        printf("%02X", printed[i]);
+    }
+    printf("\n");
 };
 
-/*
-Verify(report,1)------------Verification succeeded
-Verify(report,2)------------Verification failed
-*/
-// void main()
-// {
-//    buffer_data report;
-//    report.size = 121;
-//    report.buf = "1.2 20220504 100 10EF6654-6A6F-C304-10AC-D48A0348A303 0 fc6aa6a655ec4b2fe5bff8d4670754ab 3fb951c89b84987a3dccb5400f821bga";
-//    VerifyManifest(&report, 1, "basevalue.txt");
+bool tee_verify(buffer_data *bufdata, int type, char *filename) {
+    TA_report *report = Convert(bufdata);
+    base_value *baseval = LoadBaseValue(report, filename);
+
+    bool verified;
+    if ((report == NULL) || (baseval == NULL))
+    {
+        printf("%s\n", "Pointer Error!");
+        verified = false;
+    }
+    else verified = Compare(type, report, baseval);  //compare the report with the basevalue
+
+    if (verified == true){
+        printf("%s\n", "Verification successful!");
+    }
+    else{
+        printf("%s\n", "Verification failed!");
+    }
+
+    free(report);
+    free(baseval);
+    return verified;
+}
+
+
+TA_report *Convert(buffer_data *data) {
+    TA_report *report = NULL;
+
+    // determine whether the buffer is legal
+    if (data == NULL) error("illegal buffer data pointer.");
+    if (data->size > DATABUFMAX || data->size < DATABUFMIN) error("size of buffer is illegal.");
+
+    report_get *bufreport;
+    bufreport = (report_get*)data->buf;  // buff to report
+
+    report = (TA_report *)calloc(1, sizeof(TA_report));
+    report->version = bufreport->version;
+    report->timestamp = bufreport->ts;
+    memcpy(report->nonce, bufreport->nonce, USER_DATA_SIZE*sizeof(uint8_t));
+    memcpy(report->uuid, &(bufreport->uuid), UUID_SIZE*sizeof(uint8_t));
+    //parse_uuid(report->uuid, bufreport->uuid);
+    report->scenario = bufreport->scenario;
+
+    // parse ra_params
+    uint32_t param_count = bufreport->param_count;
+    for (int i=0; i<param_count; i++) {
+        uint32_t param_type = (bufreport->params[i].tags & 0xf0000000) >> 28;  //get high 4 bits 
+        uint32_t param_info = bufreport->params[i].tags & 0x0fffffff;  //get low 28 bits
+
+        if (param_type == 1) {
+            switch (param_info) 
+            {
+                case RA_TAG_SIGN_TYPE:
+                    report->sig_alg = bufreport->params[i].data.integer;
+                    break;
+                case RA_TAG_HASH_TYPE:
+                    report->hash_alg = bufreport->params[i].data.integer;
+                    break;
+                default:
+                    error("Invalid param_info!");
+            }
+        }
+        else if(param_type == 2) {
+            uint32_t data_offset = bufreport->params[i].data.blob.data_offset;
+            uint32_t data_len = bufreport->params[i].data.blob.data_len;
+
+            if(data_offset>data->size || data_offset==0) {
+                char *error_msg = NULL;
+                sprintf(error_msg, "2-%u offset error", param_info);
+                error(error_msg);
+            }
+
+            switch(param_info)
+            {
+                case RA_TAG_TA_IMG_HASH:
+                    memcpy(report->image_hash, data->buf+data_offset, data_len);
+                    break;
+                case RA_TAG_TA_MEM_HASH:
+                    memcpy(report->hash, data->buf+data_offset, data_len);
+                    break;
+                case RA_TAG_RESERVED:
+                    memcpy(report->reserve, data->buf+data_offset, data_len);
+                    break;
+                case RA_TAG_SIGN_AK:
+                    report->signature = (uint8_t *)malloc(sizeof(uint8_t)*data_len);
+                    memcpy(report->signature, data->buf+data_offset, data_len);
+                    //uint32_t cert_offset = data_offset + data_len + sizeof(uint32_t);
+                    //memcpy(report->cert, data->buf+cert_offset, data_len);
+                    break;
+                case RA_TAG_CERT_AK:
+                    report->cert = (uint8_t *)malloc(sizeof(uint8_t)*data_len);
+                    memcpy(report->cert, data->buf+data_offset, data_len);
+                    break;
+                default:
+                    error("Invalid param_info!");
+            }
+        }
+        else error("Invalid param_type!");
+    }
+
+    return report;
+}
+
+// void parse_uuid(uint8_t *uuid, TEE_UUID bufuuid) {
+//     size_t offset = 0;
+
+//     read_bytes(&(bufuuid.timeLow), sizeof(uint32_t), 1, uuid, &offset);
+//     read_bytes(&(bufuuid.timeMid), sizeof(uint16_t), 1, uuid, &offset);
+//     read_bytes(&(bufuuid.timeHiAndVersion), sizeof(uint16_t), 1, uuid, &offset);
+//     read_bytes(&(bufuuid.clockSeqAndNode), sizeof(uint8_t), NODE_LEN, uuid, &offset);
 // }
+
+void read_bytes(void *input, size_t size, size_t nmemb, uint8_t *output, size_t *offset) {
+    memcpy(output + *offset, input, size * nmemb);
+    *offset += size * nmemb;
+}
+
+
+base_value *LoadBaseValue(const TA_report *report, char *filename) {
+    base_value *baseval = NULL;
+    size_t fbuf_len = 0;  // if needed
+
+    if (report == NULL) error("illegal report pointer!");
+    char *fbuf = file_to_buffer(filename, &fbuf_len);
+
+   /* 
+      base_value *baseval_tmp = NULL;
+      size_t fbuf_offset = 0;
+      while(fbuf_offset < fbuf_len) {
+         baseval_tmp = (base_value *)(fbuf+fbuf_offset);
+         if (cmp_bytes(report->uuid, baseval_tmp->uuid, UUID_SIZE)) break;
+         fbuf_offset += sizeof(base_value);
+      }
+
+      baseval = (base_value *)calloc(1, sizeof(base_value));
+      memcpy(baseval->uuid, baseval_tmp->uuid, UUID_SIZE*sizeof(uint8_t));
+      memcpy(baseval->valueinfo[0], baseval_tmp->valueinfo[0], HASH_SIZE*sizeof(uint8_t));
+      memcpy(baseval->valueinfo[1], baseval_tmp->valueinfo[1], HASH_SIZE*sizeof(uint8_t));
+
+      baseval_tmp = NULL;
+   **/
+
+   // fbuf is string stream.
+   char *line = NULL;
+   line = strtok(fbuf, "\n");
+
+   baseval = (base_value *)calloc(1, sizeof(base_value));
+   char uuid_str[37]; 
+   char image_hash_str[65];
+   char hash_str[65];
+   int num = 0;
+   while(line != NULL) {
+      ++num;
+      sscanf(line, "%36s %64s %64s", uuid_str, image_hash_str, hash_str);
+      str_to_uuid(uuid_str, baseval->uuid);
+      if (cmp_bytes(report->uuid, baseval->uuid, UUID_SIZE)) {
+         str_to_hash(image_hash_str, baseval->valueinfo[0]);
+         str_to_hash(hash_str, baseval->valueinfo[1]);
+         break;
+      }
+
+      line = strtok(NULL, "\n");
+   }
+
+    free(fbuf);
+    return baseval;
+}
+
+void str_to_uuid(const char *str, uint8_t *uuid) {
+   //  char substr1[8];
+   //  char substr2[4];
+   //  char substr3[4];
+   //  char substr4[4];
+   //  char substr5[12];
+   char substr1[9];
+   char substr2[5];
+   char substr3[5];
+   char substr4[5];
+   char substr5[13];
+    // 8-4-4-4-12
+    sscanf(str, "%8[^-]-%4[^-]-%4[^-]-%4[^-]-%12[^-]", substr1, substr2, substr3, substr4, substr5);
+    str2hex(substr1, 8, uuid);
+    str2hex(substr2, 4, uuid+4);
+    str2hex(substr3, 4, uuid+4+2);
+    str2hex(substr4, 4, uuid+4+2+2);
+    str2hex(substr5, 12, uuid+4+2+2+2);
+}
+
+void uuid_to_str(const uint8_t *uuid, char *str) {
+    // 8-
+    hex2str(uuid, 4, str);
+    strcpy(str+4*2, "-");
+   //  str[4*2] = "-";
+    // 8-4-
+    hex2str(uuid+4, 2, str+9);
+    strcpy(str+9+2*2, "-");
+   //  str[9+2*2] = "-";
+    // 8-4-4-
+    hex2str(uuid+4+2, 2, str+14);
+    strcpy(str+14+2*2, "-");
+   //  str[14+2*2] = "-";
+    // 8-4-4-4-
+    hex2str(uuid+4+2+2, 2, str+19);
+    strcpy(str+19+2*2, "-");
+   //  str[19+2*2] = "-";
+    // 8-4-4-4-12
+    hex2str(uuid+4+2+2+2, 6, str+24);
+}
+
+void str_to_hash(const char *str, uint8_t *hash) {
+    // 64 bit -> 32 bit
+    str2hex(str, HASH_SIZE*2, hash);
+}
+
+void hash_to_str(const uint8_t *hash, char *str) {
+    // 32 bit -> 64 bit
+    hex2str(hash, HASH_SIZE, str);
+}
+
+void hex2str(const uint8_t *source, int source_len, char *dest) {
+    int i;
+    unsigned char HighByte;
+    unsigned char LowByte;
+
+    for(i = 0; i < source_len; i++) {
+        HighByte = source[i] >> 4;    //get high 4bit from a byte
+        LowByte = source[i] & 0x0f;   //get low 4bit
+
+        HighByte += 0x30;             //得到对应的字符，若是字母还需要跳过7个符号
+        if(HighByte <= 0x39)          //数字
+            dest[i*2] = HighByte;
+        else                          //字母
+            dest[i*2] = HighByte + 0x07;     //得到字符后保存到对应位置
+
+        LowByte += 0x30;
+        if(LowByte <= 0x39)
+            dest[i*2+1] = LowByte;
+        else
+            dest[i*2+1] = LowByte + 0x07;
+    }
+}
+
+void str2hex(const char *source, int source_len, uint8_t *dest) {
+    int i;
+    unsigned char HighByte;
+    unsigned char LowByte;
+
+    for(i = 0; i < source_len; i++) {
+        HighByte = toupper(source[i*2]);    //如果遇到小写，则转为大写处理
+        LowByte = toupper(source[i*2+1]);
+
+        if(HighByte <= 0x39)       //0x39对应字符'9',这里表示是数字
+            HighByte -= 0x30;
+
+        else                      //否则为字母，需要跳过7个符号
+            HighByte -= 0x37;
+
+        if(LowByte <= 0x39)
+            LowByte -= 0x30;
+
+        else
+            LowByte -= 0x37;
+
+/*
+ *  假设字符串"3c"
+ *  则 HighByte = 0x03,二进制为 0000 0011 
+ *     LowByte = 0x0c,二进制为 0000 1100
+ *      
+ *      HighByte << 4 = 0011 0000
+ *      HighByte | LowByte :
+ *      
+ *      0011 0000
+ *      0000 1100
+ *    -------------
+ *      0011 1100
+ *
+ *      即 0x3c
+ *      
+ **/
+        dest[i] = (HighByte << 4) | LowByte;    
+
+    }
+}
+
+char *file_to_buffer(char *file, size_t *file_length) {
+    FILE *f = NULL;
+    char *buffer = NULL;
+
+    f = fopen(file, "rb");
+    if (!f) file_error(file);
+    fseek(f, 0L, SEEK_END);
+    *file_length = ftell(f);
+    rewind(f);
+    buffer = (char*)malloc(*file_length + 1);
+    size_t result = fread(buffer, 1, *file_length, f);
+    if (result != *file_length) file_error(file);
+    fclose(f);
+
+    return buffer;
+}
+
+
+bool Compare(int type, TA_report *report, base_value *basevalue) {
+    bool compared;
+
+    switch (type)
+    {
+    case 1:
+        printf("%s\n", "Compare image measurement..");
+        compared = cmp_bytes(report->image_hash, basevalue->valueinfo[0], HASH_SIZE);
+        break;
+    case 2:
+        printf("%s\n", "Compare hash measurement..");
+        compared = cmp_bytes(report->hash, basevalue->valueinfo[1], HASH_SIZE);
+        break;
+    case 3:
+        printf("%s\n", "Compare image & hash measurement..");
+        compared = (cmp_bytes(report->image_hash, basevalue->valueinfo[0], HASH_SIZE) & cmp_bytes(report->hash, basevalue->valueinfo[1], HASH_SIZE));
+        break;
+    default:
+        printf("%s\n", "Type is incorrect.");
+        compared = false;
+    }
+
+    printf("%s\n", "Finish Comparation");
+    return compared;
+}
+
+bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size) {
+    for(size_t i = 0; i < size; i++) {
+        if (*(a+i) != *(b+i)) return false;
+    }
+
+    return true;
+}
+
+void save_basevalue(const base_value *bv) {
+    // char **temp = (char **)malloc(sizeof(char*) * 3);
+    // temp[0] = (char *)malloc(sizeof(char) * (32+4));
+    // temp[1] = (char *)malloc(sizeof(char) * 64);
+    // temp[2] = (char *)malloc(sizeof(char) * 64);
+    char uuid_str[37];
+    char image_hash_str[65];
+    char hash_str[65];
+    memset(uuid_str, '\0', sizeof(uuid_str));
+    memset(image_hash_str, '\0', sizeof(image_hash_str));
+    memset(hash_str, '\0', sizeof(hash_str));
+
+    uuid_to_str(bv->uuid, uuid_str);
+    hash_to_str(bv->valueinfo[0], image_hash_str);
+    hash_to_str(bv->valueinfo[1], hash_str);
+
+    const int bvbuf_len = 200;
+    char bvbuf[bvbuf_len];  // 32+4+2+64+64+1=167 < 200
+    memset(bvbuf, '\0', sizeof(bvbuf));
+    strcpy(bvbuf, uuid_str);
+    strcat(bvbuf, " ");
+    strcat(bvbuf, image_hash_str);
+    strcat(bvbuf, " ");
+    strcat(bvbuf, hash_str);
+    strcat(bvbuf, "\n");
+    printf("%s\n", bvbuf);
+
+    FILE* fp_output = fopen("basevalue.txt", "w");
+    fwrite(bvbuf, sizeof(bvbuf), 1, fp_output);
+    fclose(fp_output);
+}
