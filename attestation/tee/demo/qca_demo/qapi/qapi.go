@@ -3,23 +3,12 @@ package qapi
 
 import (
 	"context"
+	"fmt"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 )
 
 var (
-	usrdata *qcatools.Go_ra_buffer_data = &qcatools.Go_ra_buffer_data{ // Pointers should be initialized correctly!!!
-		Size: 0,
-		Buf:  nil,
-	}
-	paramset *qcatools.Go_ra_buffer_data = &qcatools.Go_ra_buffer_data{
-		Size: 0,
-		Buf:  nil,
-	}
-	report *qcatools.Go_ra_buffer_data = &qcatools.Go_ra_buffer_data{
-		Size: 0,
-		Buf:  nil,
-	}
 	brep *Buffer = &Buffer{
 		Size: 0,
 		Buf:  nil,
@@ -28,17 +17,23 @@ var (
 
 func DoGetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
 	_ = ctx // ignore the unused warning
-	usrdata.Size = in.UsrData.Size
-	usrdata.Buf = in.UsrData.Buf
-	paramset.Size = in.ParamSet.Size
-	paramset.Buf = in.ParamSet.Buf
-	report.Size = in.Report.Size
-	report.Buf = in.Report.Buf
-	rep := qcatools.GetTAReport(in.Uuid, usrdata, report, paramset, in.WithTcb)
+	qcatools.Usrdata.Size = in.UsrData.Size
+	qcatools.Usrdata.Buf = in.UsrData.Buf
+	qcatools.Paramset.Size = in.ParamSet.Size
+	qcatools.Paramset.Buf = in.ParamSet.Buf
+	qcatools.Report.Size = in.Report.Size
+	qcatools.Report.Buf = in.Report.Buf
+	rep, nonce := qcatools.GetTAReport(in.Uuid, qcatools.Usrdata, qcatools.Paramset, qcatools.Report, in.WithTcb)
 	brep.Size = rep.Size
 	brep.Buf = rep.Buf
 	rpy := GetReportReply{
 		TeeReport: brep,
+		Nonce:     nonce,
 	}
+	// log.Print("Get TA report success:\n")
+	// for i := 0; i < int(rpy.TeeReport.Size); i++ {
+	// 	fmt.Printf("index%d is 0x%x; ", i, rpy.TeeReport.Buf[i])
+	// }
+	fmt.Print("\n")
 	return &rpy, nil
 }

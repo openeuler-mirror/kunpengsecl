@@ -17,9 +17,6 @@
 #define RA_SCENARIO_AS_NO_DAA    1
 #define RA_SCENARIO_AS_WITH_DAA  2
 
-/* test report buf */
-
-
 enum ra_alg_types {
     RA_ALG_RSA_3072     = 0x20000,
     RA_ALG_RSA_4096     = 0x20001,  // PSS padding
@@ -70,7 +67,7 @@ struct ra_params_set_t {
     struct ra_params params[0];
 } __attribute__((__packed__));
 
-typedef struct ra_buffer_data TEEC_Result;
+typedef int TEEC_Result;
 typedef int64_t TEEC_UUID;
 
 TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *param_set, struct ra_buffer_data *out_data);

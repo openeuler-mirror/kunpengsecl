@@ -407,7 +407,7 @@ bool getNOASdata(buffer_data *akcert,buffer_data *signdata,buffer_data *signdrk,
 
    return true;
 }
-bool VerifySignature(buffer_data *report) {
+bool tee_verify_signature(buffer_data *report) {
 	//get the report from buffer
    buffer_data akcert;
    bool rt = getAkCertFromReport(report,&akcert);
@@ -708,7 +708,7 @@ bool VerifySignature(buffer_data *report) {
 //     printf("Validate success!\n");
 //     return true;
 // }
-bool VerifyManifest(buffer_data *data, int type, char *filename)
+bool tee_verify(buffer_data *data, int type, char *filename)
 {
    /* Test whether the expected data is received */
    // for (int i = 0; i < data->size; i++)
