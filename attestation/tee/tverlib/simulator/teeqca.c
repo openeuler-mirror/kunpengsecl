@@ -1,6 +1,6 @@
 // a simulation of qcalib
 
-#include "qcalib.h"
+#include "teeqca.h"
 
 /*** Set up hard-coded test case ***/
 uint8_t report1[] = {

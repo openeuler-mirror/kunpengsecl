@@ -1,4 +1,4 @@
-subdir = demo ./tverlib/verifier
+subdir = ./tverlib/verifier ./tverlib/simulator demo
 
 .PHONY: all build test clean install check
 

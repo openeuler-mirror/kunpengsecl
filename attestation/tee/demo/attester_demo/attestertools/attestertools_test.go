@@ -12,6 +12,8 @@ attesterconfig:
   server: 127.0.0.1:40001
   basevalue: ""
   mspolicy: 2
+  uuid: 1
+  scenario: 0
 `
 
 const (

@@ -1,4 +1,4 @@
-#include "verifier.c"
+#include "teeverifier.c"
 
 
 // void save_basevalue(const base_value *bv);

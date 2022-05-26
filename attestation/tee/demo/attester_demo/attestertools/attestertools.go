@@ -2,10 +2,9 @@
 package attestertools
 
 /*
-#cgo CFLAGS: -I/usr/local/include
-#cgo LDFLAGS: -L/usr/local/lib -lcrypto
-#include "../../../tverlib/verifier/verifier.h"
-#include "../../../tverlib/verifier/verifier.c"
+#cgo CFLAGS: -I../../../tverlib/verifier
+#cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/verifier -lteeverifier -Wl,-rpath=${SRCDIR}/../../../tverlib/verifier
+#include "teeverifier.h"
 */
 import "C"
 
@@ -265,9 +264,8 @@ func verifySig(rep *qapi.Buffer) bool {
 	up_rep_buf = C.CBytes(rep.Buf)
 	defer C.free(up_rep_buf)
 	crep.buf = (*C.uchar)(up_rep_buf)
-	// result := C.tee_verify_signature(&crep)
-	result := false
-	return result
+	result := C.tee_verify_signature(&crep)
+	return bool(result)
 }
 
 // invoke verifier lib to validate
