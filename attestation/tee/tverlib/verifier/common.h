@@ -114,8 +114,8 @@ typedef struct
     uint8_t reserve[HASH_SIZE];
     // uint8_t		signature[SIG_SIZE];
     // uint8_t 	cert[CERT_SIZE];  //AK cert
-    uint8_t *signature;
-    uint8_t *cert;
+    buffer_data *signature;
+    buffer_data *cert;
 } TA_report;
 
 #define KEY_PURPOSE_SIZE 32 // test

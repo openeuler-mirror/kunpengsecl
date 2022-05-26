@@ -467,8 +467,7 @@ TA_report *Convert(buffer_data *data)
    for (int i = 0; i < param_count; i++)
    {
       uint32_t param_type = (bufreport->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
-      uint32_t param_info = bufreport->params[i].tags;         // get low 28 bits
-
+      uint32_t param_info = bufreport->params[i].tags; 
       if (param_type == 1)
       {
          switch (param_info)
@@ -507,14 +506,18 @@ TA_report *Convert(buffer_data *data)
             memcpy(report->reserve, data->buf + data_offset, data_len);
             break;
          case RA_TAG_SIGN_AK:
-            report->signature = (uint8_t *)malloc(sizeof(uint8_t) * data_len);
-            memcpy(report->signature, data->buf + data_offset, data_len);
+            report->signature = (buffer_data*)malloc(sizeof(buffer_data));
+            report->signature->buf = (uint8_t *)malloc(sizeof(uint8_t) * data_len);
+            report->signature->size = data_len;
+            memcpy(report->signature->buf, data->buf + data_offset, data_len);
             // uint32_t cert_offset = data_offset + data_len + sizeof(uint32_t);
             // memcpy(report->cert, data->buf+cert_offset, data_len);
             break;
          case RA_TAG_CERT_AK:
-            report->cert = (uint8_t *)malloc(sizeof(uint8_t) * data_len);
-            memcpy(report->cert, data->buf + data_offset, data_len);
+            report->cert = (buffer_data *)malloc(sizeof(buffer_data));
+            report->cert->buf = (uint8_t *)malloc(sizeof(uint8_t) * data_len);
+            report->cert->size = data_len;
+            memcpy(report->cert->buf, data->buf + data_offset, data_len);
             break;
          default:
             error("Invalid param_info!");
