@@ -22,33 +22,17 @@ static void save_basevalue(const base_value *bv);
 // interface
 bool VerifySignature(buffer_data *report);
 
-bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
-bool translateBuf(buffer_data report, TA_report *tareport);
-bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
-// testSignature will generate a signature by the private_key.pem file
-void testSignature(char *digest, char *sig)
-{
-   char buf[256] = {0};
-   // get private key from file
-   FILE *fp = fopen(PRIVATEKEY, "r");
-   if (fp == NULL)
-   {
-      printf("read file failed\n");
-   }
-   RSA *privKey = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
-   if (privKey == NULL)
-   {
-      printf("failed get private key\n");
-   }
-   fclose(fp);
-   int nOutLen = strlen(sig);
-   int rt = 0;
-   rt = RSA_sign(NID_sha256, digest, SHA256_DIGEST_LENGTH, sig, &nOutLen, privKey);
-   if (rt != 1)
-   {
-      printf("sig failed\n");
-   }
-}
+static bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
+static bool translateBuf(buffer_data report, TA_report *tareport);
+static bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
+static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
+static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
+static bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key);
+static EVP_PKEY *getPubKeyFromCert(buffer_data *cert);
+static void dumpDrkCert(buffer_data *certdrk);
+static void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk);
+static bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *signak,buffer_data *signdata);
+static bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
 
 EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub)
 {
@@ -194,58 +178,6 @@ bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert, int scen
    return true;
 }
 
-// translateBuf will translate the buffer_date to TAreport
-bool translateBuf(buffer_data report, TA_report *tareport)
-{
-   memcpy(tareport, report.buf, report.size);
-   return true;
-}
-
-// getAkSignFromReport will get the sign_ak[] from report's buffer
-bool getAkSignFromReport(buffer_data *report, buffer_data *out)
-{
-   if (report->buf == NULL)
-   {
-      printf("report is null");
-      return false;
-   }
-   struct report_response *rr = (struct report_response *)report->buf;
-   out->buf = report->buf + rr->params[5].data.blob.data_offset;
-   out->size = rr->params[5].data.blob.data_len;
-
-   return true;
-}
-
-// getAkCertFromReport will get the akcert[] from report's buffer
-bool getAkCertFromReport(buffer_data *report, buffer_data *out)
-{
-   if (report->buf == NULL)
-   {
-      printf("report is null");
-      return false;
-   }
-   struct report_response *rr = (struct report_response *)report->buf;
-   out->buf = report->buf + rr->params[6].data.blob.data_offset;
-   out->size = rr->params[6].data.blob.data_len;
-
-   return true;
-}
-
-// getSignDataFromReport will get the data witch will be signatured
-bool getSignDataFromReport(buffer_data *report, buffer_data *out)
-{
-   if (report->buf == NULL)
-   {
-      printf("report is null");
-      return false;
-   }
-   struct report_response *rr = (struct report_response *)report->buf;
-   out->buf = report->buf;
-   out->size = rr->params[5].data.blob.data_offset;
-
-   return true;
-}
-
 void dumpDrkCert(buffer_data *certdrk)
 {
    for (int i = 0; i < certdrk->size; i++)
@@ -291,6 +223,42 @@ void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
    certdrk->buf = drktest;
 
    // dumpDrkCert(certdrk);
+}
+//getDataFromReport get some data which have akcert & signak & signdata from report
+bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *signak,buffer_data *signdata){
+   if (report->buf==NULL)
+   {
+      printf("report is null");
+      return false;
+   }
+   struct report_response *re;
+   re = (struct report_response *)report->buf;
+   uint32_t data_offset;
+   uint32_t data_len;
+   uint32_t param_count = re->param_count;
+   for (int i = 0; i < param_count; i++)
+   {
+      uint32_t param_info = re->params[i].tags;
+      data_offset = re->params[i].data.blob.data_offset;
+      data_len = re->params[i].data.blob.data_len;
+      switch (param_info)
+      {
+         case RA_TAG_CERT_AK:
+            akcert->buf = report->buf + data_offset;
+            akcert->size = data_len;
+            break;
+         case RA_TAG_SIGN_AK:
+            signak->buf = report->buf + data_offset;
+            signak->size = data_len;
+            //get sign data
+            signdata->buf = report->buf;
+            signdata->size = data_offset;
+            break;
+         default:
+            break;
+      }
+   }
+   return true;
 }
 
 bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub)
@@ -348,27 +316,13 @@ bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdr
 
 bool tee_verify_signature(buffer_data *report)
 {
-   // get the report from buffer
-   buffer_data akcert;
-   bool rt = getAkCertFromReport(report, &akcert);
+   // get akcert signak signdata from report
+   buffer_data akcert,signak, signdata;
+   int rt = getDataFromReport(report,&akcert,&signak,&signdata);
    if (!rt)
    {
-      printf("get AkCert From Report is failed!\n");
-      return 0;
-   }
-   buffer_data signak;
-   rt = getAkSignFromReport(report, &signak);
-   if (!rt)
-   {
-      printf("get AkSign From Report is failed!\n");
-      return 0;
-   }
-   buffer_data signdata;
-   rt = getSignDataFromReport(report, &signdata);
-   if (!rt)
-   {
-      printf("get Sign Data From Report is failed!\n");
-      return 0;
+      printf("get Data From Report is failed\n");
+      return false;
    }
    int scenario = 0;
    rt = verifysig(&signdata, &signak, &akcert, scenario);
@@ -377,16 +331,6 @@ bool tee_verify_signature(buffer_data *report)
       printf("verify signature is failed\n");
       return false;
    }
-   // TAreport tareport;
-   // rt = translateBuf(*report,&tareport);
-   // if(rt){
-   // 	printf("translate is failed!\n");
-   //    return false;
-   // }
-   // 1. verify the signature by the public key from the cert and digest(is a quoted)
-
-   // char *data = "testdata";
-   // char sig[] = "ac90984b642d241161e90b6795c481f1ed0b065dbe713a7f4c562ba99ed91996b2b5fa0bf9319dfead8c98d0e58e10c890b4f628cd8d030b637ff4cf1a12642f4a27aafe794130057b94672c35af27727ad057fc83c8a22e499ab77e3cabe8ee1a0643edc0381e9d837f93ac6de4e0d7657a07e0ad0125ba79ba357a1682d4a7070bd1fe80d900105fdc5b32ec72211cd50e535775e604b880536d94e1e4cfc04710182ca9924decf215071ef50c5af87e178e125a2d5554f0ec07604daf6098dc1dd1b6b69dc813c89fdb2ad5849c125306fd058bf6447bb15251d67ebb4207fb4defde05b2609e029c009ecb18ad5ebbfa67e974057e48376501cc6190ee83";
    printf("Verify success!\n");
    return true;
 }
