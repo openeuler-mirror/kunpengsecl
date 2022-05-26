@@ -1,4 +1,4 @@
-#include "verifier.h"
+#include "teeverifier.h"
 #include "common.h"
 
 static void error(const char *msg);

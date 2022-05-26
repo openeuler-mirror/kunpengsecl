@@ -2,8 +2,9 @@
 package qcatools
 
 /*
-#include "../../../tverlib/simulator/qcalib.h"
-#include "../../../tverlib/simulator/qcalib.c"
+#cgo CFLAGS: -I../../../tverlib/simulator
+#cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lteeqca -Wl,-rpath=${SRCDIR}/../../../tverlib/simulator
+#include "../../../tverlib/simulator/teeqca.h"
 */
 import "C"
 

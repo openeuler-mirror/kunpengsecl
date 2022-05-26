@@ -5,7 +5,7 @@
 #include <openssl/pem.h>
 #include <openssl/objects.h>
 #include <openssl/err.h>
-#include "verifier.h"
+#include "teeverifier.h"
 
 #define USER_DATA_SIZE 64
 #define NODE_LEN 8

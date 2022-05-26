@@ -1,4 +1,4 @@
-#include "verifier.c"
+#include "teeverifier.c"
 
 bool TestgetAkSignFromReport(buffer_data *report);
 bool TestgetAkCertFromReport(buffer_data *report);
