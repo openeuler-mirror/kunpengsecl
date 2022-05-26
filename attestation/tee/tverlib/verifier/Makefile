@@ -4,7 +4,7 @@ build:verifier.c verifier.h common.h
 
 test:verify_test.c verifier.c
 	gcc verify_test.c -o test.out -I /usr/local/include -L /usr/local/lib -lcrypto
-	gcc verifysig_test.c -o testsig.out -I /usr/local/include -L /usr/local/lib -lcrypto
+	gcc verifysig_test.c -g -o testsig.out -I /usr/local/include -L /usr/local/lib -lcrypto
 
 clean:
 	@rm -rf *.o *.so *.out
