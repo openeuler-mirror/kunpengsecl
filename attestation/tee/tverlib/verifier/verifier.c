@@ -467,7 +467,7 @@ TA_report *Convert(buffer_data *data)
    for (int i = 0; i < param_count; i++)
    {
       uint32_t param_type = (bufreport->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
-      uint32_t param_info = bufreport->params[i].tags & 0x0fffffff;         // get low 28 bits
+      uint32_t param_info = bufreport->params[i].tags;         // get low 28 bits
 
       if (param_type == 1)
       {
