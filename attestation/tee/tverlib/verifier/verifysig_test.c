@@ -1,39 +1,5 @@
 #include "teeverifier.c"
 
-bool TestgetAkSignFromReport(buffer_data *report);
-bool TestgetAkCertFromReport(buffer_data *report);
-bool TestgetSignDataFromReport(buffer_data *report);
-
-bool TestgetAkSignFromReport(buffer_data *report)
-{
-    buffer_data test;
-    bool rt = getAkSignFromReport(report, &test);
-    if (!rt)
-    {
-        return false;
-    }
-    return true;
-}
-bool TestgetAkCertFromReport(buffer_data *report)
-{
-    buffer_data test;
-    bool rt = getAkCertFromReport(report, &test);
-    if (!rt)
-    {
-        return false;
-    }
-    return true;
-}
-bool TestgetSignDataFromReport(buffer_data *report)
-{
-    buffer_data test;
-    bool rt = getSignDataFromReport(report, &test);
-    if (!rt)
-    {
-        return false;
-    }
-    return true;
-}
 int main()
 {
     // test getDrkPubFromCertDrk
