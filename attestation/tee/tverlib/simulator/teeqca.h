@@ -68,7 +68,13 @@ struct ra_params_set_t {
 } __attribute__((__packed__));
 
 typedef int TEEC_Result;
-typedef int64_t TEEC_UUID;
+typedef struct
+{
+    uint32_t timeLow;
+    uint16_t timeMid;
+    uint16_t timeHiAndVersion;
+    uint8_t clockSeqAndNode[8];
+} TEEC_UUID;
 
 TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *param_set, struct ra_buffer_data *out_data);
 

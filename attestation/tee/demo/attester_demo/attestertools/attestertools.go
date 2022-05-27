@@ -19,6 +19,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/google/uuid"
 )
 
 const (
@@ -66,17 +67,16 @@ const (
 type (
 	trustApp struct {
 		ctx      context.Context
-		uuid     int64
-		usrdata  *qapi.Buffer
-		paramset *qapi.Buffer
-		report   *qapi.Buffer
+		uuid     []byte
+		usrdata  []byte
+		report   []byte
 		withtcb  bool
 	}
 	attesterConfig struct {
 		server    string
 		basevalue string
 		mspolicy  int
-		uuid      int64
+		uuid      string
 		scenario  int
 	}
 )
@@ -84,10 +84,9 @@ type (
 var (
 	test_ta *trustApp = &trustApp{
 		ctx:      context.Background(),
-		uuid:     -1,
-		usrdata:  &qapi.Buffer{},
-		paramset: &qapi.Buffer{},
-		report:   &qapi.Buffer{},
+		uuid:     []byte{},
+		usrdata:  []byte{},
+		report:   []byte{},
 		withtcb:  false,
 	}
 	verify_result bool = false
@@ -98,7 +97,7 @@ var (
 	ServerFlag    *string         = nil
 	BasevalueFlag *string         = nil
 	MspolicyFlag  *int            = nil
-	UuidFlag      *int64          = nil
+	UuidFlag      *string         = nil
 	ScenarioFlag  *int            = nil
 	attesterConf  *attesterConfig = nil
 	up_rep_buf    unsafe.Pointer
@@ -111,7 +110,7 @@ func InitFlags() {
 	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
 	BasevalueFlag = pflag.StringP(lflagBasevalue, sflagBasevalue, "", helpBasevalue)
 	MspolicyFlag = pflag.IntP(lflagMeasure, sflagMeasure, -1, helpMeasure)
-	UuidFlag = pflag.Int64P(lflagUuid, sflagUuid, -1, helpUuid)
+	UuidFlag = pflag.StringP(lflagUuid, sflagUuid, "", helpUuid)
 	ScenarioFlag = pflag.IntP(lflagScenario, sflagScenario, 0, helpScenario)
 	pflag.Parse()
 }
@@ -135,7 +134,7 @@ func LoadConfigs() {
 	attesterConf.server = viper.GetString(Server)
 	attesterConf.basevalue = viper.GetString(Basevalue)
 	attesterConf.mspolicy = viper.GetInt(Mspolicy)
-	attesterConf.uuid = viper.GetInt64(Uuid)
+	attesterConf.uuid = viper.GetString(Uuid)
 	attesterConf.scenario = viper.GetInt(Scenario)
 }
 
@@ -157,9 +156,9 @@ func HandleFlags() {
 		attesterConf.mspolicy = *MspolicyFlag
 		log.Printf("TEE Measurement: %d", attesterConf.mspolicy) // just for test!
 	}
-	if UuidFlag != nil && *UuidFlag != -1 {
+	if UuidFlag != nil && *UuidFlag != "" {
 		attesterConf.uuid = *UuidFlag
-		log.Printf("TEE Uuid: %d", attesterConf.uuid) // just for test!
+		log.Printf("TEE Uuid: %s", attesterConf.uuid) // just for test!
 	}
 	if ScenarioFlag != nil && *ScenarioFlag != 0 {
 		attesterConf.scenario = *ScenarioFlag
@@ -203,28 +202,24 @@ func StartAttester() {
 
 // Initialize the parameters of TA
 func iniTAParameter(ta *trustApp) (*trustApp, error) {
-	ta.uuid = attesterConf.uuid
+	id, err := uuid.Parse(attesterConf.uuid)
+	ta.uuid, err = id.MarshalBinary()
 	// create nonce value to defend against replay attacks
-	nonce := make([]byte, 8)
-	size, err := rand.Read(nonce)
+	nonce := make([]byte, 64)
+	_, err = rand.Read(nonce)
 	if err != nil {
 		return test_ta, err
 	}
-	ta.usrdata.Size = uint32(size)
-	ta.usrdata.Buf = append(ta.usrdata.Buf, nonce...)
-	ta.paramset.Size = 1
-	ta.paramset.Buf = append(ta.paramset.Buf, byte(attesterConf.scenario))
+	ta.usrdata = nonce
 
 	return ta, nil
 }
 
 // remote invoke qca api to get the TA's info
-func getReport(ta *trustApp) *qapi.Buffer {
+func getReport(ta *trustApp) []byte {
 	reqID := qapi.GetReportRequest{
 		Uuid:     ta.uuid,
-		UsrData:  ta.usrdata,
-		ParamSet: ta.paramset,
-		Report:   ta.report,
+		Nonce:    ta.usrdata,
 		WithTcb:  ta.withtcb,
 	}
 
@@ -235,16 +230,15 @@ func getReport(ta *trustApp) *qapi.Buffer {
 	}
 
 	// Verify that if the Nonce value is tampered with
-	for i := 0; i < int(ta.usrdata.Size); i++ {
-		if ta.usrdata.Buf[i] != rpyID.Nonce[i] {
-			log.Print("Nonce value returned does not match!")
-			return ta.report
-		}
-	}
-	log.Print("The returned nonce value is not modified unexpectedly!")
+	// for i := 0; i < len(ta.usrdata); i++ {
+	//	if ta.usrdata.Buf[i] != rpyID.Nonce[i] {
+	//		log.Print("Nonce value returned does not match!")
+	//		return ta.report
+	//	}
+	//}
+	//log.Print("The returned nonce value is not modified unexpectedly!")
 
-	ta.report.Size = rpyID.TeeReport.Size
-	ta.report.Buf = rpyID.TeeReport.Buf
+	ta.report = rpyID.GetTeeReport()
 
 	/* Test whether the expected data is received */
 	// log.Print("Get TA report success:\n")
@@ -257,10 +251,10 @@ func getReport(ta *trustApp) *qapi.Buffer {
 }
 
 // invoke verifier lib to verify
-func verifySig(rep *qapi.Buffer) bool {
+func verifySig(rep []byte) bool {
 	var crep C.buffer_data
-	crep.size = C.__uint32_t(rep.Size)
-	up_rep_buf = C.CBytes(rep.Buf)
+	crep.size = C.__uint32_t(len(rep))
+	up_rep_buf = C.CBytes(rep)
 	defer C.free(up_rep_buf)
 	crep.buf = (*C.uchar)(up_rep_buf)
 	result := C.tee_verify_signature(&crep)
@@ -268,12 +262,12 @@ func verifySig(rep *qapi.Buffer) bool {
 }
 
 // invoke verifier lib to validate
-func validate(mf *qapi.Buffer, mtype int, bv string) bool {
+func validate(mf []byte, mtype int, bv string) bool {
 	var crep C.buffer_data
 	cbv := C.CString(bv)
 	defer C.free(unsafe.Pointer(cbv))
-	crep.size = C.__uint32_t(mf.Size)
-	up_mf_buf = C.CBytes(mf.Buf)
+	crep.size = C.__uint32_t(len(mf))
+	up_mf_buf = C.CBytes(mf)
 	defer C.free(up_mf_buf)
 	crep.buf = (*C.uchar)(up_mf_buf)
 	result := C.tee_verify(&crep, C.int(mtype), cbv)
