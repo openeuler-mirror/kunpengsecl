@@ -1,6 +1,6 @@
 attesterconfig:
   server: 127.0.0.1:40001
-  basevalue: ""
-  mspolicy: 2
+  basevalue: "../../../tverlib/verifier/basevalue.txt"
+  mspolicy: 1
   uuid: 1
   scenario: 0
