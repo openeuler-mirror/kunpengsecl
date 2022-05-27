@@ -5,13 +5,14 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 )
 
 const attesterCfg = `
 attesterconfig:
   server: 127.0.0.1:40001
-  basevalue: ""
-  mspolicy: 2
+  basevalue: "../../../tverlib/verifier/basevalue.txt"
+  mspolicy: 1
   uuid: 1
   scenario: 0
 `
@@ -28,20 +29,29 @@ func deleteConfigFile() {
 	_ = os.RemoveAll(configFilePath)
 }
 
+func server(addr string) error {
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	con, err := lis.Accept()
+	if err != nil {
+		return err
+	}
+	time.Sleep(2 * time.Second)
+	defer con.Close()
+	return nil
+}
+
 func TestAttester(t *testing.T) {
 	createConfigFile()
 	defer deleteConfigFile()
 	LoadConfigs()
 
-	lis, err := net.Listen("tcp", attesterConf.server)
-	if err != nil {
-		t.Errorf("Listen %s failed, err: %v\n", attesterConf.server, err)
-	}
 	go StartAttester()
 
-	con, err := lis.Accept()
+	err := server(attesterConf.server)
 	if err != nil {
-		t.Errorf("Accept connection failed: %v", err)
+		t.Errorf("Start Server failed.")
 	}
-	defer con.Close()
 }

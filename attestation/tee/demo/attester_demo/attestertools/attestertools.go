@@ -259,7 +259,6 @@ func getReport(ta *trustApp) *qapi.Buffer {
 // invoke verifier lib to verify
 func verifySig(rep *qapi.Buffer) bool {
 	var crep C.buffer_data
-	//rep = &qapi.Buffer{}
 	crep.size = C.__uint32_t(rep.Size)
 	up_rep_buf = C.CBytes(rep.Buf)
 	defer C.free(up_rep_buf)
@@ -270,16 +269,13 @@ func verifySig(rep *qapi.Buffer) bool {
 
 // invoke verifier lib to validate
 func validate(mf *qapi.Buffer, mtype int, bv string) bool {
-	_ = mtype // ignore the unused warning
 	var crep C.buffer_data
-	//mf = &qapi.Buffer{}
 	cbv := C.CString(bv)
 	defer C.free(unsafe.Pointer(cbv))
 	crep.size = C.__uint32_t(mf.Size)
 	up_mf_buf = C.CBytes(mf.Buf)
 	defer C.free(up_mf_buf)
 	crep.buf = (*C.uchar)(up_mf_buf)
-	// result := C.tee_verify(&crep, C.int(mtype), cbv)
-	result := false
-	return result
+	result := C.tee_verify(&crep, C.int(mtype), cbv)
+	return bool(result)
 }
