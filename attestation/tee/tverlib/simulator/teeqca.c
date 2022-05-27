@@ -1,6 +1,7 @@
 // a simulation of qcalib
 
 #include "teeqca.h"
+#include <string.h>
 
 /*** Set up hard-coded test case ***/
 uint8_t report1[] = {
@@ -541,53 +542,123 @@ uint8_t report2[] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, };
 
 struct ra_buffer_data report_array[2] = {
-    { // case1: report-no as
+    {// case1: report-no as
         3624,
-        report1
-    },
-    { // case2: report-as no daa
+     report1},
+    {// case2: report-as no daa
         4888,
-        report2
-    }
-};
+     report2}};
 
-TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report, bool with_tcb) {
-    int scenario = -1;
-    int result = 0;
-    scenario = param_set->buf[0];
-    switch (scenario)
+static int g_scenario = RA_SCENARIO_NO_AS; // default noas mode
+
+TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report, bool with_tcb)
+{
+    if (usr_data == NULL || param_set == NULL || report == NULL)
+    {
+        printf("input parameters have NULL pointer(s)!\n");
+        return 0xFFFF0006; // bad parameters
+    }
+
+    if (param_set->buf == NULL || param_set->size == 0)
+    {
+        printf("param_set is NULL!\n");
+        return 0xFFFF0006; // bad parameters
+    }
+
+    if (param_set->size != sizeof(uint32_t) + 1 * sizeof(struct ra_params))
+    {
+        printf("bad param_set!\n");
+        return 0xFFFF0006; // bad parameters
+    }
+
+    struct ra_params_set_t *pset = (struct ra_params_set_t *)param_set->buf;
+    if (pset->param_count != 1 || pset->params[0].tags != RA_TAG_HASH_TYPE || pset->params[0].data.integer != RA_ALG_SHA_256)
+    {
+        printf("bad param_set!\n");
+        return 0xFFFF0006; // bad parameters
+    }
+
+    switch (g_scenario)
     {
     case RA_SCENARIO_NO_AS:
         printf("Get RA_SCENARIO_NO_AS report......\n");
-        report->size = report_array[RA_SCENARIO_NO_AS].size;
-        report->buf = (uint8_t*)malloc(report->size*sizeof(uint8_t));
-        for (int i = 0; i < report->size; i++)
-        {
-            report->buf[i] = report_array[RA_SCENARIO_NO_AS].buf[i];
-        }
-        result = 1;
         break;
 
     case RA_SCENARIO_AS_NO_DAA:
         printf("Get RA_SCENARIO_AS_NO_DAA report......\n");
-        report->size = report_array[RA_SCENARIO_AS_NO_DAA].size;
-        report->buf = (uint8_t*)malloc(report->size*sizeof(uint8_t));
-        for (int i = 0; i < report->size; i++)
-        {
-            report->buf[i] = report_array[RA_SCENARIO_AS_NO_DAA].buf[i];
-        }
-        result = 1;
         break;
-    
+
     default:
         printf("Unsupported usage scenarios!\n");
+        return 0xFFFF0006; // bad parameters
+    }
+
+    if (report->size < report_array[g_scenario].size)
+    {
+        report->size = report_array[g_scenario].size;
+        return 0xFFFF0010; // short buffer
+    }
+
+    report->size = report_array[g_scenario].size;
+    memcpy(report->buf, report_array[g_scenario].buf, report->size);
+
+    return 0;
+}
+
+TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *param_set, struct ra_buffer_data *out_data)
+{
+    // parameter check
+    if (param_set == NULL || out_data == NULL)
+    {
+        printf("input parameters have NULL pointer(s)!\n");
+        return 0xFFFF0006; // bad parameters
+    }
+
+    if (scenario > 1)
+    {
+        printf("Unsupported scenario %d!\n", scenario);
+        return 0xFFFF0006; // bad parameters
+    }
+
+    if (param_set->buf == NULL || param_set->size == 0)
+    {
+        printf("param_set is NULL!\n");
+        return 0xFFFF0006; // bad parameters
+    }
+
+    if (param_set->size != sizeof(uint32_t) + 1 * sizeof(struct ra_params))
+    {
+        printf("bad param_set!\n");
+        return 0xFFFF0006; // bad parameters
+    }
+
+    struct ra_params_set_t *pset = (struct ra_params_set_t *)param_set->buf;
+    if (pset->param_count != 1 || pset->params[0].tags != RA_TAG_HASH_TYPE || pset->params[0].data.integer != RA_ALG_SHA_256)
+        {
+        printf("bad param_set!\n");
+        return 0xFFFF0006; // bad parameters
+        }
+
+    switch (scenario)
+    {
+    case RA_SCENARIO_NO_AS:
+        out_data->size = 0;
+        break;
+    case RA_SCENARIO_AS_NO_DAA:
+        if (out_data->buf == NULL)
+        {
+            printf("insurficient output buffer! suggest 4K at least.\n");
+            return 0xFFFF0006; // bad parameters
+        }
+    
+        printf("not implemented yet!\n");
+        return 0xFFFF0009; // not implemented
+    default:
         break;
     }
     
-    return result;
-}
+    g_scenario = scenario;
 
-TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *param_set, struct ra_buffer_data *out_data) {
     printf("Generate RSA AK and AK Cert success!\n");
-    return 1;
+    return 0;
 }

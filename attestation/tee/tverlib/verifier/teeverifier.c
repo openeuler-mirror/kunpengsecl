@@ -32,7 +32,7 @@ static bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key)
 static EVP_PKEY *getPubKeyFromCert(buffer_data *cert);
 static void dumpDrkCert(buffer_data *certdrk);
 static void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk);
-static bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *signak,buffer_data *signdata);
+static bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *signak, buffer_data *signdata);
 static bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
 
 EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub)
@@ -225,9 +225,10 @@ void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
 
    // dumpDrkCert(certdrk);
 }
-//getDataFromReport get some data which have akcert & signak & signdata from report
-bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *signak,buffer_data *signdata){
-   if (report->buf==NULL)
+// getDataFromReport get some data which have akcert & signak & signdata from report
+bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *signak, buffer_data *signdata)
+{
+   if (report->buf == NULL)
    {
       printf("report is null");
       return false;
@@ -244,19 +245,19 @@ bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *sign
       data_len = re->params[i].data.blob.data_len;
       switch (param_info)
       {
-         case RA_TAG_CERT_AK:
-            akcert->buf = report->buf + data_offset;
-            akcert->size = data_len;
-            break;
-         case RA_TAG_SIGN_AK:
-            signak->buf = report->buf + data_offset;
-            signak->size = data_len;
-            //get sign data
-            signdata->buf = report->buf;
-            signdata->size = data_offset;
-            break;
-         default:
-            break;
+      case RA_TAG_CERT_AK:
+         akcert->buf = report->buf + data_offset;
+         akcert->size = data_len;
+         break;
+      case RA_TAG_SIGN_AK:
+         signak->buf = report->buf + data_offset;
+         signak->size = data_len;
+         // get sign data
+         signdata->buf = report->buf;
+         signdata->size = data_offset;
+         break;
+      default:
+         break;
       }
    }
    return true;
@@ -318,8 +319,8 @@ bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdr
 bool tee_verify_signature(buffer_data *report)
 {
    // get akcert signak signdata from report
-   buffer_data akcert,signak, signdata;
-   int rt = getDataFromReport(report,&akcert,&signak,&signdata);
+   buffer_data akcert, signak, signdata;
+   int rt = getDataFromReport(report, &akcert, &signak, &signdata);
    if (!rt)
    {
       printf("get Data From Report is failed\n");
@@ -350,10 +351,14 @@ void file_error(const char *s)
 
 void test_print(uint8_t *printed, int printed_size, char *printed_name)
 {
-   printf("%s:", printed_name);
+   printf("%s:\n", printed_name);
    for (int i = 0; i < printed_size; i++)
    {
       printf("%02X", printed[i]);
+      if (i % 32 == 31)
+      {
+         printf("\n");
+      }
    }
    printf("\n");
 };
@@ -424,7 +429,7 @@ TA_report *Convert(buffer_data *data)
    for (int i = 0; i < param_count; i++)
    {
       uint32_t param_type = (bufreport->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
-      uint32_t param_info = bufreport->params[i].tags; 
+      uint32_t param_info = bufreport->params[i].tags;
       if (param_type == 1)
       {
          switch (param_info)
@@ -463,7 +468,7 @@ TA_report *Convert(buffer_data *data)
             memcpy(report->reserve, data->buf + data_offset, data_len);
             break;
          case RA_TAG_SIGN_AK:
-            report->signature = (buffer_data*)malloc(sizeof(buffer_data));
+            report->signature = (buffer_data *)malloc(sizeof(buffer_data));
             report->signature->buf = (uint8_t *)malloc(sizeof(uint8_t) * data_len);
             report->signature->size = data_len;
             memcpy(report->signature->buf, data->buf + data_offset, data_len);
@@ -766,6 +771,6 @@ void save_basevalue(const base_value *bv)
    printf("%s\n", bvbuf);
 
    FILE *fp_output = fopen("basevalue.txt", "w");
-   fwrite(bvbuf, sizeof(bvbuf), 1, fp_output);
+   fwrite(bvbuf, strnlen(bvbuf, sizeof(bvbuf)), 1, fp_output);
    fclose(fp_output);
 }

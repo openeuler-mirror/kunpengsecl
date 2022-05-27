@@ -7,19 +7,11 @@ service Qca {
 }
 
 message GetReportRequest {
-    int64 uuid = 1;
-    buffer usr_data = 2;
-    buffer param_set = 3;
-    buffer report = 4;
-    bool with_tcb = 5;
+    bytes uuid = 1;
+    bytes nonce = 2;
+    bool with_tcb = 3;
 }
 
 message GetReportReply {
-    buffer tee_report = 1;
-    bytes nonce = 2;
-}
-
-message buffer {
-    uint32 size = 1;
-    bytes buf = 2;
+    bytes tee_report = 1;
 }

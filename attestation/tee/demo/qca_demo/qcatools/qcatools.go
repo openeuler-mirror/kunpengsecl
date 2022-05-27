@@ -5,6 +5,33 @@ package qcatools
 #cgo CFLAGS: -I../../../tverlib/simulator
 #cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lteeqca -Wl,-rpath=${SRCDIR}/../../../tverlib/simulator
 #include "../../../tverlib/simulator/teeqca.h"
+
+static uint8_t *createParamSet(uint32_t count) {
+	uint8_t *buf = malloc(sizeof(uint32_t) + count * sizeof(struct ra_params));
+	if (buf == NULL)
+		return NULL;
+	struct ra_params_set_t *pset = (struct ra_params_set_t *)buf;
+	pset->param_count = count;
+    return buf;
+}
+
+static uint8_t *fillParamSetInteger(uint8_t *ps, uint32_t idx, uint32_t value) {
+	struct ra_params_set_t *pset = (struct ra_params_set_t *)ps;
+	pset->params[idx].tags = RA_TAG_HASH_TYPE;
+	pset->params[idx].data.integer = value;
+	return ps;
+}
+
+static uint8_t *generateParamSetBuffer() {
+	uint8_t *buf = createParamSet(1);
+	fillParamSetInteger(buf, 0, RA_ALG_SHA_256);
+	return buf;
+}
+
+static uint32_t getParamSetBufferSize(uint8_t *buf) {
+	struct ra_params_set_t *pset = (struct ra_params_set_t *)buf;
+	return sizeof(uint32_t) + pset->param_count * sizeof(struct ra_params);
+}
 */
 import "C"
 
@@ -36,7 +63,7 @@ type (
 
 var (
 	// store C data which convert from Go
-	c_ta_uuid   C.__int64_t
+	c_ta_uuid   C.TEEC_UUID = C.TEEC_UUID{}
 	c_usr_data  C.struct_ra_buffer_data = C.struct_ra_buffer_data{}
 	c_param_set C.struct_ra_buffer_data = C.struct_ra_buffer_data{}
 	c_report    C.struct_ra_buffer_data = C.struct_ra_buffer_data{}
@@ -51,9 +78,9 @@ var (
 	up_report_buf    unsafe.Pointer
 
 	// Store Go data transfer to C
-	Usrdata  *Go_ra_buffer_data = &Go_ra_buffer_data{}
-	Paramset *Go_ra_buffer_data = &Go_ra_buffer_data{}
-	Report   *Go_ra_buffer_data = &Go_ra_buffer_data{}
+	Usrdata  []byte = []byte{}
+	Paramset []byte = []byte{}
+	Report   []byte = make([]byte, 8192)
 
 	// server side config
 	qcacfg       *qcaConfig = nil
@@ -83,49 +110,63 @@ func LoadConfigs() {
 	qcacfg.server = viper.GetString(Server)
 }
 
-func GetTAReport(ta_uuid int64, usr_data *Go_ra_buffer_data, param_set *Go_ra_buffer_data, report *Go_ra_buffer_data, with_tcb bool) (*Go_ra_buffer_data, []byte) {
+func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte) {
 	// format conversion: Go -> C
-	c_ta_uuid = C.__int64_t(ta_uuid)
+	c_ta_uuid := C.CBytes(ta_uuid) 
+	defer C.free(c_ta_uuid)
 
-	c_usr_data.size = C.__uint32_t(usr_data.Size)
-	up_usr_data_buf = C.CBytes(usr_data.Buf)
+	c_usr_data.size = C.__uint32_t(len(usr_data))
+	up_usr_data_buf = C.CBytes(usr_data)
 	c_usr_data.buf = (*C.uchar)(up_usr_data_buf)
 	defer C.free(up_usr_data_buf)
 
-	c_param_set.size = C.__uint32_t(param_set.Size)
-	up_param_set_buf = C.CBytes(param_set.Buf)
-	c_param_set.buf = (*C.uchar)(up_param_set_buf)
-	defer C.free(up_param_set_buf)
+	c_param_set := C.struct_ra_buffer_data{}
+	c_param_set.buf = C.generateParamSetBuffer()
+	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
+	defer C.free(unsafe.Pointer(c_param_set.buf))
 
-	c_report.size = C.__uint32_t(report.Size)
-	up_report_buf = C.CBytes(report.Buf)
+	// c_param_set.size = C.__uint32_t(param_set.Size)
+	// up_param_set_buf = C.CBytes(param_set.Buf)
+	//c_param_set.buf = (*C.uchar)(up_param_set_buf)
+	// defer C.free(up_param_set_buf)
+
+	c_report.size = C.__uint32_t(len(Report))
+	up_report_buf = C.CBytes(Report)
 	c_report.buf = (*C.uchar)(up_report_buf)
 	defer C.free(up_report_buf)
 
 	c_with_tcb = C.bool(with_tcb)
 
-	teec_result = C.RemoteAttestReport(c_ta_uuid, &c_usr_data, &c_param_set, &c_report, c_with_tcb) // can not put Go pointer as parameter in C function!!!
-	if int(teec_result) == 0 {
+	teec_result = C.RemoteAttestReport(*(*C.TEEC_UUID)(c_ta_uuid), &c_usr_data, &c_param_set, &c_report, c_with_tcb) // can not put Go pointer as parameter in C function!!!
+	if int(teec_result) != 0 {
 		log.Print("Get TA report failed!")
-		return nil, nil
+		return nil
 	}
 
 	// format conversion: C -> Go
-	report.Size = uint32(c_report.size)
-	report.Buf = []uint8(C.GoBytes(unsafe.Pointer(c_report.buf), C.int(report.Size)))
+	Report = []uint8(C.GoBytes(unsafe.Pointer(c_report.buf), C.int(c_report.size)))
 
 	// log.Print("Get TA report success:\n")
 	// for i := 0; i < int(report.Size); i++ {
 	// 	fmt.Printf("index%d is 0x%x; ", i, report.Buf[i])
 	// }
 
-	nonce = append(nonce, usr_data.Buf...)
+	return Report
+}
 
-	return report, nonce
+func provisionNoAS() int {
+	c_param_set := C.struct_ra_buffer_data{}
+	c_out := C.struct_ra_buffer_data{}
+	c_param_set.buf = C.generateParamSetBuffer()
+	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
+	c_out.size = 0
+	result := C.RemoteAttestProvision(0, &c_param_set, &c_out)
+	C.free(unsafe.Pointer(c_param_set.buf))
+	return int(result)
 }
 
 func handleConnection(c net.Conn) {
-	result := C.RemoteAttestProvision(0, nil, nil)
+	result := provisionNoAS()
 	if result == 0 {
 		log.Print("Generate RSA AK and AK Cert failed!")
 		return
