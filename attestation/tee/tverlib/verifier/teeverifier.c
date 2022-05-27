@@ -16,6 +16,7 @@ static void str2hex(const char *source, int source_len, uint8_t *dest);
 static char *file_to_buffer(char *file, size_t *file_length);
 static bool Compare(int type, TA_report *report, base_value *basevalue);
 static bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size);
+static void free_report(TA_report *report);
 static void test_print(uint8_t *printed, int printed_size, char *printed_name);
 static void save_basevalue(const base_value *bv);
 
@@ -357,6 +358,18 @@ void test_print(uint8_t *printed, int printed_size, char *printed_name)
    printf("\n");
 };
 
+void free_report(TA_report *report)
+{
+   if(report->signature != NULL){
+      free(report->signature);
+      report->signature = NULL;
+   }
+   if(report->cert != NULL){
+      free(report->cert);
+      report->cert = NULL;
+   }
+};
+
 bool tee_verify(buffer_data *bufdata, int type, char *filename)
 {
    TA_report *report = Convert(bufdata);
@@ -379,7 +392,7 @@ bool tee_verify(buffer_data *bufdata, int type, char *filename)
    {
       printf("%s\n", "Verification failed!");
    }
-
+   free_report(report);
    free(report);
    free(baseval);
    return verified;
