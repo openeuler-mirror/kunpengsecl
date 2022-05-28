@@ -37,18 +37,28 @@ import "C"
 
 import (
 	"log"
-	"net"
-	"time"
 	"unsafe"
 
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 const (
+	// config info
 	ConfName = "config"
 	ConfExt  = "yaml"
 	strPath  = "."
 	Server   = "qcaconfig.server"
+	Scenario = "qcaconfig.scenario"
+	/*** cmd flags ***/
+	// server open ip:port
+	lflagServer = "server"
+	sflagServer = "S"
+	helpServer  = "specify the IP address of the port can be connected"
+	// app usage scenario
+	lflagScenario = "scenario"
+	sflagScenario = "C"
+	helpScenario  = "set the app usage scenario"
 )
 
 type (
@@ -57,13 +67,14 @@ type (
 		Buf  []uint8
 	}
 	qcaConfig struct {
-		server string
+		Server   string
+		Scenario int
 	}
 )
 
 var (
 	// store C data which convert from Go
-	c_ta_uuid   C.TEEC_UUID = C.TEEC_UUID{}
+	c_ta_uuid   C.TEEC_UUID             = C.TEEC_UUID{}
 	c_usr_data  C.struct_ra_buffer_data = C.struct_ra_buffer_data{}
 	c_param_set C.struct_ra_buffer_data = C.struct_ra_buffer_data{}
 	c_report    C.struct_ra_buffer_data = C.struct_ra_buffer_data{}
@@ -83,20 +94,30 @@ var (
 	Report   []byte = make([]byte, 8192)
 
 	// server side config
-	qcacfg       *qcaConfig = nil
+	Qcacfg       *qcaConfig = nil
 	defaultPaths            = []string{
 		strPath,
 	}
+	ServerFlag   *string = nil
+	ScenarioFlag *int    = nil
 
 	// nonce value for defending against replay attacks
 	nonce []byte
 )
 
+func InitFlags() {
+	log.Print("Init qca flags......")
+	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
+	ScenarioFlag = pflag.IntP(lflagScenario, sflagScenario, 0, helpScenario)
+	pflag.Parse()
+}
+
 func LoadConfigs() {
-	if qcacfg != nil {
+	log.Print("Load qca Configs......")
+	if Qcacfg != nil {
 		return
 	}
-	qcacfg = &qcaConfig{}
+	Qcacfg = &qcaConfig{}
 	viper.SetConfigName(ConfName)
 	viper.SetConfigType(ConfExt)
 	for _, s := range defaultPaths {
@@ -107,12 +128,24 @@ func LoadConfigs() {
 		log.Printf("Read config file failed! %v", err)
 		return
 	}
-	qcacfg.server = viper.GetString(Server)
+	Qcacfg.Server = viper.GetString(Server)
+	Qcacfg.Scenario = viper.GetInt(Scenario)
 }
 
-func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte) {
+func HandleFlags() {
+	log.Print("Handle qca flags......")
+
+	if ServerFlag != nil && *ServerFlag != "" {
+		Qcacfg.Server = *ServerFlag
+	}
+	if ScenarioFlag != nil && *ScenarioFlag != 0 {
+		Qcacfg.Scenario = *ScenarioFlag
+	}
+}
+
+func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	// format conversion: Go -> C
-	c_ta_uuid := C.CBytes(ta_uuid) 
+	c_ta_uuid := C.CBytes(ta_uuid)
 	defer C.free(c_ta_uuid)
 
 	c_usr_data.size = C.__uint32_t(len(usr_data))
@@ -160,42 +193,19 @@ func provisionNoAS() int {
 	c_param_set.buf = C.generateParamSetBuffer()
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
 	c_out.size = 0
-	result := C.RemoteAttestProvision(0, &c_param_set, &c_out)
+
+	// set app scenario
+	c_scenario := C.uint(Qcacfg.Scenario)
+
+	result := C.RemoteAttestProvision(c_scenario, &c_param_set, &c_out)
 	C.free(unsafe.Pointer(c_param_set.buf))
 	return int(result)
 }
 
-func handleConnection(c net.Conn) {
+func HandleConnection() {
 	result := provisionNoAS()
-	if result == 0 {
+	if result != 0 {
 		log.Print("Generate RSA AK and AK Cert failed!")
 		return
 	}
-	c.Close()
-}
-
-func StartServer() {
-	log.Print("Start Server......")
-	listen, err := net.Listen("tcp", qcacfg.server)
-	if err != nil {
-		log.Printf("Listen %s failed, err: %v\n", qcacfg.server, err)
-		return
-	}
-
-	for {
-		conn, err := listen.Accept()
-		if err != nil {
-			log.Printf("Accept connection failed: %v", err)
-			time.Sleep(3 * time.Second)
-			continue
-		}
-		if conn != nil {
-			log.Printf("Connection %s success!", qcacfg.server)
-
-			handleConnection(conn)
-			break
-		}
-	}
-
-	log.Print("Stop Server......")
 }

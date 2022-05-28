@@ -12,14 +12,13 @@ import (
 	"context"
 	"crypto/rand"
 	"log"
-	"net"
 	"os"
 	"unsafe"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
+	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/google/uuid"
 )
 
 const (
@@ -45,10 +44,6 @@ const (
 	lflagUuid = "uuid"
 	sflagUuid = "U"
 	helpUuid  = "specify the QTA to be verifier"
-	// app usage scenario
-	lflagScenario = "scenario"
-	sflagScenario = "C"
-	helpScenario  = "set the app usage scenario"
 	// app name
 	appAttester = "attester"
 	// config file name
@@ -61,33 +56,31 @@ const (
 	Basevalue = "attesterconfig.basevalue"
 	Mspolicy  = "attesterconfig.mspolicy"
 	Uuid      = "attesterconfig.uuid"
-	Scenario  = "attesterconfig.scenario"
 )
 
 type (
 	trustApp struct {
-		ctx      context.Context
-		uuid     []byte
-		usrdata  []byte
-		report   []byte
-		withtcb  bool
+		ctx     context.Context
+		uuid    []byte
+		usrdata []byte
+		report  []byte
+		withtcb bool
 	}
 	attesterConfig struct {
 		server    string
 		basevalue string
 		mspolicy  int
 		uuid      string
-		scenario  int
 	}
 )
 
 var (
 	test_ta *trustApp = &trustApp{
-		ctx:      context.Background(),
-		uuid:     []byte{},
-		usrdata:  []byte{},
-		report:   []byte{},
-		withtcb:  false,
+		ctx:     context.Background(),
+		uuid:    []byte{},
+		usrdata: []byte{},
+		report:  []byte{},
+		withtcb: false,
 	}
 	verify_result bool = false
 	defaultPaths       = []string{
@@ -98,25 +91,23 @@ var (
 	BasevalueFlag *string         = nil
 	MspolicyFlag  *int            = nil
 	UuidFlag      *string         = nil
-	ScenarioFlag  *int            = nil
 	attesterConf  *attesterConfig = nil
 	up_rep_buf    unsafe.Pointer
 	up_mf_buf     unsafe.Pointer
 )
 
 func InitFlags() {
-	log.Print("Init flags......")
+	log.Print("Init attester flags......")
 	VersionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
 	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
 	BasevalueFlag = pflag.StringP(lflagBasevalue, sflagBasevalue, "", helpBasevalue)
 	MspolicyFlag = pflag.IntP(lflagMeasure, sflagMeasure, -1, helpMeasure)
 	UuidFlag = pflag.StringP(lflagUuid, sflagUuid, "", helpUuid)
-	ScenarioFlag = pflag.IntP(lflagScenario, sflagScenario, 0, helpScenario)
 	pflag.Parse()
 }
 
 func LoadConfigs() {
-	log.Print("Load Configs......")
+	log.Print("Load attester Configs......")
 	if attesterConf != nil {
 		return
 	}
@@ -135,11 +126,10 @@ func LoadConfigs() {
 	attesterConf.basevalue = viper.GetString(Basevalue)
 	attesterConf.mspolicy = viper.GetInt(Mspolicy)
 	attesterConf.uuid = viper.GetString(Uuid)
-	attesterConf.scenario = viper.GetInt(Scenario)
 }
 
 func HandleFlags() {
-	log.Print("Handle flags......")
+	log.Print("Handle attester flags......")
 	if VersionFlag != nil && *VersionFlag {
 		log.Printf("TEE Remote Attester: %s\n", attesterVersion)
 		os.Exit(0)
@@ -160,41 +150,26 @@ func HandleFlags() {
 		attesterConf.uuid = *UuidFlag
 		log.Printf("TEE Uuid: %s", attesterConf.uuid) // just for test!
 	}
-	if ScenarioFlag != nil && *ScenarioFlag != 0 {
-		attesterConf.scenario = *ScenarioFlag
-		log.Printf("TEE Scenario: %d", attesterConf.scenario)
-	}
 }
 
 func StartAttester() {
 	log.Print("Start Attester......")
-	conn, err := net.Dial("tcp", attesterConf.server)
+	test_ta, err := iniTAParameter(test_ta)
 	if err != nil {
-		log.Printf("Dial %s failed, err: %v", attesterConf.server, err)
-		return
+		log.Printf("Init TA parameter failed! %v", err)
 	}
-	defer conn.Close()
-	if conn != nil {
-		log.Printf("Connection %s success!", attesterConf.server)
-		test_ta, err = iniTAParameter(test_ta)
-		if err != nil {
-			log.Printf("Init TA parameter failed! %v", err)
-		}
-		test_ta.report = getReport(test_ta)
-		verify_result = verifySig(test_ta.report)
-		if !verify_result {
-			log.Print("Verify signature failed!")
-		} else {
-			log.Print("Verify signature success!")
-		}
-		verify_result = validate(test_ta.report, attesterConf.mspolicy, attesterConf.basevalue)
-		if !verify_result {
-			log.Print("validate failed!")
-		} else {
-			log.Print("validate success!")
-		}
+	test_ta.report = getReport(test_ta)
+	verify_result = verifySig(test_ta.report)
+	if !verify_result {
+		log.Print("Verify signature failed!")
 	} else {
-		log.Printf("Connection %s failed!", attesterConf.server)
+		log.Print("Verify signature success!")
+	}
+	verify_result = validate(test_ta.report, attesterConf.mspolicy, attesterConf.basevalue)
+	if !verify_result {
+		log.Print("validate failed!")
+	} else {
+		log.Print("validate success!")
 	}
 
 	log.Print("Stop Attester......")
@@ -218,12 +193,12 @@ func iniTAParameter(ta *trustApp) (*trustApp, error) {
 // remote invoke qca api to get the TA's info
 func getReport(ta *trustApp) []byte {
 	reqID := qapi.GetReportRequest{
-		Uuid:     ta.uuid,
-		Nonce:    ta.usrdata,
-		WithTcb:  ta.withtcb,
+		Uuid:    ta.uuid,
+		Nonce:   ta.usrdata,
+		WithTcb: ta.withtcb,
 	}
 
-	rpyID, err := qapi.DoGetReport(ta.ctx, &reqID)
+	rpyID, err := qapi.DoGetTeeReport(attesterConf.server, &reqID)
 	if err != nil {
 		log.Printf("Get TA infomation failed, error: %v", err)
 		return ta.report
