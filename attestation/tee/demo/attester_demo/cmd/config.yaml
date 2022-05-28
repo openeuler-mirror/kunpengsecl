@@ -3,4 +3,3 @@ attesterconfig:
   basevalue: "../../../tverlib/verifier/basevalue.txt"
   mspolicy: 2
   uuid: 1B0019DC2-13CD-5A40-99F9-06343DFBE691
-  scenario: 0
