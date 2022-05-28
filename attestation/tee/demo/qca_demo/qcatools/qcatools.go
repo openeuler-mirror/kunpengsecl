@@ -3,7 +3,7 @@ package qcatools
 
 /*
 #cgo CFLAGS: -I../../../tverlib/simulator
-#cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lteeqca -Wl,-rpath=${SRCDIR}/../../../tverlib/simulator
+#cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lqca -Wl,-rpath=${SRCDIR}/../../../tverlib/simulator -lteec
 #include "../../../tverlib/simulator/teeqca.h"
 
 static uint8_t *createParamSet(uint32_t count) {
@@ -91,7 +91,7 @@ var (
 	// Store Go data transfer to C
 	Usrdata  []byte = []byte{}
 	Paramset []byte = []byte{}
-	Report   []byte = make([]byte, 8192)
+	Report   []byte = make([]byte, 0x4000)
 
 	// server side config
 	Qcacfg       *qcaConfig = nil
@@ -143,8 +143,21 @@ func HandleFlags() {
 	}
 }
 
+func reverseEndian(num []byte) {
+	for i := 0; i < len(num)/2; i++ {
+		num[i], num[len(num)-1-i] = num[len(num)-1-i], num[i]
+	}
+}
+
+func adapt2TAUUID(uuid []byte) {
+	reverseEndian(uuid[:4])
+	reverseEndian(uuid[4:6])
+	reverseEndian(uuid[6:8])
+}
+
 func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	// format conversion: Go -> C
+	adapt2TAUUID(ta_uuid)
 	c_ta_uuid := C.CBytes(ta_uuid)
 	defer C.free(c_ta_uuid)
 
@@ -192,12 +205,13 @@ func provisionNoAS() int {
 	c_out := C.struct_ra_buffer_data{}
 	c_param_set.buf = C.generateParamSetBuffer()
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
-	c_out.size = 0
-
+	c_out.size = 0x2000
+	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 	// set app scenario
 	c_scenario := C.uint(Qcacfg.Scenario)
 
 	result := C.RemoteAttestProvision(c_scenario, &c_param_set, &c_out)
+	C.free(unsafe.Pointer(c_out.buf))
 	C.free(unsafe.Pointer(c_param_set.buf))
 	return int(result)
 }
