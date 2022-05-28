@@ -131,11 +131,43 @@ go run main.go
 ```c
 bool tee_verify_signature(buffer_data *report);
 ```
-接口描述：验证报告签名和证书
+接口描述：验证报告签名和证书有效性
+包括例如使用DRK证书对签名数据进行验签(noas)
 
-参数1：可信报告缓冲区指针
+参数：可信报告缓冲区
 
 返回值：验证结果（true or false）
+
+### ak_cert对应的固定字段、属性字段和数据字段
+注：如果为noas情况，需要将akcert转换成如下的数据类型，从中获取到对应的ak_pub、sign_drk以及cert_drk等数据
+
+```c
+#define KEY_PURPOSE_SIZE 32
+struct ak_cert
+{
+    uint32_t version;
+    uint64_t ts;
+    char purpose[KEY_PURPOSE_SIZE];
+    uint32_t param_count;
+    struct ra_params params[0];
+    /* following buffer data:
+     * (1)qta_img_hash []
+     * (2)qta_mem_hash []
+     * (3)reserverd []
+     * (4)ak_pub []
+     * (5)sign_drk []
+     * (6)cert_drk []
+     */
+} __attribute__((__packed__));
+```
+## 验证过程
+1.通过传入的缓冲区类型的report解析出对应的结构体类型的报告
+
+2.使用DRK证书对sign_drk进行验签（noas情况）
+
+3.从akcert中获取akpub对sign_ak进行验签
+
+4.返回验签结果
 
 ```c
 bool tee_verify(buffer_data *buf_data, int type, char *filename);

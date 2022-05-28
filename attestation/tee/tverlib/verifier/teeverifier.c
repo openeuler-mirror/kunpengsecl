@@ -21,7 +21,7 @@ static void test_print(uint8_t *printed, int printed_size, char *printed_name);
 static void save_basevalue(const base_value *bv);
 
 // interface
-bool VerifySignature(buffer_data *report);
+bool tee_verify_signature(buffer_data *report);
 
 static bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
 static bool translateBuf(buffer_data report, TA_report *tareport);
@@ -262,7 +262,7 @@ bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *si
    }
    return true;
 }
-
+//get some data which have signdata signdrk certdrk and akpub from akcert
 bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub)
 {
    if (akcert->size <= 0)
