@@ -180,6 +180,12 @@ bool tee_verify(buffer_data *buf_data, int type, char *filename);
 
 参数3：基准值文件路径
 
+上述**基准值文件**的**格式要求**：
+
+basevalue文件以十六进制字符串的形式存储基准值记录
+
+每一条basevalue记录分为三项：uuid、image-hash、hash，项与项之间用空格间隔，记录之间用换行间隔
+
 返回值：验证结果（true or false）
 
 由于**VERIFIER_LIB**是以C语言编写的，因此demo程序需要基于CGO机制实现对C接口的调用
