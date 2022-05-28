@@ -262,7 +262,7 @@ bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *si
    }
    return true;
 }
-//get some data which have signdata signdrk certdrk and akpub from akcert
+// get some data which have signdata signdrk certdrk and akpub from akcert
 bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub)
 {
    if (akcert->size <= 0)
@@ -365,11 +365,13 @@ void test_print(uint8_t *printed, int printed_size, char *printed_name)
 
 void free_report(TA_report *report)
 {
-   if(report->signature != NULL){
+   if (report->signature != NULL)
+   {
       free(report->signature);
       report->signature = NULL;
    }
-   if(report->cert != NULL){
+   if (report->cert != NULL)
+   {
       free(report->cert);
       report->cert = NULL;
    }
@@ -561,13 +563,18 @@ base_value *LoadBaseValue(const TA_report *report, char *filename)
    return baseval;
 }
 
+void reverse(uint8_t *bytes, int size)
+{
+   for (int i = 0; i < size / 2; i++)
+   {
+      int tmp = bytes[i];
+      bytes[i] = bytes[size - 1 - i];
+      bytes[size - 1 - i] = tmp;
+   }
+}
+
 void str_to_uuid(const char *str, uint8_t *uuid)
 {
-   //  char substr1[8];
-   //  char substr2[4];
-   //  char substr3[4];
-   //  char substr4[4];
-   //  char substr5[12];
    char substr1[9];
    char substr2[5];
    char substr3[5];
@@ -576,24 +583,34 @@ void str_to_uuid(const char *str, uint8_t *uuid)
    // 8-4-4-4-12
    sscanf(str, "%8[^-]-%4[^-]-%4[^-]-%4[^-]-%12[^-]", substr1, substr2, substr3, substr4, substr5);
    str2hex(substr1, 8, uuid);
+   reverse(uuid, 4);
    str2hex(substr2, 4, uuid + 4);
+   reverse(uuid + 4, 2);
    str2hex(substr3, 4, uuid + 4 + 2);
+   reverse(uuid + 4 + 2, 2);
    str2hex(substr4, 4, uuid + 4 + 2 + 2);
    str2hex(substr5, 12, uuid + 4 + 2 + 2 + 2);
 }
 
 void uuid_to_str(const uint8_t *uuid, char *str)
 {
+   uint8_t tmp[4];
    // 8-
-   hex2str(uuid, 4, str);
+   memcpy(tmp, uuid, 4);
+   reverse(tmp, 4);
+   hex2str(tmp, 4, str);
    strcpy(str + 4 * 2, "-");
    //  str[4*2] = "-";
    // 8-4-
-   hex2str(uuid + 4, 2, str + 9);
+   memcpy(tmp, uuid + 4, 2);
+   reverse(tmp, 2);
+   hex2str(tmp, 2, str + 9);
    strcpy(str + 9 + 2 * 2, "-");
    //  str[9+2*2] = "-";
    // 8-4-4-
-   hex2str(uuid + 4 + 2, 2, str + 14);
+   memcpy(tmp, uuid + 4 + 2, 2);
+   reverse(tmp, 2);
+   hex2str(tmp, 2, str + 14);
    strcpy(str + 14 + 2 * 2, "-");
    //  str[14+2*2] = "-";
    // 8-4-4-4-
@@ -707,7 +724,14 @@ char *file_to_buffer(char *file, size_t *file_length)
 bool Compare(int type, TA_report *report, base_value *basevalue)
 {
    bool compared;
-
+   /*
+      test_print(report->image_hash, HASH_SIZE, "report->image_hash");
+      test_print(report->hash, HASH_SIZE, "report->hash");
+      test_print(basevalue->valueinfo[0], HASH_SIZE, "basevalue->valueinfo[0]");
+      test_print(basevalue->valueinfo[1], HASH_SIZE, "basevalue->valueinfo[1]");
+      test_print(report->uuid, 16, "report->uuid");
+      test_print(basevalue->uuid, 16, "basevalue->uuid");
+   */
    switch (type)
    {
    case 1:
