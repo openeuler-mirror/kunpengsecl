@@ -91,7 +91,7 @@ var (
 	// Store Go data transfer to C
 	Usrdata  []byte = []byte{}
 	Paramset []byte = []byte{}
-	Report   []byte = make([]byte, 0x4000)
+	Report   []byte = []byte{}
 
 	// server side config
 	Qcacfg       *qcaConfig = nil
@@ -176,8 +176,8 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	//c_param_set.buf = (*C.uchar)(up_param_set_buf)
 	// defer C.free(up_param_set_buf)
 
-	c_report.size = C.__uint32_t(len(Report))
-	up_report_buf = C.CBytes(Report)
+	c_report.size = 0x4000
+	up_report_buf = C.malloc(C.ulong(c_report.size))
 	c_report.buf = (*C.uchar)(up_report_buf)
 	defer C.free(up_report_buf)
 
