@@ -449,7 +449,7 @@ TA_report *Convert(buffer_data *data)
          uint32_t data_offset = bufreport->params[i].data.blob.data_offset;
          uint32_t data_len = bufreport->params[i].data.blob.data_len;
 
-         if (data_offset > data->size || data_offset == 0)
+         if ((data_offset + data_len)> data->size || data_offset == 0)
          {
             char *error_msg = NULL;
             sprintf(error_msg, "2-%u offset error", param_info);
