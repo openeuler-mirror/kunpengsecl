@@ -23,7 +23,6 @@ static void save_basevalue(const base_value *bv);
 // signature part
 static bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
 static bool translateBuf(buffer_data report, TA_report *tareport);
-static bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
 static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
 static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
 static bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key);
@@ -179,9 +178,6 @@ bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert, int scen
 
 void dumpDrkCert(buffer_data *certdrk)
 {
-   for (int i = 0; i < certdrk->size; i++)
-      printf("%c", certdrk->buf[i]);
-   printf("\n");
    FILE *f = fopen("drk.crt", "wb");
    if (!f)
    {
@@ -236,34 +232,43 @@ bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *si
    uint32_t data_offset;
    uint32_t data_len;
    uint32_t param_count = re->param_count;
+   if(param_count <= 0){
+         return false;
+      }
    for (int i = 0; i < param_count; i++)
    {
       uint32_t param_info = re->params[i].tags;
-      data_offset = re->params[i].data.blob.data_offset;
-      data_len = re->params[i].data.blob.data_len;
-      switch (param_info)
-      {
-      case RA_TAG_CERT_AK:
-         akcert->buf = report->buf + data_offset;
-         akcert->size = data_len;
-         break;
-      case RA_TAG_SIGN_AK:
-         signak->buf = report->buf + data_offset;
-         signak->size = data_len;
-         // get sign data
-         signdata->buf = report->buf;
-         signdata->size = data_offset;
-         break;
-      default:
-         break;
-      }
+      uint32_t param_type = (re->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
+      if(param_type == 2){
+         data_offset = re->params[i].data.blob.data_offset;
+         data_len = re->params[i].data.blob.data_len;
+         if(data_offset + data_len > report->size){
+            return false;
+         }
+         switch (param_info)
+         {
+         case RA_TAG_CERT_AK:
+            akcert->buf = report->buf + data_offset;
+            akcert->size = data_len;
+            break;
+         case RA_TAG_SIGN_AK:
+            signak->buf = report->buf + data_offset;
+            signak->size = data_len;
+            // get sign data
+            signdata->buf = report->buf;
+            signdata->size = data_offset;
+            break;
+         default:
+            break;
+         }
+      } 
    }
    return true;
 }
 // get some data which have signdata signdrk certdrk and akpub from akcert
 bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub)
 {
-   if (akcert->size <= 0)
+   if (akcert->buf == NULL)
    {
       printf("akcert is null");
       return false;
@@ -273,44 +278,41 @@ bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdr
    uint32_t data_offset;
    uint32_t data_len;
    uint32_t param_count = ak->param_count;
+   
+   if(param_count <= 0){
+      return false;
+   }
    for (int i = 0; i < param_count; i++)
    {
-      // uint32_t param_type = (ak->params[i].tags & 0xf0000000) >> 28;
-      // printf("type: %d ",param_type);
       uint32_t param_info = ak->params[i].tags;
-      data_offset = ak->params[i].data.blob.data_offset;
-      data_len = ak->params[i].data.blob.data_len;
-      switch (param_info)
-      {
-      case RA_TAG_SIGN_TYPE:
-
-         // printf("sign type: %x\n",ak->params[i].data.integer);
-         break;
-      case RA_TAG_HASH_TYPE:
-         // printf("hash type: %x\n",ak->params[i].data.integer);
-         break;
-      case RA_TAG_AK_PUB:
-         akpub->buf = akcert->buf + data_offset;
-         akpub->size = data_len;
-         break;
-      case RA_TAG_SIGN_DRK:
-         signdrk->buf = akcert->buf + data_offset;
-         signdrk->size = data_len;
-         // get sign data
-         signdata->size = data_offset; // signdrk 的offset之前都是被签名的数据
-         signdata->buf = akcert->buf;
-         // printf("signdata len:%d\n",data_offset);
-         break;
-      case RA_TAG_CERT_DRK:
-         // printf("certdrk len %d\n",certdrk->size);
-         restorePEMCert(akcert->buf + data_offset, data_len, certdrk);
-         break;
-
-      default:
-         break;
+      uint32_t param_type = (ak->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
+      if(param_type==2){
+         data_offset = ak->params[i].data.blob.data_offset;
+         data_len = ak->params[i].data.blob.data_len;
+         if(data_offset + data_len > akcert->size){
+            return false;
+         }
+         switch (param_info)
+         {
+         case RA_TAG_AK_PUB:
+            akpub->buf = akcert->buf + data_offset;
+            akpub->size = data_len;
+            break;
+         case RA_TAG_SIGN_DRK:
+            signdrk->buf = akcert->buf + data_offset;
+            signdrk->size = data_len;
+            // get sign data
+            signdata->size = data_offset; // signdrk 的offset之前都是被签名的数据
+            signdata->buf = akcert->buf;
+            break;
+         case RA_TAG_CERT_DRK:
+            restorePEMCert(akcert->buf + data_offset, data_len, certdrk);
+            break;
+         default:
+            break;
+         }
       }
    }
-
    return true;
 }
 
@@ -318,7 +320,7 @@ bool tee_verify_signature(buffer_data *report)
 {
    // get akcert signak signdata from report
    buffer_data akcert, signak, signdata;
-   int rt = getDataFromReport(report, &akcert, &signak, &signdata);
+   bool rt = getDataFromReport(report, &akcert, &signak, &signdata);
    if (!rt)
    {
       printf("get Data From Report is failed\n");

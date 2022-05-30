@@ -1,5 +1,19 @@
 #include "teeverifier.c"
-
+void TestgetData(buffer_data *report){
+    buffer_data akcert,signak,signdata;
+    bool rt = getDataFromReport(report,&akcert,&signak,&signdata);
+    if(!rt){
+        printf("test get data from report is failed\n");
+        return;
+    }
+    EVP_PKEY *key;
+    if((key = getPubKeyFromDrkIssuedCert(&akcert))==NULL){
+        printf("test get PubKey From Drk Issued Cert is failed\n");
+        return;
+    }
+    printf("test success\n");
+    return;
+}
 int main()
 {
     // test getDrkPubFromCertDrk
@@ -3639,10 +3653,7 @@ int main()
     bufdata.buf = report;
     bufdata.size = data_len;
     buffer_data test;
-    //    rt = TestgetAkSignFromReport(&bufdata);
-    //    if(!rt){
-    //        printf("getDrkPubFromCertDrk is failed!\n");
-    //    }
+    TestgetData(&bufdata);
     if (tee_verify_signature(&bufdata))
     {
         printf("success\n");
