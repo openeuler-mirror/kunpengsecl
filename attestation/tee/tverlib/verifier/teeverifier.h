@@ -15,9 +15,13 @@ typedef struct{
     uint8_t *buf;
 } buffer_data;
 
+enum error_status_code {
+    TVS_ALL_SUCCESSED = 0,
+    TVS_VERIFIED_NONCE_FAILED = -1,
+    TVS_VERIFIED_SIGNATURE_FAILED = -2,
+    TVS_VERIFIED_HASH_FAILED = -3,
+};
 
-bool tee_verify_signature(buffer_data *report);
-bool tee_verify(buffer_data *buf_data, int type, char *filename);
-
+int tee_verify_report(buffer_data *data_buf,buffer_data *nonce,int type, char *filename);
 
 #endif
