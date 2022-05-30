@@ -142,6 +142,9 @@ typedef struct
     uint8_t valueinfo[2][HASH_SIZE]; // valueinfo[0]=img measurement and valueinfo[1]=mem measurement
 } base_value;
 
+bool tee_verify_nonce(buffer_data *buf_data,buffer_data *nonce);
+bool tee_verify_signature(buffer_data *report);
+bool tee_verify(buffer_data *buf_data, int type, char *filename);
 static void error(const char *msg);
 static void file_error(const char *s);
 static TA_report *Convert(buffer_data *buf_data);

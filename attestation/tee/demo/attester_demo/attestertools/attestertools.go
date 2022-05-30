@@ -82,8 +82,8 @@ var (
 		report:  []byte{},
 		withtcb: false,
 	}
-	verify_result bool = false
-	defaultPaths       = []string{
+	verify_result int = 1
+	defaultPaths      = []string{
 		strPath,
 	}
 	VersionFlag   *bool           = nil
@@ -93,7 +93,7 @@ var (
 	UuidFlag      *string         = nil
 	attesterConf  *attesterConfig = nil
 	up_rep_buf    unsafe.Pointer
-	up_mf_buf     unsafe.Pointer
+	up_non_buf    unsafe.Pointer
 )
 
 func InitFlags() {
@@ -159,17 +159,16 @@ func StartAttester() {
 		log.Printf("Init TA parameter failed! %v", err)
 	}
 	test_ta.report = getReport(test_ta)
-	verify_result = verifySig(test_ta.report)
-	if !verify_result {
-		log.Print("Verify signature failed!")
-	} else {
-		log.Print("Verify signature success!")
-	}
-	verify_result = validate(test_ta.report, attesterConf.mspolicy, attesterConf.basevalue)
-	if !verify_result {
-		log.Print("validate failed!")
-	} else {
-		log.Print("validate success!")
+	verify_result = tee_verify(test_ta.report, test_ta.usrdata, attesterConf.mspolicy, attesterConf.basevalue)
+	switch verify_result {
+	case 0:
+		log.Print("tee verify all successed!")
+	case -1:
+		log.Print("tee verify nonce failed!")
+	case -2:
+		log.Print("tee verify signature failed!")
+	case -3:
+		log.Print("tee verify hash failed!")
 	}
 
 	log.Print("Stop Attester......")
@@ -226,25 +225,19 @@ func getReport(ta *trustApp) []byte {
 }
 
 // invoke verifier lib to verify
-func verifySig(rep []byte) bool {
+func tee_verify(rep []byte, nonce []byte, mtype int, bv string) int {
 	var crep C.buffer_data
+	var cnonce C.buffer_data
+	cbv := C.CString(bv)
+	defer C.free(unsafe.Pointer(cbv))
 	crep.size = C.__uint32_t(len(rep))
 	up_rep_buf = C.CBytes(rep)
 	defer C.free(up_rep_buf)
 	crep.buf = (*C.uchar)(up_rep_buf)
-	result := C.tee_verify_signature(&crep)
-	return bool(result)
-}
-
-// invoke verifier lib to validate
-func validate(mf []byte, mtype int, bv string) bool {
-	var crep C.buffer_data
-	cbv := C.CString(bv)
-	defer C.free(unsafe.Pointer(cbv))
-	crep.size = C.__uint32_t(len(mf))
-	up_mf_buf = C.CBytes(mf)
-	defer C.free(up_mf_buf)
-	crep.buf = (*C.uchar)(up_mf_buf)
-	result := C.tee_verify(&crep, C.int(mtype), cbv)
-	return bool(result)
+	cnonce.size = C.__uint32_t(len(nonce))
+	up_non_buf = C.CBytes(nonce)
+	defer C.free(up_non_buf)
+	cnonce.buf = (*C.uchar)(up_non_buf)
+	result := C.tee_verify_report(&crep, &cnonce, C.int(mtype), cbv)
+	return int(result)
 }

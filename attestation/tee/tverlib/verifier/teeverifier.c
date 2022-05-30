@@ -20,9 +20,7 @@ static void free_report(TA_report *report);
 static void test_print(uint8_t *printed, int printed_size, char *printed_name);
 static void save_basevalue(const base_value *bv);
 
-// interface
-bool tee_verify_signature(buffer_data *report);
-
+// signature part
 static bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
 static bool translateBuf(buffer_data report, TA_report *tareport);
 static bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
@@ -797,4 +795,34 @@ void save_basevalue(const base_value *bv)
    FILE *fp_output = fopen("basevalue.txt", "w");
    fwrite(bvbuf, strnlen(bvbuf, sizeof(bvbuf)), 1, fp_output);
    fclose(fp_output);
+}
+
+bool tee_verify_nonce(buffer_data *buf_data,buffer_data *nonce)
+{
+   if (nonce == NULL || nonce->size > USER_DATA_SIZE) {
+      printf("%s\n","the nonce-value is invalid");
+      return false;
+   }
+   TA_report *report;
+   report = Convert(buf_data);
+   bool vn = cmp_bytes(report->nonce,nonce->buf,nonce->size);
+   return vn;
+}
+  
+
+int tee_verify_report(buffer_data *buf_data,buffer_data *nonce,int type, char *filename)
+{
+   bool vn = tee_verify_nonce(buf_data,nonce);
+   if (vn == false) {
+      return TVS_VERIFIED_NONCE_FAILED;
+   }
+   bool vs = tee_verify_signature(buf_data);
+   if (vs == false) {
+      return TVS_VERIFIED_SIGNATURE_FAILED;
+   }
+   bool v = tee_verify(buf_data, type, filename);
+   if (v == false) {
+      return TVS_VERIFIED_HASH_FAILED;
+   }
+   return TVS_ALL_SUCCESSED;
 }
