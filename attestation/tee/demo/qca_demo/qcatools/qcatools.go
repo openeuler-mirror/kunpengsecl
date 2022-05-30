@@ -4,7 +4,7 @@ package qcatools
 /*
 #cgo CFLAGS: -I../../../tverlib/simulator
 #cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lqca -Wl,-rpath=${SRCDIR}/../../../tverlib/simulator -lteec
-#include "../../../tverlib/simulator/teeqca.h"
+#include "teeqca.h"
 
 static uint8_t *createParamSet(uint32_t count) {
 	uint8_t *buf = malloc(sizeof(uint32_t) + count * sizeof(struct ra_params));
