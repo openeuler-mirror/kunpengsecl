@@ -263,6 +263,7 @@ basevalue文件以十六进制字符串的形式存储基准值记录
 | content（e.g.） | B0019DC2-13CD-5A40-99F9-06343DFBE691 | FB4C924ECCE3D00021C97D7FE815F9400AFF90FB84D8A92651CDE3CA2AEB60B1 | 09972A4984CC521651B683B5C85DD9012104A9A57B165B3E26A7A237B7951AD0 |
 
 返回值：验证结果（true or false）
+***
 
 **注意：本接口所需入参中验证类型和基准值文件路径都可通过启动客户端时所键入的命令行参数来进行自定义设置**
 
@@ -270,9 +271,11 @@ basevalue文件以十六进制字符串的形式存储基准值记录
 
 对于客户端的启用，您可进入kunpengsecl/attestation/tee/demo/attester_demo/cmd/目录下运行
 ```s
-go run main.go
+go run main.go -T
 ```
 读取config.yaml中保存的缺省配置实现可信验证
+
+**注意：这里必须加`-T`或`--test`参数，因为目前的QCA_LIB为模拟实现，传送过来的是硬编码的可信报告，若不固定nonce值，则验证必然出错**
 
 另外，本程序也支持用户通过命令行键入参数的形式自定义配置，如指定可信应用的UUID、设置基准值文件读取路径、设置度量策略等，详细的命令行参数如下：
 ```
@@ -281,4 +284,5 @@ go run main.go
   -S, --server string      指定待连接的服务器地址
   -U, --uuid int           指定待验证的可信应用
   -V, --version            打印程序版本并退出
+  -T, --test               读取固定的nonce值以匹配目前硬编码的可信报告
 ```
