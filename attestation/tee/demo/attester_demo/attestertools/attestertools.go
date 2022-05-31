@@ -44,6 +44,10 @@ const (
 	lflagUuid = "uuid"
 	sflagUuid = "U"
 	helpUuid  = "specify the QTA to be verifier"
+	// test mode with a fixed nonce value ********* based on simulation for qcalib
+	lflagTest = "test"
+	sflagTest = "T"
+	helpTest  = "set a fixed nonce value for test"
 	// app name
 	appAttester = "attester"
 	// config file name
@@ -75,7 +79,8 @@ type (
 )
 
 var (
-	test_ta *trustApp = &trustApp{
+	testmode bool      = false
+	test_ta  *trustApp = &trustApp{
 		ctx:     context.Background(),
 		uuid:    []byte{},
 		usrdata: []byte{},
@@ -91,6 +96,7 @@ var (
 	BasevalueFlag *string         = nil
 	MspolicyFlag  *int            = nil
 	UuidFlag      *string         = nil
+	TestFlag      *bool           = nil
 	attesterConf  *attesterConfig = nil
 	up_rep_buf    unsafe.Pointer
 	up_non_buf    unsafe.Pointer
@@ -103,6 +109,7 @@ func InitFlags() {
 	BasevalueFlag = pflag.StringP(lflagBasevalue, sflagBasevalue, "", helpBasevalue)
 	MspolicyFlag = pflag.IntP(lflagMeasure, sflagMeasure, -1, helpMeasure)
 	UuidFlag = pflag.StringP(lflagUuid, sflagUuid, "", helpUuid)
+	TestFlag = pflag.BoolP(lflagTest, sflagTest, false, helpTest)
 	pflag.Parse()
 }
 
@@ -150,11 +157,17 @@ func HandleFlags() {
 		attesterConf.uuid = *UuidFlag
 		log.Printf("TEE Uuid: %s", attesterConf.uuid) // just for test!
 	}
+	if TestFlag != nil && *TestFlag {
+		testmode = true
+		var s_nonce string = "challenge"
+		nonce := []byte(s_nonce)
+		test_ta.usrdata = nonce
+	}
 }
 
 func StartAttester() {
 	log.Print("Start Attester......")
-	test_ta, err := iniTAParameter(test_ta)
+	test_ta, err := iniTAParameter(test_ta, testmode)
 	if err != nil {
 		log.Printf("Init TA parameter failed! %v", err)
 	}
@@ -175,17 +188,24 @@ func StartAttester() {
 }
 
 // Initialize the parameters of TA
-func iniTAParameter(ta *trustApp) (*trustApp, error) {
+func iniTAParameter(ta *trustApp, m bool) (*trustApp, error) {
 	id, err := uuid.Parse(attesterConf.uuid)
-	ta.uuid, err = id.MarshalBinary()
-	// create nonce value to defend against replay attacks
-	nonce := make([]byte, 64)
-	_, err = rand.Read(nonce)
 	if err != nil {
 		return test_ta, err
 	}
-	ta.usrdata = nonce
-
+	ta.uuid, err = id.MarshalBinary()
+	if err != nil {
+		return test_ta, err
+	}
+	// create nonce value to defend against replay attacks
+	if !m {
+		nonce := make([]byte, 64)
+		_, err = rand.Read(nonce)
+		if err != nil {
+			return test_ta, err
+		}
+		ta.usrdata = nonce
+	}
 	return ta, nil
 }
 
