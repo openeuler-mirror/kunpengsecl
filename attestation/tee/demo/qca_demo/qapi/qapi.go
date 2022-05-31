@@ -56,13 +56,14 @@ func StartServer() {
 
 func makesock(addr string) (*qcaConn, error) {
 	qca := &qcaConn{}
-	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
+	// If the client is not connected to the server within 3 seconds, an error is returned!
+	qca.ctx, qca.cancel = context.WithTimeout(context.Background(), 3*time.Second)
+	conn, err := grpc.DialContext(qca.ctx, addr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, errors.New("Client: fail to connect " + addr)
 	}
 	qca.conn = conn
 	qca.c = NewQcaClient(conn)
-	qca.ctx, qca.cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	log.Printf("Client: connect to %s", addr)
 	return qca, nil
 }
