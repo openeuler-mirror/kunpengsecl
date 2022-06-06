@@ -189,6 +189,8 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 		return nil
 	}
 
+	log.Print("Generate TA report succeeded!")
+
 	// format conversion: C -> Go
 	Report = []uint8(C.GoBytes(unsafe.Pointer(c_report.buf), C.int(c_report.size)))
 
@@ -222,4 +224,5 @@ func HandleConnection() {
 		log.Print("Generate RSA AK and AK Cert failed!")
 		return
 	}
+	log.Print("Generate RSA AK and AK Cert succeeded!")
 }

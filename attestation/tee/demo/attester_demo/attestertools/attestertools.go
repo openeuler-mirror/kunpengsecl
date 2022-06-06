@@ -175,7 +175,7 @@ func StartAttester() {
 	verify_result = tee_verify(test_ta.report, test_ta.usrdata, attesterConf.mspolicy, attesterConf.basevalue)
 	switch verify_result {
 	case 0:
-		log.Print("tee verify all successed!")
+		log.Print("tee verify succeeded!")
 	case -1:
 		log.Print("tee verify nonce failed!")
 	case -2:
@@ -222,6 +222,7 @@ func getReport(ta *trustApp) []byte {
 		log.Printf("Get TA infomation failed, error: %v", err)
 		return ta.report
 	}
+	log.Print("Get TA report succeeded!")
 
 	// Verify that if the Nonce value is tampered with
 	// for i := 0; i < len(ta.usrdata); i++ {
