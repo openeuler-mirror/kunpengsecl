@@ -81,5 +81,7 @@ func DoGetTeeReport(addr string, in *GetReportRequest) (*GetReportReply, error) 
 		return nil, err
 	}
 
+	time.Sleep(60 * time.Second) // used to test concurrency
+
 	return rpy, nil
 }
