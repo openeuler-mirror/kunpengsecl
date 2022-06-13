@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
@@ -22,6 +23,11 @@ type (
 		conn   *grpc.ClientConn
 		c      QcaClient
 	}
+)
+
+var (
+	count int = 0
+	l     sync.Mutex
 )
 
 func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
@@ -54,6 +60,19 @@ func StartServer() {
 	log.Print("Stop Server......")
 }
 
+func addConnections() {
+	l.Lock()
+	defer l.Unlock()
+	count++
+	log.Printf("Now have %d clients connected to server", count)
+}
+
+func reduceConnections() {
+	l.Lock()
+	defer l.Unlock()
+	count--
+}
+
 func makesock(addr string) (*qcaConn, error) {
 	qca := &qcaConn{}
 	// If the client is not connected to the server within 3 seconds, an error is returned!
@@ -65,6 +84,7 @@ func makesock(addr string) (*qcaConn, error) {
 	qca.conn = conn
 	qca.c = NewQcaClient(conn)
 	log.Printf("Client: connect to %s", addr)
+	addConnections()
 	return qca, nil
 }
 
@@ -75,11 +95,14 @@ func DoGetTeeReport(addr string, in *GetReportRequest) (*GetReportReply, error) 
 	}
 	defer qca.conn.Close()
 	defer qca.cancel()
+	defer reduceConnections()
 
 	rpy, err := qca.c.GetReport(qca.ctx, in)
 	if err != nil {
 		return nil, err
 	}
+
+	time.Sleep(5 * time.Second) // used to test concurrency
 
 	return rpy, nil
 }
