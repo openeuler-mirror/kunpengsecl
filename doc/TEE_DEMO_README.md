@@ -56,6 +56,10 @@ sudo yum install git
 git checkout feature/tee-phase1
 ```
 以进入本程序所在分支
+```s
+./ attestation/quick-scripts/prepare-build-env.sh
+```
+执行该脚本以构建本程序所需的基础环境
 
 ### 程序运行
 
@@ -69,13 +73,13 @@ git checkout feature/tee-phase1
 sudo yum install make gcc
 ```
 
+**关于目录结构的说明**
+
 在tee/目录下又分为demo/和tverlib/两个子文件夹，tee远程证明的功能实现由tverlib下的代码完成，可以实现对指定可信应用的身份验证和完整性验证；而demo/目录下是一个测试程序，您可以通过该程序查看验证流程
 
-****
-当然，您也可以对VERIFIER_LIB进行单独编译（倘若您希望自行实现一个DEMO程序），这需要您进入tee/tverlib/verifier/目录下（这是我们提供TEE远程证明的核心目录），同样执行
-``make build``
-即可在当前目录编译生成libteeverifier.so动态库文件，另外您可能调用到的头文件都放在本目录下
-****
+**关于自行实现attester的编译说明**
+
+倘若您希望自行实现一个DEMO程序调用tee远程证明的动态库，您也可以对VERIFIER_LIB进行单独编译，这需要您进入tee/tverlib/verifier/目录下（这是我们提供TEE远程证明的核心目录），同样执行 make build 即可在当前目录编译生成libteeverifier.so动态库文件，另外您可能调用到的头文件都放在本目录下
 
 #### 服务端
 **QCA_DEMO**是本程序的服务端，主要提供发送指定TA的可信报告的服务，基于Go语言编写。
