@@ -55,8 +55,8 @@ do
     (cd ${DST}/attester-${i} ; ${DST}/attester/attester -T > ${DST}/attester-${i}/echo.out 2>&1 ; )&
 done
 
-echo "wait for 15s" | tee -a ${DST}/control.txt
-sleep 15
+echo "wait for 5s" | tee -a ${DST}/control.txt
+sleep 5
 
 echo "kill all processes" | tee -a ${DST}/control.txt
 pkill -u ${USER} qcaserver

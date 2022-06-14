@@ -31,17 +31,13 @@ var (
 )
 
 func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
-	addConnections()
-	defer reduceConnections()
+	countConnections()
 	_ = ctx // ignore the unused warning
 	Usrdata := in.GetNonce()
 	rep := qcatools.GetTAReport(in.GetUuid(), Usrdata, in.WithTcb)
 	rpy := GetReportReply{
 		TeeReport: rep,
 	}
-
-	time.Sleep(10 * time.Second) // used to test concurrency
-
 	return &rpy, nil
 }
 
@@ -65,17 +61,11 @@ func StartServer() {
 	log.Print("Stop Server......")
 }
 
-func addConnections() {
+func countConnections() {
 	l.Lock()
 	defer l.Unlock()
 	count++
 	log.Printf("Now have %d clients connected to server", count)
-}
-
-func reduceConnections() {
-	l.Lock()
-	defer l.Unlock()
-	count--
 }
 
 func makesock(addr string) (*qcaConn, error) {
