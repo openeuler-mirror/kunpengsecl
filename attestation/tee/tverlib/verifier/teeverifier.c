@@ -391,14 +391,6 @@ bool tee_verify(buffer_data *bufdata, int type, char *filename)
    else
       verified = Compare(type, report, baseval); // compare the report with the basevalue
 
-   if (verified == true)
-   {
-      printf("%s\n", "Verification successful!");
-   }
-   else
-   {
-      printf("%s\n", "Verification failed!");
-   }
    free_report(report);
    free(report);
    free(baseval);
