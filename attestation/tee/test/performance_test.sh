@@ -21,8 +21,7 @@ BASEVALUE=${CMDATTESTER}/basevalue.txt
 NUM=${NUM:-10}
 
 # judgment string
-CONNECTION="Server: fail to serve"
-TEEVERIFY="tee verify succeeded!"
+CONNECTION="Now have ${NUM} clients connected to server"
 
 echo "=========="
 echo "start ${CASENAME} at: $(date)" | tee -a ${DST}/control.txt
@@ -56,14 +55,14 @@ do
     (cd ${DST}/attester-${i} ; ${DST}/attester/attester -T > ${DST}/attester-${i}/echo.out 2>&1 ; )&
 done
 
-echo "wait for 5s" | tee -a ${DST}/control.txt
-sleep 5
+echo "wait for 15s" | tee -a ${DST}/control.txt
+sleep 15
 
 echo "kill all processes" | tee -a ${DST}/control.txt
 pkill -u ${USER} qcaserver
 pkill -u ${USER} attester
 
-if [[ `grep -c "${CONNECTION}" ${DST}/qca/echo.out` -eq '0' ]] && [[ `grep -c "${TEEVERIFY}" ${DST}/attester-${NUM}/echo.out` -ne '0' ]]; then
+if [ `grep -c "${CONNECTION}" ${DST}/qca/echo.out` -ne '0' ]; then
     echo "test succeeded!" | tee -a ${DST}/control.txt ;
 else
     echo "test failed!" | tee -a ${DST}/control.txt ;

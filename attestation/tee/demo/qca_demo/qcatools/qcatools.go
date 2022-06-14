@@ -73,26 +73,6 @@ type (
 )
 
 var (
-	// store C data which convert from Go
-	c_ta_uuid   C.TEEC_UUID             = C.TEEC_UUID{}
-	c_usr_data  C.struct_ra_buffer_data = C.struct_ra_buffer_data{}
-	c_param_set C.struct_ra_buffer_data = C.struct_ra_buffer_data{}
-	c_report    C.struct_ra_buffer_data = C.struct_ra_buffer_data{}
-	c_with_tcb  C.bool
-
-	// store TEEC_Result return from qcalib
-	teec_result C.TEEC_Result
-
-	// used for pointer conversion between Go and C
-	up_usr_data_buf  unsafe.Pointer
-	up_param_set_buf unsafe.Pointer
-	up_report_buf    unsafe.Pointer
-
-	// Store Go data transfer to C
-	Usrdata  []byte = []byte{}
-	Paramset []byte = []byte{}
-	Report   []byte = []byte{}
-
 	// server side config
 	Qcacfg       *qcaConfig = nil
 	defaultPaths            = []string{
@@ -100,9 +80,6 @@ var (
 	}
 	ServerFlag   *string = nil
 	ScenarioFlag *int    = nil
-
-	// nonce value for defending against replay attacks
-	nonce []byte
 )
 
 func InitFlags() {
@@ -156,34 +133,35 @@ func adapt2TAUUID(uuid []byte) {
 }
 
 func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
-	// format conversion: Go -> C
+	// store C data which convert from Go
+	c_usr_data := C.struct_ra_buffer_data{}
+	c_param_set := C.struct_ra_buffer_data{}
+	c_report := C.struct_ra_buffer_data{}
+	c_with_tcb := C.bool(false)
+
+	/*** format conversion: Go -> C ***/
+	// uuid conversion
 	adapt2TAUUID(ta_uuid)
 	c_ta_uuid := C.CBytes(ta_uuid)
 	defer C.free(c_ta_uuid)
-
+	// usrdata conversion
 	c_usr_data.size = C.__uint32_t(len(usr_data))
-	up_usr_data_buf = C.CBytes(usr_data)
+	up_usr_data_buf := C.CBytes(usr_data)
 	c_usr_data.buf = (*C.uchar)(up_usr_data_buf)
 	defer C.free(up_usr_data_buf)
-
-	c_param_set := C.struct_ra_buffer_data{}
+	// paramset conversion
 	c_param_set.buf = C.generateParamSetBuffer()
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
 	defer C.free(unsafe.Pointer(c_param_set.buf))
-
-	// c_param_set.size = C.__uint32_t(param_set.Size)
-	// up_param_set_buf = C.CBytes(param_set.Buf)
-	//c_param_set.buf = (*C.uchar)(up_param_set_buf)
-	// defer C.free(up_param_set_buf)
-
+	// report conversion
 	c_report.size = 0x4000
-	up_report_buf = C.malloc(C.ulong(c_report.size))
+	up_report_buf := C.malloc(C.ulong(c_report.size))
 	c_report.buf = (*C.uchar)(up_report_buf)
 	defer C.free(up_report_buf)
-
+	// tcb conversion
 	c_with_tcb = C.bool(with_tcb)
-
-	teec_result = C.RemoteAttestReport(*(*C.TEEC_UUID)(c_ta_uuid), &c_usr_data, &c_param_set, &c_report, c_with_tcb) // can not put Go pointer as parameter in C function!!!
+	// result of function call
+	teec_result := C.RemoteAttestReport(*(*C.TEEC_UUID)(c_ta_uuid), &c_usr_data, &c_param_set, &c_report, c_with_tcb) // can not put Go pointer as parameter in C function!!!
 	if int(teec_result) != 0 {
 		log.Print("Get TA report failed!")
 		return nil
@@ -192,7 +170,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	log.Print("Generate TA report succeeded!")
 
 	// format conversion: C -> Go
-	Report = []uint8(C.GoBytes(unsafe.Pointer(c_report.buf), C.int(c_report.size)))
+	Report := []uint8(C.GoBytes(unsafe.Pointer(c_report.buf), C.int(c_report.size)))
 
 	// log.Print("Get TA report success:\n")
 	// for i := 0; i < int(report.Size); i++ {
