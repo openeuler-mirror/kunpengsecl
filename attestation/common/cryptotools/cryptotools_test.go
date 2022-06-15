@@ -1,5 +1,12 @@
 package cryptotools
 
+import (
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
 /*
 import (
 	"bytes"
@@ -774,3 +781,12 @@ func TestNilJudge(t *testing.T) {
 
 }
 */
+func TestDecodeDerCert(t *testing.T) {
+	cert, _, err := DecodeKeyCertFromNVFile("RSA_EK_cert.bin")
+	if err != nil {
+		fmt.Println(err)
+		assert.NoError(t, err)
+	}
+	rt := verifyComCert("certificates", cert)
+	fmt.Println(rt)
+}
