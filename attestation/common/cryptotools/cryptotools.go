@@ -32,6 +32,7 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -828,6 +829,26 @@ func DecodeKeyCertFromFile(fileName string) (*x509.Certificate, []byte, error) {
 	return DecodeKeyCertFromPEM(data)
 }
 
+//DecodeKeyCertFromNVFile decode the cert from NVRAM's file
+func DecodeKeyCertFromNVFile(fileName string) (*x509.Certificate, []byte, error) {
+	data, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, nil, err
+	}
+	//remove excess 0
+	for i := range data {
+		if data[i] == 0 && data[i+1] == 0 {
+			data = data[:i]
+			break
+		}
+	}
+	cert, err := x509.ParseCertificate(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cert, data, nil
+}
+
 // SetSerialNumber inits the global serial number.
 func SetSerialNumber(n int64) {
 	serialNumber = n
@@ -888,4 +909,35 @@ func EncryptIKCert(ekPubKey crypto.PublicKey, ikCert []byte, ikName []byte) (*IK
 		SymKeyParams:  symKeyParams,
 	}
 	return &ikCertChallenge, nil
+}
+
+//verifyComCert will get the all cert from certificate file to verify the cert is validated
+func verifyComCert(pathname string, cert *x509.Certificate) bool {
+	rd, err := ioutil.ReadDir(pathname)
+	if err != nil {
+		return false
+	}
+	for _, fi := range rd {
+		if !fi.IsDir() {
+			ca, _, err := DecodeKeyCertFromFile(pathname + "/" + fi.Name())
+			if err != nil {
+				return false
+			}
+			if validateCert(cert, ca) == nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+//validateCert will check the signature is or not validated by parent cert
+func validateCert(cert, parent *x509.Certificate) error {
+	err := parent.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature)
+	if err != nil {
+
+		return err
+	}
+	fmt.Println(cert.Issuer.Names)
+	return nil
 }
