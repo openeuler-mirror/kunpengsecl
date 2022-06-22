@@ -14,7 +14,9 @@ rasconfig:
   authkeyfile: ./ecdsakey.pub
   pcakeycertfile: ""
   pcaprivkeyfile: ""
+  httpsswitch: false
   restport: 127.0.0.1:40002
+  httpsport: 127.0.0.1:40003
   rootkeycertfile: ""
   rootprivkeyfile: ""
   serialnumber: 0
