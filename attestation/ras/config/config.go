@@ -66,7 +66,9 @@ const (
 	confPcaPrivKeyFile  = "rasconfig.pcaprivkeyfile"
 	confPcaKeyCertFile  = "rasconfig.pcakeycertfile"
 	confServerPort      = "rasconfig.serverport"
+	confhttpsSwitch     = "rasconfig.httpsswitch"
 	confRestPort        = "rasconfig.restport"
+	confHttpsPort       = "rasconfig.httpsport"
 	confAuthKeyFile     = "rasconfig.authkeyfile"
 	confSerialNumber    = "rasconfig.serialnumber"
 	confHbDuration      = "racconfig.hbduration"
@@ -91,10 +93,18 @@ const (
 	lflagServerPort = "port"
 	sflagServerPort = "p"
 	helpServerPort  = "the server listens at [IP]:PORT"
+	// HTTPS switch
+	lflagHttpsSwitch = "https"
+	sflagHttpsSwitch = "H"
+	helpHttpsSwitch  = "the HTTPS switch"
 	// rest api listen port
 	lflagRestPort = "rest"
 	sflagRestPort = "r"
 	helpRestPort  = "the rest interface listens at [IP]:PORT"
+	// rest api https listen port
+	lflagHttpsPort = "hport"
+	sflagHttpsPort = "h"
+	helpHttpsPort  = "the https rest interface listens at [IP]:PORT"
 	// token output
 	lflagToken = "token"
 	sflagToken = "T"
@@ -139,7 +149,9 @@ type (
 		pcaPrivKey       crypto.PrivateKey
 		pcaKeyCert       *x509.Certificate
 		servPort         string
+		httpsSwitch      bool
 		restPort         string
+		httpsPort        string
 		authKeyFile      string
 		changeTime       time.Time
 		mgrStrategy      string
@@ -160,7 +172,9 @@ var (
 	}
 	rasCfg      *rasConfig
 	servPort    *string = nil
+	httpsSwitch *bool   = nil
 	restPort    *string = nil
+	httpsPort   *string = nil
 	VersionFlag *bool   = nil
 	verboseFlag *bool   = nil
 	TokenFlag   *bool   = nil
@@ -169,7 +183,9 @@ var (
 // InitFlags inits the ras server command flags.
 func InitFlags() {
 	servPort = pflag.StringP(lflagServerPort, sflagServerPort, nullString, helpServerPort)
+	httpsSwitch = pflag.BoolP(lflagHttpsSwitch, sflagHttpsSwitch, false, helpHttpsSwitch)
 	restPort = pflag.StringP(lflagRestPort, sflagRestPort, nullString, helpRestPort)
+	httpsPort = pflag.StringP(lflagHttpsPort, sflagHttpsPort, nullString, helpHttpsPort)
 	TokenFlag = pflag.BoolP(lflagToken, sflagToken, false, helpToken)
 	VersionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
 	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, false, helpVerbose)
@@ -199,8 +215,14 @@ func HandleFlags() {
 	if servPort != nil && *servPort != nullString {
 		SetServerPort(*servPort)
 	}
+	if httpsSwitch != nil {
+		SetHttpsSwitch(*httpsSwitch)
+	}
 	if restPort != nil && *restPort != nullString {
 		SetRestPort(*restPort)
+	}
+	if httpsPort != nil && *httpsPort != nullString {
+		SetHttpsPort(*httpsPort)
 	}
 }
 
@@ -217,7 +239,9 @@ func getConfigs() {
 	rasCfg.dbUser = viper.GetString(dbUser)
 	rasCfg.dbPassword = viper.GetString(dbPassword)
 	rasCfg.servPort = viper.GetString(confServerPort)
+	rasCfg.httpsSwitch = viper.GetBool(confhttpsSwitch)
 	rasCfg.restPort = viper.GetString(confRestPort)
+	rasCfg.httpsPort = viper.GetString(confHttpsPort)
 	rasCfg.authKeyFile = viper.GetString(confAuthKeyFile)
 	rasCfg.hbDuration = viper.GetDuration(confHbDuration)
 	rasCfg.trustDuration = viper.GetDuration(confTrustDuration)
@@ -441,7 +465,9 @@ func SaveConfigs() {
 	viper.Set(confPcaPrivKeyFile, rasCfg.pcaPrivKeyFile)
 	viper.Set(confPcaKeyCertFile, rasCfg.pcaKeyCertFile)
 	viper.Set(confServerPort, rasCfg.servPort)
+	viper.Set(confhttpsSwitch, rasCfg.httpsSwitch)
 	viper.Set(confRestPort, rasCfg.restPort)
+	viper.Set(confHttpsPort, rasCfg.httpsPort)
 	viper.Set(confAuthKeyFile, rasCfg.authKeyFile)
 	viper.Set(confSerialNumber, cryptotools.GetSerialNumber())
 	viper.Set(confHbDuration, rasCfg.hbDuration)
@@ -586,6 +612,26 @@ func SetServerPort(s string) {
 	rasCfg.servPort = s
 }
 
+// GetHttpsSwitch returns the ras restful api interface protocol(http or https) configuration.
+func GetHttpsSwitch() bool {
+	if rasCfg == nil {
+		return false
+	}
+	return rasCfg.httpsSwitch
+}
+
+// SetHttpsSwitch sets the ras restful api interface protocol(http or https) configuration.
+func SetHttpsSwitch(p bool) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.httpsSwitch = p
+}
+
+func EqualFold(s1, s2 string) {
+	panic("unimplemented")
+}
+
 // GetRestPort returns the ras restful api interface ip:port configuration.
 func GetRestPort() string {
 	if rasCfg == nil {
@@ -600,6 +646,22 @@ func SetRestPort(s string) {
 		return
 	}
 	rasCfg.restPort = s
+}
+
+// GetHttpsPort returns the ras restful api interface ip:port configuration.
+func GetHttpsPort() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.httpsPort
+}
+
+// SetHttpsPort sets the ras restful api interface ip:port configuration.
+func SetHttpsPort(s string) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.httpsPort = s
 }
 
 // GetRootPrivateKey returns the root private key configuration.

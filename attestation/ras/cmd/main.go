@@ -73,6 +73,6 @@ func main() {
 	signalHandler()
 
 	logger.L.Debug("start server")
-	go restapi.StartServer(config.GetRestPort())
+	go restapi.StartServer(config.GetHttpsSwitch())
 	clientapi.StartServer(config.GetServerPort())
 }
