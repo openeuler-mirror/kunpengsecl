@@ -119,12 +119,14 @@ type (
 	BaseRow struct {
 		ID         int64
 		ClientID   int64
+		BaseType   string
+		Uuid       string
 		CreateTime time.Time
 		Name       string
+		Enabled    bool
 		Pcr        string
 		Bios       string
 		Ima        string
-		Enabled    bool
 		Verified   bool
 		Trusted    bool
 	}

@@ -549,15 +549,6 @@ func SetDBPassword(password string) {
 	rasCfg.dbPassword = password
 }
 
-func GetMgrStrategy() string {
-	return rasCfg.mgrStrategy
-}
-
-func SetMgrStrategy(s string) {
-	rasCfg.mgrStrategy = s
-	rasCfg.changeTime = time.Now()
-}
-
 func GetExtractRules() typdefs.ExtractRules {
 	return rasCfg.extractRules
 }

@@ -37,9 +37,10 @@ const (
 type (
 	// Cache stores the latest status of one RAC client and commands.
 	Cache struct {
-		regtime string
-		online  bool
-		trusted bool
+		regtime      string
+		online       bool
+		hostTrusted  bool
+		isAutoUpdate bool //true表示信任下一次的可信报告，不验证直接抽取更新基准值；false则正常对下一次报告进行验证
 		// current commands for RAC.
 		commands uint64
 		// heartbeat expiration, used for judging whether RAC heartbeat is expired.
@@ -59,7 +60,8 @@ func NewCache() *Cache {
 	c := &Cache{
 		regtime:         "",
 		online:          false,
-		trusted:         false,
+		hostTrusted:     false,
+		isAutoUpdate:    false,
 		commands:        typdefs.CmdNone,
 		trustExpiration: time.Now(),
 		nonce:           0,
@@ -109,7 +111,7 @@ func (c *Cache) GetCommands() uint64 {
 
 // SetVerified sets the trusted field.
 func (c *Cache) SetTrusted(v bool) {
-	c.trusted = v
+	c.hostTrusted = v
 }
 
 // GetTrusted checks where the RAC trust report is valid or not.
@@ -118,9 +120,9 @@ func (c *Cache) GetTrusted() bool {
 	// the RAC can't be trusted any more and needs to get a new trust report.
 	if time.Now().After(c.trustExpiration) {
 		c.SetCommands(typdefs.CmdGetReport)
-		c.trusted = false
+		c.hostTrusted = false
 	}
-	return c.trusted
+	return c.hostTrusted
 }
 
 // GetNonce returns a nonce value for remote attestation trust report.
@@ -161,4 +163,18 @@ func (c *Cache) SetRegTime(v string) {
 
 func (c *Cache) GetOnline() bool {
 	return c.online
+}
+
+// GetIsAutoUpdate returns the client autoupdate strategy.
+func (c *Cache) GetIsAutoUpdate() bool {
+	return c.isAutoUpdate
+}
+
+// SetIsAutoUpdate saves the client autoppdate strategy.
+func (c *Cache) SetIsAutoUpdate(v bool) {
+	c.isAutoUpdate = v
+}
+
+func (c *Cache) GetTrustExpiration() time.Time {
+	return c.trustExpiration
 }
