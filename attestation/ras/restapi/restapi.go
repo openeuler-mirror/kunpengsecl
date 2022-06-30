@@ -161,21 +161,28 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 	strCreateTime     = `Create Time`
 	strOnline         = `Online`
 	strTrusted        = `Trusted`
+	strUnknown        = "unknown"
+	strUntrusted      = "untrusted"
+	strNotFound       = "not found"
 	strValidated      = `Validated`
 	strQuoted         = `Quoted`
 	strSignature      = `Signature`
 	strPcrLog         = `PcrLog`
 	strBiosLog        = `BiosLog`
 	strImaLog         = `ImaLog`
+	strClientID       = `ClientID`
+	strBaseType       = `BaseType`
+	strContainer      = "container"
+	strDevice         = "device"
 	strName           = "Name"
 	strEnabled        = "Enabled"
+	strIsAutoUpdate   = "IsAutoUpdate"
 	strVerified       = "Verified"
 	strPCR            = "Pcr"
 	strBIOS           = "Bios"
 	strIMA            = "Ima"
 	strBaseValueID    = `BaseValue ID`
-
-	errNoClient = `rest api error: %v`
+	errNoClient       = `rest api error: %v`
 
 	strDeleteClientSuccess    = `delete client %d success`
 	strDeleteReportSuccess    = `delete client %d report %d success`
@@ -411,7 +418,16 @@ func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 
 // (POST /{id})
 // modify node {id} information
+//  modify node {id} information by json
+//    curl -X POST -H "Content-type: multipart/form-data" -F "IsAutoUpdate=true;type=application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
+	sIsU := ctx.FormValue(strEnabled)
+	isAutoUpdate, _ := strconv.ParseBool(sIsU)
+	c, err := trustmgr.GetCache(id)
+	if err != nil {
+		return err
+	}
+	c.SetIsAutoUpdate(isAutoUpdate)
 	res := fmt.Sprintf("change server %d information", id)
 	return ctx.HTML(http.StatusOK, res)
 }
@@ -559,11 +575,10 @@ func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
 	}
 	row := &typdefs.BaseRow{
 		ClientID:   id,
+		BaseType:   "host",
 		CreateTime: time.Now(),
 		Name:       name,
 		Enabled:    enabled,
-		Verified:   false,
-		Trusted:    false,
 		Pcr:        pcr,
 		Bios:       bios,
 		Ima:        ima,
@@ -667,4 +682,160 @@ func (s *MyRestAPIServer) GetIdReportsReportid(ctx echo.Context, id int64, repor
 		return err
 	}
 	return ctx.HTML(http.StatusOK, genReportHtml(row))
+}
+
+// Return a list of trust status for all containers of a given client
+// (GET /{id}/container/status)
+func (s *MyRestAPIServer) GetIdContainerStatus(ctx echo.Context, cid int64) error {
+	c, err := trustmgr.GetCache(cid)
+	if err != nil {
+		return err
+	}
+	rows := c.Bases
+	var buf bytes.Buffer
+	for i := 0; i < len(rows); i++ {
+		if rows[i].BaseType != strContainer {
+			continue
+		}
+		var status string
+		if rows[i].Verified {
+			status = strUnknown
+		} else {
+			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) { //验证过并且未超时
+				status = strTrusted
+			} else {
+				status = strUntrusted
+			}
+		}
+		buf.WriteString(fmt.Sprintf("%s : %s\n", rows[i].Uuid, status))
+	}
+
+	return ctx.JSON(http.StatusOK, buf.String())
+}
+
+// Return a list of trust status for all devices of a given client
+// (GET /{id}/device/status)
+func (s *MyRestAPIServer) GetIdDeviceStatus(ctx echo.Context, cid int64) error {
+	c, err := trustmgr.GetCache(cid)
+	if err != nil {
+		return err
+	}
+	rows := c.Bases
+	var buf bytes.Buffer
+	for i := 0; i < len(rows); i++ {
+		if rows[i].BaseType != strDevice {
+			continue
+		}
+		var status string
+		if rows[i].Verified {
+			status = strUnknown
+		} else {
+			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) {
+				status = strTrusted
+			} else {
+				status = strUntrusted
+			}
+		}
+		buf.WriteString(fmt.Sprintf("%s : %s\n", rows[i].Uuid, status))
+	}
+
+	return ctx.JSON(http.StatusOK, buf.String())
+}
+
+// Return the base value of a given container/device
+// (GET /{uuid}/device/basevalue)
+func (s *MyRestAPIServer) GetUuidBasevalue(ctx echo.Context, uuid string) error {
+	row, err := trustmgr.FindBaseValueByUuid(uuid)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, row)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, genBaseValueHtml(row))
+}
+
+// create/update the base value of the given device
+// (POST /{uuid}/device/basevalue)
+//  save node {id} a new base value by html
+//    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=XX"  -F "BaseType=XX" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/{uuid}/device/basevalue
+//  save node {id} a new base value by json
+//    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=1234;type=application/json" -F "BaseType=container;type=application/json" -F "Name=test;type=application/json" -F "Enabled=true;type=application/json" -F "Pcr=@./cmd_history;type=application/json" -F "Bios=@./cmd_history;type=application/json" -F "Ima=@./cmd_history;type=application/json" http://localhost:40002/{uuid}/device/basevalue
+func (s *MyRestAPIServer) PostUuidBasevalue(ctx echo.Context, uuid string) error {
+	cid := ctx.FormValue(strClientID)
+	id, _ := strconv.ParseInt(cid, 10, 64)
+	name := ctx.FormValue(strName)
+	baseType := ctx.FormValue(strBaseType)
+	sEnv := ctx.FormValue(strEnabled)
+	enabled, _ := strconv.ParseBool(sEnv)
+	pcr, err := s.getFile(ctx, strPCR)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	bios, err := s.getFile(ctx, strBIOS)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	ima, err := s.getFile(ctx, strIMA)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	row := &typdefs.BaseRow{
+		ClientID:   id,
+		BaseType:   baseType,
+		Uuid:       uuid,
+		CreateTime: time.Now(),
+		Name:       name,
+		Enabled:    enabled,
+		Pcr:        pcr,
+		Bios:       bios,
+		Ima:        ima,
+	}
+	trustmgr.SaveBaseValue(row)
+	/* // no use???
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusFound, row)
+	}
+	*/
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%s/basevalue", uuid))
+}
+
+// Return a trust status for given container/device
+// (GET /{uuid}/device/status)
+func (s *MyRestAPIServer) GetUuidStatus(ctx echo.Context, uuid string) error {
+	baseRow, err := trustmgr.FindBaseValueByUuid(uuid)
+	if err != nil {
+		logger.L.Sugar().Errorf("can't find target base")
+		return err
+	}
+	var ans string
+	c, err := trustmgr.GetCache(baseRow.ClientID)
+	if err != nil {
+		return err
+	}
+	var row *typdefs.BaseRow
+	find := false
+	for _, v := range c.Bases {
+		if v.Uuid == uuid {
+			row = v
+			find = true
+			break
+		}
+	}
+	if !find {
+		ans = strNotFound
+	}
+	if row.Verified {
+		ans = strUnknown
+	} else {
+		if row.Trusted {
+			ans = strTrusted
+		} else {
+			ans = strUntrusted
+		}
+	}
+	return ctx.JSON(http.StatusOK, ans)
 }

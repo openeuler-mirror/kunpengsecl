@@ -61,14 +61,15 @@ const (
 	sqlFindClientsByInfo        = `SELECT id, regtime, deleted, info, ikcert FROM client WHERE info @> $1`
 	sqlFindReportsByClientID    = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
 	sqlFindReportByID           = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
-	sqlFindBaseValuesByClientID = `SELECT id, createtime, name, enabled, verified, trusted FROM base WHERE clientid=$1 ORDER BY createtime ASC`
-	sqlFindBaseValueByID        = `SELECT id, clientid, createtime, name, enabled, verified, trusted, pcr, bios, ima FROM base WHERE id=$1`
+	sqlFindBaseValuesByClientID = `SELECT id, basetype, uuid, createtime, name, enabled FROM base WHERE clientid=$1 ORDER BY createtime ASC`
+	sqlFindBaseValueByID        = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE id=$1`
+	sqlFindBaseValueByUuid      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
 	sqlDeleteReportByID         = `DELETE FROM report WHERE id=$1`
 	sqlDeleteBaseValueByID      = `DELETE FROM base WHERE id=$1`
 	sqlUnRegisterClientByID     = `UPDATE client SET deleted=true WHERE id=$1`
 	sqlUpdateClientByID         = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport        = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlInsertBase               = `INSERT INTO base(clientid, createtime, enabled, verified, trusted, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlInsertBase               = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 )
 
 type (
@@ -347,8 +348,8 @@ func FindBaseValuesByClientID(id int64) ([]typdefs.BaseRow, error) {
 	basevalues := make([]typdefs.BaseRow, 0, 20)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
-		err2 := rows.Scan(&res.ID, &res.CreateTime, &res.Name,
-			&res.Enabled, &res.Verified, &res.Trusted)
+		err2 := rows.Scan(&res.ID, &res.BaseType, &res.Uuid,
+			&res.CreateTime, &res.Name, &res.Enabled)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -364,9 +365,23 @@ func FindBaseValueByID(id int64) (*typdefs.BaseRow, error) {
 	}
 	basevalue := &typdefs.BaseRow{}
 	err := tmgr.db.QueryRow(sqlFindBaseValueByID, id).Scan(&basevalue.ID,
-		&basevalue.ClientID, &basevalue.CreateTime, &basevalue.Name,
-		&basevalue.Enabled, &basevalue.Verified, &basevalue.Trusted,
-		&basevalue.Pcr, &basevalue.Bios, &basevalue.Ima)
+		&basevalue.ClientID, &basevalue.BaseType, &basevalue.Uuid, &basevalue.CreateTime, &basevalue.Name,
+		&basevalue.Enabled, &basevalue.Pcr, &basevalue.Bios, &basevalue.Ima)
+	if err != nil {
+		return nil, err
+	}
+	return basevalue, nil
+}
+
+// FindBaseValueByUuid returns a specific base value by base value uuid.
+func FindBaseValueByUuid(uuid string) (*typdefs.BaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	basevalue := &typdefs.BaseRow{}
+	err := tmgr.db.QueryRow(sqlFindBaseValueByUuid, uuid).Scan(&basevalue.ID,
+		&basevalue.ClientID, &basevalue.BaseType, &basevalue.Uuid, &basevalue.CreateTime, &basevalue.Name,
+		&basevalue.Enabled, &basevalue.Pcr, &basevalue.Bios, &basevalue.Ima)
 	if err != nil {
 		return nil, err
 	}
@@ -527,38 +542,34 @@ func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bo
 }
 
 func HandleBaseValue(report *typdefs.TrustReport) error {
-	switch config.GetMgrStrategy() {
-	// if mgrStrategy is auto-update, save base value of rac which in the update list
-	case config.AutoUpdateStrategy:
+	// if this client's AutoUpdate is true, save base value of rac which in the update list
+	if tmgr.cache[report.ClientID].GetIsAutoUpdate() {
 		{
 			err := recordAutoUpdateReport(report)
 			if err != nil {
 				return err
 			}
 		}
-
-	// if mgrStrategy is auto, and if this is the first report of this RAC, extract base value
-	case config.AutoStrategy:
-		{
-			isFirstReport, err := isFirstReport(report.ClientID)
+	} else {
+		// if this client's AutoUpdate is false, and if this is the first report of this RAC, extract base value
+		isFirstReport, err := isFirstReport(report.ClientID)
+		if err != nil {
+			return err
+		}
+		baseValue := typdefs.BaseRow{}
+		if isFirstReport {
+			err = extract(report, &baseValue)
 			if err != nil {
 				return err
 			}
-			baseValue := typdefs.BaseRow{}
-			if isFirstReport {
-				err = extract(report, &baseValue)
-				if err != nil {
-					return err
-				}
-				// TODO:1.保证一个ClientID的基准值同时只有一个Enabled=TRUE
-				// 2.完善Name字段
-				baseValue.ClientID = report.ClientID
-				baseValue.CreateTime = time.Now()
-				baseValue.Enabled = false
-				baseValue.Verified = false
-				baseValue.Trusted = false
-				SaveBaseValue(&baseValue)
-			}
+			// TODO:1.保证一个ClientID的基准值同时只有一个Enabled=TRUE
+			// 2.完善Name字段
+			baseValue.ClientID = report.ClientID
+			baseValue.CreateTime = time.Now()
+			baseValue.Enabled = false
+			baseValue.Verified = false
+			baseValue.Trusted = false
+			SaveBaseValue(&baseValue)
 		}
 	}
 	return nil
@@ -845,7 +856,19 @@ func pushToStorePipe(v interface{}) {
 	}
 }
 
+// 这里之前只是把新增加的基准值保存到数据库中，我觉得还要把它更新到cache中
+// 根据clientID查询该client是否已经注册，如果未注册直接返回，
+// 已注册则把其添加到对应的cache节点中，再存储到数据库中。
 func SaveBaseValue(row *typdefs.BaseRow) {
+	c := cache.NewCache()
+	c.SetRegTime(row.CreateTime.Format(typdefs.StrTimeFormat))
+	clientRow, err := FindClientByID(row.ClientID)
+	if err != nil {
+		logger.L.Sugar().Errorf("can't find target client")
+		return
+	}
+	c.SetIKeyCert(clientRow.IKCert)
+	tmgr.cache[row.ClientID] = c
 	go pushToStorePipe(row)
 }
 
@@ -867,8 +890,8 @@ func handleStorePipe(i int) {
 				logger.L.Sugar().Errorf("insert trust report error, result %v, %v", res, err)
 			}
 		case *typdefs.BaseRow:
-			res, err := storeDb.Exec(sqlInsertBase, v.ClientID, v.CreateTime,
-				v.Enabled, v.Verified, v.Trusted, v.Name, v.Pcr, v.Bios, v.Ima)
+			res, err := storeDb.Exec(sqlInsertBase, v.ClientID, v.BaseType, v.Uuid, v.CreateTime,
+				v.Enabled, v.Name, v.Pcr, v.Bios, v.Ima)
 			if err != nil {
 				logger.L.Sugar().Errorf("insert base error, result %v, %v", res, err)
 			}

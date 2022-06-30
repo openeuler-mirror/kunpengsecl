@@ -22,10 +22,10 @@ CREATE TABLE report (
 CREATE TABLE base (
     id BIGSERIAL PRIMARY KEY NOT NULL,
     clientid BIGINT,
+    basetype CHAR(10), 
+    uuid CHAR(64),
     createtime TIMESTAMPTZ,
-    enabled BOOLEAN,
-    verified BOOLEAN,
-    trusted BOOLEAN,
+    enabled BOOLEAN,  
     name TEXT,
     pcr TEXT,
     bios TEXT,

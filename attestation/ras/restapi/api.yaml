@@ -364,6 +364,108 @@ paths:
       security:
         - servermgt_oauth2:
           - write:servers
+  /{uuid}/basevalue:
+    get:
+      summary: Return the base value of a given container/device
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+      response:
+        '200':
+          description: the base value info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseValueInfo'
+    post:
+      summary: create/update the base value of the given container/device
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: the base value info to be set for given container/device
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BaseValueInfo'
+      responses:
+        '200':
+          description: the base value of given container updated
+          content: {}
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{id}/container/status:
+    get:
+      summary: Return a list of trust status for all containers of a given client
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      response:
+        '200':
+          description: A JSON array of container trust status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrustStatus'
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{uuid}/status:
+    get:
+      summary: Return a trust status for given container/device
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+      response:
+        '200':
+          description: trust status of the given container/device
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrustStatus'
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{id}/device/status:
+    get:
+      summary: Return a list of trust status for all devices of a given client
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      response:
+        '200':
+          description: A JSON array of device trust status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrustStatus'
+      security:
+        - servermgt_oauth2:
+          - write:servers
 components:
   schemas:
     ServerInfo:
@@ -426,21 +528,28 @@ components:
       type: object
       required:
         - id
+        - clientid
+        - uuid
+        - basetype
         - createtime
-        - enabled
         - name
         - pcr
         - bios
         - ima
+        - enabled
       properties:
         id:
           type: integer
           format: int64
+        clientid:
+          type: integer
+          format: int64
+        uuid:
+          type: string
+        basetype:
+          type: string
         createtime:
           type: string
-        enabled:
-          type: boolean
-          default: false
         name:
           type: string
         pcr:
@@ -449,6 +558,16 @@ components:
           type: string
         ima:
           type: string
+        enabled:
+          type: boolean     
+    TrustStatus:
+      type: string
+      default: unknown
+      enum:
+      - not found
+      - unknown
+      - untrusted
+      - trusted
   securitySchemes:
     servermgt_http:
       description: http basic authentication to remote attestation server

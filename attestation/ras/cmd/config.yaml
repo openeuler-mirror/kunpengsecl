@@ -21,7 +21,6 @@ rasconfig:
   rootprivkeyfile: ""
   serialnumber: 0
   serverport: 127.0.0.1:40001
-  mgrstrategy: auto-update
   auto-update-config:
     isallupdate: false
     updateclients: []
