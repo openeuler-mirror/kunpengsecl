@@ -37,6 +37,7 @@ import (
 	"math"
 	"math/big"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -913,6 +914,11 @@ func EncryptIKCert(ekPubKey crypto.PublicKey, ikCert []byte, ikName []byte) (*IK
 
 //verifyComCert will get the all cert from certificate file to verify the cert is validated
 func verifyComCert(pathname string, cert *x509.Certificate) bool {
+	timeNow := time.Now()
+	if !timeNow.Before(cert.NotAfter) {
+		fmt.Println("The certificate has expired!")
+		return false
+	}
 	rd, err := ioutil.ReadDir(pathname)
 	if err != nil {
 		return false
@@ -933,11 +939,22 @@ func verifyComCert(pathname string, cert *x509.Certificate) bool {
 
 //validateCert will check the signature is or not validated by parent cert
 func validateCert(cert, parent *x509.Certificate) error {
+	//check the period validate
+	timeNow := time.Now()
+	if !timeNow.Before(parent.NotAfter) {
+		return errors.New("The certificate has expired!")
+	}
+	// er := cert.CheckSignatureFrom(parent)
+	// if er == nil {
+	// 	fmt.Println("success")
+	// 	return er
+	// }
+	if cert.Issuer.CommonName != parent.Subject.CommonName {
+		return errors.New("cert issuer name is not the parent subject name")
+	}
 	err := parent.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature)
 	if err != nil {
-
 		return err
 	}
-	fmt.Println(cert.Issuer.Names)
 	return nil
 }
