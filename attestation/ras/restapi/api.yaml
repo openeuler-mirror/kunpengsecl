@@ -475,6 +475,7 @@ components:
         - regtime
         - online
         - trusted
+        - isautoupdate
         - info
       properties:
         id:
@@ -486,6 +487,9 @@ components:
           type: boolean
           default: false
         trusted:
+          type: boolean
+          default: false
+        isautoupdate:
           type: boolean
           default: false
         info:

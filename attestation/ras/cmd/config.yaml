@@ -19,9 +19,7 @@ rasconfig:
   rootprivkeyfile: ""
   serialnumber: 0
   serverport: 127.0.0.1:40001
-  auto-update-config:
-    isallupdate: false
-    updateclients: []
+  onlineduration: 30s
   basevalue-extract-rules:
     manifest:
     - name:

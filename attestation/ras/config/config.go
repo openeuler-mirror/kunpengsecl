@@ -69,6 +69,7 @@ const (
 	confRestPort        = "rasconfig.restport"
 	confAuthKeyFile     = "rasconfig.authkeyfile"
 	confSerialNumber    = "rasconfig.serialnumber"
+	confOnlineDuration  = "rasconfig.onlineduration"
 	confHbDuration      = "racconfig.hbduration"
 	confTrustDuration   = "racconfig.trustduration"
 	confDigestAlgorithm = "racconfig.digestalgorithm"
@@ -145,6 +146,7 @@ type (
 		mgrStrategy      string
 		extractRules     typdefs.ExtractRules
 		autoUpdateConfig typdefs.AutoUpdateConfig
+		onlineDuration   time.Duration
 		// rac configuration
 		hbDuration      time.Duration // heartbeat duration
 		trustDuration   time.Duration // trust state duration
@@ -220,6 +222,7 @@ func getConfigs() {
 	rasCfg.restPort = viper.GetString(confRestPort)
 	rasCfg.authKeyFile = viper.GetString(confAuthKeyFile)
 	rasCfg.hbDuration = viper.GetDuration(confHbDuration)
+	rasCfg.onlineDuration = viper.GetDuration(confOnlineDuration)
 	rasCfg.trustDuration = viper.GetDuration(confTrustDuration)
 	rasCfg.digestAlgorithm = viper.GetString(confDigestAlgorithm)
 	rasCfg.mgrStrategy = viper.GetString(mgrStrategy)
@@ -445,6 +448,7 @@ func SaveConfigs() {
 	viper.Set(confAuthKeyFile, rasCfg.authKeyFile)
 	viper.Set(confSerialNumber, cryptotools.GetSerialNumber())
 	viper.Set(confHbDuration, rasCfg.hbDuration)
+	viper.Set(confOnlineDuration, rasCfg.onlineDuration)
 	viper.Set(confTrustDuration, rasCfg.trustDuration)
 	viper.Set(confDigestAlgorithm, rasCfg.digestAlgorithm)
 	err := viper.WriteConfig()
@@ -655,6 +659,22 @@ func SetHBDuration(v time.Duration) {
 		return
 	}
 	rasCfg.hbDuration = v
+}
+
+// GetOnlineDuration returns client online expire duration configuration.
+func GetOnlineDuration() time.Duration {
+	if rasCfg == nil {
+		return 0
+	}
+	return rasCfg.onlineDuration
+}
+
+// SetOnlineDuration returns client online expire duration configuration.
+func SetOnlineDuration(v time.Duration) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.onlineDuration = v
 }
 
 // GetTrustDuration returns trust report expire duration configuration.
