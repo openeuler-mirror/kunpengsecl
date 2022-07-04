@@ -44,9 +44,13 @@ func main() {
 	handleFlags()
 	signalHandler()
 
+	SetTestMode(true)
+	getEKCertTest()
+	getIKCertTest()
+
 	logger.L.Debug("open tpm...")
 	tpmConf := createTPMConfig(GetTestMode())
-	if GetSeed() == -1 {
+	if GetTestMode() && GetSeed() == -1 {
 		random, err0 := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 		if err0 != nil {
 			log.Fatalf("Client: generate seed failed, error: %s", err0)
@@ -83,12 +87,17 @@ func prepare() {
 	}
 	logger.L.Debug("generate EK success")
 	logger.L.Debug("load EK certificate...")
+	//如果是使用硬件，首先尝试从NV加载证书。
+	if !GetTestMode() {
+		LoadEKeyCert()
+	}
 	generateEKeyCert(ras)
 	err = LoadEKeyCert()
 	if err != nil {
 		logger.L.Sugar().Errorf("load EK certificate failed, %s", err)
+	} else {
+		logger.L.Debug("load EK certificate success")
 	}
-	logger.L.Debug("load EK certificate success")
 	logger.L.Debug("generate IK certificate...")
 	err = ractools.GenerateIKey()
 	if err != nil {
@@ -158,7 +167,8 @@ func createTPMConfig(testMode bool) *ractools.TPMConfig {
 // generateEKeyCert gets the EK public from tpm simulator and sends to PCA
 // to sign it, after that saves it into NVRAM, like manufactory did.
 func generateEKeyCert(ras *clientapi.RasConn) {
-	if GetTestMode() {
+	// 如果当前没有证书，则向ras注册一个证书
+	if racCfg.eKeyCert == nil {
 		if len(GetEKeyCert()) == 0 {
 			ekPubDer, err := x509.MarshalPKIXPublicKey(ractools.GetEKPub())
 			if err != nil {

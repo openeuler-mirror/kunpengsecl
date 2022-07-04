@@ -46,12 +46,15 @@ type (
 		// heartbeat expiration, used for judging whether RAC heartbeat is expired.
 		hbExpiration time.Time
 		// trust report expiration, used for maintain report freshness.
-		trustExpiration time.Time
+		trustExpiration  time.Time
+		onlineExpiration time.Time
 		// for remote attestation
 		nonce  uint64
 		ikCert *x509.Certificate
 		// for verify process
-		Bases []*typdefs.BaseRow
+		HostBase       []*typdefs.BaseRow
+		ContainerBases []*typdefs.BaseRow
+		DeviceBases    []*typdefs.BaseRow
 	}
 )
 
@@ -66,7 +69,9 @@ func NewCache() *Cache {
 		trustExpiration: time.Now(),
 		nonce:           0,
 		ikCert:          nil,
-		Bases:           make([]*typdefs.BaseRow, 0, defaultBaseRows),
+		HostBase:        make([]*typdefs.BaseRow, 0, defaultBaseRows),
+		ContainerBases:  make([]*typdefs.BaseRow, 0, defaultBaseRows),
+		DeviceBases:     make([]*typdefs.BaseRow, 0, defaultBaseRows),
 	}
 	return c
 }
@@ -82,6 +87,10 @@ func (c *Cache) UpdateHeartBeat(hb, trust time.Duration) {
 // UpdateTrustReport is called when receives trust report message from RAC.
 func (c *Cache) UpdateTrustReport(trust time.Duration) {
 	c.trustExpiration = time.Now().Add(trust)
+}
+
+func (c *Cache) UpdateOnline(t time.Duration) {
+	c.onlineExpiration = time.Now().Add(t)
 }
 
 // IsHeartBeatExpired checks if the client is expired.
@@ -162,6 +171,9 @@ func (c *Cache) SetRegTime(v string) {
 }
 
 func (c *Cache) GetOnline() bool {
+	if time.Now().After(c.onlineExpiration) {
+		c.online = false
+	}
 	return c.online
 }
 
