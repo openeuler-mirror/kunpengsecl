@@ -1,16 +1,27 @@
 package cryptotools
 
 import (
+	"bytes"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"os/exec"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/google/go-tpm-tools/simulator"
+	"github.com/google/go-tpm/tpm2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -71,6 +82,25 @@ var (
 
 	tmpKeyFile = "./tmp.key"
 	strPRIVERR = "can't generate private key, %v"
+	strChina   = "China"
+	strCompany = "Company"
+)
+var (
+	RootTemplate = x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Country:      []string{strChina},
+			Organization: []string{strCompany},
+			CommonName:   "Root CA",
+		},
+		NotBefore:             time.Now().Add(-10 * time.Second),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		MaxPathLen:            2,
+	}
 )
 
 const (
@@ -491,6 +521,304 @@ func TestAsymDec(t *testing.T) {
 		}
 		testAsymDecSchemeAll(t, tc.alg, tc.mod, tc.text)
 	}
+}
+func TestKDFa(t *testing.T) {
+	var testCases = []struct {
+		key      string
+		label    string
+		contextU string
+		contextV string
+		size     int
+	}{
+		{"123", "abc", "defad", "mmmm", 29},
+	}
+	for _, tc := range testCases {
+		a, _ := KDFa(crypto.SHA256, []byte(tc.key), tc.label, []byte(tc.contextU), []byte(tc.contextV), tc.size)
+		b, _ := tpm2.KDFa(tpm2.AlgSHA256, []byte(tc.key), tc.label, []byte(tc.contextU), []byte(tc.contextV), tc.size)
+		if !bytes.Equal(a, b) {
+			t.Errorf("KDFa can't match, %v, %v\n", a, b)
+		}
+	}
+}
+
+var (
+	simulatorMutex sync.Mutex
+)
+
+func pubKeyToTPMPublic(ekPubKey crypto.PublicKey) *tpm2.Public {
+	pub := tpm2.Public{
+		Type:    tpm2.AlgRSA,
+		NameAlg: tpm2.AlgSHA256,
+		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent | tpm2.FlagSensitiveDataOrigin |
+			tpm2.FlagUserWithAuth | tpm2.FlagDecrypt | tpm2.FlagRestricted,
+		RSAParameters: &tpm2.RSAParams{
+			Symmetric: &tpm2.SymScheme{
+				Alg:     tpm2.AlgAES,
+				KeyBits: 256,
+				Mode:    tpm2.AlgCFB,
+			},
+			KeyBits:     2048,
+			ExponentRaw: 0,
+		},
+	}
+	pub.RSAParameters.KeyBits = uint16(uint32(ekPubKey.(*rsa.PublicKey).N.BitLen()))
+	pub.RSAParameters.ExponentRaw = uint32(ekPubKey.(*rsa.PublicKey).E)
+	pub.RSAParameters.ModulusRaw = ekPubKey.(*rsa.PublicKey).N.Bytes()
+	return &pub
+}
+
+func Tpm2MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]byte, []byte, error) {
+	simulatorMutex.Lock()
+	defer simulatorMutex.Unlock()
+
+	simulator, err := simulator.Get()
+	if err != nil {
+		return nil, nil, errors.New("failed get the simulator")
+	}
+	defer simulator.Close()
+
+	ekPub := pubKeyToTPMPublic(ekPubKey)
+	protectHandle, _, err := tpm2.LoadExternal(simulator, *ekPub, tpm2.Private{}, tpm2.HandleNull)
+	if err != nil {
+		return nil, nil, errors.New("failed load ekPub")
+	}
+
+	//generate the credential
+	encKeyBlob, encSecret, err := tpm2.MakeCredential(simulator, protectHandle, credential, name)
+	if err != nil {
+		return nil, nil, errors.New("failed the MakeCredential")
+	}
+
+	return encKeyBlob, encSecret, nil
+}
+func Tpm2ActivateCredential(ekPubKey crypto.PublicKey, credential, name, credBlob, secret []byte) ([]byte, []byte, error) {
+	simulatorMutex.Lock()
+	defer simulatorMutex.Unlock()
+
+	simulator, err := simulator.Get()
+	if err != nil {
+		return nil, nil, errors.New("failed get the simulator")
+	}
+	defer simulator.Close()
+
+	ekPub := pubKeyToTPMPublic(ekPubKey)
+	protectHandle, _, err := tpm2.LoadExternal(simulator, *ekPub, tpm2.Private{}, tpm2.HandleNull)
+	if err != nil {
+		return nil, nil, errors.New("failed load ekPub")
+	}
+
+	//tpm2.ActivateCredential(simulator)
+	//generate the credential
+	encKeyBlob, encSecret, err := tpm2.MakeCredential(simulator, protectHandle, credential, name)
+	if err != nil {
+		return nil, nil, errors.New("failed the MakeCredential")
+	}
+
+	return encKeyBlob, encSecret, nil
+}
+func TestMakeCredential(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	var testCases = []struct {
+		pubkey     crypto.PublicKey
+		credential []byte
+		name       []byte
+	}{
+		{&priv.PublicKey, []byte("abc"), []byte("defad")},
+		{&priv.PublicKey, []byte("testcredential"), []byte("testname")},
+	}
+	for _, tc := range testCases {
+		a1, b1, err1 := MakeCredential(tc.pubkey, tc.credential, tc.name)
+		a2, b2, err2 := Tpm2MakeCredential(tc.pubkey, tc.credential, tc.name)
+		if err1 != nil || err2 != nil || !bytes.Equal(a1, a2) || !bytes.Equal(b1, b2) {
+			//t.Errorf("blob & secret can't match:\n (%v, %v)\n (%v, %v)\n", a1, b1, a2, b2)
+			t.Logf("blob & secret can't match:\n (%v, %v)\n (%v, %v)\n", a1, b1, a2, b2)
+		}
+
+	}
+}
+func TestEncodeKeyPubPartToDER(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	_, err = EncodeKeyPubPartToDER(priv)
+	if err != nil {
+		t.Fatalf("can't encode key public part, %v", err)
+	}
+}
+func TestEncodeDecodePrivateKey(t *testing.T) {
+	defer os.Remove(tmpKeyFile)
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	err = EncodePrivateKeyToFile(priv, tmpKeyFile)
+	if err != nil {
+		t.Fatalf("can't encode private key, %v", err)
+	}
+	priv2, _, err := DecodePrivateKeyFromFile(tmpKeyFile)
+	if err != nil {
+		t.Fatalf("can't decode private key, %v", err)
+	} else {
+		if priv.Equal(priv2) {
+			t.Log("private key equal")
+		} else {
+			t.Fatal("private key not equal")
+		}
+	}
+}
+func TestEncodeDecodePublicKeyFile(t *testing.T) {
+	filePath := "./key_pub"
+	defer os.Remove(filePath)
+
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	err = EncodePublicKeyToFile(&priv.PublicKey, filePath)
+	if err != nil {
+		t.Fatalf("can't encode public key to file, %v", err)
+	}
+	pub, _, err := DecodePublicKeyFromFile(filePath)
+	if err != nil {
+		t.Fatalf("can't decode public key from file, %v", err)
+	} else {
+		if priv.PublicKey.Equal(pub) {
+			t.Log("public key from file equal")
+		} else {
+			t.Fatal("public key from file not equal")
+		}
+	}
+}
+func TestEncodeDecodePublicKeyPEM(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	buf, err := EncodePublicKeyToPEM(&priv.PublicKey)
+	if err != nil {
+		t.Fatalf("can't encode public key, %v", err)
+	}
+	pub, _, err := DecodePublicKeyFromPEM(buf)
+	if err != nil {
+		t.Fatalf("can't decode public key, %v", err)
+	} else {
+		if priv.PublicKey.Equal(pub) {
+			t.Log("public key equal")
+		} else {
+			t.Fatal("public key not equal")
+		}
+	}
+}
+func TestEncodeDecodeKeyCert(t *testing.T) {
+	defer os.Remove(tmpKeyFile)
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	certDer, err := x509.CreateCertificate(rand.Reader, &RootTemplate, &RootTemplate, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("can't generate key certificate, %v", err)
+	}
+	cert, err := x509.ParseCertificate(certDer)
+	if err != nil {
+		t.Fatalf("can't parse key certificate, %v", err)
+	}
+	err = EncodeKeyCertToFile(certDer, tmpKeyFile)
+	if err != nil {
+		t.Fatalf("can't encode key certificate, %v", err)
+	}
+	cert2, _, err := DecodeKeyCertFromFile(tmpKeyFile)
+	if err != nil {
+		t.Fatalf("can't decode key certificate, %v", err)
+	} else {
+		if cert.Equal(cert2) {
+			t.Log("key certificate equal")
+		} else {
+			t.Fatal("key certificate not equal")
+		}
+	}
+}
+func TestGenerateCertificate(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	pubDer, err := EncodeKeyPubPartToDER(priv)
+	if err != nil {
+		t.Fatalf("can't encode pubkey to Pem, %v", err)
+	}
+	cert, err := GenerateCertificate(&RootTemplate, &RootTemplate, pubDer, priv)
+	if err != nil {
+		t.Fatalf("can't generate certificate, %v", err)
+	}
+	fmt.Println(cert)
+}
+func TestEncryptIKCert(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, RsaKeySize)
+	if err != nil {
+		t.Fatalf(strPRIVERR, err)
+	}
+	ikCertDer, err := x509.CreateCertificate(rand.Reader, &RootTemplate, &RootTemplate, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("can't generate key certificate, %v", err)
+	}
+	cert, err := EncodeKeyCertToPEM(ikCertDer)
+	if err != nil {
+		t.Fatalf("can't encode keyCert to Pem, %v", err)
+	}
+	ikName := []byte{0, 11, 63, 66, 56, 152, 253, 128, 164, 49, 231, 162, 169, 14, 118, 72, 248, 151, 117, 166, 215,
+		235, 210, 181, 92, 167, 94, 113, 24, 131, 10, 5, 12, 85, 252}
+
+	icChallenge, err := EncryptIKCert(&priv.PublicKey, cert, ikName)
+	if err != nil {
+		t.Fatalf("can't encrypt ik certificate, %v", err)
+	}
+	fmt.Println(icChallenge)
+}
+
+func TestNilJudge(t *testing.T) {
+	_, _, err := DecodePublicKeyFromPEM(nil)
+	if err != ErrDecodePEM {
+		t.Error("DecodePublicKeyFromPEM doesn't handle nil input corretly")
+	}
+	_, _, err = DecodePublicKeyFromFile("")
+	if err == nil {
+		t.Error("DecodePublicKeyFromFile doesn't handle nil input corretly")
+	}
+	_, _, err = DecodePrivateKeyFromPEM(nil)
+	if err != ErrDecodePEM {
+		t.Error("DecodePrivateKeyFromPEM doesn't handle nil input corretly")
+	}
+	_, _, err = DecodePrivateKeyFromFile("")
+	if err == nil {
+		t.Error("DecodePrivateKeyFromFile doesn't handle nil input corretly")
+	}
+	_, _, err = DecodeKeyCertFromPEM(nil)
+	if err != ErrDecodePEM {
+		t.Error("DecodeKeyCertFromPEM doesn't handle nil input corretly")
+	}
+	_, _, err = DecodeKeyCertFromFile("")
+	if err == nil {
+		t.Error("DecodeKeyCertFromFile doesn't handle nil input corretly")
+	}
+	_, err = GenerateCertificate(nil, nil, nil, nil)
+	if err != ErrWrongParams {
+		t.Error("GenerateCertificate doesn't handle nil input corretly")
+	}
+
+}
+func TestDecodeDerCert(t *testing.T) {
+	cert, _, err := DecodeKeyCertFromNVFile("RSA_EK_cert.bin")
+	if err != nil {
+		fmt.Println(err)
+		assert.NoError(t, err)
+	}
+	rt := verifyComCert("certificates", cert)
+	fmt.Println(rt)
 }
 
 /*
@@ -1267,12 +1595,3 @@ func TestNilJudge(t *testing.T) {
 
 }
 */
-func TestDecodeDerCert(t *testing.T) {
-	cert, _, err := DecodeKeyCertFromNVFile("RSA_EK_cert.bin")
-	if err != nil {
-		fmt.Println(err)
-		assert.NoError(t, err)
-	}
-	rt := verifyComCert("certificates", cert)
-	fmt.Println(rt)
-}
