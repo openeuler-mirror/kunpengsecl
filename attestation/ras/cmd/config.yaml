@@ -12,15 +12,6 @@ racconfig:
   trustduration: 2m0s
 rasconfig:
   authkeyfile: ./ecdsakey.pub
-  pcakeycertfile: ""
-  pcaprivkeyfile: ""
-  httpsswitch: false
-  restport: 127.0.0.1:40002
-  httpsport: 127.0.0.1:40003
-  rootkeycertfile: ""
-  rootprivkeyfile: ""
-  serialnumber: 0
-  serverport: 127.0.0.1:40001
   auto-update-config:
     isallupdate: false
     updateclients: []
@@ -40,3 +31,12 @@ rasconfig:
       - 2
       - 3
       - 4
+  httpsport: 127.0.0.1:40003
+  httpsswitch: true
+  pcakeycertfile: ./pca-ek.crt
+  pcaprivkeyfile: ./pca-ek.key
+  restport: 127.0.0.1:40002
+  rootkeycertfile: ./pca-root.crt
+  rootprivkeyfile: ./pca-root.key
+  serialnumber: 4
+  serverport: 127.0.0.1:40001

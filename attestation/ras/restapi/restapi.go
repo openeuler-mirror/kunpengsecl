@@ -60,7 +60,6 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 )
 
 const (
@@ -214,11 +213,10 @@ func StartServerHttp(port string) {
 	logger.L.Sugar().Debug(e.Start(port))
 }
 
-func StartServerHttps(httpPort string) {
+func StartServerHttps(httpsPort string) {
 	e := echo.New()
-	e.Pre(middleware.HTTPSRedirect())
 	RegisterHandlers(e, &MyRestAPIServer{})
-	logger.L.Sugar().Debug(e.StartTLS(httpPort, "crt/server.crt", "crt/server.key"))
+	e.Logger.Fatal(e.StartTLS(httpsPort, "../restapi/crt/server.crt", "../restapi/crt/server.key"))
 }
 
 func checkJSON(ctx echo.Context) bool {
