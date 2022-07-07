@@ -31,3 +31,21 @@ CREATE TABLE base (
     bios TEXT,
     ima TEXT
 );
+
+CREATE TABLE device_key(
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    device_cert TEXT,
+    registered BOOLEAN,
+    trusted BOOLEAN,
+    register_time TIMESTAMPTZ,
+    client_info TEXT
+);
+
+CREATE TABLE akey_cert(
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    device_id BIGSERIAL NOT NULL REFERENCES device_key(id),
+    create_time TIMESTAMPTZ,
+    expire_time TIMESTAMPTZ,
+    ak_certificate TEXT,
+    available BOOLEAN
+);
