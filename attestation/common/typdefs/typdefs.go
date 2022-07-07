@@ -48,6 +48,7 @@ const (
 	StrImaNg        = "ima-ng"
 	Sha1DigestLen   = 20
 	Sha256DigestLen = 32
+	SM3DigestLen    = 32
 	Sha1AlgStr      = "sha1"
 	Sha256AlgStr    = "sha256"
 	PcrMaxNum       = 24

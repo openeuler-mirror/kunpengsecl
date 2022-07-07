@@ -117,6 +117,12 @@ System Information
 	TestSeedPath    = "./simulator_seed"
 	ImaLogPath      = "/sys/kernel/security/ima/ascii_runtime_measurements"
 	BiosLogPath     = "/sys/kernel/security/tpm0/binary_bios_measurements"
+	AlgSM3          = 0x0012
+	algSHA1Str      = "sha1"
+	algSHA256Str    = "sha256"
+	algSHA384Str    = "sha384"
+	algSHA512Str    = "sha512"
+	algSM3Str       = "sm3"
 )
 
 type (
@@ -162,9 +168,10 @@ type (
 )
 
 var (
-	ErrWrongParams = errors.New("wrong input parameter")
-	ErrFailTPMInit = errors.New("couldn't start tpm or init key/certificate")
-	ErrReadPCRFail = errors.New("Failed to read all PCRs")
+	ErrWrongParams         = errors.New("wrong input parameter")
+	ErrFailTPMInit         = errors.New("couldn't start tpm or init key/certificate")
+	ErrReadPCRFail         = errors.New("failed to read all PCRs")
+	ErrNotSupportedHashAlg = errors.New("the set hash algorithm  is not supported")
 
 	algStrMap = map[tpm2.Algorithm]string{
 		tpm2.AlgSHA1:   "SHA1",
@@ -172,11 +179,13 @@ var (
 		tpm2.AlgSHA384: "SHA384",
 		tpm2.AlgSHA512: "SHA512",
 	}
+
 	algIdMap = map[string]tpm2.Algorithm{
-		"sha1":   tpm2.AlgSHA1,
-		"sha256": tpm2.AlgSHA256,
-		"sha384": tpm2.AlgSHA384,
-		"sha512": tpm2.AlgSHA512,
+		algSHA1Str:   tpm2.AlgSHA1,
+		algSHA256Str: tpm2.AlgSHA256,
+		algSHA384Str: tpm2.AlgSHA384,
+		algSHA512Str: tpm2.AlgSHA512,
+		algSM3Str:    AlgSM3,
 	}
 
 	// PCR7 is for SecureBoot.
@@ -276,14 +285,18 @@ func GetIKName() []byte {
 }
 
 // SetDigestAlg method update the Digest alg used to get pcrs and to do the quote.
-func SetDigestAlg(alg string) {
+func SetDigestAlg(alg string) error {
 	if tpmRef == nil {
-		return
+		return ErrFailTPMInit
 	}
-	tpmRef.config.ReportHashAlg = alg
+
 	if algID, ok := algIdMap[alg]; ok {
 		pcrSelectionAll.Hash = algID
+		tpmRef.config.ReportHashAlg = alg
+		return nil
 	}
+	return ErrNotSupportedHashAlg
+
 }
 
 // OpenTPM uses either a physical TPM device(default/useHW=true) or a
@@ -541,6 +554,9 @@ func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {
 		digBuf = make([]byte, typdefs.Sha1DigestLen*2)
 	case tpm2.AlgSHA256:
 		digBuf = make([]byte, typdefs.Sha256DigestLen*2)
+	// TODO: need rewrite
+	case AlgSM3:
+		digBuf = make([]byte, typdefs.SM3DigestLen*2)
 	}
 	numPCRs := len(pcrSelection.PCRs)
 	// read pcr one by one by ordering
