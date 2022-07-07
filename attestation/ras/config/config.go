@@ -185,7 +185,7 @@ var (
 // InitFlags inits the ras server command flags.
 func InitFlags() {
 	servPort = pflag.StringP(lflagServerPort, sflagServerPort, nullString, helpServerPort)
-	httpsSwitch = pflag.BoolP(lflagHttpsSwitch, sflagHttpsSwitch, false, helpHttpsSwitch)
+	httpsSwitch = pflag.BoolP(lflagHttpsSwitch, sflagHttpsSwitch, true, helpHttpsSwitch)
 	restPort = pflag.StringP(lflagRestPort, sflagRestPort, nullString, helpRestPort)
 	httpsPort = pflag.StringP(lflagHttpsPort, sflagHttpsPort, nullString, helpHttpsPort)
 	TokenFlag = pflag.BoolP(lflagToken, sflagToken, false, helpToken)
