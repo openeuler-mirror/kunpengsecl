@@ -12,9 +12,16 @@ racconfig:
   trustduration: 2m0s
 rasconfig:
   authkeyfile: ./ecdsakey.pub
-  auto-update-config:
-    isallupdate: false
-    updateclients: []
+  pcakeycertfile: ""
+  pcaprivkeyfile: ""
+  httpsswitch: true
+  restport: 127.0.0.1:40002
+  httpsport: 127.0.0.1:40003
+  rootkeycertfile: ""
+  rootprivkeyfile: ""
+  serialnumber: 0
+  serverport: 127.0.0.1:40001
+  onlineduration: 30s
   basevalue-extract-rules:
     manifest:
     - name:
@@ -31,12 +38,3 @@ rasconfig:
       - 2
       - 3
       - 4
-  httpsport: 127.0.0.1:40003
-  httpsswitch: true
-  pcakeycertfile: ./pca-ek.crt
-  pcaprivkeyfile: ./pca-ek.key
-  restport: 127.0.0.1:40002
-  rootkeycertfile: ./pca-root.crt
-  rootprivkeyfile: ./pca-root.key
-  serialnumber: 4
-  serverport: 127.0.0.1:40001

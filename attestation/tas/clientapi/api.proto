@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+option go_package = "gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi";
+
+service Tas {
+    rpc GetAKCert (GetAKCertRequest) returns (GetAKCertReply) {}
+    rpc RegisterClient (RegisterClientRequest) returns (RegisterClientReply) {}
+}
+
+message GetAKCertRequest {
+    bytes akcert = 1;
+    bytes dvcert = 2;
+}
+
+message GetAKCertReply {
+    bytes akcert = 1;
+}
+
+message RegisterClientRequest {
+    string clientinfo = 1;
+    bytes dvcert = 2;
+}
+
+message RegisterClientReply {
+    int64 clientid = 1;
+}

@@ -400,10 +400,11 @@ func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 			return ctx.JSON(http.StatusNotFound, &typdefs.NodeInfo{ID: id})
 		}
 		ni := typdefs.NodeInfo{
-			ID:      id,
-			RegTime: c.GetRegTime(),
-			Online:  c.GetOnline(),
-			Trusted: c.GetTrusted(),
+			ID:           id,
+			RegTime:      c.GetRegTime(),
+			Online:       c.GetOnline(),
+			Trusted:      c.GetTrusted(),
+			IsAutoUpdate: c.GetIsAutoUpdate(),
 		}
 		return ctx.JSON(http.StatusOK, &ni)
 	}
@@ -419,7 +420,7 @@ func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 //  modify node {id} information by json
 //    curl -X POST -H "Content-type: multipart/form-data" -F "IsAutoUpdate=true;type=application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
-	sIsU := ctx.FormValue(strEnabled)
+	sIsU := ctx.FormValue(strIsAutoUpdate)
 	isAutoUpdate, _ := strconv.ParseBool(sIsU)
 	c, err := trustmgr.GetCache(id)
 	if err != nil {
@@ -689,7 +690,7 @@ func (s *MyRestAPIServer) GetIdContainerStatus(ctx echo.Context, cid int64) erro
 	if err != nil {
 		return err
 	}
-	rows := c.Bases
+	rows := c.ContainerBases
 	var buf bytes.Buffer
 	for i := 0; i < len(rows); i++ {
 		if rows[i].BaseType != strContainer {
@@ -718,7 +719,7 @@ func (s *MyRestAPIServer) GetIdDeviceStatus(ctx echo.Context, cid int64) error {
 	if err != nil {
 		return err
 	}
-	rows := c.Bases
+	rows := c.DeviceBases
 	var buf bytes.Buffer
 	for i := 0; i < len(rows); i++ {
 		if rows[i].BaseType != strDevice {
@@ -815,8 +816,9 @@ func (s *MyRestAPIServer) GetUuidStatus(ctx echo.Context, uuid string) error {
 		return err
 	}
 	var row *typdefs.BaseRow
+	baseRows := append(c.ContainerBases, c.DeviceBases...)
 	find := false
-	for _, v := range c.Bases {
+	for _, v := range baseRows {
 		if v.Uuid == uuid {
 			row = v
 			find = true

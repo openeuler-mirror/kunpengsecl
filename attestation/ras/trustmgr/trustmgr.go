@@ -62,7 +62,7 @@ const (
 	sqlFindReportsByClientID    = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
 	sqlFindReportByID           = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
 	sqlFindBaseValuesByClientID = `SELECT id, basetype, uuid, createtime, name, enabled FROM base WHERE clientid=$1 ORDER BY createtime ASC`
-	sqlFindBaseValueByID        = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE id=$1`
+	sqlFindBaseValueByID        = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE id=$1 ORDER BY createtime ASC`
 	sqlFindBaseValueByUuid      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
 	sqlDeleteReportByID         = `DELETE FROM report WHERE id=$1`
 	sqlDeleteBaseValueByID      = `DELETE FROM base WHERE id=$1`
@@ -447,6 +447,7 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 	row.Trusted = true
 	c.SetTrusted(true)
 	c.UpdateTrustReport(config.GetTrustDuration())
+	c.UpdateOnline(config.GetOnlineDuration())
 	go pushToStorePipe(row)
 	return true, nil
 }
@@ -558,7 +559,8 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 		}
 		baseValue := typdefs.BaseRow{}
 		if isFirstReport {
-			err = extract(report, &baseValue)
+			// this is first report, so oldBase is nil
+			err = extract(report, nil, &baseValue)
 			if err != nil {
 				return err
 			}
@@ -576,39 +578,37 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 }
 
 func recordAutoUpdateReport(report *typdefs.TrustReport) error {
-	if isClientAutoUpdate(report.ClientID) {
-		historyBase, err := FindBaseValuesByClientID(report.ClientID)
-		if err != nil {
-			return err
-		}
-		newBase := typdefs.BaseRow{}
-		oldBase := typdefs.BaseRow{}
-		// 如果该client已经存在基准值，则后续的抽取模板和存在的基准值保持一致，
-		// 否则，抽取模板从config读取
-		if len(historyBase) != 0 {
-			oldBase = historyBase[len(historyBase)-1]
-			newBase = typdefs.BaseRow{
-				ClientID: report.ClientID,
-			}
-		}
-		err = extract(report, &newBase)
-		if err != nil {
-			return err
-		}
-		// TODO:1.保证一个ClientID的基准值同时只有一个Enabled=TRUE
-		// 2.完善Name字段
-		if isBaseUpdate(&oldBase, &newBase) {
-			newBase.ClientID = report.ClientID
-			newBase.CreateTime = time.Now()
-			newBase.Enabled = false
-			newBase.Verified = false
-			newBase.Trusted = false
-			SaveBaseValue(&newBase)
-		}
+
+	c, err := GetCache(report.ClientID)
+	if err != nil {
+		return err
 	}
+	bases := c.HostBase
+	newBase := typdefs.BaseRow{ClientID: report.ClientID}
+	oldBase := typdefs.BaseRow{}
+	// 如果cache中存在该client的基准值，则后续的抽取模板和存在的基准值保持一致，
+	// 否则，抽取模板从config读取
+	if len(bases) != 0 {
+		oldBase = *bases[0]
+	}
+	err = extract(report, &oldBase, &newBase)
+	if err != nil {
+		return err
+	}
+	// TODO:1.保证一个ClientID的基准值同时只有一个Enabled=TRUE
+	// 2.完善Name字段
+	if isBaseUpdate(&oldBase, &newBase) {
+		newBase.CreateTime = time.Now()
+		newBase.Enabled = true
+		newBase.Verified = true
+		newBase.Trusted = true
+		SaveBaseValue(&newBase)
+	}
+
 	return nil
 }
 
+/*
 func isClientAutoUpdate(clientID int64) bool {
 	// if all update
 	if config.GetAutoUpdateConfig().IsAllUpdate {
@@ -621,7 +621,7 @@ func isClientAutoUpdate(clientID int64) bool {
 		}
 	}
 	return false
-}
+}*/
 
 func isBaseUpdate(oldBase *typdefs.BaseRow, newBase *typdefs.BaseRow) bool {
 	// compare pcr
@@ -655,19 +655,19 @@ func isFirstReport(clientId int64) (bool, error) {
 	return false, nil
 }
 
-func extract(report *typdefs.TrustReport, basevalue *typdefs.BaseRow) error {
+func extract(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow) error {
 	//pcr抽取
-	err := extractPCR(report, basevalue)
+	err := extractPCR(report, oldBase, newBase)
 	if err != nil {
 		return err
 	}
 	//bios抽取
-	err = extractBIOS(report, basevalue)
+	err = extractBIOS(report, oldBase, newBase)
 	if err != nil {
 		return err
 	}
 	//ima抽取
-	err = extractIMA(report, basevalue)
+	err = extractIMA(report, oldBase, newBase)
 	if err != nil {
 		return err
 	}
@@ -679,7 +679,7 @@ func Verify(baseValue *typdefs.BaseRow, report *typdefs.TrustReport) error {
 	newBaseValue := typdefs.BaseRow{
 		ClientID: report.ClientID,
 	}
-	err := extractBIOS(report, &newBaseValue)
+	err := extractBIOS(report, baseValue, &newBaseValue)
 	if err != nil {
 		return err
 	}
@@ -696,25 +696,39 @@ func Verify(baseValue *typdefs.BaseRow, report *typdefs.TrustReport) error {
 	return nil
 }
 
-func extractPCR(report *typdefs.TrustReport, mInfo *typdefs.BaseRow) error {
+func GetExtractRulesFromPcr(pcrlog string) []int {
+	res := []int{}
+	lines := bytes.Split([]byte(pcrlog), typdefs.NewLine)
+	for _, line := range lines {
+		v, _ := strconv.Atoi(string(line[0]))
+		res = append(res, v)
+	}
+	return res
+}
+
+func extractPCR(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow) error {
 	pcrLog := findManifest(report, typdefs.StrPcr)
 	pcrMap := pcrLogToMap(pcrLog)
 	pcrSelection := config.GetExtractRules().PcrRule.PcrSelection
+	// if oldBase exist, extractRules are consistent with it
+	if oldBase != nil {
+		pcrSelection = GetExtractRulesFromPcr(oldBase.Pcr)
+	}
+
 	var buf bytes.Buffer
 	for _, n := range pcrSelection {
 		if v, ok := pcrMap[n]; ok {
-			buf.WriteString(v)
-			buf.WriteString("\n")
+			buf.WriteString(fmt.Sprintf("%d:%s\n", n, v))
 		} else {
 			return fmt.Errorf("extract failed. pcr number %v doesn't exist in this report", n)
 		}
 	}
-	mInfo.Pcr = buf.String()
+	newBase.Pcr = buf.String()
 	return nil
 }
 
-func extractBIOS(report *typdefs.TrustReport, mInfo *typdefs.BaseRow) error {
-	biosNames := getBiosExtractTemplate(mInfo)
+func extractBIOS(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow) error {
+	biosNames := getBiosExtractTemplate(oldBase)
 	var buf bytes.Buffer
 	// reset manifest to append extract result
 	bLog := findManifest(report, typdefs.StrBios)
@@ -737,51 +751,67 @@ func extractBIOS(report *typdefs.TrustReport, mInfo *typdefs.BaseRow) error {
 			return fmt.Errorf("extract failed. bios manifest name %v doesn't exist in this report", bn)
 		}
 	}
-	mInfo.Bios = buf.String()
+	newBase.Bios = buf.String()
 	return nil
 }
 
-func getBiosExtractTemplate(mInfo *typdefs.BaseRow) []string {
+func GetExtractRulesFromBios(bioslog string) []string {
 	var biosNames []string
-	mRule := config.GetExtractRules().ManifestRules
-	if mInfo.ClientID == 0 {
+	lines := bytes.Split([]byte(bioslog), typdefs.NewLine)
+	for _, ln := range lines {
+		words := bytes.Split(ln, typdefs.Space)
+		biosNames = append(biosNames, string(words[0]))
+	}
+	return biosNames
+}
+
+func getBiosExtractTemplate(oldBase *typdefs.BaseRow) []string {
+	var biosNames []string
+	// if oldBase exist, extractRules are consistent with it
+	if oldBase != nil {
+		biosNames = GetExtractRulesFromBios(oldBase.Bios)
+	} else {
+		mRule := config.GetExtractRules().ManifestRules
 		for _, rule := range mRule {
 			if strings.ToLower(rule.MType) == typdefs.StrBios {
 				biosNames = rule.Name
 				break
 			}
 		}
-	} else {
-		lines := bytes.Split([]byte(mInfo.Bios), typdefs.NewLine)
-		for _, ln := range lines {
-			words := bytes.Split(ln, typdefs.Space)
-			biosNames = append(biosNames, string(words[0]))
-		}
 	}
+
 	return biosNames
 }
 
-func getIMAExtractTemplate(mInfo *typdefs.BaseRow) []string {
+func GetExtractRulesFromIma(imalog string) []string {
 	var imaNames []string
-	if mInfo.ClientID == 0 {
+	lines := bytes.Split([]byte(imalog), typdefs.NewLine)
+	for _, ln := range lines {
+		words := bytes.Split(ln, typdefs.Space)
+		imaNames = append(imaNames, string(words[2]))
+	}
+	return imaNames
+}
+
+func getIMAExtractTemplate(oldBase *typdefs.BaseRow) []string {
+	var imaNames []string
+	// if oldBase exist, extractRules are consistent with it
+	if oldBase != nil {
+		imaNames = GetExtractRulesFromIma(oldBase.Ima)
+	} else {
 		for _, rule := range config.GetExtractRules().ManifestRules {
 			if strings.ToLower(rule.MType) == typdefs.StrIma {
 				imaNames = rule.Name
 				break
 			}
 		}
-	} else {
-		lines := bytes.Split([]byte(mInfo.Ima), typdefs.NewLine)
-		for _, ln := range lines {
-			words := bytes.Split(ln, typdefs.Space)
-			imaNames = append(imaNames, string(words[2]))
-		}
 	}
+
 	return imaNames
 }
 
-func extractIMA(report *typdefs.TrustReport, mInfo *typdefs.BaseRow) error {
-	imaNames := getIMAExtractTemplate(mInfo)
+func extractIMA(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow) error {
+	imaNames := getIMAExtractTemplate(oldBase)
 	var buf bytes.Buffer
 	// reset manifest to append extract result
 	imaLog := findManifest(report, typdefs.StrIma)
@@ -803,7 +833,7 @@ func extractIMA(report *typdefs.TrustReport, mInfo *typdefs.BaseRow) error {
 			return fmt.Errorf("extract failed. ima manifest name %v doesn't exist in this report", in)
 		}
 	}
-	mInfo.Ima = buf.String()
+	newBase.Ima = buf.String()
 	return nil
 }
 
@@ -856,19 +886,7 @@ func pushToStorePipe(v interface{}) {
 	}
 }
 
-// 这里之前只是把新增加的基准值保存到数据库中，我觉得还要把它更新到cache中
-// 根据clientID查询该client是否已经注册，如果未注册直接返回，
-// 已注册则把其添加到对应的cache节点中，再存储到数据库中。
 func SaveBaseValue(row *typdefs.BaseRow) {
-	c := cache.NewCache()
-	c.SetRegTime(row.CreateTime.Format(typdefs.StrTimeFormat))
-	clientRow, err := FindClientByID(row.ClientID)
-	if err != nil {
-		logger.L.Sugar().Errorf("can't find target client")
-		return
-	}
-	c.SetIKeyCert(clientRow.IKCert)
-	tmgr.cache[row.ClientID] = c
 	go pushToStorePipe(row)
 }
 
@@ -890,10 +908,31 @@ func handleStorePipe(i int) {
 				logger.L.Sugar().Errorf("insert trust report error, result %v, %v", res, err)
 			}
 		case *typdefs.BaseRow:
+			// 这里之前只是把新增加的基准值保存到数据库中，我觉得还要把它更新到cache中
+			// 根据clientID查询该client是否已经注册，如果未注册直接返回，
+			// 已注册则把其添加到对应的cache节点中，再存储到数据库中。
 			res, err := storeDb.Exec(sqlInsertBase, v.ClientID, v.BaseType, v.Uuid, v.CreateTime,
 				v.Enabled, v.Name, v.Pcr, v.Bios, v.Ima)
 			if err != nil {
 				logger.L.Sugar().Errorf("insert base error, result %v, %v", res, err)
+			}
+			switch v.BaseType {
+			case "host":
+				//如果新添加的基准值是host类型，把新的基准值替换原来的
+				tmgr.cache[v.ClientID].HostBase[0] = v
+			case "container":
+				for i, base := range tmgr.cache[v.ClientID].ContainerBases {
+					if base.Uuid == v.Uuid {
+						tmgr.cache[v.ClientID].ContainerBases[i] = v
+					}
+				}
+			case "device":
+				for i, base := range tmgr.cache[v.ClientID].DeviceBases {
+					if base.Uuid == v.Uuid {
+						tmgr.cache[v.ClientID].DeviceBases[i] = v
+						break
+					}
+				}
 			}
 		}
 	}

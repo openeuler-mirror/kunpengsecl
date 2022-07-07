@@ -207,10 +207,11 @@ func GetIP() string {
 type (
 	// node info for rest api query.
 	NodeInfo struct {
-		ID      int64  `json:"id" form:"id"`
-		RegTime string `json:"regtime" form:"regtime"`
-		Online  bool   `json:"online" form:"online"`
-		Trusted bool   `json:"trusted" form:"trusted"`
+		ID           int64  `json:"id" form:"id"`
+		RegTime      string `json:"regtime" form:"regtime"`
+		Online       bool   `json:"online" form:"online"`
+		Trusted      bool   `json:"trusted" form:"trusted"`
+		IsAutoUpdate bool   `json:"isautoupdate" form:"isautoupdate"`
 	}
 
 	ArrNodeInfo []NodeInfo

@@ -1,0 +1,5 @@
+attesterconfig:
+  server: 127.0.0.1:40007
+  basevalue: "./basevalue.txt"
+  mspolicy: 2
+  uuid: C29D01B0-CD13-405A-99F9-06343DFBE691
