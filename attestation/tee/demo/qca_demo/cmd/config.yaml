@@ -1,0 +1,6 @@
+qcaconfig:
+  server: 127.0.0.1:40007
+  akserver: 127.0.0.1:40008
+  scenario: 0
+  akcertfile: ./nodaa-ak.crt
+  clientid: -1
