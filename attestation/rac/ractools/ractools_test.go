@@ -1,26 +1,11 @@
 package ractools
 
-/*
 import (
-	"bytes"
-	"crypto"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/hex"
-	"fmt"
-	"io/ioutil"
-	"math/big"
 	"os"
 	"testing"
-	"time"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/pca"
-	"github.com/google/go-tpm-tools/simulator"
-	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -31,8 +16,6 @@ const (
 	Encrypt_Alg                    = "AES128-CBC"
 	AlgAES                         = 0x0006
 	AlgCBC                         = 0x0042
-	algSha1Str                     = "sha1"
-	algSha256Str                   = "sha256"
 )
 
 var (
@@ -43,16 +26,111 @@ var (
 	openTPMFailStr        = "OpenTpm failed, err: %v"
 )
 
+func TestOpenSWTPM(t *testing.T) {
+	tc := &TPMConfig{
+		IMALogPath:    testImaLogPath,
+		BIOSLogPath:   testBiosLogPath,
+		ReportHashAlg: "",
+		SeedPath:      "",
+	}
+	err := OpenTPM(false, tc, -1)
+	if err != nil {
+		t.Errorf(openTPMFailStr, err)
+		os.Exit(1)
+	}
+	defer CloseTPM()
+}
+
+/*
+	this function must use sudo to test
+*/
+/*
+func TestOpenHWTPM(t *testing.T) {
+	tc := &TPMConfig{
+		IMALogPath:    testImaLogPath,
+		BIOSLogPath:   testBiosLogPath,
+		ReportHashAlg: "",
+		SeedPath:      "",
+	}
+	err := OpenTPM(true, tc, -1)
+	if err != nil {
+		t.Errorf(openTPMFailStr, err)
+		os.Exit(1)
+	}
+	defer CloseTPM()
+	err = GenerateEKey()
+	if err != nil {
+		t.Errorf("Create Ek failed: %s", err)
+	}
+	err = GenerateIKey()
+	if err != nil {
+		t.Errorf("Create Ik failed: %s", err)
+	}
+	SetDigestAlg("sm3")
+	tr, err := GetTrustReport(clientId, nonce)
+	if err != nil {
+		t.Errorf("CreateTrustReport failed: %s", err)
+	}
+	assert.NotEmpty(t, tr.Quoted)
+}
+*/
+
+func TestSetDigestAlg(t *testing.T) {
+	err := SetDigestAlg(algSHA1Str)
+	assert.Error(t, err, ErrFailTPMInit)
+
+	tc := &TPMConfig{
+		IMALogPath:    testImaLogPath,
+		BIOSLogPath:   testBiosLogPath,
+		ReportHashAlg: "",
+		SeedPath:      "",
+	}
+	err = OpenTPM(false, tc, -1)
+	if err != nil {
+		t.Errorf(openTPMFailStr, err)
+		os.Exit(1)
+	}
+	defer CloseTPM()
+	for algstr, _ := range algIdMap {
+		SetDigestAlg(algstr)
+		assert.EqualValues(t, algstr, tpmRef.config.ReportHashAlg)
+	}
+	err = SetDigestAlg("abcd")
+	assert.Error(t, err, ErrNotSupportedHashAlg)
+
+	err = SetDigestAlg(algSHA1Str)
+	assert.NoError(t, err)
+	err = GenerateEKey()
+	if err != nil {
+		t.Errorf("Create Ek failed: %s", err)
+	}
+	err = GenerateIKey()
+	if err != nil {
+		t.Errorf("Create Ik failed: %s", err)
+	}
+	tr1, err := GetTrustReport(clientId, nonce)
+	if err != nil {
+		t.Errorf("CreateTrustReport failed: %s", err)
+	}
+
+	err = SetDigestAlg(algSHA256Str)
+	assert.NoError(t, err)
+	tr2, err := GetTrustReport(clientId, nonce)
+	if err != nil {
+		t.Errorf("CreateTrustReport failed: %s", err)
+	}
+	assert.NotEqualValues(t, tr1.Quoted, tr2.Quoted)
+}
+
+/*
 func TestCreateTrustReport(t *testing.T) {
-	test.CreateClientConfigFile()
-	config.GetDefault(config.ConfClient)
-	defer test.RemoveConfigFile()
 
 	TpmConf := TPMConfig{}
 	TpmConf.IMALogPath = testImaLogPath
 	TpmConf.BIOSLogPath = testBiosLogPath
 	TpmConf.ReportHashAlg = ""
-	Tpm, err := OpenTPM(!testMode, &TpmConf)
+	Tpm, err := OpenTPM(!testMode, &TpmConf, -1)
+
 	if err != nil {
 		t.Errorf(openTPMFailStr, err)
 		return

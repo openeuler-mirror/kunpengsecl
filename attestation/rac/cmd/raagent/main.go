@@ -121,7 +121,10 @@ func prepare() {
 	}
 	saveConfigs()
 
-	ractools.SetDigestAlg(GetDigestAlgorithm())
+	err = ractools.SetDigestAlg(GetDigestAlgorithm())
+	if err != nil {
+		logger.L.Sugar().Errorf("set digest algorithm, %s", err)
+	}
 	//err = tpm.PreparePCRsTest()
 	if err != nil {
 		logger.L.Sugar().Errorf("prepare PCRs failed, %s", err)

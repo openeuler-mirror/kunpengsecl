@@ -70,6 +70,10 @@ const (
 	lflagVerbose = "verbose"
 	sflagVerbose = "v"
 	helpVerbose  = "show running debug information"
+	// digest alg output
+	lflagAlg = "algorithm"
+	sflagAlg = "a"
+	helpAlg  = "input sha1 sha256 or sm3"
 )
 
 type (
@@ -104,6 +108,7 @@ var (
 	testMode    *bool   = nil
 	versionFlag *bool   = nil
 	verboseFlag *bool   = nil
+	algDigest   *string = nil
 )
 
 // initFlags inits the raagent whole command flags.
@@ -112,6 +117,7 @@ func initFlags() {
 	testMode = pflag.BoolP(lflagTest, sflagTest, false, helpTest)
 	versionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
 	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, false, helpVerbose)
+	algDigest = pflag.StringP(lflagAlg, sflagAlg, nullString, helpAlg)
 	pflag.Parse()
 }
 
@@ -140,6 +146,9 @@ func handleFlags() {
 	// set command line input
 	if server != nil && *server != nullString {
 		SetServer(*server)
+	}
+	if algDigest != nil && *algDigest != nullString {
+		SetDigestAlgorithm(*algDigest)
 	}
 	if testMode != nil && *testMode {
 		// in test mode, load EK/IK and their certificate from files
