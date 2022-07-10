@@ -33,6 +33,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -572,9 +573,25 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 			baseValue.Verified = false
 			baseValue.Trusted = false
 			SaveBaseValue(&baseValue)
+		} else {
+			verifyReport(report)
 		}
 	}
 	return nil
+}
+
+// Traverse the base values ​​in the cache and compare with report,
+// save the result in the cache
+func verifyReport(report *typdefs.TrustReport) {
+	for _, base := range tmgr.cache[report.ClientID].HostBase {
+		err := Verify(base, report)
+		base.Verified = true
+		if err != nil {
+			base.Trusted = false
+		} else {
+			base.Trusted = true
+		}
+	}
 }
 
 func recordAutoUpdateReport(report *typdefs.TrustReport) error {
@@ -586,10 +603,11 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	bases := c.HostBase
 	newBase := typdefs.BaseRow{ClientID: report.ClientID}
 	oldBase := typdefs.BaseRow{}
-	// 如果cache中存在该client的基准值，则后续的抽取模板和存在的基准值保持一致，
-	// 否则，抽取模板从config读取
+	// If the client's basevalue exists in the cache,
+	// the extraction template is consistent with the newest one.
+	// Otherwise, read extraction template from config.
 	if len(bases) != 0 {
-		oldBase = *bases[0]
+		oldBase = *bases[len(bases)-1]
 	}
 	err = extract(report, &oldBase, &newBase)
 	if err != nil {
@@ -607,21 +625,6 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 
 	return nil
 }
-
-/*
-func isClientAutoUpdate(clientID int64) bool {
-	// if all update
-	if config.GetAutoUpdateConfig().IsAllUpdate {
-		return true
-	}
-	clients := config.GetAutoUpdateConfig().UpdateClients
-	for _, c := range clients {
-		if clientID == c {
-			return true
-		}
-	}
-	return false
-}*/
 
 func isBaseUpdate(oldBase *typdefs.BaseRow, newBase *typdefs.BaseRow) bool {
 	// compare pcr
@@ -656,41 +659,23 @@ func isFirstReport(clientId int64) (bool, error) {
 }
 
 func extract(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow) error {
-	//pcr抽取
-	err := extractPCR(report, oldBase, newBase)
-	if err != nil {
-		return err
-	}
-	//bios抽取
-	err = extractBIOS(report, oldBase, newBase)
-	if err != nil {
-		return err
-	}
-	//ima抽取
-	err = extractIMA(report, oldBase, newBase)
-	if err != nil {
-		return err
-	}
 
+	newBase.Pcr = extractPCR(report, oldBase)
+	newBase.Bios = extractBIOS(report, oldBase)
+	newBase.Ima = extractIMA(report, oldBase)
 	return nil
 }
 
 func Verify(baseValue *typdefs.BaseRow, report *typdefs.TrustReport) error {
-	newBaseValue := typdefs.BaseRow{
-		ClientID: report.ClientID,
+
+	if err := verifyPCR(report, baseValue); err != nil {
+		return fmt.Errorf("pcr manifest verification failed, error: %s", err)
 	}
-	err := extractBIOS(report, baseValue, &newBaseValue)
-	if err != nil {
-		return err
+	if err := verifyBIOS(report, baseValue); err != nil {
+		return fmt.Errorf("bios manifest verification failed, error: %s", err)
 	}
-	if baseValue.Pcr != newBaseValue.Pcr {
-		return fmt.Errorf("pcr manifest verification failed")
-	}
-	if baseValue.Bios != newBaseValue.Bios {
-		return fmt.Errorf("bios manifest verification failed")
-	}
-	if baseValue.Ima != newBaseValue.Ima {
-		return fmt.Errorf("ima manifest verification failed")
+	if err := verifyIMA(report, baseValue); err != nil {
+		return fmt.Errorf("ima manifest verification failed, error: %s", err)
 	}
 
 	return nil
@@ -706,40 +691,57 @@ func GetExtractRulesFromPcr(pcrlog string) []int {
 	return res
 }
 
-func extractPCR(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow) error {
+func extractPCR(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	pcrLog := findManifest(report, typdefs.StrPcr)
 	pcrMap := pcrLogToMap(pcrLog)
 	pcrSelection := config.GetExtractRules().PcrRule.PcrSelection
 	// if oldBase exist, extractRules are consistent with it
-	if oldBase != nil {
-		pcrSelection = GetExtractRulesFromPcr(oldBase.Pcr)
+	if base != nil {
+		pcrSelection = GetExtractRulesFromPcr(base.Pcr)
 	}
 
 	var buf bytes.Buffer
 	for _, n := range pcrSelection {
 		if v, ok := pcrMap[n]; ok {
 			buf.WriteString(fmt.Sprintf("%d:%s\n", n, v))
-		} else {
-			return fmt.Errorf("extract failed. pcr number %v doesn't exist in this report", n)
 		}
 	}
-	newBase.Pcr = buf.String()
+	return buf.String()
+}
+
+func verifyPCR(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
+	pcrLog := findManifest(report, typdefs.StrPcr)
+	rPcrMap := pcrLogToMap(pcrLog)
+	bPcrMap := pcrLogToMap([]byte(base.Pcr))
+
+	for i, s := range rPcrMap {
+		if s != bPcrMap[i] {
+			return errors.New(fmt.Sprintf("pcr %d not equal.", i))
+		}
+	}
 	return nil
 }
 
-func extractBIOS(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow) error {
-	biosNames := getBiosExtractTemplate(oldBase)
+// The bios string in BaseRow has the following fields, separated by space:
+//   column 1: hash type
+//	 column 2: filedata-hash
+// 	 column 3: filename-hint
+func extractBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
+	biosNames := getBiosExtractTemplate(base)
+	used := make([]bool, len(biosNames))
 	var buf bytes.Buffer
 	// reset manifest to append extract result
 	bLog := findManifest(report, typdefs.StrBios)
 	btLog, _ := typdefs.TransformBIOSBinLogToTxt(bLog)
 	lines := bytes.Split(btLog, typdefs.NewLine)
-	for _, bn := range biosNames {
-		isFound := false
-		for _, ln := range lines {
-			words := bytes.Split(ln, typdefs.Space)
+	for _, ln := range lines {
+		words := bytes.Split(ln, typdefs.Space)
+		for i, bn := range biosNames {
+			if used[i] {
+				continue
+			}
 			if bn == string(words[2]) {
-				isFound = true
+				used[i] = true
 				buf.WriteString(bn + " ") //name sha1Hash sha256:sha256Hash
 				buf.WriteString(string(words[3]) + " ")
 				buf.WriteString(string(words[4]))
@@ -747,11 +749,70 @@ func extractBIOS(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow)
 				break
 			}
 		}
-		if !isFound {
-			return fmt.Errorf("extract failed. bios manifest name %v doesn't exist in this report", bn)
+	}
+	return buf.String()
+}
+
+// There are multiple situations
+// bios may have one or two type of hash : sha1 N/A ;  N/A sha256 ;  sha1 sha256
+// There are four cases of return value:
+// 			0: means no errors
+// 			1: means their sha1 hash not equal
+// 			2: means their sha1 hash not equal
+// 			3: means their type of hash not equal, can't verify
+func compareBiosHash(words1, words2 [][]byte) int {
+	if string(words1[3]) != "N/A" && string(words2[3]) != "N/A" {
+		// if both base and report have sha1 hash in bios, return the result of their comparison
+		if bytes.Equal(words1[3], words1[3]) {
+			return 0
+		} else {
+			return 1
+		}
+
+	}
+	if string(words1[4]) != "N/A" && string(words2[4]) != "N/A" {
+		// if both base and report have sha256 hash in bios, return the result of their comparison
+		if bytes.Equal(words1[4], words1[4]) {
+			return 0
+		} else {
+			return 2
+		}
+
+	}
+	// if there are no same type of hash in bios, return 3
+	return 3
+}
+
+func verifyBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
+	bLog := findManifest(report, typdefs.StrBios)
+	btLog1, _ := typdefs.TransformBIOSBinLogToTxt(bLog)
+	btLog2 := ([]byte)(base.Bios)
+	lines1 := bytes.Split(btLog1, typdefs.NewLine)
+	lines2 := bytes.Split(btLog2, typdefs.NewLine)
+	used := make([]bool, len(lines2))
+	for _, ln1 := range lines1 {
+		words1 := bytes.Split(ln1, typdefs.Space)
+		for i, ln2 := range lines2 {
+			if used[i] {
+				continue
+			}
+			words2 := bytes.Split(ln2, typdefs.Space)
+			if bytes.Equal(words1[2], words2[2]) {
+				used[i] = true
+				res := compareBiosHash(words1, words2)
+				switch res {
+				case 0:
+					continue
+				case 1:
+					return fmt.Errorf("%s sha1 hash not equal", string(words1[2]))
+				case 2:
+					return fmt.Errorf("%s sha256 hash not equal", string(words1[2]))
+				case 3:
+					return fmt.Errorf("there are no the same type of hash")
+				}
+			}
 		}
 	}
-	newBase.Bios = buf.String()
 	return nil
 }
 
@@ -810,30 +871,57 @@ func getIMAExtractTemplate(oldBase *typdefs.BaseRow) []string {
 	return imaNames
 }
 
-func extractIMA(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow) error {
-	imaNames := getIMAExtractTemplate(oldBase)
+// The ima string in BaseRow has the following fields, separated by space:
+//   column 1: hash type
+//	 column 2: filedata-hash
+// 	 column 3: filename-hint
+func extractIMA(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
+	imaNames := getIMAExtractTemplate(base)
+	used := make([]bool, len(imaNames))
 	var buf bytes.Buffer
 	// reset manifest to append extract result
 	imaLog := findManifest(report, typdefs.StrIma)
 	lines := bytes.Split(imaLog, typdefs.NewLine)
-	for _, in := range imaNames {
-		isFound := false
-		for _, line := range lines {
-			words := bytes.Split(line, typdefs.Space)
+	for _, ln := range lines {
+		words := bytes.Split(ln, typdefs.Space)
+		for i, in := range imaNames {
+			if used[i] {
+				continue
+			}
 			if string(words[4]) == in {
-				isFound = true
-				buf.WriteString(string(words[2]) + " ") //type filedata-hash filename-hint
+				used[i] = true
+				buf.WriteString(string(words[2]) + " ")
 				buf.WriteString(string(words[3]) + " ")
 				buf.WriteString(string(words[4]))
 				buf.WriteString("\n")
 				break
 			}
 		}
-		if !isFound {
-			return fmt.Errorf("extract failed. ima manifest name %v doesn't exist in this report", in)
+	}
+	return buf.String()
+}
+
+func verifyIMA(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
+	imaLog1 := findManifest(report, typdefs.StrIma)
+	imaLog2 := []byte(base.Ima)
+	lines1 := bytes.Split(imaLog1, typdefs.NewLine)
+	lines2 := bytes.Split(imaLog2, typdefs.NewLine)
+	used := make([]bool, len(lines2))
+	for _, ln1 := range lines1 {
+		words1 := bytes.Split(ln1, typdefs.Space)
+		for i, ln2 := range lines2 {
+			if used[i] {
+				continue
+			}
+			words2 := bytes.Split(ln2, typdefs.Space)
+			if bytes.Equal(words1[2], words2[2]) {
+				used[i] = true
+				if !bytes.Equal(words1[3], words2[3]) {
+					return fmt.Errorf("%s hash not equal", string(words1[2]))
+				}
+			}
 		}
 	}
-	newBase.Ima = buf.String()
 	return nil
 }
 

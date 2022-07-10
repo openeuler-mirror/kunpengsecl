@@ -44,10 +44,6 @@ func main() {
 	handleFlags()
 	signalHandler()
 
-	SetTestMode(true)
-	getEKCertTest()
-	getIKCertTest()
-
 	logger.L.Debug("open tpm...")
 	tpmConf := createTPMConfig(GetTestMode())
 	if GetTestMode() && GetSeed() == -1 {
@@ -87,10 +83,6 @@ func prepare() {
 	}
 	logger.L.Debug("generate EK success")
 	logger.L.Debug("load EK certificate...")
-	//如果是使用硬件，首先尝试从NV加载证书。
-	if !GetTestMode() {
-		LoadEKeyCert()
-	}
 	generateEKeyCert(ras)
 	err = LoadEKeyCert()
 	if err != nil {
@@ -164,33 +156,27 @@ func createTPMConfig(testMode bool) *ractools.TPMConfig {
 	return &tpmConf
 }
 
-// generateEKeyCert gets the EK public from tpm simulator and sends to PCA
+// if use testmode, or there is no cert in NVRAM:
+// gets the EK public from tpm simulator and sends to PCA
 // to sign it, after that saves it into NVRAM, like manufactory did.
 func generateEKeyCert(ras *clientapi.RasConn) {
-	// 如果当前没有证书，则向ras注册一个证书
-	if racCfg.eKeyCert == nil {
-		if len(GetEKeyCert()) == 0 {
-			ekPubDer, err := x509.MarshalPKIXPublicKey(ractools.GetEKPub())
-			if err != nil {
-				logger.L.Sugar().Errorf("can't get Ek public der data, %v", err)
-				return
-			}
-			reqEC := clientapi.GenerateEKCertRequest{
-				EkPub: ekPubDer,
-			}
-			rspEC, err := clientapi.DoGenerateEKCertWithConn(ras, &reqEC)
-			if err != nil {
-				logger.L.Sugar().Errorf("can't Create EkCert, %v", err)
-				return
-			}
-			if len(rspEC.EkCert) > 0 {
-				SetEKeyCert(rspEC.EkCert)
-			}
+	_, err := ractools.ReadNVRAM(ractools.IndexRsa2048EKCert)
+	if GetTestMode() || err != nil {
+		ekPubDer, err := x509.MarshalPKIXPublicKey(ractools.GetEKPub())
+		if err != nil {
+			logger.L.Sugar().Errorf("can't get Ek public der data, %v", err)
+			return
 		}
-		ek := GetEKeyCert()
-		if len(ek) > 0 {
-			ractools.DefineNVRAM(ractools.IndexRsa2048EKCert, uint16(len(ek)))
-			ractools.WriteNVRAM(ractools.IndexRsa2048EKCert, ek)
+		reqEC := clientapi.GenerateEKCertRequest{
+			EkPub: ekPubDer,
+		}
+		rspEC, err := clientapi.DoGenerateEKCertWithConn(ras, &reqEC)
+		if err != nil {
+			logger.L.Sugar().Errorf("can't Create EkCert, %v", err)
+			return
+		}
+		if len(rspEC.EkCert) > 0 {
+			SetEKeyCert(rspEC.EkCert)
 		}
 	}
 }
