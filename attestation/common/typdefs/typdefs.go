@@ -25,6 +25,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/tjfoc/gmsm/sm3"
 	"hash"
 	"io/ioutil"
 	"net"
@@ -51,8 +52,10 @@ const (
 	SM3DigestLen    = 32
 	Sha1AlgStr      = "sha1"
 	Sha256AlgStr    = "sha256"
+	Sm3AlgStr       = "sm3"
 	PcrMaxNum       = 24
 	StrTimeFormat   = `2006-01-02 15:04:05.999 -07:00`
+	DigestAlgStr    = "digestAlg"
 )
 
 // definitions for BIOS/IMA log parse used only in this package.
@@ -61,12 +64,14 @@ const (
 	digestAlgIDLen    = 2
 	sha1AlgID         = "0400"
 	sha256AlgID       = "0b00"
+	sm3AlgID          = "1200"
 	event2SpecID      = "Spec ID Event03"
 	specLen           = 16
 	specStart         = 32
 	specEnd           = 48
 	ImaLogItemNum     = 5
 	BiosLogItemNum    = 6
+	SM3BiosLogItemNum = 7
 	naStr             = "N/A"
 	imaItemNameLenMax = 255
 )
@@ -249,8 +254,10 @@ type (
 	PcrGroups struct {
 		Sha1Hash   [PcrMaxNum]hash.Hash
 		Sha256Hash [PcrMaxNum]hash.Hash
+		SM3Hash    [PcrMaxNum]hash.Hash
 		Sha1Pcrs   [PcrMaxNum][]byte
 		Sha256Pcrs [PcrMaxNum][]byte
+		SM3Pcrs    [PcrMaxNum][]byte
 	}
 )
 
@@ -259,8 +266,10 @@ func NewPcrGroups() *PcrGroups {
 	for i := 0; i < PcrMaxNum; i++ {
 		pcrs.Sha1Hash[i] = sha1.New()
 		pcrs.Sha256Hash[i] = sha256.New()
+		pcrs.SM3Hash[i] = sm3.New()
 		pcrs.Sha1Pcrs[i] = make([]byte, Sha1DigestLen)
 		pcrs.Sha256Pcrs[i] = make([]byte, Sha256DigestLen)
+		pcrs.SM3Pcrs[i] = make([]byte, SM3DigestLen)
 	}
 	return &pcrs
 }
@@ -284,6 +293,17 @@ func (pcrs *PcrGroups) ExtendSha256(index int, value []byte) {
 	h.Write(pcrs.Sha256Pcrs[index])
 	h.Write(value)
 	pcrs.Sha256Pcrs[index] = h.Sum(nil)
+	h.Reset()
+}
+
+func (pcrs *PcrGroups) ExtendSM3(index int, value []byte) {
+	if index < 0 || index >= PcrMaxNum {
+		return
+	}
+	h := pcrs.SM3Hash[index]
+	h.Write(pcrs.SM3Pcrs[index])
+	h.Write(value)
+	pcrs.SM3Pcrs[index] = h.Sum(nil)
 	h.Reset()
 }
 
@@ -353,6 +373,21 @@ func (pcrs *PcrGroups) AggregateSha256(from, to int) string {
 	h := sha256.New()
 	for i := from; i < to; i++ {
 		h.Write(pcrs.Sha256Pcrs[i])
+	}
+	buf := h.Sum(nil)
+	return hex.EncodeToString(buf)
+}
+
+func (pcrs *PcrGroups) AggregateSM3(from, to int) string {
+	if from < 0 || from >= PcrMaxNum {
+		return ""
+	}
+	if to < 0 || to >= PcrMaxNum || from > to {
+		return ""
+	}
+	h := sm3.New()
+	for i := from; i < to; i++ {
+		h.Write(pcrs.SM3Pcrs[i])
 	}
 	buf := h.Sum(nil)
 	return hex.EncodeToString(buf)
@@ -477,6 +512,7 @@ func ReadBIOSEvent2Log(origin []byte, point *int64) (*BIOSManifestItem, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	dv, err := parseDigestValues(dCount, origin, point)
 	if err != nil {
 		return nil, err
@@ -510,28 +546,24 @@ func parseDigestValues(cnt uint32, origin []byte, point *int64) (*DigestValues, 
 			return nil, err
 		}
 		algIDStr := hex.EncodeToString(dAlgIDBytes)
-		if algIDStr == sha1AlgID {
-			dBytes := make([]byte, Sha1DigestLen)
-			dBytes, err = readBytes(dBytes, origin, point)
-			if err != nil {
-				return nil, err
-			}
-			dv.Item = append(dv.Item, DigestItem{
-				AlgID: sha1AlgID,
-				Item:  hex.EncodeToString(dBytes),
-			})
+		dLen := 0
+		switch algIDStr {
+		case sha1AlgID:
+			dLen = Sha1DigestLen
+		case sha256AlgID:
+			dLen = Sha256DigestLen
+		case sm3AlgID:
+			dLen = SM3DigestLen
 		}
-		if algIDStr == sha256AlgID {
-			dBytes := make([]byte, Sha256DigestLen)
-			dBytes, err = readBytes(dBytes, origin, point)
-			if err != nil {
-				return nil, err
-			}
-			dv.Item = append(dv.Item, DigestItem{
-				AlgID: sha256AlgID,
-				Item:  hex.EncodeToString(dBytes),
-			})
+		dBytes := make([]byte, dLen)
+		dBytes, err = readBytes(dBytes, origin, point)
+		if err != nil {
+			return nil, err
 		}
+		dv.Item = append(dv.Item, DigestItem{
+			AlgID: algIDStr,
+			Item:  hex.EncodeToString(dBytes),
+		})
 	}
 	return dv, nil
 }
@@ -540,6 +572,7 @@ func GetHashValue(alg string, evt *BIOSManifestItem) string {
 	algMap := map[string]string{
 		Sha1AlgStr:   sha1AlgID,
 		Sha256AlgStr: sha256AlgID,
+		Sm3AlgStr:    sm3AlgID,
 	}
 	if algID, ok := algMap[alg]; ok {
 		for _, hv := range evt.Digest.Item {
@@ -581,8 +614,10 @@ func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 				event2Log.Pcr))
 			buf.WriteString(fmt.Sprint(fmt.Sprintf("%x", event2Log.BType), "-", i, " "))
 			buf.WriteString(GetHashValue(Sha1AlgStr, event2Log))
-			buf.WriteString(" sha256:")
+			buf.WriteString(" " + Sha256AlgStr + ":")
 			buf.WriteString(GetHashValue(Sha256AlgStr, event2Log))
+			buf.WriteString(" " + Sm3AlgStr + ":")
+			buf.WriteString(GetHashValue(Sm3AlgStr, event2Log))
 			buf.WriteString(fmt.Sprintf(" %s\n", event2Log.DataHex))
 		}
 	}
@@ -593,6 +628,7 @@ func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 func ExtendPCRWithBIOSTxtLog(pcrs *PcrGroups, biosTxtLog []byte) {
 	s1 := make([]byte, Sha1DigestLen)
 	s2 := make([]byte, Sha256DigestLen)
+	s3 := make([]byte, SM3DigestLen)
 	lines := bytes.Split(biosTxtLog, NewLine)
 	for _, ln := range lines {
 		words := bytes.Split(ln, Space)
@@ -603,6 +639,17 @@ func ExtendPCRWithBIOSTxtLog(pcrs *PcrGroups, biosTxtLog []byte) {
 			i := bytes.Index(words[4], Colon)
 			hex.Decode(s2, words[4][i+1:])
 			pcrs.ExtendSha256(n, s2)
+		}
+		if len(words) == SM3BiosLogItemNum {
+			n, _ := strconv.Atoi(string(words[1]))
+			hex.Decode(s1, words[3])
+			pcrs.ExtendSha1(n, s1)
+			i := bytes.Index(words[4], Colon)
+			hex.Decode(s2, words[4][i+1:])
+			pcrs.ExtendSha256(n, s2)
+			j := bytes.Index(words[5], Colon)
+			hex.Decode(s3, words[5][j+1:])
+			pcrs.ExtendSM3(n, s3)
 		}
 	}
 }
