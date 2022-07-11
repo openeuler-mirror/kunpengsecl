@@ -21,6 +21,7 @@ package main
 import (
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/json"
 	"log"
 	"math"
 	"math/big"
@@ -300,13 +301,28 @@ func setNewConf(rpy *clientapi.SendHeartbeatReply) {
 
 // sendTrustReport sneds a new trust report to RAS.
 func sendTrustReport(ras *clientapi.RasConn, rpy *clientapi.SendHeartbeatReply) {
-	logger.L.Debug("send trust report...")
 	tRep, err := ractools.GetTrustReport(GetClientId(),
 		rpy.GetClientConfig().GetNonce())
 	if err != nil {
 		logger.L.Sugar().Errorf("prepare trust report failed, %v", err)
 		return
 	}
+	// handle clientInfo
+	ci := tRep.ClientInfo
+	ciMap := map[string]string{}
+	err = json.Unmarshal([]byte(ci), &ciMap)
+	if err != nil {
+		logger.L.Sugar().Errorf("unmarshal client info failed, %v", err)
+		return
+	}
+	ciMap[typdefs.DigestAlgStr] = GetDigestAlgorithm()
+	newCi, err := json.Marshal(ciMap)
+	if err != nil {
+		logger.L.Sugar().Errorf("marshal client info failed, %v", err)
+		return
+	}
+	tRep.ClientInfo = string(newCi)
+
 	var manifests []*clientapi.Manifest
 	for _, m := range tRep.Manifests {
 		manifests = append(manifests,
