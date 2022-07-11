@@ -48,10 +48,13 @@ const (
 	digestAlgIDLen                    = 2
 	sha1DigestLen                     = 20
 	sha256DigestLen                   = 32
+	sm3DigestLen                      = 32
 	sha1AlgID                         = "0400"
 	sha256AlgID                       = "0b00"
+	sm3AlgID                          = "1200"
 	sha1AlgStr                        = "sha1"
 	sha256AlgStr                      = "sha256"
+	sm3AlgStr                         = "sm3"
 	event2SpecID                      = "Spec ID Event03"
 	specLen                           = 16
 	specStart                         = 32
@@ -478,6 +481,7 @@ func getHashValue(alg string, evt *entity.BIOSManifestItem) string {
 	algMap := map[string]string{
 		sha1AlgStr:   sha1AlgID,
 		sha256AlgStr: sha256AlgID,
+		sm3AlgStr: sm3AlgID,
 	}
 	if algID, ok := algMap[alg]; ok {
 		for _, hv := range evt.Digest.Item {
@@ -636,6 +640,17 @@ func parseDigestValues(cnt uint32, origin []byte, point *int64) (*entity.DigestV
 			}
 			dv.Item = append(dv.Item, entity.DigestItem{
 				AlgID: sha256AlgID,
+				Item:  hex.EncodeToString(dBytes),
+			})
+		}
+		if algIDStr == sm3AlgID {
+			dBytes := make([]byte, sm3DigestLen)
+			dBytes, err = readBytes(dBytes, origin, point)
+			if err != nil {
+				return nil, err
+			}
+			dv.Item = append(dv.Item, entity.DigestItem{
+				AlgID: sm3AlgID,
 				Item:  hex.EncodeToString(dBytes),
 			})
 		}
