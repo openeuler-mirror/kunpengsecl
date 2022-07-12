@@ -47,10 +47,10 @@ enum ra_alg_types
 
 enum ra_tags
 {
-    /*整数类型*/
+    /*Integer Type*/
     RA_TAG_SIGN_TYPE = RA_INTEGER | 0,
     RA_TAG_HASH_TYPE = RA_INTEGER | 1,
-    /*字节流类型*/
+    /*Bytes Type*/
     RA_TAG_QTA_IMG_HASH = RA_BYTES | 0,
     RA_TAG_TA_IMG_HASH = RA_BYTES | 1,
     RA_TAG_QTA_MEM_HASH = RA_BYTES | 2,
@@ -163,9 +163,9 @@ static bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size);
 static void test_print(uint8_t *printed, int printed_size, char *printed_name);
 static void save_basevalue(const base_value *bv);
 //verifysig
-static bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
+bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
 static bool translateBuf(buffer_data report, TA_report *tareport);
-static bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
+bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
 static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
 static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
 static bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key);

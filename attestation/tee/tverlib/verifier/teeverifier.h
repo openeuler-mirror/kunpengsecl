@@ -23,5 +23,7 @@ enum error_status_code {
 };
 
 int tee_verify_report(buffer_data *data_buf,buffer_data *nonce,int type, char *filename);
+bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
+bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert, int scenario);
 
 #endif

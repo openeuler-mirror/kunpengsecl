@@ -21,7 +21,7 @@ static void test_print(uint8_t *printed, int printed_size, char *printed_name);
 static void save_basevalue(const base_value *bv);
 
 // signature part
-static bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
+bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
 static bool translateBuf(buffer_data report, TA_report *tareport);
 static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
 static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
@@ -30,7 +30,7 @@ static EVP_PKEY *getPubKeyFromCert(buffer_data *cert);
 static void dumpDrkCert(buffer_data *certdrk);
 static void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk);
 static bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *signak, buffer_data *signdata);
-static bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
+bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
 
 EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub)
 {
@@ -636,11 +636,11 @@ void hex2str(const uint8_t *source, int source_len, char *dest)
       HighByte = source[i] >> 4;  // get high 4bit from a byte
       LowByte = source[i] & 0x0f; // get low 4bit
 
-      HighByte += 0x30;     //得到对应的字符，若是字母还需要跳过7个符号
-      if (HighByte <= 0x39) //数字
+      HighByte += 0x30;     // Get the corresponding char, and skip 7 symbols if it's a letter
+      if (HighByte <= 0x39) // number
          dest[i * 2] = HighByte;
-      else                              //字母
-         dest[i * 2] = HighByte + 0x07; //得到字符后保存到对应位置
+      else                              // letter
+         dest[i * 2] = HighByte + 0x07; // Get the char and save it to the corresponding position
 
       LowByte += 0x30;
       if (LowByte <= 0x39)
@@ -658,13 +658,13 @@ void str2hex(const char *source, int source_len, uint8_t *dest)
 
    for (i = 0; i < source_len; i++)
    {
-      HighByte = toupper(source[i * 2]); //如果遇到小写，则转为大写处理
+      HighByte = toupper(source[i * 2]); // If lower case is encountered, uppercase processing is performed
       LowByte = toupper(source[i * 2 + 1]);
 
-      if (HighByte <= 0x39) // 0x39对应字符'9',这里表示是数字
+      if (HighByte <= 0x39) // 0x39 corresponds to the character '9', where it is a number
          HighByte -= 0x30;
 
-      else //否则为字母，需要跳过7个符号
+      else // Otherwise, it is a letter, and 7 symbols need to be skipped
          HighByte -= 0x37;
 
       if (LowByte <= 0x39)
@@ -674,9 +674,9 @@ void str2hex(const char *source, int source_len, uint8_t *dest)
          LowByte -= 0x37;
 
       /*
-       *  假设字符串"3c"
-       *  则 HighByte = 0x03,二进制为 0000 0011
-       *     LowByte = 0x0c,二进制为 0000 1100
+       *  Let's say the string "3c"
+       *     HighByte = 0x03, binary is 0000 0011
+       *     LowByte = 0x0c, binary is 0000 1100
        *
        *      HighByte << 4 = 0011 0000
        *      HighByte | LowByte :
@@ -686,7 +686,7 @@ void str2hex(const char *source, int source_len, uint8_t *dest)
        *    -------------
        *      0011 1100
        *
-       *      即 0x3c
+       *      that is 0x3c
        *
        **/
       dest[i] = (HighByte << 4) | LowByte;
