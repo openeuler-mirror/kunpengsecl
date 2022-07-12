@@ -10,8 +10,11 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-tpm v0.3.2
 	github.com/google/go-tpm-tools v0.2.1
+	github.com/google/uuid v1.1.2 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
+	github.com/labstack/echo v3.3.10+incompatible // indirect
 	github.com/labstack/echo/v4 v4.6.3
+	github.com/lestrrat-go/jwx v1.2.9
 	github.com/lib/pq v1.10.2
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
@@ -20,6 +23,8 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
+	github.com/stretchr/testify v1.7.0
+	github.com/tjfoc/gmsm v1.4.1
 	go.uber.org/zap v1.20.0
 	golang.org/x/crypto v0.0.0-20220209195652-db638375bc3a // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
