@@ -4,11 +4,14 @@ package qapi
 import (
 	"context"
 	"errors"
+	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"sync"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/aslib"
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 	grpc "google.golang.org/grpc"
 )
@@ -52,7 +55,10 @@ func StartServer() {
 	s := grpc.NewServer()
 	RegisterQcaServer(s, &service{})
 
-	qcatools.HandleConnection()
+	result := hasAKCert(qcatools.Qcacfg.Scenario, qcatools.Qcacfg.AKCertFile)
+	if !result {
+		createAKCert()
+	}
 
 	if err = s.Serve(listen); err != nil {
 		log.Fatalf("Server: fail to serve %v", err)
@@ -61,10 +67,50 @@ func StartServer() {
 	log.Print("Stop Server......")
 }
 
+func hasAKCert(s int, path string) bool {
+	switch s {
+	case 0:
+		return false
+	case 1:
+		akcert, err := ioutil.ReadFile(path)
+		if err != nil {
+			log.Print("AKCert File does not exist!")
+			return false
+		}
+		if len(akcert) == 0 {
+			log.Print("Empty AKCert file!")
+			return false
+		}
+	}
+	return true
+}
+
+func createAKCert() {
+	akcert, err := qcatools.GenerateAKCert()
+	if err != nil {
+		return
+	}
+	newCert, err := aslib.GetAKCert(akcert)
+	if err != nil {
+		return
+	}
+	log.Print("Get new cert signed by as succeeded.")
+	f, err := os.Create(qcatools.Qcacfg.AKCertFile)
+	if err != nil {
+		log.Print("Create AKCert file failed!")
+		return
+	}
+	_, err = f.Write(newCert)
+	if err != nil {
+		log.Print("Write AKCert to file failed!")
+	}
+	f.Close()
+}
+
 func countConnections() {
 	l.Lock()
-	defer l.Unlock()
 	count++
+	l.Unlock()
 	log.Printf("Now have %d clients connected to server", count)
 }
 

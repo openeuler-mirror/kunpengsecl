@@ -1,0 +1,6 @@
+tasconfig:
+  port: 127.0.0.1:40008
+  rest: 127.0.0.1:40009
+  akskeycertfile: ./ascert.crt
+  aksprivkeyfile: ""
+  huaweiitcafile: ./Huawei IT Product CA.pem

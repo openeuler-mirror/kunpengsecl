@@ -36,6 +36,7 @@ static uint32_t getParamSetBufferSize(uint8_t *buf) {
 import "C"
 
 import (
+	"errors"
 	"log"
 	"unsafe"
 
@@ -45,11 +46,14 @@ import (
 
 const (
 	// config info
-	ConfName = "config"
-	ConfExt  = "yaml"
-	strPath  = "."
-	Server   = "qcaconfig.server"
-	Scenario = "qcaconfig.scenario"
+	ConfName   = "config"
+	ConfExt    = "yaml"
+	strPath    = "."
+	Server     = "qcaconfig.server"
+	AKServer   = "qcaconfig.akserver"
+	Scenario   = "qcaconfig.scenario"
+	AKCertFile = "qcaconfig.akcertfile"
+	ClientId   = "qcaconfig.clientid"
 	/*** cmd flags ***/
 	// server open ip:port
 	lflagServer = "server"
@@ -67,8 +71,11 @@ type (
 		Buf  []uint8
 	}
 	qcaConfig struct {
-		Server   string
-		Scenario int
+		Server     string
+		AKServer   string
+		Scenario   int
+		AKCertFile string
+		ClientId   int64
 	}
 )
 
@@ -106,7 +113,10 @@ func LoadConfigs() {
 		return
 	}
 	Qcacfg.Server = viper.GetString(Server)
+	Qcacfg.AKServer = viper.GetString(AKServer)
 	Qcacfg.Scenario = viper.GetInt(Scenario)
+	Qcacfg.AKCertFile = viper.GetString(AKCertFile)
+	Qcacfg.ClientId = viper.GetInt64(ClientId)
 }
 
 func HandleFlags() {
@@ -180,7 +190,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	return Report
 }
 
-func provisionNoAS() int {
+func provisionNoAS(scenario int) int {
 	c_param_set := C.struct_ra_buffer_data{}
 	c_out := C.struct_ra_buffer_data{}
 	c_param_set.buf = C.generateParamSetBuffer()
@@ -188,7 +198,7 @@ func provisionNoAS() int {
 	c_out.size = 0x2000
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 	// set app scenario
-	c_scenario := C.uint(Qcacfg.Scenario)
+	c_scenario := C.uint(scenario)
 
 	result := C.RemoteAttestProvision(c_scenario, &c_param_set, &c_out)
 	C.free(unsafe.Pointer(c_out.buf))
@@ -196,11 +206,42 @@ func provisionNoAS() int {
 	return int(result)
 }
 
-func HandleConnection() {
-	result := provisionNoAS()
+func provisionNoDAA(scenario int) ([]byte, error) {
+	c_param_set := C.struct_ra_buffer_data{}
+	c_out := C.struct_ra_buffer_data{}
+	c_param_set.buf = C.generateParamSetBuffer()
+	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
+	c_out.size = 0x2000
+	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
+	// set app scenario
+	c_scenario := C.uint(scenario)
+
+	result := C.RemoteAttestProvision(c_scenario, &c_param_set, &c_out)
 	if result != 0 {
-		log.Print("Generate RSA AK and AK Cert failed!")
-		return
+		return nil, errors.New("invoke remoteAttestProvision failed")
 	}
-	log.Print("Generate RSA AK and AK Cert succeeded!")
+	akcertByte := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
+
+	return akcertByte, nil
+}
+
+func GenerateAKCert() ([]byte, error) {
+	switch Qcacfg.Scenario {
+	case 0:
+		result := provisionNoAS(Qcacfg.Scenario)
+		if result != 0 {
+			log.Print("NoAS scenario: Generate RSA AK and AK Cert failed!")
+		} else {
+			log.Print("NoAS scenario: Generate RSA AK and AK Cert succeeded!")
+		}
+	case 1:
+		akcert, err := provisionNoDAA(Qcacfg.Scenario)
+		if err != nil {
+			log.Print("NoDAA scenario: Generate RSA AK and AK Cert failed!")
+			return nil, err
+		}
+		log.Print("NoDAA scenario: Generate RSA AK and AK Cert succeeded!")
+		return akcert, nil
+	}
+	return nil, errors.New("do not need to access as")
 }
