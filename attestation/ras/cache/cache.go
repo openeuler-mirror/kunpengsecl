@@ -77,7 +77,7 @@ func NewCache() *Cache {
 }
 
 // UpdateHeartBeat is called when receives heart beat message from RAC.
-func (c *Cache) UpdateHeartBeat(hb, trust time.Duration) {
+func (c *Cache) UpdateHeartBeat(hb time.Duration) {
 	// Once get a heart beat message then extends the expiration.
 	c.online = true
 	c.hbExpiration = time.Now().Add(hb)
@@ -173,6 +173,8 @@ func (c *Cache) SetRegTime(v string) {
 func (c *Cache) GetOnline() bool {
 	if time.Now().After(c.onlineExpiration) {
 		c.online = false
+	} else {
+		c.online = true
 	}
 	return c.online
 }

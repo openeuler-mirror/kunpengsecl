@@ -1,22 +1,57 @@
 package ractools
 
 import (
+	"bytes"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"io/ioutil"
+	"math"
+	"math/big"
 	"os"
 	"testing"
+	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
+	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	HandleOwner     tpmutil.Handle = 0x40000001
-	testImaLogPath                 = "../cmd/raagent/ascii_runtime_measurements"
-	testBiosLogPath                = "../cmd/raagent/binary_bios_measurements"
-	AesKeySize                     = 16
-	Encrypt_Alg                    = "AES128-CBC"
-	AlgAES                         = 0x0006
-	AlgCBC                         = 0x0042
+	HandleOwner                tpmutil.Handle = 0x40000001
+	testImaLogPath                            = "../cmd/raagent/ascii_runtime_measurements"
+	testBiosLogPath                           = "../cmd/raagent/binary_bios_measurements"
+	AesKeySize                                = 16
+	Encrypt_Alg                               = "AES128-CBC"
+	AlgAES                                    = 0x0006
+	AlgCBC                                    = 0x0042
+	algSha1Str                                = "sha1"
+	algSha256Str                              = "sha256"
+	rsaKeySize                                = 2048
+	configFilePath                            = "./config.yaml"
+	strCreateEkFailed                         = "Create Ek failed"
+	strCreateIkFailed                         = "Create Ik failed"
+	strCreateTrustReportFailed                = "CreateTrustReport failed"
+	str1                                      = "%s: %s"
 )
+const clientConfig = `
+log:
+  path: ./rac-log.txt
+racconfig:
+  clientid: -1
+  digestalgorithm: sha1
+  ekcerttest: ""
+  hbduration: 5s
+  ikcerttest: ""
+  password: ""
+  seed: -1
+  server: 127.0.0.1:40001
+  trustduration: 2m0s
+`
 
 var (
 	pcrSelection          = pcrSelectionAll
@@ -24,6 +59,21 @@ var (
 	clientId       int64  = 1
 	testMode              = true
 	openTPMFailStr        = "OpenTpm failed, err: %v"
+	RootTemplate          = x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Country:      []string{"China"},
+			Organization: []string{"Company"},
+			CommonName:   "Root CA",
+		},
+		NotBefore:             time.Now().Add(-10 * time.Second),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		MaxPathLen:            2,
+	}
 )
 
 func TestOpenSWTPM(t *testing.T) {
@@ -102,68 +152,78 @@ func TestSetDigestAlg(t *testing.T) {
 	assert.NoError(t, err)
 	err = GenerateEKey()
 	if err != nil {
-		t.Errorf("Create Ek failed: %s", err)
+		t.Errorf(str1, strCreateEkFailed, err)
 	}
 	err = GenerateIKey()
 	if err != nil {
-		t.Errorf("Create Ik failed: %s", err)
+		t.Errorf(str1, strCreateIkFailed, err)
 	}
 	tr1, err := GetTrustReport(clientId, nonce)
 	if err != nil {
-		t.Errorf("CreateTrustReport failed: %s", err)
+		t.Errorf(str1, strCreateTrustReportFailed, err)
 	}
 
 	err = SetDigestAlg(algSHA256Str)
 	assert.NoError(t, err)
 	tr2, err := GetTrustReport(clientId, nonce)
 	if err != nil {
-		t.Errorf("CreateTrustReport failed: %s", err)
+		t.Errorf(str1, strCreateTrustReportFailed, err)
 	}
 	assert.NotEqualValues(t, tr1.Quoted, tr2.Quoted)
 }
 
-/*
+func createTPMConfig(testMode bool) *TPMConfig {
+	tpmConf := TPMConfig{}
+	if testMode {
+		tpmConf.IMALogPath = TestImaLogPath
+		tpmConf.BIOSLogPath = TestBiosLogPath
+		tpmConf.ReportHashAlg = typdefs.Sha1AlgStr
+		tpmConf.SeedPath = TestSeedPath
+	} else {
+		tpmConf.IMALogPath = ImaLogPath
+		tpmConf.BIOSLogPath = BiosLogPath
+		tpmConf.ReportHashAlg = typdefs.Sha1AlgStr
+	}
+	return &tpmConf
+}
+
 func TestCreateTrustReport(t *testing.T) {
+	tpmConf := createTPMConfig(testMode)
+	tpmConf.IMALogPath = testImaLogPath
+	tpmConf.BIOSLogPath = testBiosLogPath
 
-	TpmConf := TPMConfig{}
-	TpmConf.IMALogPath = testImaLogPath
-	TpmConf.BIOSLogPath = testBiosLogPath
-	TpmConf.ReportHashAlg = ""
-	Tpm, err := OpenTPM(!testMode, &TpmConf, -1)
-
+	random, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	err := OpenTPM(!testMode, tpmConf, random.Int64())
 	if err != nil {
 		t.Errorf(openTPMFailStr, err)
-		return
+		os.Exit(1)
 	}
-	defer Tpm.Close()
+	defer CloseTPM()
 
 	//create EK,Ak,TrustReport
-	err = Tpm.GenerateEKey()
+	err = GenerateEKey()
 	if err != nil {
-		t.Errorf("Create Ek failed: %s", err)
+		t.Errorf(str1, strCreateEkFailed, err)
 	}
-	err = Tpm.GenerateIKey()
+	err = GenerateIKey()
 	if err != nil {
-		t.Errorf("Create Ik failed: %s", err)
+		t.Errorf(str1, strCreateIkFailed, err)
 	}
-	got, err := Tpm.GetTrustReport(nonce, clientId)
+	got, err := GetTrustReport(clientId, nonce)
 	if err != nil {
-		t.Errorf("CreateTrustReport failed: %s", err)
+		t.Errorf(str1, strCreateTrustReportFailed, err)
 	}
 
 	//compare pcrInfo
-	pcrmp, _ := Tpm.readPcrs(pcrSelection)
-	pcrValues := map[int]string{}
-	for key, pcr := range pcrmp {
-		pcrValues[key] = hex.EncodeToString(pcr)
+	pcrLog, err := readPcrLog(pcrSelectionAll)
+	if err != nil {
+		t.Errorf("read pcrs failed: %s", err)
 	}
-	for i := range pcrmp {
-		if got.PcrInfo.Values[int32(i)] != pcrValues[i] {
-			t.Errorf("PCRs are not equal, got %v want %v", []byte(got.PcrInfo.Values[(int32)(i)]), pcrValues[i])
-		}
+	if !bytes.Equal(got.Manifests[0].Value, pcrLog) {
+		t.Errorf("PCRs are not equal, got %v want %v", got.Manifests[0].Value, pcrLog)
 	}
 
-	attestation, _, err := tpm2.Quote(Tpm.dev, Tpm.IK.Handle, Tpm.IK.Password, emptyPassword,
+	attestation, _, err := tpm2.Quote(tpmRef.dev, tpmRef.ik.handle, tpmRef.ik.password, emptyPassword,
 		nil, pcrSelection, tpm2.AlgNull)
 	if err != nil {
 		t.Errorf("Quote failed: %s", err)
@@ -175,53 +235,46 @@ func TestCreateTrustReport(t *testing.T) {
 }
 
 func TestNVRAM(t *testing.T) {
-	test.CreateClientConfigFile()
-	config.GetDefault(config.ConfClient)
-	defer test.RemoveConfigFile()
-
-	var testNVIndex uint32 = 0x01C00030
-	TpmConf := TPMConfig{}
-	TpmConf.IMALogPath = TestImaLogPath
-	TpmConf.BIOSLogPath = TestBiosLogPath
-	TpmConf.ReportHashAlg = ""
-	Tpm, err := OpenTPM(!testMode, &TpmConf)
+	tpmConf := createTPMConfig(testMode)
+	random, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	err := OpenTPM(!testMode, tpmConf, random.Int64())
 	if err != nil {
 		t.Errorf(openTPMFailStr, err)
-		return
+		os.Exit(1)
 	}
-	defer Tpm.Close()
+	defer CloseTPM()
 
-	priv, _ := rsa.GenerateKey(rand.Reader, pca.RsaKeySize)
+	var testNVIndex uint32 = 0x01C00030
+	priv, _ := rsa.GenerateKey(rand.Reader, rsaKeySize)
 	// sign by root ca
-	ekDer, err := x509.CreateCertificate(rand.Reader, &pca.RootTemplate, &pca.RootTemplate, &priv.PublicKey, priv)
+	ekDer, err := x509.CreateCertificate(rand.Reader, &RootTemplate, &RootTemplate, &priv.PublicKey, priv)
 	if err != nil {
 		t.Errorf("CreateCertificate failed, err: %v", err)
 	}
 
-	Tpm.UndefineNVRAM(testNVIndex)
-	Tpm.DefineNVRAM(testNVIndex, uint16(len(ekDer)))
-	Tpm.WriteNVRAM(testNVIndex, ekDer)
-	ekCert, err := Tpm.ReadNVRAM(testNVIndex)
+	UndefineNVRAM(testNVIndex)
+	DefineNVRAM(testNVIndex, uint16(len(ekDer)))
+	WriteNVRAM(testNVIndex, ekDer)
+	ekCert, err := ReadNVRAM(testNVIndex)
 	if err != nil {
 		t.Errorf("ReadEKCert failed, err: %v", err)
 	}
-	Tpm.LoadEKeyCert()
 	if !bytes.Equal(ekCert, ekDer) {
 		t.Errorf("EKCert are not equal, got: %v, want: %v \n", ekCert, ekDer)
 	}
-	Tpm.UndefineNVRAM(testNVIndex)
+	UndefineNVRAM(testNVIndex)
 }
 
 func GenerateCertificate(t *testing.T) (crypto.PrivateKey, *x509.Certificate) {
-	priv, err := rsa.GenerateKey(rand.Reader, pca.RsaKeySize)
+	priv, err := rsa.GenerateKey(rand.Reader, rsaKeySize)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pubDer, err := pca.EncodeKeyPubPartToDER(priv)
+	pubDer, err := cryptotools.EncodeKeyPubPartToDER(priv)
 	if err != nil {
 		t.Fatalf("can't encode pubkey to Pem, %v", err)
 	}
-	certDer, err := pca.GenerateCertificate(&pca.RootTemplate, &pca.RootTemplate, pubDer, priv)
+	certDer, err := cryptotools.GenerateCertificate(&RootTemplate, &RootTemplate, pubDer, priv)
 	if err != nil {
 		t.Fatalf("can't generate certificate, %v", err)
 	}
@@ -233,26 +286,27 @@ func GenerateCertificate(t *testing.T) (crypto.PrivateKey, *x509.Certificate) {
 }
 
 func TestActivateIKCert(t *testing.T) {
-	test.CreateClientConfigFile()
-	config.GetDefault(config.ConfClient)
-	defer test.RemoveConfigFile()
+	ioutil.WriteFile(configFilePath, []byte(clientConfig), 0644)
+	defer os.Remove(configFilePath)
 
-	TpmConf := TPMConfig{}
-	Tpm, err := OpenTPM(!testMode, &TpmConf)
+	tpmConf := createTPMConfig(testMode)
+	random, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	err := OpenTPM(!testMode, tpmConf, random.Int64())
 	if err != nil {
 		t.Errorf(openTPMFailStr, err)
-		return
+		os.Exit(1)
 	}
-	defer Tpm.Close()
-	err = Tpm.GenerateEKey()
+	defer CloseTPM()
+
+	err = GenerateEKey()
 	if err != nil {
-		t.Errorf("Create Ek failed: %s", err)
+		t.Errorf(str1, strCreateEkFailed, err)
 	}
-	err = Tpm.GenerateIKey()
+	err = GenerateIKey()
 	if err != nil {
-		t.Errorf("Create Ik failed: %s", err)
+		t.Errorf(str1, strCreateIkFailed, err)
 	}
-	ikPubDer, err := x509.MarshalPKIXPublicKey(Tpm.IK.Pub)
+	ikPubDer, err := x509.MarshalPKIXPublicKey(tpmRef.ik.pub)
 	if err != nil {
 		t.Errorf("can't get Ik public der data, error: %s", err)
 	}
@@ -266,22 +320,22 @@ func TestActivateIKCert(t *testing.T) {
 	}
 
 	pcaPrivKey, pcaKeyCert := GenerateCertificate(t)
-	ikCertDer, err := pca.GenerateCertificate(&template, pcaKeyCert, ikPubDer, pcaPrivKey)
+	ikCertDer, err := cryptotools.GenerateCertificate(&template, pcaKeyCert, ikPubDer, pcaPrivKey)
 	if err != nil {
 		t.Errorf("PCA: can't get ikCertDer, error: %s", err)
 	}
 
-	key, _ := pca.GetRandomBytes(AesKeySize)
-	iv, _ := pca.GetRandomBytes(AesKeySize)
-	encIKCert, err := pca.SymmetricEncrypt(AlgAES, AlgCBC, key, iv, ikCertDer)
+	key, _ := cryptotools.GetRandomBytes(AesKeySize)
+	iv, _ := cryptotools.GetRandomBytes(AesKeySize)
+	encIKCert, err := cryptotools.SymmetricEncrypt(AlgAES, AlgCBC, key, iv, ikCertDer)
 	if err != nil {
 		t.Errorf("PCA: SymmetricEncrypt failed, error: %s", err)
 	}
-	encKeyBlob, encSecret, err := tpm2.MakeCredential(Tpm.dev, Tpm.EK.Handle, key, Tpm.IK.Name)
+	encKeyBlob, encSecret, err := tpm2.MakeCredential(tpmRef.dev, tpmRef.ek.handle, key, tpmRef.ik.name)
 	if err != nil {
 		t.Errorf("MakeCredential failed, error: %s", err)
 	}
-	_, err = Tpm.ActivateIKCert(&IKCertInput{
+	_, err = ActivateIKCert(&IKCertInput{
 		CredBlob:        encKeyBlob,
 		EncryptedSecret: encSecret,
 		EncryptedCert:   encIKCert,
@@ -293,6 +347,7 @@ func TestActivateIKCert(t *testing.T) {
 	}
 }
 
+/*
 func prepareManifestFiles(imaFile, biosFile string, imaManifest, biosManifest []byte) {
 	_ = ioutil.WriteFile(imaFile, imaManifest, 0600)
 	_ = ioutil.WriteFile(biosFile, biosManifest, 0600)
@@ -302,6 +357,7 @@ func removeManifestFiles(imaFile string, biosFile string) {
 	_ = os.Remove(imaFile)
 	_ = os.Remove(biosFile)
 }
+
 
 func DumpPCRs(tpm *TPM, t *testing.T) {
 	pcrs, err := tpm.readPcrs(pcrSelectionAll)
@@ -445,10 +501,11 @@ var testExpectedPCRsIMANGSha256 = map[int]string{
 	23: sha256HashAllZero,
 }
 
+
 func TestPreparePCRsTest(t *testing.T) {
-	test.CreateClientConfigFile()
-	config.GetDefault(config.ConfClient)
-	defer test.RemoveConfigFile()
+
+	ioutil.WriteFile(configFilePath, []byte(clientConfig), 0644)
+	defer os.Remove(configFilePath)
 
 	cases := []struct {
 		imaManifest  []byte
@@ -475,26 +532,24 @@ func TestPreparePCRsTest(t *testing.T) {
 			expectedPCRs: testExpectedPCRsIMANGSha256,
 		},
 	}
-	tpmConf := TPMConfig{
-		IMALogPath:    TestImaLogPath,
-		BIOSLogPath:   TestBiosLogPath,
-		ReportHashAlg: "",
-	}
-	tpm, err := OpenTPM(false, &tpmConf)
+	testMode := true
+	tpmConf := createTPMConfig(testMode)
+	random, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	err := OpenTPM(!testMode, tpmConf, random.Int64())
 	if err != nil {
 		t.Errorf(openTPMFailStr, err)
-		return
+		os.Exit(1)
 	}
-	defer tpm.Close()
+	defer CloseTPM()
 
 	for _, c := range cases {
 		prepareManifestFiles(TestImaLogPath, TestBiosLogPath, c.imaManifest, c.biosManifest)
 		defer removeManifestFiles(TestImaLogPath, TestBiosLogPath)
 
-		tpm.SetDigestAlg(c.hashAlg)
-		tpm.dev.(*simulator.Simulator).Reset()
+		SetDigestAlg(c.hashAlg)
+		tpmRef.dev.(*simulator.Simulator).Reset()
 
-		err = tpm.PreparePCRsTest()
+		err = PreparePCRsTest()
 		if err != nil {
 			t.Errorf("prepare PCRs failed, err: %v", err)
 			return
@@ -513,8 +568,9 @@ func TestPreparePCRsTest(t *testing.T) {
 		}
 	}
 
-}
+}*/
 
+/*
 func TestOpenTPM(t *testing.T) {
 	tpmConf := TPMConfig{
 		IMALogPath:    TestImaLogPath,
@@ -552,40 +608,4 @@ func TestOpenTPM(t *testing.T) {
 	} else {
 		file.Close()
 	}
-}
-
-func TestGenerateEKey(t *testing.T) {
-	test.CreateClientConfigFile()
-	config.GetDefault(config.ConfClient)
-	defer test.RemoveConfigFile()
-
-	tpmConf := TPMConfig{
-		IMALogPath:    TestImaLogPath,
-		BIOSLogPath:   TestBiosLogPath,
-		ReportHashAlg: "",
-	}
-	tpm, err := OpenTPM(false, &tpmConf)
-	if err != nil {
-		t.Errorf(openTPMFailStr, err)
-	}
-	defer tpm.Close()
-
-	tpm.dev.(*simulator.Simulator).Reset()
-	i := 0
-	for ; i < 100; i++ {
-		err = tpm.GenerateEKey()
-
-		if err != nil && i == 0 {
-			t.Errorf("GenerateEKey failed to generete EK at the first time: %v", err)
-			break
-		}
-		if err != nil {
-			t.Logf("GenerateEKey failed to generete EK at the %d th generation try: %v", i, err)
-			break
-		}
-	}
-	if i == 100 {
-		t.Errorf("GenerateEKey generated 100 EK without error, unexpected")
-	}
-}
-*/
+}*/

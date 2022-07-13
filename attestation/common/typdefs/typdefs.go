@@ -25,13 +25,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/tjfoc/gmsm/sm3"
 	"hash"
 	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tjfoc/gmsm/sm3"
 )
 
 // Command value is used for nextAction which determind what to do for RAC.
@@ -155,14 +156,6 @@ type (
 		MType string `mapstructure:"type"`
 		// manifest item name which is expected to be extracted
 		Name []string `mapstructure:"name"`
-	}
-
-	// AutoUpdateConfig corresponds to auto-update-config in config
-	AutoUpdateConfig struct {
-		// whether all clients need update
-		IsAllUpdate bool
-		// if IsAllUpdate is false, UpdateClients contains client ids which need update
-		UpdateClients []int64
 	}
 )
 
