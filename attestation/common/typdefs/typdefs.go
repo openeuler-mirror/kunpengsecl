@@ -25,13 +25,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/tjfoc/gmsm/sm3"
 	"hash"
 	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tjfoc/gmsm/sm3"
 )
 
 // Command value is used for nextAction which determind what to do for RAC.
@@ -69,6 +70,12 @@ const (
 	specLen           = 16
 	specStart         = 32
 	specEnd           = 48
+	algNumStart       = 56
+	algNumEnd         = 60
+	algNumLen         = 4
+	algAndSizeStart   = 60
+	algIDLen          = 2
+	algDigestSizeLen  = 2
 	ImaLogItemNum     = 5
 	BiosLogItemNum    = 6
 	SM3BiosLogItemNum = 7
@@ -174,10 +181,11 @@ var (
 	SpaceZero = " \x00"
 
 	//
-	ErrPcrIndexWrong     = errors.New("pcr index wrong")
-	ErrImaLogFormatWrong = errors.New("ima log format wrong")
-	ErrBiosAggregateFail = errors.New("bios aggregate not match")
-	ErrValidateIMAFail   = errors.New("validate ima log fail")
+	ErrPcrIndexWrong      = errors.New("pcr index wrong")
+	ErrImaLogFormatWrong  = errors.New("ima log format wrong")
+	ErrBiosLogFormatWrong = errors.New("bios log format wrong")
+	ErrBiosAggregateFail  = errors.New("bios aggregate not match")
+	ErrValidateIMAFail    = errors.New("validate ima log fail")
 
 	// client database handle errors
 	ErrParameterWrong    = errors.New("parameter is wrong")
@@ -188,6 +196,13 @@ var (
 	ErrIKCertNull        = errors.New("client ik cert null")
 	ErrNonceNotMatch     = errors.New("report nonce not match")
 	ErrPCRNotMatch       = errors.New("report pcr not match")
+	ErrNotSupportAlg     = errors.New("algorithm is not supported")
+
+	SupportAlgAndLenMap = map[string]int{
+		Sha1AlgStr:   Sha1DigestLen,
+		Sha256AlgStr: Sha256DigestLen,
+		Sm3AlgStr:    SM3DigestLen,
+	}
 )
 
 // GetIP returns the host ipv4 address
@@ -307,25 +322,47 @@ func (pcrs *PcrGroups) ExtendSM3(index int, value []byte) {
 	h.Reset()
 }
 
-func (pcrs *PcrGroups) ExtendIMALog(index int, value, name []byte) {
+func (pcrs *PcrGroups) ExtendIMALog(index int, value, name []byte, algStr string) {
 	if index < 0 || index >= PcrMaxNum {
 		return
 	}
-	h := pcrs.Sha1Hash[index]
+	var h hash.Hash
+	switch algStr {
+	case Sha1AlgStr:
+		h = pcrs.Sha1Hash[index]
+	case Sha256AlgStr:
+		h = pcrs.Sha256Hash[index]
+	case Sm3AlgStr:
+		h = pcrs.SM3Hash[index]
+	}
 	h.Write(value)
 	h.Write(name)
 	if len(name) < imaItemNameLenMax+1 {
 		h.Write(make([]byte, imaItemNameLenMax+1-len(name)))
 	}
-	pcrs.Sha1Pcrs[index] = h.Sum(nil)
+	switch algStr {
+	case Sha1AlgStr:
+		pcrs.Sha1Pcrs[index] = h.Sum(nil)
+	case Sha256AlgStr:
+		pcrs.Sha256Pcrs[index] = h.Sum(nil)
+	case Sm3AlgStr:
+		pcrs.SM3Pcrs[index] = h.Sum(nil)
+	}
 	h.Reset()
 }
 
-func (pcrs *PcrGroups) ExtendIMANGLog(index int, value, name []byte) {
+// ima-ng doesn't support sha1 alg
+func (pcrs *PcrGroups) ExtendIMANGLog(index int, value, name []byte, algStr string) {
 	if index < 0 || index >= PcrMaxNum {
 		return
 	}
-	h := pcrs.Sha256Hash[index]
+	var h hash.Hash
+	switch algStr {
+	case Sha256AlgStr:
+		h = pcrs.Sha256Hash[index]
+	case Sm3AlgStr:
+		h = pcrs.SM3Hash[index]
+	}
 	i := bytes.Index(value, Colon)
 	b := bytes.Buffer{}
 	b.Write(value[:i+1]) // "sha256:"
@@ -344,8 +381,26 @@ func (pcrs *PcrGroups) ExtendIMANGLog(index int, value, name []byte) {
 	h.Write(sLen)
 	h.Write(name)
 	h.Write([]byte{0})
-	pcrs.Sha256Pcrs[index] = h.Sum(nil)
+	switch algStr {
+	case Sha256AlgStr:
+		pcrs.Sha256Pcrs[index] = h.Sum(nil)
+	case Sm3AlgStr:
+		pcrs.SM3Pcrs[index] = h.Sum(nil)
+	}
 	h.Reset()
+}
+
+func GetHFromAlg(algStr string) (hash.Hash, error) {
+	switch algStr {
+	case Sha1AlgStr:
+		return sha1.New(), nil
+	case Sha256AlgStr:
+		return sha256.New(), nil
+	case Sm3AlgStr:
+		return sm3.New(), nil
+	default:
+		return nil, ErrNotSupportAlg
+	}
 }
 
 func (pcrs *PcrGroups) AggregateSha1(from, to int) string {
@@ -456,6 +511,39 @@ func getSpecID(origin []byte) string {
 	return string(bytes.Trim(result, SpaceZero))
 }
 
+func getAlgNum(origin []byte) (uint32, error) {
+	target := make([]byte, algNumLen)
+	copy(target, origin[algNumStart:algNumEnd])
+	bb := bytes.NewBuffer(target)
+	var result uint32
+	err := binary.Read(bb, binary.LittleEndian, &result)
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
+}
+
+func getAlgAndLenMap(origin []byte, algNum uint32) (map[string]int, error) {
+	result := map[string]int{}
+	for i := 0; i < int(algNum); i++ {
+		algIDBytes := make([]byte, algIDLen)
+		newStart := algAndSizeStart + i*(algIDLen+algDigestSizeLen)
+		copy(algIDBytes, origin[newStart:newStart+algIDLen])
+		algID := hex.EncodeToString(algIDBytes)
+
+		algDigestSizeBytes := make([]byte, algDigestSizeLen)
+		copy(algDigestSizeBytes, origin[newStart+algIDLen:newStart+algIDLen+algDigestSizeLen])
+		bb := bytes.NewBuffer(algDigestSizeBytes)
+		var algDigestSize uint16
+		err := binary.Read(bb, binary.LittleEndian, &algDigestSize)
+		if err != nil {
+			return nil, err
+		}
+		result[algID] = int(algDigestSize)
+	}
+	return result, nil
+}
+
 func readSHA1BIOSEventLog(origin []byte, point *int64) (*BIOSManifestItem, error) {
 	pcr, err := readUint32(origin, point)
 	if err != nil {
@@ -499,7 +587,7 @@ func readSHA1BIOSEventLog(origin []byte, point *int64) (*BIOSManifestItem, error
 	return result, nil
 }
 
-func ReadBIOSEvent2Log(origin []byte, point *int64) (*BIOSManifestItem, error) {
+func ReadBIOSEvent2Log(origin []byte, point *int64, algAndLenMap map[string]int) (*BIOSManifestItem, error) {
 	pcr, err := readUint32(origin, point)
 	if err != nil {
 		return nil, err
@@ -513,7 +601,7 @@ func ReadBIOSEvent2Log(origin []byte, point *int64) (*BIOSManifestItem, error) {
 		return nil, err
 	}
 
-	dv, err := parseDigestValues(dCount, origin, point)
+	dv, err := parseDigestValues(dCount, origin, point, algAndLenMap)
 	if err != nil {
 		return nil, err
 	}
@@ -536,7 +624,7 @@ func ReadBIOSEvent2Log(origin []byte, point *int64) (*BIOSManifestItem, error) {
 	return result, nil
 }
 
-func parseDigestValues(cnt uint32, origin []byte, point *int64) (*DigestValues, error) {
+func parseDigestValues(cnt uint32, origin []byte, point *int64, algAndLenMap map[string]int) (*DigestValues, error) {
 	var err error
 	dAlgIDBytes := make([]byte, digestAlgIDLen)
 	dv := &DigestValues{Count: cnt}
@@ -546,7 +634,7 @@ func parseDigestValues(cnt uint32, origin []byte, point *int64) (*DigestValues, 
 			return nil, err
 		}
 		algIDStr := hex.EncodeToString(dAlgIDBytes)
-		dLen := 0
+		/*dLen := 0
 		switch algIDStr {
 		case sha1AlgID:
 			dLen = Sha1DigestLen
@@ -554,16 +642,20 @@ func parseDigestValues(cnt uint32, origin []byte, point *int64) (*DigestValues, 
 			dLen = Sha256DigestLen
 		case sm3AlgID:
 			dLen = SM3DigestLen
+		}*/
+		if dLen, ok := algAndLenMap[algIDStr]; ok {
+			dBytes := make([]byte, dLen)
+			dBytes, err = readBytes(dBytes, origin, point)
+			if err != nil {
+				return nil, err
+			}
+			dv.Item = append(dv.Item, DigestItem{
+				AlgID: algIDStr,
+				Item:  hex.EncodeToString(dBytes),
+			})
+		} else {
+			return nil, ErrBiosLogFormatWrong
 		}
-		dBytes := make([]byte, dLen)
-		dBytes, err = readBytes(dBytes, origin, point)
-		if err != nil {
-			return nil, err
-		}
-		dv.Item = append(dv.Item, DigestItem{
-			AlgID: algIDStr,
-			Item:  hex.EncodeToString(dBytes),
-		})
 	}
 	return dv, nil
 }
@@ -605,8 +697,17 @@ func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 	SpecID := getSpecID(bin)
 	// if SpecID is "Spec ID Event03", this is a event2 log bytes stream
 	if strings.Contains(SpecID, event2SpecID) {
+		algNum, err := getAlgNum(bin)
+		if err != nil {
+			return nil, err
+		}
+		algAndLenMap, err := getAlgAndLenMap(bin, algNum)
+		if err != nil {
+			return nil, err
+		}
+
 		for i := 0; ; i++ {
-			event2Log, err := ReadBIOSEvent2Log(bin, &point)
+			event2Log, err := ReadBIOSEvent2Log(bin, &point, algAndLenMap)
 			if err != nil {
 				break
 			}
@@ -616,8 +717,13 @@ func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 			buf.WriteString(GetHashValue(Sha1AlgStr, event2Log))
 			buf.WriteString(" " + Sha256AlgStr + ":")
 			buf.WriteString(GetHashValue(Sha256AlgStr, event2Log))
-			buf.WriteString(" " + Sm3AlgStr + ":")
-			buf.WriteString(GetHashValue(Sm3AlgStr, event2Log))
+
+			sm3HashValue := GetHashValue(Sm3AlgStr, event2Log)
+			if sm3HashValue != naStr {
+				buf.WriteString(" " + Sm3AlgStr + ":")
+				buf.WriteString(GetHashValue(Sm3AlgStr, event2Log))
+			}
+
 			buf.WriteString(fmt.Sprintf(" %s\n", event2Log.DataHex))
 		}
 	}
@@ -625,6 +731,7 @@ func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 }
 
 // ExtendPCRWithBIOSTxtLog extends the bios log into pcrs.
+// it use column nums of one line to get type of bios log.
 func ExtendPCRWithBIOSTxtLog(pcrs *PcrGroups, biosTxtLog []byte) {
 	s1 := make([]byte, Sha1DigestLen)
 	s2 := make([]byte, Sha256DigestLen)
@@ -676,9 +783,36 @@ func parseIMALine(line []byte) (int, [][]byte, error) {
 	return index, words, nil
 }
 
-func handleIMALine(pcrs *PcrGroups, line []byte) (bool, error) {
-	t1 := make([]byte, Sha1DigestLen)
-	s1 := make([]byte, Sha1DigestLen)
+func handleIMAWordsByTag(words [][]byte, t1 []byte, s1 []byte, pcrs *PcrGroups, algStr string, index int) error {
+	switch string(words[2]) {
+	case StrIma:
+		_, err := hex.Decode(s1, words[3]) // FiledataHash
+		if err != nil {
+			return ErrImaLogFormatWrong
+		}
+		pcrs.ExtendIMALog(index, s1, words[4], algStr)
+		if !bytes.Equal(t1, pcrs.Sha1Pcrs[index]) {
+			return ErrValidateIMAFail
+		}
+	case StrImaNg:
+		pcrs.ExtendIMANGLog(index, words[3], words[4], algStr)
+		if !bytes.Equal(t1, pcrs.Sha256Pcrs[index]) {
+			return ErrValidateIMAFail
+		}
+	}
+	return nil
+}
+
+func handleIMALine(pcrs *PcrGroups, line []byte, algStr string) (bool, error) {
+	var t1 []byte
+	var s1 []byte
+	if dLen, ok := SupportAlgAndLenMap[algStr]; ok {
+		t1 = make([]byte, dLen)
+		s1 = make([]byte, dLen)
+	} else {
+		return false, ErrNotSupportAlg
+	}
+
 	index, words, err := parseIMALine(line)
 	if err != nil {
 		return false, err
@@ -688,22 +822,7 @@ func handleIMALine(pcrs *PcrGroups, line []byte) (bool, error) {
 		if err != nil {
 			return false, ErrImaLogFormatWrong
 		}
-		switch string(words[2]) {
-		case StrIma:
-			_, err = hex.Decode(s1, words[3]) // FiledataHash
-			if err != nil {
-				return false, ErrImaLogFormatWrong
-			}
-			pcrs.ExtendIMALog(index, s1, words[4])
-			if !bytes.Equal(t1, pcrs.Sha1Pcrs[index]) {
-				return false, ErrValidateIMAFail
-			}
-		case StrImaNg:
-			pcrs.ExtendIMANGLog(index, words[3], words[4])
-			if !bytes.Equal(t1, pcrs.Sha256Pcrs[index]) {
-				return false, ErrValidateIMAFail
-			}
-		}
+		err = handleIMAWordsByTag(words, t1, s1, pcrs, algStr, index)
 	}
 	//我觉得这里可能写错了，等待老师反馈
 	return true, nil
@@ -712,8 +831,19 @@ func handleIMALine(pcrs *PcrGroups, line []byte) (bool, error) {
 // ExtendPCRWithIMALog first verifies the bios aggregate, then extends ima
 // logs into pcr and verifies them one by one.
 // TODO: needs to test sha1/sha256/ima/ima-ng all cases, now just test ima/sha1.
-func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte) (bool, error) {
-	aggr := pcrs.AggregateSha1(0, 8)
+func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte, algStr string) (bool, error) {
+	var aggr string
+	switch algStr {
+	case Sha1AlgStr:
+		pcrs.AggregateSha1(0, 8)
+	case Sha256AlgStr:
+		pcrs.AggregateSha256(0, 8)
+	case Sm3AlgStr:
+		pcrs.AggregateSM3(0, 8)
+	default:
+		return false, ErrNotSupportAlg
+	}
+
 	lines := bytes.Split(imaLog, NewLine)
 	ws := bytes.Split(lines[0], Space)
 	if len(ws) != ImaLogItemNum {
@@ -723,7 +853,7 @@ func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte) (bool, error) {
 		return false, ErrBiosAggregateFail
 	}
 	for _, line := range lines {
-		ret, err := handleIMALine(pcrs, line)
+		ret, err := handleIMALine(pcrs, line, algStr)
 		if !ret {
 			return ret, err
 		}

@@ -911,6 +911,7 @@ func TestReadSM3EventLog(t *testing.T) {
 	assert.Equal(t, len(p.AggregateSha1(0, 8)), Sha1DigestLen*2)
 	assert.Equal(t, len(p.AggregateSha256(0, 8)), Sha256DigestLen*2)
 	assert.Equal(t, len(p.AggregateSM3(0, 8)), SM3DigestLen*2)
+	fmt.Printf("sm3=%s\n", p.AggregateSM3(0, 8))
 }
 
 func TestPcrGroups(t *testing.T) {
