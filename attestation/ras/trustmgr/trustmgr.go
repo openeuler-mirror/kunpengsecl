@@ -408,7 +408,7 @@ func HandleHeartbeat(id int64) (uint64, uint64, error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	c.UpdateHeartBeat(config.GetHBDuration(), config.GetTrustDuration())
+	c.UpdateHeartBeat(config.GetHBDuration())
 	cmd := c.GetCommands()
 	nonce := c.GetNonce()
 	c.ClearCommands()

@@ -15,14 +15,14 @@ Description: config package for ras.
 
 package config
 
-/*
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,18 +31,77 @@ const (
 	testString2 = "123#$%^&*()!@#"
 	testString3 = "zxcdfeaonasdfasdf"
 )
+const clientConfig = `
+log:
+  path: "./rac-log.txt"
+racconfig:
+  ikpkey: ""
+  ikcert: ""
+  ekpkeytest: ""
+  ekcerttest: ""
+  ikpkeytest: ""
+  ikcerttest: ""
+  server: 127.0.0.1:40001
+  hbduration: 5s
+  trustduration: 2m0s
+  clientId: -1
+  password: ""
+  digestalgorithm: sha256
+`
 
-func TestRASConfig(t *testing.T) {
-	test.CreateServerConfigFile()
-	defer test.RemoveConfigFile()
-	confG = nil
-	//InitRasFlags()
-	GetDefault(ConfServer)
-	Save()
-	confG = nil
-	config := GetDefault(ConfServer)
+const hubConfig = `
+log:
+  path: "./rahub-log.txt"
+hubconfig:
+  server: 127.0.0.1:40001
+  hubport: "127.0.0.1:40003"
+`
 
-	testCases1 := []struct {
+const serverConfig = `
+database:
+  host: localhost
+  name: kunpengsecl
+  password: postgres
+  port: 5432
+  user: postgres
+log:
+  file: ./logs/ras-log.txt
+racconfig:
+  digestalgorithm: sha1
+  hbduration: 10s
+  trustduration: 2m0s
+rasconfig:
+  authkeyfile: ./ecdsakey.pub
+  pcakeycertfile: ""
+  pcaprivkeyfile: ""
+  restport: 127.0.0.1:40002
+  rootkeycertfile: ""
+  rootprivkeyfile: ""
+  serialnumber: 0
+  serverport: 127.0.0.1:40001
+  onlineduration: 30s
+  basevalue-extract-rules:
+    manifest:
+    - name:
+      - 8-0
+      - 80000008-1
+      type: bios
+    - name:
+      - boot_aggregate
+      - /etc/modprobe.d/tuned.conf
+      type: ima
+    pcrinfo:
+      pcrselection:
+      - 1
+      - 2
+      - 3
+      - 4
+`
+
+const configFilePath = "./config.yaml"
+
+var (
+	testCases1 = []struct {
 		input  string
 		result string
 	}{
@@ -50,64 +109,128 @@ func TestRASConfig(t *testing.T) {
 		{testString2, testString2},
 		{testString3, testString3},
 	}
+
+	testCases2 = []int{0, 10086, 65535}
+
+	testCases3 = []time.Duration{time.Second, time.Second * 100}
+)
+
+func CreateClientConfigFile() {
+	ioutil.WriteFile(configFilePath, []byte(clientConfig), 0644)
+}
+
+func CreateHubConfigFile() {
+	ioutil.WriteFile(configFilePath, []byte(hubConfig), 0644)
+}
+
+func CreateServerConfigFile() {
+	ioutil.WriteFile(configFilePath, []byte(serverConfig), 0644)
+}
+
+func RemoveConfigFile() {
+	os.Remove(configFilePath)
+}
+
+func TestRASConfig1(t *testing.T) {
+	CreateServerConfigFile()
+	defer RemoveConfigFile()
+	//InitRasFlags()
+	InitFlags()
+	LoadConfigs()
+	HandleFlags()
+
 	for i := 0; i < len(testCases1); i++ {
-		config.SetMgrStrategy(testCases1[i].input)
-		if config.GetMgrStrategy() != testCases1[i].result {
-			t.Errorf("test mgrStrategy error at case %d\n", i)
-		}
-	}
-	for i := 0; i < len(testCases1); i++ {
-		config.SetHost(testCases1[i].input)
-		if config.GetHost() != testCases1[i].result {
+		SetDBHost(testCases1[i].input)
+		if GetDBHost() != testCases1[i].result {
 			t.Errorf("test host error at case %d\n", i)
 		}
 	}
 	for i := 0; i < len(testCases1); i++ {
-		config.SetUser(testCases1[i].input)
-		if config.GetUser() != testCases1[i].result {
+		SetDBUser(testCases1[i].input)
+		if GetDBUser() != testCases1[i].result {
 			t.Errorf("test user error at case %d\n", i)
 		}
 	}
 	for i := 0; i < len(testCases1); i++ {
-		config.SetPassword(testCases1[i].input)
-		if config.GetPassword() != testCases1[i].result {
+		SetDBPassword(testCases1[i].input)
+		if GetDBPassword() != testCases1[i].result {
 			t.Errorf("test user error at case %d\n", i)
 		}
 	}
 	for i := 0; i < len(testCases1); i++ {
-		config.SetAuthKeyFile(testCases1[i].input)
-		if config.GetAuthKeyFile() != testCases1[i].result {
+		SetAuthKeyFile(testCases1[i].input)
+		if GetAuthKeyFile() != testCases1[i].result {
 			t.Errorf("test AuthKeyFile error at case %d\n", i)
 		}
 	}
+	for i := 0; i < len(testCases1); i++ {
+		SetDBName(testCases1[i].input)
+		if GetDBName() != testCases1[i].result {
+			t.Errorf("test DBName error at case %d\n", i)
+		}
+	}
+}
 
-	testExRule := entity.ExtractRules{
-		PcrRule: entity.PcrRule{PcrSelection: []int{1, 2, 3}},
-		ManifestRules: []entity.ManifestRule{
-			1: {MType: "bios", Name: []string{"name1", "name2"}},
+func TestRASConfig2(t *testing.T) {
+	CreateServerConfigFile()
+	defer RemoveConfigFile()
+
+	LoadConfigs()
+	HandleFlags()
+
+	for i := 0; i < len(testCases1); i++ {
+		SetServerPort(testCases1[i].input)
+		if GetServerPort() != testCases1[i].result {
+			t.Errorf("test ServerPort error at case %d\n", i)
+		}
+	}
+	for i := 0; i < len(testCases1); i++ {
+		SetRestPort(testCases1[i].input)
+		if GetRestPort() != testCases1[i].result {
+			t.Errorf("test RestPort error at case %d\n", i)
+		}
+	}
+	for i := 0; i < len(testCases2); i++ {
+		SetDBPort(testCases2[i])
+		if GetDBPort() != testCases2[i] {
+			t.Errorf("test DBPort error at case %d\n", i)
+		}
+	}
+	for i := 0; i < len(testCases3); i++ {
+		SetOnlineDuration(testCases3[i])
+		if GetOnlineDuration() != testCases3[i] {
+			t.Errorf("test DBPort error at case %d\n", i)
+		}
+	}
+
+	if GetRootKeyCert() == nil {
+		t.Errorf("test DBPort error")
+	}
+	GetRootKeyCert()
+	GetRootPrivateKey()
+	GetPcaKeyCert()
+	GetPcaPrivateKey()
+	GetDigestAlgorithm()
+
+	testExRule := typdefs.ExtractRules{
+		PcrRule: typdefs.PcrRule{PcrSelection: []int{1, 2, 3, 4}},
+		ManifestRules: []typdefs.ManifestRule{
+			0: {MType: "bios", Name: []string{"8-0", "80000008-1"}},
+			1: {MType: "ima", Name: []string{"boot_aggregate", "/etc/modprobe.d/tuned.conf"}},
 		},
 	}
-	config.SetExtractRules(testExRule)
-	assert.Equal(t, testExRule, config.GetExtractRules())
+	tt := GetExtractRules()
+	fmt.Println(tt)
+	assert.Equal(t, testExRule, GetExtractRules())
 
-	testAuc1 := true
-	testAuc2 := []int64{1, 4, 5}
-	config.SetAutoUpdateConfig(entity.AutoUpdateConfig{
-		IsAllUpdate:   testAuc1,
-		UpdateClients: testAuc2,
-	})
-	auc := config.GetAutoUpdateConfig()
-	assert.Equal(t, testAuc1, auc.IsAllUpdate)
-	assert.Equal(t, testAuc2, auc.UpdateClients)
-	Save()
-	os.Remove(config.rasConfig.rootPrivKeyFile)
-	os.Remove(config.rasConfig.rootKeyCertFile)
-	os.Remove(config.rasConfig.pcaPrivKeyFile)
-	os.Remove(config.rasConfig.pcaKeyCertFile)
+	os.Remove(rasCfg.rootKeyCertFile)
+	os.Remove(rasCfg.rootPrivKeyFile)
+	os.Remove(rasCfg.pcaKeyCertFile)
+	os.Remove(rasCfg.pcaPrivKeyFile)
 }
 
 func testHBDuration(t *testing.T) {
-	config := GetDefault(ConfClient)
+	LoadConfigs()
 
 	testCases1 := []struct {
 		input  time.Duration
@@ -117,15 +240,15 @@ func testHBDuration(t *testing.T) {
 		{time.Hour, time.Hour},
 	}
 	for i := 0; i < len(testCases1); i++ {
-		config.SetHBDuration(testCases1[i].input)
-		if config.GetHBDuration() != testCases1[i].result {
+		SetHBDuration(testCases1[i].input)
+		if GetHBDuration() != testCases1[i].result {
 			t.Errorf("test hbDuration error at case %d\n", i)
 		}
 	}
 }
 
 func testTrustDuration(t *testing.T) {
-	config := GetDefault(ConfClient)
+	LoadConfigs()
 	testCases2 := []struct {
 		input  time.Duration
 		result time.Duration
@@ -134,105 +257,27 @@ func testTrustDuration(t *testing.T) {
 		{time.Hour, time.Hour},
 	}
 	for i := 0; i < len(testCases2); i++ {
-		config.SetTrustDuration(testCases2[i].input)
-		if config.GetTrustDuration() != testCases2[i].result {
+		SetTrustDuration(testCases2[i].input)
+		if GetTrustDuration() != testCases2[i].result {
 			t.Errorf("test trustDuration error at case %d\n", i)
 		}
 	}
 }
 
-func testKeyCert(t *testing.T) {
-	config := GetDefault(ConfClient)
-	testCases3 := []struct {
-		input  string
-		result string
-	}{
-		{testString1, testString1},
-		{testString2, testString2},
-		{testString3, testString3},
-	}
-	for i := 0; i < len(testCases3); i++ {
-		config.SetEKeyCert([]byte(testCases3[i].input))
-		if string(config.GetEKeyCert()) != testCases3[i].result {
-			t.Errorf("test EKeyCert error at case %d\n", i)
-		}
-	}
-	for i := 0; i < len(testCases3); i++ {
-		config.SetEKeyCertTest([]byte(testCases3[i].input))
-		if string(config.GetEKeyCertTest()) != testCases3[i].result {
-			t.Errorf("test EKeyCertTest error at case %d\n", i)
-		}
-	}
-	for i := 0; i < len(testCases3); i++ {
-		config.SetIKeyCert([]byte(testCases3[i].input))
-		if string(config.GetIKeyCert()) != testCases3[i].result {
-			t.Errorf("test IKeyCert error at case %d\n", i)
-		}
-	}
-	for i := 0; i < len(testCases3); i++ {
-		config.SetIKeyCertTest([]byte(testCases3[i].input))
-		if string(config.GetIKeyCertTest()) != testCases3[i].result {
-			t.Errorf("test IKeyCertTest error at case %d\n", i)
-		}
-	}
-}
-
-func testClientId(t *testing.T) {
-	config := GetDefault(ConfClient)
-	testCases4 := []struct {
-		input  int64
-		result int64
-	}{
-		{-1, -1},
-		{1, 1},
-		{1000, 1000},
-	}
-	for i := 0; i < len(testCases4); i++ {
-		config.SetClientId(testCases4[i].input)
-		if config.GetClientId() != testCases4[i].result {
-			t.Errorf("test ClientId error at case %d\n", i)
-		}
-	}
-}
-
 func TestRACConfig(t *testing.T) {
-	test.CreateClientConfigFile()
-	defer test.RemoveConfigFile()
-	confG = nil
-	InitRacFlags()
-	SetupSignalHandler()
-	*racTestMode = true
+	CreateClientConfigFile()
+	defer RemoveConfigFile()
+	//InitRasFlags()
+
+	LoadConfigs()
+	HandleFlags()
 
 	testHBDuration(t)
 	testTrustDuration(t)
-	testKeyCert(t)
-	testClientId(t)
 
-	Save()
-	confG = nil
-	*racTestMode = true
-	config := GetDefault(ConfClient)
-	if !config.GetTestMode() {
-		t.Errorf("test TestMode error\n")
-	}
-	confG = nil
-	*racTestMode = false
-	config = GetDefault(ConfClient)
-	if config.GetTestMode() {
-		t.Errorf("test TestMode error\n")
-	}
+	SaveConfigs()
+	os.Remove(rasCfg.rootKeyCertFile)
+	os.Remove(rasCfg.rootPrivKeyFile)
+	os.Remove(rasCfg.pcaKeyCertFile)
+	os.Remove(rasCfg.pcaPrivKeyFile)
 }
-
-func TestRAHubConfig(t *testing.T) {
-	test.CreateHubConfigFile()
-	defer test.RemoveConfigFile()
-	confG = nil
-	//InitHubFlags()
-	config := GetDefault(ConfHub)
-	Save()
-
-	config.GetHubPort()
-	config.GetHubServer()
-	t.Log("RAHub config tested")
-}
-*/

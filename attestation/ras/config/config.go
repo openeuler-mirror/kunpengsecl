@@ -124,7 +124,6 @@ const (
 	AutoUpdateStrategy = "auto-update"
 	changeTime         = "rasconfig.changetime"
 	extRules           = "rasconfig.basevalue-extract-rules"
-	autoUpdateConfig   = "rasconfig.auto-update-config"
 )
 
 type (
@@ -141,24 +140,23 @@ type (
 		dbPort     int
 
 		// ras configuration
-		rootPrivKeyFile  string
-		rootKeyCertFile  string
-		rootPrivKey      crypto.PrivateKey
-		rootKeyCert      *x509.Certificate
-		pcaPrivKeyFile   string
-		pcaKeyCertFile   string
-		pcaPrivKey       crypto.PrivateKey
-		pcaKeyCert       *x509.Certificate
-		servPort         string
-		httpsSwitch      bool
-		restPort         string
-		httpsPort        string
-		authKeyFile      string
-		changeTime       time.Time
-		mgrStrategy      string
-		extractRules     typdefs.ExtractRules
-		autoUpdateConfig typdefs.AutoUpdateConfig
-		onlineDuration   time.Duration
+		rootPrivKeyFile string
+		rootKeyCertFile string
+		rootPrivKey     crypto.PrivateKey
+		rootKeyCert     *x509.Certificate
+		pcaPrivKeyFile  string
+		pcaKeyCertFile  string
+		pcaPrivKey      crypto.PrivateKey
+		pcaKeyCert      *x509.Certificate
+		servPort        string
+		httpsSwitch     bool
+		restPort        string
+		httpsPort       string
+		authKeyFile     string
+		changeTime      time.Time
+		mgrStrategy     string
+		extractRules    typdefs.ExtractRules
+		onlineDuration  time.Duration
 		// rac configuration
 		hbDuration      time.Duration // heartbeat duration
 		trustDuration   time.Duration // trust state duration
@@ -255,12 +253,6 @@ func getConfigs() {
 		rasCfg.extractRules = ers
 	} else {
 		rasCfg.extractRules = typdefs.ExtractRules{}
-	}
-	var auc typdefs.AutoUpdateConfig
-	if viper.UnmarshalKey(autoUpdateConfig, &auc) == nil {
-		rasCfg.autoUpdateConfig = auc
-	} else {
-		rasCfg.autoUpdateConfig = typdefs.AutoUpdateConfig{}
 	}
 	cryptotools.SetSerialNumber(viper.GetInt64(confSerialNumber))
 }
@@ -581,14 +573,6 @@ func SetDBPassword(password string) {
 
 func GetExtractRules() typdefs.ExtractRules {
 	return rasCfg.extractRules
-}
-
-func SetAutoUpdateConfig(auc typdefs.AutoUpdateConfig) {
-	rasCfg.autoUpdateConfig = auc
-}
-
-func GetAutoUpdateConfig() typdefs.AutoUpdateConfig {
-	return rasCfg.autoUpdateConfig
 }
 
 // GetServerPort returns the ras service ip:port configuration.
