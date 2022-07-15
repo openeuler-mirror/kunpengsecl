@@ -10,15 +10,16 @@ package akissuer
 import "C"
 import (
 	"bytes"
-	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/pem"
 	"errors"
 	"log"
+	"math/big"
+	"sync"
+	"time"
 	"unsafe"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/config"
@@ -54,6 +55,10 @@ const (
 	RA_ALG_ED25519     = 0x20006
 	RA_ALG_SM2_DSA_SM3 = 0x20007
 	RA_ALG_SM3         = 0x20008
+	// x509 cert template default value
+	strChina      = "China"
+	strCompany    = "Company"
+	strCommonName = "AK Server"
 )
 
 type (
@@ -74,6 +79,11 @@ type (
 	}
 )
 
+var (
+	m            sync.Mutex
+	serialNumber int64 = 1
+)
+
 // The input parameter is the AK certificate issued by the target platform device certificate
 // After receiving the AK certificate, parse and extract the signed data fields,
 // signature fields, and DRK certificate fields
@@ -84,7 +94,7 @@ type (
 // If the AK certificate passes the check, the AK certificate is trusted
 // Re-sign the AK certificate using the AS private key
 // Return the re-signed AK certificate
-func GenerateAKCert(oldAKCert []byte) ([]byte, error) { // dvcert -> drkcert
+func GenerateAKCert(oldAKCert []byte) ([]byte, error) {
 	// STEP1: get data used for verify
 	var c_cert, c_signdata, c_signdrk, c_certdrk, c_akpub C.buffer_data
 	c_cert.size = C.uint(len(oldAKCert))
@@ -93,33 +103,43 @@ func GenerateAKCert(oldAKCert []byte) ([]byte, error) { // dvcert -> drkcert
 	c_cert.buf = (*C.uchar)(up_old_cert)
 	C.getNOASdata(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akpub)
 	drkcertbyte := []byte(C.GoBytes(unsafe.Pointer(c_certdrk.buf), C.int(c_certdrk.size)))
-	// STEP2: parse device cert
+	// STEP2: get data used for re-sign
+	signdrkbyte := []byte(C.GoBytes(unsafe.Pointer(c_signdrk.buf), C.int(c_signdrk.size)))
+	akpubbyte := []byte(C.GoBytes(unsafe.Pointer(c_akpub.buf), C.int(c_akpub.size)))
+	b := big.NewInt(0)
+	b.SetBytes(akpubbyte)
+	akpub := &rsa.PublicKey{
+		N: b,
+		E: 0x10001,
+	}
+	// STEP3: parse device cert
 	drkcertBlock, _ := pem.Decode(drkcertbyte)
 	drkcert, err := x509.ParseCertificate(drkcertBlock.Bytes)
 	if err != nil {
 		return nil, err
 	}
 	log.Print("Server: Parse drk cert succeeded.")
-	// STEP3: verify device cert signature
+	// STEP4: verify device cert signature
 	err = verifyDRKSig(drkcert)
 	if err != nil {
 		return nil, errors.New("verify drk signature failed")
 	}
 	log.Print("Server: Verify drk signature ok.")
-	// STEP4: verify ak cert signature
+	// STEP5: verify ak cert signature
 	rs := C.verifysig(&c_signdata, &c_signdrk, &c_certdrk, 1)
 	if !bool(rs) {
 		return nil, errors.New("verify ak signature failed")
 	}
 	log.Print("Server: Verify ak signature ok.")
-	// STEP5: get as private key
+	// STEP6: get as private key and as cert
 	asprivkey := config.GetASPrivKey()
-	// STEP6: resign ak cert
-	newCertDer, err := signForAKCert(oldAKCert, asprivkey)
+	ascert := config.GetASCert()
+	// STEP7: re-sign ak cert
+	newCertDer, err := signForAKCert(oldAKCert, ascert, signdrkbyte, akpub, asprivkey)
 	if err != nil {
 		return nil, err
 	}
-	log.Print("Server: resign ak cert ok.")
+	log.Print("Server: re-sign ak cert ok.")
 	newCertBlock := &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: newCertDer,
@@ -241,65 +261,59 @@ func verifyDRKSig(c *x509.Certificate) error {
 	return nil
 }
 
-func signForAKCert(cb []byte, priv interface{}) ([]byte, error) {
+// AS will uses its private key/cert to re-sign AK cert,
+// and convert AK cert to x509 format
+// TODO: Measure value in AK cert should be verified before sending to AS
+func signForAKCert(cb []byte, parent *x509.Certificate, sign []byte, pub interface{}, priv interface{}) ([]byte, error) {
+	var ACtemplate = x509.Certificate{
+		NotBefore:      time.Now(),
+		NotAfter:       time.Now().AddDate(1, 0, 0),
+		KeyUsage:       x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		IsCA:           false,
+		MaxPathLenZero: true,
+	}
+	var akcertDer []byte
 	// parse ak cert signed by device cert
 	c, err := parseCustomCert(cb)
 	if err != nil {
 		return nil, err
 	}
-	// get data need to be hashed end point and sign data length
-	endPoint, sdlen := getHashScopeAndSignLen(c)
-	if endPoint == ZERO_VALUE {
-		return nil, errors.New("drk signature not found")
+	// set AK Cert id, version and signature field
+	m.Lock()
+	id := serialNumber
+	serialNumber++
+	m.Unlock()
+	ACtemplate.SerialNumber = big.NewInt(id)
+	ACtemplate.Signature = append(ACtemplate.Signature, sign...)
+	// extract sign algorithm
+	alg_sign := extractSignAlg(c)
+	if alg_sign == ZERO_VALUE {
+		return nil, errors.New("sign type not found")
+	}
+	switch alg_sign {
+	case RA_ALG_RSA_4096:
+		ACtemplate.PublicKeyAlgorithm = x509.RSA
+	default:
+		return nil, errors.New("signature algorithm not support yet")
 	}
 	// extract hash algorithm
 	alg_hash := extractHashAlg(c)
 	if alg_hash == ZERO_VALUE {
 		return nil, errors.New("hash type not found")
 	}
-	// extract sign algorithm
-	alg_sign := extractSignAlg(c)
-	if alg_sign == ZERO_VALUE {
-		return nil, errors.New("sign type not found")
-	}
-	// calculate hash value
-	var hbytes []byte
 	switch alg_hash {
 	case RA_ALG_SHA_256:
-		h := sha256.New()
-		h.Write(cb[:endPoint])
-		hbytes = h.Sum(nil)
+		ACtemplate.SignatureAlgorithm = x509.SHA256WithRSAPSS
 	default:
 		return nil, errors.New("hash algorithm not support yet")
 	}
-	// sign the hash value
-	var signdata []byte
-	switch alg_sign {
-	case RA_ALG_RSA_4096:
-		signdata, err = rsa.SignPSS(rand.Reader, priv.(*rsa.PrivateKey), crypto.SHA256, hbytes, nil)
-		if err != nil {
-			return nil, errors.New("signature error")
-		}
-	default:
-		return nil, errors.New("signature algorithm not support yet")
-	}
-	// generate new bytes
-	for i := 0; i < sdlen; i++ {
-		cb[int(endPoint)+i] = signdata[i]
+
+	akcertDer, err = x509.CreateCertificate(rand.Reader, &ACtemplate, parent, pub, priv)
+	if err != nil {
+		return nil, err
 	}
 
-	return cb, nil
-}
-
-func getHashScopeAndSignLen(c *certificate) (uint32, int) {
-	for i := 0; i < int(c.param_count); i++ {
-		if c.params[i].tags == RA_TAG_SIGN_DRK {
-			endPoint := c.params[i].buf.(ra_data_offset).data_offset
-			sdlen := int(c.params[i].buf.(ra_data_offset).data_len)
-			return endPoint, sdlen
-		}
-	}
-	return 0, 0
+	return akcertDer, nil
 }
 
 func extractHashAlg(c *certificate) uint64 {
