@@ -198,7 +198,7 @@ func UpdateAllNodes() {
 }
 
 // RegisterClientByIK registers a new client by ikCert and info. if there is a existing ik, register will fail.
-func RegisterClientByIK(ikCert, info string) (*typdefs.ClientRow, error) {
+func RegisterClientByIK(ikCert, info string, registered bool) (*typdefs.ClientRow, error) {
 	if tmgr == nil {
 		return nil, typdefs.ErrParameterWrong
 	}
@@ -209,7 +209,7 @@ func RegisterClientByIK(ikCert, info string) (*typdefs.ClientRow, error) {
 	}
 	c = typdefs.ClientRow{
 		RegTime: time.Now(),
-		Deleted: false,
+		Deleted: !registered,
 		Info:    info,
 		IKCert:  ikCert,
 	}
@@ -409,6 +409,7 @@ func HandleHeartbeat(id int64) (uint64, uint64, error) {
 		return 0, 0, err
 	}
 	c.UpdateHeartBeat(config.GetHBDuration())
+	c.UpdateOnline(config.GetOnlineDuration())
 	cmd := c.GetCommands()
 	nonce := c.GetNonce()
 	c.ClearCommands()
@@ -424,6 +425,7 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 	}
 	// 1. use cache to check Nonce value.
 	if !c.CompareNonce(report.Nonce) {
+		c.SetTrusted(false)
 		return false, typdefs.ErrNonceNotMatch
 	}
 	row := &typdefs.ReportRow{
@@ -433,23 +435,25 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 	// 2. check the Quoted/Signature
 	_, err = checkQuote(c, report, row)
 	if err != nil {
+		c.SetTrusted(false)
 		return false, err
 	}
 	// 3. check pcr log
 	_, err = checkPcrLog(report, row)
 	if err != nil {
+		c.SetTrusted(false)
 		return false, err
 	}
 	// 4. check bios and ima log
 	_, err = checkBiosAndImaLog(report, row)
 	if err != nil {
+		c.SetTrusted(false)
 		return false, err
 	}
 	row.Validated = true
 	row.Trusted = true
 	c.SetTrusted(true)
 	c.UpdateTrustReport(config.GetTrustDuration())
-	c.UpdateOnline(config.GetOnlineDuration())
 	go pushToStorePipe(row)
 	return true, nil
 }
@@ -568,14 +572,17 @@ func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bo
 
 func HandleBaseValue(report *typdefs.TrustReport) error {
 	// if this client's AutoUpdate is true, save base value of rac which in the update list
-	if tmgr.cache[report.ClientID].GetIsAutoUpdate() {
-		{
-			err := recordAutoUpdateReport(report)
-			if err != nil {
-				return err
+	switch config.GetMgrStrategy() {
+	case config.AutoUpdateStrategy:
+		if config.GetIsAllUpdate() || tmgr.cache[report.ClientID].GetIsAutoUpdate() {
+			{
+				err := recordAutoUpdateReport(report)
+				if err != nil {
+					return err
+				}
 			}
 		}
-	} else {
+	case config.AutoStrategy:
 		// if this client's AutoUpdate is false, and if this is the first report of this RAC, extract base value
 		isFirstReport, err := isFirstReport(report.ClientID)
 		if err != nil {
@@ -588,8 +595,6 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 			if err != nil {
 				return err
 			}
-			// TODO:1.保证一个ClientID的基准值同时只有一个Enabled=TRUE
-			// 2.完善Name字段
 			baseValue.ClientID = report.ClientID
 			baseValue.CreateTime = time.Now()
 			baseValue.Enabled = false
@@ -599,6 +604,8 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 		} else {
 			verifyReport(report)
 		}
+	case config.ManualStrategy:
+		verifyReport(report)
 	}
 	return nil
 }
