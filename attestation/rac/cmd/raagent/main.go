@@ -83,21 +83,29 @@ func prepare() {
 		logger.L.Sugar().Errorf("generate EK failed, %s", err)
 	}
 	logger.L.Debug("generate EK success")
+
 	logger.L.Debug("load EK certificate...")
-	generateEKeyCert(ras)
-	err = LoadEKeyCert()
-	if err != nil {
-		logger.L.Sugar().Errorf("load EK certificate failed, %s", err)
-	} else {
-		logger.L.Debug("load EK certificate success")
+	if !GetTestMode() && racCfg.eKeyCert == nil {
+		err = LoadEKeyCert()
+		if err != nil {
+			logger.L.Sugar().Errorf("load EK certificate failed, %s", err)
+		} else {
+			logger.L.Debug("load EK certificate success")
+		}
 	}
-	logger.L.Debug("generate IK certificate...")
+	if GetEKeyCert() == nil {
+		generateEKeyCert(ras)
+	}
+
+	logger.L.Debug("load IK certificate...")
 	err = ractools.GenerateIKey()
 	if err != nil {
-		logger.L.Sugar().Errorf("generate IK certificate failed, %s", err)
+		logger.L.Sugar().Errorf("generate IK  failed, %s", err)
 	}
-	generateIKeyCert(ras)
-	logger.L.Debug("generate IK certificate success")
+	if GetIKeyCert() == nil {
+		generateIKeyCert(ras)
+	}
+	logger.L.Debug("load IK certificate success")
 
 	// step 2. if rac doesn't have clientId, uses EC and ikPub to sign
 	// a IC and do the register process.
@@ -160,32 +168,26 @@ func createTPMConfig(testMode bool) *ractools.TPMConfig {
 	return &tpmConf
 }
 
-// if use testmode, or there is no cert in NVRAM:
-// gets the EK public from tpm simulator and sends to PCA
-// to sign it, after that saves it into NVRAM, like manufactory did.
 func generateEKeyCert(ras *clientapi.RasConn) {
-	_, err := ractools.ReadNVRAM(ractools.IndexRsa2048EKCert)
-	if GetTestMode() || err != nil {
-		ekPubDer, err := x509.MarshalPKIXPublicKey(ractools.GetEKPub())
-		if err != nil {
-			logger.L.Sugar().Errorf("can't get Ek public der data, %v", err)
-			return
-		}
-		reqEC := clientapi.GenerateEKCertRequest{
-			EkPub: ekPubDer,
-		}
-		rspEC, err := clientapi.DoGenerateEKCertWithConn(ras, &reqEC)
-		if err != nil {
-			logger.L.Sugar().Errorf("can't Create EkCert, %v", err)
-			return
-		}
-		if len(rspEC.EkCert) > 0 {
-			SetEKeyCert(rspEC.EkCert)
-		}
+	ekPubDer, err := x509.MarshalPKIXPublicKey(ractools.GetEKPub())
+	if err != nil {
+		logger.L.Sugar().Errorf("can't get Ek public der data, %v", err)
+		return
+	}
+	reqEC := clientapi.GenerateEKCertRequest{
+		EkPub: ekPubDer,
+	}
+	rspEC, err := clientapi.DoGenerateEKCertWithConn(ras, &reqEC)
+	if err != nil {
+		logger.L.Sugar().Errorf("can't Create EkCert, %v", err)
+		return
+	}
+	if len(rspEC.EkCert) > 0 {
+		SetEKeyCert(rspEC.EkCert)
 	}
 }
 
-// LoadEKeyCert reads ek certificate from NVRAM, the simulator is the same
+// LoadEKeyCert reads ek certificate from NVRAM
 func LoadEKeyCert() error {
 	ekCertDer, err := ractools.ReadNVRAM(ractools.IndexRsa2048EKCert)
 	if err != nil {

@@ -40,9 +40,10 @@ const (
 	confHbDuration      = "racconfig.hbduration"
 	confTrustDuration   = "racconfig.trustduration"
 	confPassword        = "racconfig.password"
-	confIKeyCert        = "racconfig.ikcert"
-	confEKeyCertTest    = "racconfig.ekcerttest"
-	confIKeyCertTest    = "racconfig.ikcerttest"
+	confEKeyCert        = "racconfig.ecfile"
+	confIKeyCert        = "racconfig.icfile"
+	confEKeyCertTest    = "racconfig.ectestfile"
+	confIKeyCertTest    = "racconfig.ictestfile"
 	confDigestAlgorithm = "racconfig.digestalgorithm"
 	confSeed            = "racconfig.seed"
 	// raagent config default value
@@ -50,6 +51,7 @@ const (
 	logFile      = "./rac-log.txt"
 	keyExt       = ".key"
 	crtExt       = ".crt"
+	ekCert       = "./ec"
 	ikCert       = "./ic"
 	ekCertTest   = "./ectest"
 	ikCertTest   = "./ictest"
@@ -87,12 +89,16 @@ type (
 		testMode      bool
 		eKeyCert      []byte
 		iKeyCert      []byte
+
 		// for TPM chip
-		password     string
-		iKeyCertFile string
+		password string
+		ecFile   string
+		icFile   string
 		// for simulator test
-		eKeyCertTest string
-		iKeyCertTest string
+		eKeyCertTest []byte
+		iKeyCertTest []byte
+		ecTestFile   string
+		icTestFile   string
 		seed         int64
 	}
 )
@@ -158,6 +164,7 @@ func handleFlags() {
 		getIKCertTest()
 	} else {
 		// for TPM hardware, only load IK/IC
+		getEKCert()
 		getIKCert()
 	}
 }
@@ -168,15 +175,15 @@ func getEKCertTest() {
 	if racCfg == nil {
 		return
 	}
-	racCfg.eKeyCertTest = viper.GetString(confEKeyCertTest)
-	if racCfg.eKeyCertTest != nullString {
-		_, racCfg.eKeyCert, err = cryptotools.DecodeKeyCertFromFile(racCfg.eKeyCertTest)
+	racCfg.ecTestFile = viper.GetString(confEKeyCertTest)
+	if racCfg.ecTestFile != nullString {
+		_, racCfg.eKeyCertTest, err = cryptotools.DecodeKeyCertFromFile(racCfg.ecTestFile)
 		if err != nil {
-			racCfg.eKeyCert = []byte{}
-			racCfg.eKeyCertTest = ekCertTest + crtExt
+			racCfg.eKeyCertTest = []byte{}
+			racCfg.ecTestFile = ekCertTest + crtExt
 		}
 	} else {
-		racCfg.eKeyCertTest = ekCertTest + crtExt
+		racCfg.ecTestFile = ekCertTest + crtExt
 	}
 }
 
@@ -186,15 +193,32 @@ func getIKCertTest() {
 	if racCfg == nil {
 		return
 	}
-	racCfg.iKeyCertTest = viper.GetString(confIKeyCertTest)
-	if racCfg.iKeyCertTest != nullString {
-		_, racCfg.iKeyCert, err = cryptotools.DecodeKeyCertFromFile(racCfg.iKeyCertTest)
+	racCfg.icTestFile = viper.GetString(confIKeyCertTest)
+	if racCfg.icTestFile != nullString {
+		_, racCfg.iKeyCertTest, err = cryptotools.DecodeKeyCertFromFile(racCfg.icTestFile)
 		if err != nil {
-			racCfg.iKeyCert = []byte{}
-			racCfg.iKeyCertTest = ikCertTest + crtExt
+			racCfg.iKeyCertTest = []byte{}
+			racCfg.icTestFile = ikCertTest + crtExt
 		}
 	} else {
-		racCfg.iKeyCertTest = ikCertTest + crtExt
+		racCfg.icTestFile = ikCertTest + crtExt
+	}
+}
+
+func getEKCert() {
+	var err error
+	if racCfg == nil {
+		return
+	}
+	racCfg.ecFile = viper.GetString(confEKeyCert)
+	if racCfg.ecFile != nullString {
+		_, racCfg.eKeyCert, err = cryptotools.DecodeKeyCertFromFile(racCfg.ecFile)
+		if err != nil {
+			racCfg.eKeyCert = []byte{}
+			racCfg.ecFile = ekCert + crtExt
+		}
+	} else {
+		racCfg.ecFile = ekCert + crtExt
 	}
 }
 
@@ -203,15 +227,15 @@ func getIKCert() {
 	if racCfg == nil {
 		return
 	}
-	racCfg.iKeyCertFile = viper.GetString(confIKeyCert)
-	if racCfg.iKeyCertFile != nullString {
-		_, racCfg.iKeyCert, err = cryptotools.DecodeKeyCertFromFile(racCfg.iKeyCertFile)
+	racCfg.icFile = viper.GetString(confIKeyCert)
+	if racCfg.icFile != nullString {
+		_, racCfg.iKeyCert, err = cryptotools.DecodeKeyCertFromFile(racCfg.icFile)
 		if err != nil {
 			racCfg.iKeyCert = []byte{}
-			racCfg.iKeyCertFile = ikCert + crtExt
+			racCfg.icFile = ikCert + crtExt
 		}
 	} else {
-		racCfg.iKeyCertFile = ikCert + crtExt
+		racCfg.icFile = ikCert + crtExt
 	}
 }
 
@@ -257,13 +281,15 @@ func saveConfigs() {
 	viper.Set(confDigestAlgorithm, racCfg.digest)
 	viper.Set(confSeed, racCfg.seed)
 	if racCfg.testMode {
-		viper.Set(confEKeyCertTest, racCfg.eKeyCertTest)
-		viper.Set(confIKeyCertTest, racCfg.iKeyCertTest)
-		cryptotools.EncodeKeyCertToFile(racCfg.eKeyCert, racCfg.eKeyCertTest)
-		cryptotools.EncodeKeyCertToFile(racCfg.iKeyCert, racCfg.iKeyCertTest)
+		viper.Set(confEKeyCertTest, racCfg.ecTestFile)
+		viper.Set(confIKeyCertTest, racCfg.icTestFile)
+		cryptotools.EncodeKeyCertToFile(racCfg.eKeyCertTest, racCfg.ecTestFile)
+		cryptotools.EncodeKeyCertToFile(racCfg.iKeyCertTest, racCfg.icTestFile)
 	} else {
-		viper.Set(confIKeyCert, racCfg.iKeyCertFile)
-		cryptotools.EncodeKeyCertToFile(racCfg.iKeyCert, racCfg.iKeyCertFile)
+		viper.Set(confEKeyCert, racCfg.ecFile)
+		viper.Set(confIKeyCert, racCfg.icFile)
+		cryptotools.EncodeKeyCertToFile(racCfg.eKeyCert, racCfg.ecFile)
+		cryptotools.EncodeKeyCertToFile(racCfg.iKeyCert, racCfg.icFile)
 	}
 	err := viper.WriteConfig()
 	if err != nil {
@@ -276,15 +302,23 @@ func GetEKeyCert() []byte {
 	if racCfg == nil {
 		return []byte{}
 	}
-	return racCfg.eKeyCert
+	if GetTestMode() {
+		return racCfg.eKeyCertTest
+	} else {
+		return racCfg.eKeyCert
+	}
 }
 
-// SetEKeyCert sets the raagent DER format EK certificate, only for test.
+// SetEKeyCert sets the raagent DER format EK certificate.
 func SetEKeyCert(ec []byte) {
 	if racCfg == nil {
 		return
 	}
-	racCfg.eKeyCert = ec
+	if GetTestMode() {
+		racCfg.eKeyCertTest = ec
+	} else {
+		racCfg.eKeyCert = ec
+	}
 }
 
 // GetIKeyCert returns the raagent DER format IK certificate.
@@ -292,15 +326,23 @@ func GetIKeyCert() []byte {
 	if racCfg == nil {
 		return []byte{}
 	}
-	return racCfg.iKeyCert
+	if GetTestMode() {
+		return racCfg.iKeyCertTest
+	} else {
+		return racCfg.iKeyCert
+	}
 }
 
-// SetIKeyCert sets the raagent DER format IK certificate, only for test.
+// SetIKeyCert sets the raagent DER format IK certificate.
 func SetIKeyCert(ic []byte) {
 	if racCfg == nil {
 		return
 	}
-	racCfg.iKeyCert = ic
+	if GetTestMode() {
+		racCfg.iKeyCertTest = ic
+	} else {
+		racCfg.iKeyCert = ic
+	}
 }
 
 // GetClientId returns the raagent client id configuration.
