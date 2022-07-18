@@ -27,6 +27,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
@@ -172,7 +173,7 @@ var (
 	}
 	rasCfg      *rasConfig
 	servPort    *string = nil
-	httpsSwitch *bool   = nil
+	httpsSwitch *string = nil
 	restPort    *string = nil
 	httpsPort   *string = nil
 	VersionFlag *bool   = nil
@@ -183,7 +184,7 @@ var (
 // InitFlags inits the ras server command flags.
 func InitFlags() {
 	servPort = pflag.StringP(lflagServerPort, sflagServerPort, nullString, helpServerPort)
-	httpsSwitch = pflag.BoolP(lflagHttpsSwitch, sflagHttpsSwitch, true, helpHttpsSwitch)
+	httpsSwitch = pflag.StringP(lflagHttpsSwitch, sflagHttpsSwitch, "true", helpHttpsSwitch)
 	restPort = pflag.StringP(lflagRestPort, sflagRestPort, nullString, helpRestPort)
 	httpsPort = pflag.StringP(lflagHttpsPort, sflagHttpsPort, nullString, helpHttpsPort)
 	TokenFlag = pflag.BoolP(lflagToken, sflagToken, false, helpToken)
@@ -600,11 +601,17 @@ func GetHttpsSwitch() bool {
 }
 
 // SetHttpsSwitch sets the ras restful api interface protocol(http or https) configuration.
-func SetHttpsSwitch(p bool) {
+func SetHttpsSwitch(p string) {
 	if rasCfg == nil {
 		return
 	}
-	rasCfg.httpsSwitch = p
+	if strings.EqualFold(p, "false") {
+		rasCfg.httpsSwitch = false
+	} else if strings.EqualFold(p, "true") {
+		rasCfg.httpsSwitch = true
+	} else {
+		return
+	}
 }
 
 func EqualFold(s1, s2 string) {
