@@ -189,7 +189,7 @@ func InitFlags() {
 	httpsPort = pflag.StringP(lflagHttpsPort, sflagHttpsPort, nullString, helpHttpsPort)
 	TokenFlag = pflag.BoolP(lflagToken, sflagToken, false, helpToken)
 	VersionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
-	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, false, helpVerbose)
+	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, true, helpVerbose)
 	pflag.Parse()
 }
 

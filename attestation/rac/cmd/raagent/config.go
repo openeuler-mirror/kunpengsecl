@@ -47,15 +47,18 @@ const (
 	confDigestAlgorithm = "racconfig.digestalgorithm"
 	confSeed            = "racconfig.seed"
 	// raagent config default value
-	nullString   = ""
-	logFile      = "./rac-log.txt"
-	keyExt       = ".key"
-	crtExt       = ".crt"
-	ekCert       = "./ec"
-	ikCert       = "./ic"
-	ekCertTest   = "./ectest"
-	ikCertTest   = "./ictest"
-	confNullSeed = -1
+	nullString         = ""
+	logFile            = "./rac-log.txt"
+	keyExt             = ".key"
+	crtExt             = ".crt"
+	ekCert             = "./ec"
+	ikCert             = "./ic"
+	ekCertTest         = "./ectest"
+	ikCertTest         = "./ictest"
+	confNullSeed       = -1
+	defaultTestMode    = false
+	defaultVerboseMode = false
+	defaultDigestAlg   = "sha1"
 	// ras server listen ip:port
 	lflagServer = "server"
 	sflagServer = "s"
@@ -120,10 +123,10 @@ var (
 // initFlags inits the raagent whole command flags.
 func initFlags() {
 	server = pflag.StringP(lflagServer, sflagServer, nullString, helpServer)
-	testMode = pflag.BoolP(lflagTest, sflagTest, false, helpTest)
+	testMode = pflag.BoolP(lflagTest, sflagTest, defaultTestMode, helpTest)
 	versionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
-	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, false, helpVerbose)
-	algDigest = pflag.StringP(lflagAlg, sflagAlg, nullString, helpAlg)
+	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, defaultVerboseMode, helpVerbose)
+	algDigest = pflag.StringP(lflagAlg, sflagAlg, defaultDigestAlg, helpAlg)
 	pflag.Parse()
 }
 

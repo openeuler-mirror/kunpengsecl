@@ -75,6 +75,8 @@ func prepare() {
 		os.Exit(1)
 	}
 	defer clientapi.ReleaseConn(ras)
+	// set digest algorithm
+
 	// assume tpm chip has an Ek from tpm2.CreatePrimary and its EC is stored in
 	// NVRAM. So in test mode, create EK and sign it from PCA, save it to NVRAM
 	logger.L.Debug("generate EK...")
@@ -121,7 +123,6 @@ func prepare() {
 		}
 	}
 	saveConfigs()
-
 	err = ractools.SetDigestAlg(GetDigestAlgorithm())
 	if err != nil {
 		logger.L.Sugar().Errorf("set digest algorithm, %s", err)
@@ -290,7 +291,7 @@ func setNewConf(rpy *clientapi.SendHeartbeatReply) {
 // sendTrustReport sneds a new trust report to RAS.
 func sendTrustReport(ras *clientapi.RasConn, rpy *clientapi.SendHeartbeatReply) {
 	tRep, err := ractools.GetTrustReport(GetClientId(),
-		rpy.GetClientConfig().GetNonce())
+		rpy.GetClientConfig().GetNonce(), GetDigestAlgorithm())
 	if err != nil {
 		logger.L.Sugar().Errorf("prepare trust report failed, %v", err)
 		return

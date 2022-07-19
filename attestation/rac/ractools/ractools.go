@@ -291,7 +291,14 @@ func SetDigestAlg(alg string) error {
 	}
 
 	if algID, ok := algIdMap[alg]; ok {
+		//pcrSelectionNil.Hash = algID
+		pcrSelection0.Hash = algID
+		pcrSelection0to7.Hash = algID
+		pcrSelection7.Hash = algID
 		pcrSelectionAll.Hash = algID
+		//EKParams.NameAlg = algID
+		//IKParams.NameAlg = algID
+		//IKParams.RSAParameters.Sign.Hash = algID
 		tpmRef.config.ReportHashAlg = alg
 		return nil
 	}
@@ -586,7 +593,7 @@ func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {
 }
 
 // GetTrustReport takes a nonce input, generates the current trust report
-func GetTrustReport(clientID int64, nonce uint64) (*typdefs.TrustReport, error) {
+func GetTrustReport(clientID int64, nonce uint64, algStr string) (*typdefs.TrustReport, error) {
 	if tpmRef == nil {
 		return nil, ErrFailTPMInit
 	}
@@ -600,9 +607,13 @@ func GetTrustReport(clientID int64, nonce uint64) (*typdefs.TrustReport, error) 
 		ClientInfo: clientInfo,
 	}
 	//we use TrustReportIn as user data of Quote to guarantee its integrity
+	repHash, err := tRepIn.Hash(algStr)
+	if err != nil {
+		return nil, err
+	}
 	quoted, signature, err := tpm2.Quote(tpmRef.dev,
 		tpmRef.ik.handle, tpmRef.ik.password, emptyPassword,
-		tRepIn.Hash(), pcrSelectionAll, tpm2.AlgNull)
+		repHash, pcrSelectionAll, tpm2.AlgNull)
 	if err != nil {
 		return nil, err
 	}

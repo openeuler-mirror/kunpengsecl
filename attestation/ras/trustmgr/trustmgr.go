@@ -29,6 +29,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/rsa"
+	"crypto/sha256"
 
 	"database/sql"
 	"encoding/hex"
@@ -464,32 +465,35 @@ func checkQuote(c *cache.Cache, report *typdefs.TrustReport, row *typdefs.Report
 		return false, err
 	}
 
-	alg := config.GetDigestAlgorithm()
+	/*alg := config.GetDigestAlgorithm()
 	h, err := typdefs.GetHFromAlg(alg)
 	if err != nil {
 		return false, err
-	}
+	}*/
+	h := sha256.New()
 	h.Write(report.Quoted)
 	datahash := h.Sum(nil)
 	ikCert := c.GetIKeyCert()
 	if ikCert == nil {
 		return false, typdefs.ErrIKCertNull
 	}
-
-	switch alg {
-	case typdefs.Sha1AlgStr:
-		err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
-			crypto.SHA1, datahash, signature.RSA.Signature)
-	case typdefs.Sha256AlgStr:
-		err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
-			crypto.SHA256, datahash, signature.RSA.Signature)
-	case typdefs.Sm3AlgStr:
-		// set hash parameter 0 because sm3 is not supported in crypto package
-		err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
-			0, datahash, signature.RSA.Signature)
-	default:
-		return false, typdefs.ErrNotSupportAlg
-	}
+	/*
+		switch alg {
+		case typdefs.Sha1AlgStr:
+			err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
+				crypto.SHA1, datahash, signature.RSA.Signature)
+		case typdefs.Sha256AlgStr:
+			err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
+				crypto.SHA256, datahash, signature.RSA.Signature)
+		case typdefs.Sm3AlgStr:
+			// set hash parameter 0 because sm3 is not supported in crypto package
+			err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
+				0, datahash, signature.RSA.Signature)
+		default:
+			return false, typdefs.ErrNotSupportAlg
+		}*/
+	err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
+		crypto.SHA256, datahash, signature.RSA.Signature)
 	if err != nil {
 		return false, err
 	}
@@ -531,11 +535,12 @@ func checkPcrLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, err
 		temp = append(temp, pcrValueBytes...)
 	}
 	//calculate new pcr digest
-	alg := config.GetDigestAlgorithm()
+	/*alg := config.GetDigestAlgorithm()
 	h1, err := typdefs.GetHFromAlg(alg)
 	if err != nil {
 		return false, err
-	}
+	}*/
+	h1 := sha256.New()
 	h1.Write(temp)
 	newDigestBytes := h1.Sum(nil)
 	if !bytes.Equal(newDigestBytes, parsedQuote.AttestedQuoteInfo.PCRDigest) {
