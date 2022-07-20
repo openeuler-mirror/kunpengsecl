@@ -234,7 +234,7 @@ func (psd *PostgreSqlDAO) SaveReport(report *entity.Report) error {
 }
 
 // RegisterClient registers a new client and save its information.
-func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic []byte) (int64, error) {
+func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic []byte, registered bool) (int64, error) {
 	psd.Lock()
 	defer psd.Unlock()
 
@@ -266,7 +266,7 @@ func (psd *PostgreSqlDAO) RegisterClient(clientInfo *entity.ClientInfo, ic []byt
 
 	// no client in register_client table, register a new one in it. set base_value_ver = 0
 	clientInfoVer = 1
-	deleted = false
+	deleted = !registered
 	_, err = tx.Exec(context.Background(),
 		"INSERT INTO register_client(client_info_ver, register_time, ak_certificate, online, deleted, base_value_ver) VALUES ($1, $2, $3, $4, $5, $6)",
 		clientInfoVer, time.Now(), ic, true, deleted, 0)

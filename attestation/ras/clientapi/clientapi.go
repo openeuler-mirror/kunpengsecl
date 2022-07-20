@@ -143,20 +143,27 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 	if err != nil {
 		return nil, err
 	}
-	clientID, err := trustmgr.RegisterClient(eci, icPem)
+	cfg := config.GetDefault(config.ConfServer)
+	registered := false
+	if cfg.GetMgrStrategy() == config.RasAutoStrategy {
+		registered = true
+	}
+
+	clientID, err := trustmgr.RegisterClient(eci, icPem, registered)
 	if err != nil {
 		return nil, err
 	}
-	cfg := config.GetDefault(config.ConfServer)
 	hd := cfg.GetHBDuration()
 	td := cfg.GetTrustDuration()
 
-	s.cm.Lock()
-	defer s.cm.Unlock()
+	if registered {
+		s.cm.Lock()
+		defer s.cm.Unlock()
 
-	c := s.cm.CreateCache(clientID)
-	if c == nil {
-		return nil, fmt.Errorf("client %d failed to create cache", clientID)
+		c := s.cm.CreateCache(clientID)
+		if c == nil {
+			return nil, fmt.Errorf("client %d failed to create cache", clientID)
+		}
 	}
 
 	return &RegisterClientReply{

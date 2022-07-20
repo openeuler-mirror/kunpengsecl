@@ -101,9 +101,9 @@ func TestRecordReport(t *testing.T) {
 	cfg := config.GetDefault(config.ConfServer)
 	ic := createRandomCert()
 
-	clientID, err := RegisterClient(&clientInfo, ic)
+	clientID, err := RegisterClient(&clientInfo, ic, true)
 	assert.NoError(t, err)
-	_, err = RegisterClient(&clientInfo, ic)
+	_, err = RegisterClient(&clientInfo, ic, true)
 	assert.Error(t, err)
 
 	testReport := &entity.Report{
@@ -246,7 +246,7 @@ func TestNoDB(t *testing.T) {
 		db.Destroy()
 		dbDAO = nil
 	}
-	_, err = RegisterClient(nil, nil)
+	_, err = RegisterClient(nil, nil, true)
 	assert.Error(t, err)
 	err = UnRegisterClient(0)
 	assert.Error(t, err)

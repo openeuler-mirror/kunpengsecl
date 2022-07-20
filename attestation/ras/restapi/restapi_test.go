@@ -241,7 +241,7 @@ func TestGetServer(t *testing.T) {
 			"ip":                 "ip",
 		},
 	}
-	_, err := trustmgr.RegisterClient(&clientInfo, ic)
+	_, err := trustmgr.RegisterClient(&clientInfo, ic, true)
 	assert.NoError(t, err)
 	s, _ := prepareServers(t)
 	err = s.GetServer(ctx)

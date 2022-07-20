@@ -641,7 +641,7 @@ func TestPCRValidate(t *testing.T) {
 	}
 	defer psd.Destroy()
 	ic := createRandomCert()
-	cid, err := psd.RegisterClient(ci, ic)
+	cid, err := psd.RegisterClient(ci, ic, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -758,7 +758,7 @@ func TestVerifierMgrValidate(t *testing.T) {
 	}
 	defer psd.Destroy()
 	ic := createRandomCert()
-	cid, err := psd.RegisterClient(ci, ic)
+	cid, err := psd.RegisterClient(ci, ic, true)
 	if err != nil {
 		t.Error(err)
 	}

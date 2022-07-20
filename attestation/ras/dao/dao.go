@@ -9,7 +9,7 @@ import (
 */
 type DAO interface {
 	SaveReport(report *entity.Report) error
-	RegisterClient(clientInfo *entity.ClientInfo, ic []byte) (int64, error)
+	RegisterClient(clientInfo *entity.ClientInfo, ic []byte, registered bool) (int64, error)
 	UnRegisterClient(clientID int64) error
 	SaveBaseValue(clientID int64, meaInfo *entity.MeasurementInfo) error
 	SelectAllRegisteredClientIds() ([]int64, error)

@@ -95,7 +95,7 @@ func TestPostgreSqlDAOSaveReport(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	id, err2 := psd.RegisterClient(ci, ic)
+	id, err2 := psd.RegisterClient(ci, ic, true)
 	if err2 != nil {
 		t.FailNow()
 	}
@@ -132,11 +132,11 @@ func TestRegisterClient(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	_, err2 := psd.RegisterClient(ci, ic)
+	_, err2 := psd.RegisterClient(ci, ic, true)
 	if err2 != nil {
 		t.FailNow()
 	}
-	_, err2 = psd.RegisterClient(ci, ic)
+	_, err2 = psd.RegisterClient(ci, ic, true)
 	assert.Error(t, err2)
 }
 
@@ -152,7 +152,7 @@ func TestUnRegisterClient(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	_, err2 := psd.RegisterClient(ci, ic)
+	_, err2 := psd.RegisterClient(ci, ic, true)
 	if err2 != nil {
 		t.FailNow()
 	}
@@ -227,7 +227,7 @@ func TestSelectReportById(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	id, err2 := psd.RegisterClient(ci, ic)
+	id, err2 := psd.RegisterClient(ci, ic, true)
 	if err2 != nil {
 		t.FailNow()
 	}
@@ -282,7 +282,7 @@ func TestSelectClientById(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	cid, err := psd.RegisterClient(ci, ic)
+	cid, err := psd.RegisterClient(ci, ic, true)
 	if err != nil {
 		t.FailNow()
 	}
@@ -310,7 +310,7 @@ func TestSelectClientIds(t *testing.T) {
 	const registerClientCount = 1
 	for i := 0; i <= registerClientCount; i++ {
 		ic := createRandomCert()
-		cid, err2 := psd.RegisterClient(ci, ic)
+		cid, err2 := psd.RegisterClient(ci, ic, true)
 		if err2 != nil {
 			t.Fatalf("%v", err2)
 		}
@@ -340,7 +340,7 @@ func TestSelectClientInfobyId(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	cid, err := psd.RegisterClient(&ci1, ic)
+	cid, err := psd.RegisterClient(&ci1, ic, true)
 	if err != nil {
 		t.FailNow()
 	}
@@ -381,7 +381,7 @@ func TestUpdateRegisterStatusById(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	cid, err := psd.RegisterClient(ci, ic)
+	cid, err := psd.RegisterClient(ci, ic, true)
 	if err != nil {
 		t.FailNow()
 	}
@@ -425,7 +425,7 @@ func TestUpdateRegisterClient(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	cid, err := psd.RegisterClient(ci, ic)
+	cid, err := psd.RegisterClient(ci, ic, true)
 	assert.NoError(t, err)
 
 	time2 := time.Now()
@@ -457,7 +457,7 @@ func TestInsertAndSelectContainer(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	cid, err := psd.RegisterClient(ci, ic)
+	cid, err := psd.RegisterClient(ci, ic, true)
 	if err != nil {
 		t.FailNow()
 	}
@@ -506,7 +506,7 @@ func TestInsertAndSelectDevice(t *testing.T) {
 	defer psd.Destroy()
 
 	ic := createRandomCert()
-	cid, err := psd.RegisterClient(ci, ic)
+	cid, err := psd.RegisterClient(ci, ic, true)
 	if err != nil {
 		t.FailNow()
 	}

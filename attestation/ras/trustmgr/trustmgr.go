@@ -100,12 +100,12 @@ func handleBaseValue(report *entity.Report) error {
 	return nil
 }
 
-func RegisterClient(clientInfo *entity.ClientInfo, ic []byte) (int64, error) {
+func RegisterClient(clientInfo *entity.ClientInfo, ic []byte, registered bool) (int64, error) {
 	psd, err := getPostgreSQLDAO()
 	if err != nil {
 		return 0, err
 	}
-	clientId, err := psd.RegisterClient(clientInfo, ic)
+	clientId, err := psd.RegisterClient(clientInfo, ic, registered)
 	if err != nil {
 		return 0, err
 	}
