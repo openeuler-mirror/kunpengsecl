@@ -66,7 +66,7 @@ func (psd *PostgreSqlDAO) saveClientInfo(tx pgx.Tx, ctx context.Context, clientI
 func (psd *PostgreSqlDAO) saveReportContent(tx pgx.Tx, ctx context.Context, report *entity.Report, clientInfoVer int) (reportID int64, err error) {
 	err = tx.QueryRow(ctx,
 		"INSERT INTO trust_report(client_id, client_info_ver, report_time, pcr_quote, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-		report.ClientID, clientInfoVer, time.Now().Format("2006/01/02 15:04:05"),
+		report.ClientID, clientInfoVer, time.Now().UTC().Format("2006/01/02 15:04:05"),
 		report.PcrInfo.Quote.Quoted, report.Verified).Scan(&reportID)
 	if err != nil {
 		return -1, err
