@@ -339,11 +339,15 @@ func (bv *BIOSVerifier) Extract(report *entity.Report, mInfo *entity.Measurement
 		}
 	}
 	// reset manifest to append extract result
-	mInfo.Manifest = []entity.Measurement{}
+	if mInfo.ClientID != 0 {
+		mInfo.Manifest = []entity.Measurement{}
+	}
 	for _, bn := range biosNames {
 		isFound := false
 		for _, bmi := range biosManifest.Items {
+			//fmt.Println("template name:manifest name ", bn, bmi.Name)
 			if bmi.Name == bn {
+				//fmt.Println("match")
 				isFound = true
 				mInfo.Manifest = append(mInfo.Manifest, entity.Measurement{
 					Type:  "bios",
@@ -389,7 +393,9 @@ func (iv *IMAVerifier) Extract(report *entity.Report, mInfo *entity.MeasurementI
 		}
 	}
 	// reset manifest to append extract result
-	mInfo.Manifest = []entity.Measurement{}
+	if mInfo.ClientID != 0 {
+		mInfo.Manifest = []entity.Measurement{}
+	}
 	for _, in := range imaNames {
 		isFound := false
 		for _, imi := range imaManifest.Items {
