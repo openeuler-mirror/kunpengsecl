@@ -37,7 +37,7 @@ const (
 	CMDGETREPORT                    // get a new trust report from RAC.
 	CMDNONE      uint64 = 0         // clear all pending commands.
 	// const start with STS is used for trust status.
-	STSUNKOWN    = "unknown"
+	STSUNKNOWN   = "unknown"
 	STSTRUSTED   = "trusted"
 	STSUNTRUSTED = "untrusted"
 	// default RAC number in the cache.
@@ -147,7 +147,7 @@ func (cm *CacheMgr) GetTrustStatusById(clientId int64) string {
 	if ca, ok := cm.caches[clientId]; ok {
 		return ca.GetTrustStatus()
 	}
-	return STSUNKOWN
+	return STSUNKNOWN
 }
 
 func (cm *CacheMgr) GetAllContainerTrustStatus() (map[string]string, error) {
@@ -171,12 +171,12 @@ func (cm *CacheMgr) GetAllContainerTrustStatus() (map[string]string, error) {
 func (cm *CacheMgr) GetDeviceTrustStatusById(deviceId int64) string {
 	dev, err := trustmgr.GetDeviceById(deviceId)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
 	}
 	if cache, ok := cm.caches[dev.ClientId]; ok {
 		return cache.GetDeviceTrustStatus(deviceId)
 	}
-	return STSUNKOWN
+	return STSUNKNOWN
 }
 
 func (cm *CacheMgr) GetAllDeviceTrustStatus() (map[int64]string, error) {
@@ -200,12 +200,12 @@ func (cm *CacheMgr) GetAllDeviceTrustStatus() (map[int64]string, error) {
 func (cm *CacheMgr) GetContainerTrustStatusByUUId(uuID string) string {
 	con, err := trustmgr.GetContainerByUUId(uuID)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
 	}
 	if cache, ok := cm.caches[con.ClientId]; ok {
 		return cache.GetContainerTrustStatus(uuID)
 	}
-	return STSUNKOWN
+	return STSUNKNOWN
 }
 
 func (cm *CacheMgr) SyncConfig() {
@@ -216,15 +216,17 @@ func (cm *CacheMgr) SyncConfig() {
 
 // GetTrustStatus returns the trust status of the corresponding client
 func (c *Cache) GetTrustStatus() string {
-	bv, err := trustmgr.GetBaseValueById(c.cid)
-	if err != nil {
-		return STSUNKOWN
-	}
 	report, err := trustmgr.GetLatestReportById(c.cid)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
 	}
-
+	if c.isHeartBeatLost() || c.isReportExpired(report.ReportTime) {
+		return STSUNKNOWN
+	}
+	bv, err := trustmgr.GetBaseValueById(c.cid)
+	if err != nil {
+		return STSUNKNOWN
+	}
 	if err = c.cm.vm.Verify(bv, report); err == nil {
 		return STSTRUSTED
 	}
@@ -236,18 +238,21 @@ func (c *Cache) GetContainerTrustStatus(uuid string) string {
 	cid := c.cid
 	bv, err := trustmgr.GetBaseValueById(cid)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
 	}
 	report, err := trustmgr.GetLatestReportById(cid)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
+	}
+	if c.isHeartBeatLost() || c.isReportExpired(report.ReportTime) {
+		return STSUNKNOWN
 	}
 	if err = c.cm.vm.Verify(bv, report); err != nil {
 		return STSUNTRUSTED
 	}
 	cbv, err := trustmgr.GetContainerBaseValueByUUId(uuid)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
 	}
 	m := []entity.Measurement{}
 	for k, v := range cbv.Value {
@@ -270,23 +275,26 @@ func (c *Cache) GetContainerTrustStatus(uuid string) string {
 func (c *Cache) GetDeviceTrustStatus(deviceId int64) string {
 	dev, err := trustmgr.GetDeviceById(deviceId)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
 	}
 	cid := dev.ClientId
 	bv, err := trustmgr.GetBaseValueById(cid)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
 	}
 	report, err := trustmgr.GetLatestReportById(cid)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
+	}
+	if c.isHeartBeatLost() || c.isReportExpired(report.ReportTime) {
+		return STSUNKNOWN
 	}
 	if err = c.cm.vm.Verify(bv, report); err != nil {
 		return STSUNTRUSTED
 	}
 	dbv, err := trustmgr.GetDeviceBaseValueById(deviceId)
 	if err != nil {
-		return STSUNKOWN
+		return STSUNKNOWN
 	}
 	m := []entity.Measurement{}
 	for k, v := range dbv.Value {
@@ -304,6 +312,26 @@ func (c *Cache) GetDeviceTrustStatus(deviceId int64) string {
 		return STSUNTRUSTED
 	}
 	return STSTRUSTED
+}
+
+func (c *Cache) isHeartBeatLost() bool {
+	cfg := config.GetDefault(config.ConfServer)
+	// Once we missed 3 hb, then report hb lost.
+	if time.Now().After(c.hbExpiration.Add(cfg.GetHBDuration() * 2)) {
+		return true
+	}
+
+	return false
+}
+
+func (c *Cache) isReportExpired(reportTime time.Time) bool {
+	cfg := config.GetDefault(config.ConfServer)
+	// Once we pass the trust duration, report report expired.
+	if time.Now().After(reportTime.Add(cfg.GetTrustDuration())) {
+		return true
+	}
+
+	return false
 }
 
 // UpdateHeartBeat is called when receives heart beat message from RAC.
