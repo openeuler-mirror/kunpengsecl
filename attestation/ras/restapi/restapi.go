@@ -79,9 +79,9 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
 <a href="/login">login</a>&emsp;<a href="/version">version</a>
 &emsp;<a href="/config">config</a><br/><table border="1">
 <tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
-<th>Online</th><th>Trusted</th><th>Info</th><th>Trust Reports</th>
+<th>Online</th><th>IP Address</th><th>Trusted</th><th>Info</th><th>Trust Reports</th>
 <th>Base Values</th><th>Action</th></tr>`
-	htmlListInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td>
+	htmlListInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td><td>%s</td>
 <td>%v</td><td><a href="/%d">link</a></td><td><a href="/%d/reports">link</a></td>
 <td><a href="/%d/basevalues">link</a></td>
 <td><button type="button" value="/%d">Delete</button></td></tr>`
@@ -143,6 +143,7 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 	// (GET /{id}/reports)
 	htmlListReports = `<html><head><title>Trust Reports List</title>
 <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script></head><body>
+<style type="text/css">td{white-space: pre-line;}</style>
 <script>$(document).ready(function(){$("button").click(function(){$.ajax({url:this.value,
 type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
 }},});});});</script><a href="/">Back</a><br/><b>Client %d Trust Reports List</b><br/>
@@ -154,6 +155,7 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 
 	// (GET /{id}/reports/{reportid})
 	htmlOneReport = `<html><head><title>Trust Report Detail</title></head><body>
+<style type="text/css">td{white-space: pre-line;}</style>
 <a href="/%d/reports">Back</a><br/><table border="1"><tr align="center" bgcolor="#00FF00">
 <th>Parameter</th><th>Value</th></tr>`
 	htmlReportValue = `<tr><td align="center">%s</td><td>%v</td></tr>`
@@ -237,7 +239,7 @@ func StartServerHttps(httpsPort string) {
 	}
 	logger.L.Sugar().Debug(CreateAuthValidator(v))
 	RegisterHandlers(e, &MyRestAPIServer{})
-	e.Logger.Fatal(e.StartTLS(httpsPort, "../restapi/crt/server.crt", "../restapi/crt/server.key"))
+	e.Logger.Fatal(e.StartTLS(httpsPort, "pca-root.crt", "pca-root.key"))
 }
 
 // getJWS fetch the JWS string from an Authorization header
@@ -362,7 +364,7 @@ func genAllListHtml(nodes []typdefs.NodeInfo) string {
 	buf.WriteString(htmlAllList)
 	for _, n := range nodes {
 		buf.WriteString(fmt.Sprintf(htmlListInfo, n.ID, n.RegTime,
-			n.Online, n.Trusted, n.ID, n.ID, n.ID, n.ID))
+			n.Online, n.IPAddress, n.Trusted, n.ID, n.ID, n.ID, n.ID))
 	}
 	buf.WriteString(htmlListEnd)
 	return buf.String()

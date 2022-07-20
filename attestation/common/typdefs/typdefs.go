@@ -216,6 +216,7 @@ type (
 		ID           int64  `json:"id" form:"id"`
 		RegTime      string `json:"regtime" form:"regtime"`
 		Online       bool   `json:"online" form:"online"`
+		IPAddress	 string `json:"ipaddress" form:"ipaddress"`
 		Trusted      bool   `json:"trusted" form:"trusted"`
 		IsAutoUpdate bool   `json:"isautoupdate" form:"isautoupdate"`
 	}
