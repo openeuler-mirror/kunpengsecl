@@ -505,13 +505,11 @@ func (s *RasServer) PutServerBasevalueServerId(ctx echo.Context, serverId int64)
 	if err != nil {
 		return ctx.JSON(http.StatusNoContent, nil)
 	}
-	mInfo, err := trustmgr.GetBaseValueById(serverId)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, nil)
-	}
-	modifyManifest(mInfo, *serverBvBody.Measurements)
-	modifyPcrValue(mInfo, *serverBvBody.Pcrvalues)
-	err = trustmgr.SaveBaseValueById(serverId, mInfo)
+	mInfo := entity.MeasurementInfo{}
+	mInfo.PcrInfo.Values = make(map[int]string, 8)
+	modifyManifest(&mInfo, *serverBvBody.Measurements)
+	modifyPcrValue(&mInfo, *serverBvBody.Pcrvalues)
+	err = trustmgr.SaveBaseValueById(serverId, &mInfo)
 	if err != nil {
 		return ctx.JSON(http.StatusNoContent, nil)
 	}
@@ -521,16 +519,10 @@ func (s *RasServer) PutServerBasevalueServerId(ctx echo.Context, serverId int64)
 func modifyManifest(mInfo *entity.MeasurementInfo, ms []Measurement) {
 	var mf entity.Measurement
 	for i := range ms {
-		if i < len(mInfo.Manifest) {
-			mInfo.Manifest[i].Name = *ms[i].Name
-			mInfo.Manifest[i].Type = string(*ms[i].Type)
-			mInfo.Manifest[i].Value = *ms[i].Value
-		} else {
-			mf.Name = *ms[i].Name
-			mf.Type = string(*ms[i].Type)
-			mf.Value = *ms[i].Value
-			mInfo.Manifest = append(mInfo.Manifest, mf)
-		}
+		mf.Name = *ms[i].Name
+		mf.Type = string(*ms[i].Type)
+		mf.Value = *ms[i].Value
+		mInfo.Manifest = append(mInfo.Manifest, mf)
 	}
 }
 
