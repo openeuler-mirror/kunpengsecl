@@ -489,7 +489,12 @@ func (psd *PostgreSqlDAO) SelectBaseValueById(clientId int64) (*entity.Measureme
 	err := psd.conn.QueryRow(context.Background(),
 		"SELECT base_value_ver FROM register_client WHERE id=$1", clientId).Scan(&baseValueVer)
 	if err != nil {
+		// fmt.Println("1-query-ver-err ", err)
 		return nil, err
+	}
+	//fmt.Println("2-query-ver-ok ", baseValueVer)
+	if baseValueVer == 0 {
+		return nil, errors.New("No base value yet")
 	}
 
 	pi := entity.PcrInfo{

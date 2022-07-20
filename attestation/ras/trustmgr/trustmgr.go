@@ -399,9 +399,11 @@ func recordAutoUpdateReport(report *entity.Report) error {
 		}
 		oldMea, err := GetBaseValueById(report.ClientID)
 		if err != nil {
-			return err
-		}
-		if isMeasurementUpdate(oldMea, &newMea) {
+			err = SaveBaseValueById(report.ClientID, &newMea)
+			if err != nil {
+				return err
+			}
+		} else if isMeasurementUpdate(oldMea, &newMea) {
 			err = SaveBaseValueById(report.ClientID, &newMea)
 			if err != nil {
 				return err
