@@ -243,7 +243,7 @@ type (
 )
 
 // Get the hash value of TrustReportIn, as user data of Quote
-func (t *TrustReportInput) Hash() []byte {
+func (t *TrustReportInput) Hash(algStr string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	b64 := make([]byte, 8)
 	binary.BigEndian.PutUint64(b64, t.Nonce)
@@ -251,9 +251,12 @@ func (t *TrustReportInput) Hash() []byte {
 	binary.BigEndian.PutUint64(b64, uint64(t.ClientID))
 	buf.Write(b64)
 	buf.WriteString(t.ClientInfo)
-	bHash := sha256.New()
+	bHash, err := GetHFromAlg(algStr)
+	if err != nil {
+		return nil, err
+	}
 	bHash.Write(buf.Bytes())
-	return bHash.Sum(nil)
+	return bHash.Sum(nil), nil
 }
 
 type (
@@ -827,11 +830,11 @@ func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte, algStr string) (bool, e
 	var aggr string
 	switch algStr {
 	case Sha1AlgStr:
-		pcrs.AggregateSha1(0, 8)
+		aggr = pcrs.AggregateSha1(0, 8)
 	case Sha256AlgStr:
-		pcrs.AggregateSha256(0, 8)
+		aggr = pcrs.AggregateSha256(0, 8)
 	case Sm3AlgStr:
-		pcrs.AggregateSM3(0, 8)
+		aggr = pcrs.AggregateSM3(0, 8)
 	default:
 		return false, ErrNotSupportAlg
 	}
