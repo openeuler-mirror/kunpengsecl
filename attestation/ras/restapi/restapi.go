@@ -467,6 +467,21 @@ func (s *RasServer) PutServer(ctx echo.Context) error {
 			if err != nil {
 				return ctx.JSON(http.StatusForbidden, nil)
 			}
+			if *serverBody.Registered {
+				s.cm.Lock()
+				defer s.cm.Unlock()
+
+				s.cm.CreateCache(cid)
+			} else {
+				s.cm.Lock()
+				defer s.cm.Unlock()
+
+				c := s.cm.GetCache(cid)
+				if c != nil {
+					log.Printf("delete %d", cid)
+					s.cm.RemoveCache(cid)
+				}
+			}
 		}
 	}
 	return nil
