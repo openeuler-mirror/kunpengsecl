@@ -174,10 +174,11 @@ func GetAllNodes(f, t int64) (typdefs.ArrNodeInfo, error) {
 	for i, v := range tmgr.cache {
 		if f <= i && i < t {
 			n := typdefs.NodeInfo{
-				ID:      i,
-				RegTime: v.GetRegTime(),
-				Online:  v.GetOnline(),
-				Trusted: v.GetTrusted(),
+				ID:        i,
+				RegTime:   v.GetRegTime(),
+				Online:    v.GetOnline(),
+				IPAddress: typdefs.GetIP(),
+				Trusted:   v.GetTrusted(),
 			}
 			nodes = append(nodes, n)
 		}
