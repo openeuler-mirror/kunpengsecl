@@ -45,7 +45,7 @@
     </div>
 
     <div id="div1">
-        <h2> Step 1: Initiate worker server registering</h2>
+        <h2> Step 1: Initiate worker server registration</h2>
         <div> <B>List of worker servers</B>
             <table>
                 <thead>
@@ -60,7 +60,7 @@
                 </tbody>
             </table>
         </div>
-        <button name="ServerQuery" onclick="queryServers1()"> refresh</button>
+        <button name="ServerQuery" onclick="queryServers1()"> Refresh</button>
     </div>
 
     <div id="div2">
@@ -72,7 +72,7 @@
 
     <div id="div3">
         <h2> Step 3: Create reference value for worker server</h2>
-        <div> <B>List of PCR ref values</B>
+        <div> <B>List of PCR ref value</B>
             <table>
                 <thead>
                     <tr>
@@ -84,14 +84,14 @@
                 </tbody>
             </table>
         </div>
-        <button name="PCRClear" onclick="clearPCRs()">clear</button>
+        <button name="PCRClear" onclick="clearPCRs()">Clear</button>
         <div>
             PCR <input size=1 id="inPcrId" /> : <input size=48 id="inPcrValue" /><button name="PCRAdd"
                 onclick="addPCR()">
                 Add</button>
         </div>
         <br>
-        <div> <B>List of BIOS ref values</B>
+        <div> <B>List of BIOS ref value</B>
             <table>
                 <thead>
                     <tr>
@@ -103,14 +103,14 @@
                 </tbody>
             </table>
         </div>
-        <button name="BIOSClear" onclick="clearBIOS()">clear</button>
+        <button name="BIOSClear" onclick="clearBIOS()">Clear</button>
         <div>
             BIOS <input size=10 id="inBiosName" /> : <input size=48 id="inBiosValue" /><button name="BIOSAdd"
                 onclick="addBIOS()">
                 Add</button>
         </div>
         <br>
-        <div> <B>List of IMA ref values</B>
+        <div> <B>List of IMA ref value</B>
             <table>
                 <thead>
                     <tr>
@@ -122,18 +122,18 @@
                 </tbody>
             </table>
         </div>
-        <button name="IMAClear" onclick="clearIMA()">clear</button>
+        <button name="IMAClear" onclick="clearIMA()">Clear</button>
         <div>
             IMA <input size=30 id="inImaName" /> : <input size=48 id="inImaValue" /><button name="PCRAdd"
                 onclick="addIMA()">
                 Add</button>
         </div>
-        <button name="RefValAdd" onclick="addRefValue()">Add Reference
+        <button name="RefValAdd" onclick="addRefValue()">Store Reference
             Value</button>
     </div>
 
     <div id="div4">
-        <h2> Step 4: Get trust status of worker server(should be trusted)</h2>
+        <h2> Step 4: Get trust status of worker server</h2>
         <div> <B>Trust status of worker servers</B>
             <table>
                 <thead>
@@ -146,16 +146,16 @@
                 </tbody>
             </table>
         </div>
-        <button name="StatusQuery" onclick="queryStatus()"> refresh</button>
+        <button name="StatusQuery" onclick="queryStatus()"> Refresh</button>
     </div>
 
     <div id="div5">
-        <h2> Step 5: update reference value for worker server</h2>
+        <h2> Step 5: Update reference value for worker server</h2>
         Back to step 3, set a different reference value for worker server. <br>
     </div>
 
     <div id="div6">
-        <h2> Step 6: Get trust status of worker server(should be untrusted)</h2>
+        <h2> Step 6: Get trust status of worker servers</h2>
         Back to step 4.
     </div>
 
@@ -169,7 +169,7 @@
     </div>
 
     <div id="div8">
-        <h2> Step 8: Get trust status of worker server(should be trusted again)</h2>
+        <h2> Step 8: Get trust status of worker server</h2>
         Back to step 4.
     </div>
 
@@ -179,7 +179,7 @@
     </div>
 
     <div id="div10">
-        <h2> Step 10: Get trust status of worker server(should be unknown)</h2>
+        <h2> Step 10: Get trust status of worker servers</h2>
         Back to step 4.
     </div>
 
@@ -189,7 +189,7 @@
     </div>
 
     <div id="div12">
-        <h2> Step 12: Get trust status of worker server(should be trusted again)
+        <h2> Step 12: Get trust status of worker servers
         </h2>
         Back to step 4.
     </div>
@@ -555,7 +555,7 @@
                 console.log(this.status, this.readyState, this.response);
                 if (this.status == 200 && this.readyState == 4) {
                     //outServers.textContent = this.response
-                    updateAutoUpdateProgress("back to manual and update server status");
+                    updateAutoUpdateProgress("Back to manual and update server status");
                     queryStatus();
                 }
             }
@@ -577,7 +577,7 @@
 
         function waitAndSetManual() {
             var id = setTimeout(setManual, 20000);
-            updateAutoUpdateProgress("wait for 20s");
+            updateAutoUpdateProgress("Wait for 20s");
         }
 
         function updateAutoUpdateProgress(progress) {
@@ -586,7 +586,7 @@
 
         function doAutoUpdate() {
             setAutoUpdate();
-            updateAutoUpdateProgress("enable auto-update");
+            updateAutoUpdateProgress("Enable auto-update");
         }
     </script>
 </body>

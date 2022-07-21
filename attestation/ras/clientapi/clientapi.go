@@ -92,7 +92,7 @@ func (s *service) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest)
 
 // GenerateIKCert handles the generation of the IK certificate for client
 func (s *service) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
-	log.Printf("Server: receive GenerateIKCert and encrypt it")
+	log.Printf("Server: receive IKCert generation request")
 	c := config.GetDefault(config.ConfServer)
 	ip, _ := entity.GetIP()
 	template := x509.Certificate{
@@ -127,7 +127,7 @@ func (s *service) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest)
 
 // RegisterClient TODO: need a challenge and some statement for check nil pointer (this package functions all need this)
 func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
-	log.Printf("Server: receive RegisterClient")
+	log.Printf("Server: receive Registration request")
 	// register and get clientId
 	ci := in.GetClientInfo().GetClientInfo()
 	cim := map[string]string{}
@@ -177,7 +177,7 @@ func (s *service) RegisterClient(ctx context.Context, in *RegisterClientRequest)
 }
 
 func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
-	log.Printf("Server: receive UnregisterClient")
+	log.Printf("Server: receive Unregisteration request")
 	cid := in.GetClientId()
 	result := false
 	if cid <= 0 {
@@ -201,7 +201,7 @@ func (s *service) UnregisterClient(ctx context.Context, in *UnregisterClientRequ
 }
 
 func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
-	log.Printf("Server: receive SendHeartbeat")
+	log.Printf("Server: receive Heartbeat")
 	var nextAction uint64
 	var nonce uint64
 	var ci = &ClientConfig{}
@@ -213,7 +213,7 @@ func (s *service) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (
 
 	if c != nil {
 		var err error
-		log.Printf("hb %d", cid)
+		log.Printf("handle heartbeat from worker server #%d", cid)
 		c.UpdateHeartBeat()
 		if c.HasCommands() {
 			nextAction = c.GetCommands()
@@ -276,7 +276,7 @@ func (s *service) transformManifest(report *TrustReport) ([]entity.Manifest, err
 }
 
 func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
-	log.Printf("Server: receive SendReport")
+	log.Printf("Server: receive Report")
 	cid := in.GetClientId()
 
 	s.cm.Lock()
@@ -321,7 +321,7 @@ func (s *service) SendReport(ctx context.Context, in *SendReportRequest) (*SendR
 		return &SendReportReply{Result: false}, err
 	}
 
-	log.Printf("report %d", cid)
+	log.Printf("handle report from worker server #%d", cid)
 	c.ClearCommands()
 	c.UpdateTrustReport()
 
@@ -369,7 +369,7 @@ func makesock(addr string) (*rasConn, error) {
 	ras.conn = conn
 	ras.c = NewRasClient(conn)
 	ras.ctx, ras.cancel = context.WithTimeout(context.Background(), constDEFAULTTIMEOUT)
-	log.Printf("Client: connect to %s", addr)
+	//log.Printf("Client: connect to %s", addr)
 	return ras, nil
 }
 
@@ -387,7 +387,7 @@ func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertRe
 		log.Printf("Client: invoke GenerateEKCert error %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke GenerateEKCert ok")
+	//log.Printf("Client: invoke GenerateEKCert ok")
 	return bk, nil
 }
 
@@ -406,7 +406,7 @@ func DoGenerateIKCert(addr string, in *GenerateIKCertRequest) (*GenerateIKCertRe
 		log.Printf("Client: invoke GenerateIKCert error %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke GenerateIKCert ok")
+	//log.Printf("Client: invoke GenerateIKCert ok")
 	return bk, nil
 }
 
@@ -425,7 +425,7 @@ func DoRegisterClient(addr string, in *RegisterClientRequest) (*RegisterClientRe
 		log.Printf("Client: invoke RegisterClient error %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke RegisterClient ok, clientID=%d", bk.GetClientId())
+	//log.Printf("Client: invoke RegisterClient ok, clientID=%d", bk.GetClientId())
 	return bk, nil
 }
 
@@ -444,7 +444,7 @@ func DoUnregisterClient(addr string, in *UnregisterClientRequest) (*UnregisterCl
 		log.Printf("Client: invoke UnregisterClient error %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke UnregisterClient %v", bk.Result)
+	//log.Printf("Client: invoke UnregisterClient %v", bk.Result)
 	return bk, nil
 }
 
@@ -463,7 +463,7 @@ func DoSendHeartbeat(addr string, in *SendHeartbeatRequest) (*SendHeartbeatReply
 		log.Printf("Client: invoke SendHeartbeat error %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke SendHeartbeat ok")
+	//log.Printf("Client: invoke SendHeartbeat ok")
 	//bk.NextAction = 123
 	return bk, nil
 }
@@ -483,7 +483,7 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 		log.Printf("Client: invoke SendReport error %v", err)
 		return nil, err
 	}
-	log.Printf("Client: invoke SendReport ok")
+	//log.Printf("Client: invoke SendReport ok")
 	return bk, nil
 }
 

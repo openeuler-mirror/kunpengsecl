@@ -33,32 +33,32 @@ type rahub struct {
 }
 
 func (s *rahub) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
-	log.Printf("rahub: receive GenerateEKCert")
+	log.Printf("rahub: forward EKCert generation request")
 	return DoGenerateEKCert(s.rasAddr, in)
 }
 
 func (s *rahub) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
-	log.Printf("rahub: receive GenerateIKCert")
+	log.Printf("rahub: forward IKCert generation request")
 	return DoGenerateIKCert(s.rasAddr, in)
 }
 
 func (s *rahub) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
-	log.Printf("rahub: receive RegisterClient")
+	log.Printf("rahub: forward registration request")
 	return DoRegisterClient(s.rasAddr, in)
 }
 
 func (s *rahub) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
-	log.Printf("rahub: receive UnregisterClient")
+	log.Printf("rahub: forward unregistration request ")
 	return DoUnregisterClient(s.rasAddr, in)
 }
 
 func (s *rahub) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
-	log.Printf("rahub: receive SendHeartbeat")
+	log.Printf("rahub: forward Heartbeat")
 	return DoSendHeartbeat(s.rasAddr, in)
 }
 
 func (s *rahub) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
-	log.Printf("rahub: receive SendReport")
+	log.Printf("rahub: forward Report")
 	return DoSendReport(s.rasAddr, in)
 }
 
