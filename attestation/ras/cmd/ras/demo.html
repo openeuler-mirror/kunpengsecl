@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        div {
+            text-align: center;
+        }
+
+        table {
+            width: 500px;
+            margin: auto;
+            text-align: center;
+        }
+
+        td,
+        th {
+            border: 1px solid #333;
+        }
+
+        thead tr {
+            height: 40px;
+            background-color: #ccc;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <h1> Demo for KunpengSecL Remote Attestation </h1>
+        <button onclick="goStep(this)">0</button><button onclick="goStep(this)">1</button><button
+            onclick="goStep(this)">2</button><button onclick="goStep(this)">3</button><button
+            onclick="goStep(this)">4</button><button onclick="goStep(this)">5</button><button
+            onclick="goStep(this)">6</button><button onclick="goStep(this)">7</button><button
+            onclick="goStep(this)">8</button><button onclick="goStep(this)">9</button><button
+            onclick="goStep(this)">10</button><button onclick="goStep(this)">11</button><button
+            onclick="goStep(this)">12</button>
+        <button onclick="prevStep()"> Prev Step</button><button onclick="nextStep()"> Next Step</button>
+    </div>
+
+    <div id="div0">
+        <h2> Step 0: setup the RA service authtoken</h2>
+
+        <label>Auth Token: </label> <input id="AuthToken" /><br>
+    </div>
+
+    <div id="div1">
+        <h2> Step 1: Initiate worker server registering</h2>
+        <div> <B>List of worker servers</B>
+            <table>
+                <thead>
+                    <tr>
+                        <td>Client ID</td>
+                        <td>IP</td>
+                        <td>System Info</td>
+                        <td>Registered</td>
+                    </tr>
+                </thead>
+                <tbody id="tbodyServers">
+                </tbody>
+            </table>
+        </div>
+        <button name="ServerQuery" onclick="queryServers1()"> refresh</button>
+    </div>
+
+    <div id="div2">
+
+        <h2> Step 2: Accept worker server registry in RA service</h2>
+        <label>Client ID: </label> <input id="inAcceptCid" />
+        <button name="ServerAccept" onclick="acceptServer()">Accept</button>
+    </div>
+
+    <div id="div3">
+        <h2> Step 3: Create reference value for worker server</h2>
+        <div> <B>List of PCR ref values</B>
+            <table>
+                <thead>
+                    <tr>
+                        <td>PCR #</td>
+                        <td>Ref Value</td>
+                    </tr>
+                </thead>
+                <tbody id="tbodyRefValuePCR">
+                </tbody>
+            </table>
+        </div>
+        <button name="PCRClear" onclick="clearPCRs()">clear</button>
+        <div>
+            PCR <input size=1 id="inPcrId" /> : <input size=48 id="inPcrValue" /><button name="PCRAdd"
+                onclick="addPCR()">
+                Add</button>
+        </div>
+        <br>
+        <div> <B>List of BIOS ref values</B>
+            <table>
+                <thead>
+                    <tr>
+                        <td>BIOS Item Name</td>
+                        <td>Ref Value</td>
+                    </tr>
+                </thead>
+                <tbody id="tbodyRefValueBIOS">
+                </tbody>
+            </table>
+        </div>
+        <button name="BIOSClear" onclick="clearBIOS()">clear</button>
+        <div>
+            BIOS <input size=10 id="inBiosName" /> : <input size=48 id="inBiosValue" /><button name="BIOSAdd"
+                onclick="addBIOS()">
+                Add</button>
+        </div>
+        <br>
+        <div> <B>List of IMA ref values</B>
+            <table>
+                <thead>
+                    <tr>
+                        <td>IMA Item Name</td>
+                        <td>Ref Value</td>
+                    </tr>
+                </thead>
+                <tbody id="tbodyRefValueIMA">
+                </tbody>
+            </table>
+        </div>
+        <button name="IMAClear" onclick="clearIMA()">clear</button>
+        <div>
+            IMA <input size=30 id="inImaName" /> : <input size=48 id="inImaValue" /><button name="PCRAdd"
+                onclick="addIMA()">
+                Add</button>
+        </div>
+        <button name="RefValAdd" onclick="addRefValue()">Add Reference
+            Value</button>
+    </div>
+
+    <div id="div4">
+        <h2> Step 4: Get trust status of worker server(should be trusted)</h2>
+        <div> <B>Trust status of worker servers</B>
+            <table>
+                <thead>
+                    <tr>
+                        <td>Client ID</td>
+                        <td>TrustStatus</td>
+                    </tr>
+                </thead>
+                <tbody id="tbodyStatus">
+                </tbody>
+            </table>
+        </div>
+        <button name="StatusQuery" onclick="queryStatus()"> refresh</button>
+    </div>
+
+    <div id="div5">
+        <h2> Step 5: update reference value for worker server</h2>
+        Back to step 3, set a different reference value for worker server. <br>
+    </div>
+
+    <div id="div6">
+        <h2> Step 6: Get trust status of worker server(should be untrusted)</h2>
+        Back to step 4.
+    </div>
+
+    <div id="div7">
+        <h2> Step 7: Set and keep RA service in auto-update mode for 20s</h2>
+        <div id="outProgress">
+            <B> Progress: get into AutoUpdate mode; wait for 20s, back to Manual
+                mode</B>
+        </div>
+        <button name="AutoUpdateBtn" onclick="doAutoUpdate()"> Auto Update</button>
+    </div>
+
+    <div id="div8">
+        <h2> Step 8: Get trust status of worker server(should be trusted again)</h2>
+        Back to step 4.
+    </div>
+
+    <div id="div9">
+        <h2> Step 9: Stop RA client</h2>
+        Kill the raagent in terminal.
+    </div>
+
+    <div id="div10">
+        <h2> Step 10: Get trust status of worker server(should be unknown)</h2>
+        Back to step 4.
+    </div>
+
+    <div id="div11">
+        <h2> Step 11: Start RA client</h2>
+        Start the raagent in terminal.
+    </div>
+
+    <div id="div12">
+        <h2> Step 12: Get trust status of worker server(should be trusted again)
+        </h2>
+        Back to step 4.
+    </div>
+
+
+    <script>
+        const inAuthToken = document.getElementById("AuthToken");
+        const outServers = document.getElementById("ServerStatus");
+        const outProgress = document.querySelector("#outProgress");
+        divs = new Array(13);
+        var step = 0;
+        for (var i = 0; i < divs.length; i++) {
+            divs[i] = document.querySelector("#div" + String(i));
+        }
+        updatePage();
+
+        function goStep(e) {
+            console.log(e);
+            console.log(e.innerText);
+            step = Number(e.innerText);
+            updatePage();
+        }
+
+        function nextStep() {
+            if (step < divs.length - 1) {
+                step++;
+            }
+            updatePage();
+        }
+
+        function prevStep() {
+            if (step > 0) {
+                step--;
+            }
+            updatePage();
+        }
+
+        function updatePage() {
+            for (var i = 0; i < divs.length; i++) {
+                divs[i].style.display = "none";
+            }
+            divs[step].style.display = "block";
+        }
+
+        var refValue = new Map();
+        var refPCRs = new Map();
+        var refBIOS = new Map();
+        var refIMA = new Map();
+
+        function clearPCRs() {
+            let tbody = document.querySelector("#tbodyRefValuePCR");
+            tbody.textContent = "";
+            refPCRs = new Map();
+        }
+
+        function addPCR() {
+            let tbody = document.querySelector("#tbodyRefValuePCR");
+            let inPcrId = Number(document.querySelector("#inPcrId").value);
+            let inPcrValue = document.querySelector("#inPcrValue").value;
+            refPCRs[inPcrId] = inPcrValue;
+            var tr = document.createElement("tr");
+            var td = document.createElement("td");
+            td.innerText = inPcrId;
+            tr.appendChild(td);
+            var td = document.createElement("td");
+            td.innerText = inPcrValue;
+            tr.appendChild(td);
+            tbody.appendChild(tr)
+        }
+
+        function clearBIOS() {
+            let tbody = document.querySelector("#tbodyRefValueBIOS");
+            tbody.textContent = "";
+            refBIOS = new Map();
+        }
+
+        function addBIOS() {
+            let tbody = document.querySelector("#tbodyRefValueBIOS");
+            let inBiosName = document.querySelector("#inBiosName").value;
+            let inBiosValue = document.querySelector("#inBiosValue").value;
+            refBIOS[inBiosName] = inBiosValue;
+            var tr = document.createElement("tr");
+            var td = document.createElement("td");
+            td.innerText = inBiosName;
+            tr.appendChild(td);
+            var td = document.createElement("td");
+            td.innerText = inBiosValue;
+            tr.appendChild(td);
+            tbody.appendChild(tr)
+        }
+
+        function clearIMA() {
+            let tbody = document.querySelector("#tbodyRefValueIMA");
+            tbody.textContent = "";
+            refIMA = new Map();
+        }
+
+        function addIMA() {
+            let tbody = document.querySelector("#tbodyRefValueIMA");
+            let inImaName = document.querySelector("#inImaName").value;
+            let inImaValue = document.querySelector("#inImaValue").value;
+            refIMA[inImaName] = inImaValue;
+            var tr = document.createElement("tr");
+            var td = document.createElement("td");
+            td.innerText = inImaName;
+            tr.appendChild(td);
+            var td = document.createElement("td");
+            td.innerText = inImaValue;
+            tr.appendChild(td);
+            tbody.appendChild(tr)
+        }
+
+        function addRefValue() {
+            refValue["measurements"] = new Array();
+            refValue["pcrvalues"] = new Array();
+            for (var key in refBIOS) {
+                let e = new Map();
+                e["name"] = key;
+                e["type"] = "bios";
+                e["value"] = refBIOS[key];
+                refValue["measurements"].push(e);
+            }
+            for (var key in refIMA) {
+                let e = new Map();
+                e["name"] = key;
+                e["type"] = "ima";
+                e["value"] = refIMA[key];
+                refValue["measurements"].push(e);
+            }
+            for (var key in refPCRs) {
+                let e = new Map();
+                e["index"] = Number(key);
+                e["value"] = refPCRs[key];
+                refValue["pcrvalues"].push(e);
+            }
+
+            var inCid = document.querySelector("#inAcceptCid").value;
+            queryServersUrl = "/server/basevalue/" + inCid;
+
+            var xhr = new XMLHttpRequest();
+
+            xhr.onreadystatechange = function () {
+                console.log(this.status, this.readyState, this.response);
+                if (this.status == 200 && this.readyState == 4) {
+                    //outServers.textContent = this.response
+                    queryStatus();
+                }
+            }
+            xhr.addEventListener('timeout', function () {
+                // timeout 0 4
+                console.log('timeout', this.status, this.readyState, this.response);
+            });
+            xhr.addEventListener('error', function () {
+                console.log('error', this.status, this.readyState, this.response);
+            });
+
+            xhr.open('PUT', queryServersUrl);
+            xhr.timeout = 1000;
+            xhr.setRequestHeader("Authorization", inAuthToken.value);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            //alert(JSON.stringify(refValue));
+            xhr.send(JSON.stringify(refValue));
+
+        }
+
+        function showQueryStatusResponse(resp) {
+            let stats = JSON.parse(resp);
+            let tbody = document.querySelector("#tbodyStatus")
+            tbody.textContent = ""
+
+            for (var i = 0; i < stats.length; i++) {
+                var tr = document.createElement("tr");
+                for (var key in stats[i]) {
+                    var td = document.createElement("td");
+                    td.innerText = stats[i][key]
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr)
+            }
+        }
+
+        function queryStatus() {
+            var queryServersUrl = "/status";
+
+            var xhr = new XMLHttpRequest();
+
+            xhr.onreadystatechange = function () {
+                console.log(this.status, this.readyState, this.response);
+                if (this.status == 200 && this.readyState == 4) {
+                    //outServers.textContent = this.response
+                    showQueryStatusResponse(this.response)
+                }
+            }
+            xhr.addEventListener('timeout', function () {
+                // timeout 0 4
+                console.log('timeout', this.status, this.readyState, this.response);
+            });
+            xhr.addEventListener('error', function () {
+                console.log('error', this.status, this.readyState, this.response);
+            });
+
+            xhr.open('GET', queryServersUrl);
+            xhr.timeout = 1000;
+            xhr.send();
+        }
+
+        function queryServers() {
+            queryServersUrl = "/version";
+
+            const myHeaders = {
+                'Content-Type': 'application/json',
+                'origin': serverUrl
+            };
+
+            const myInit = {
+                method: 'GET',
+                headers: myHeaders,
+                mode: 'same-origin',
+                cache: 'default',
+            };
+
+            fetch(queryServersUrl, myInit)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(json => alert(json))
+                .catch(err => console.error(`Fetch problem: ${err.message}`));
+        }
+
+        function showQueryServerResponse(resp) {
+            let svrs = JSON.parse(resp);
+            let tbody = document.querySelector("#tbodyServers")
+            tbody.textContent = ""
+
+            for (var i = 0; i < svrs.length; i++) {
+                var tr = document.createElement("tr");
+                for (var key in svrs[i]) {
+                    var td = document.createElement("td");
+                    td.innerText = svrs[i][key]
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr)
+            }
+        }
+
+        function queryServers1() {
+            queryServersUrl = "/server";
+
+            var xhr = new XMLHttpRequest();
+
+            xhr.onreadystatechange = function () {
+                console.log(this.status, this.readyState, this.response);
+                if (this.status == 200 && this.readyState == 4) {
+                    //outServers.textContent = this.response
+                    showQueryServerResponse(this.response)
+                }
+            }
+            xhr.addEventListener('timeout', function () {
+                // timeout 0 4
+                console.log('timeout', this.status, this.readyState, this.response);
+            });
+            xhr.addEventListener('error', function () {
+                console.log('error', this.status, this.readyState, this.response);
+            });
+
+            xhr.open('GET', queryServersUrl);
+            xhr.timeout = 1000;
+            xhr.send();
+        }
+
+        function acceptServer() {
+            var inCid = Number(document.querySelector("#inAcceptCid").value)
+            queryServersUrl = "/server";
+            data = new Map();
+            data["clientids"] = [inCid];
+            data["registered"] = true;
+
+            var xhr = new XMLHttpRequest();
+
+            xhr.onreadystatechange = function () {
+                console.log(this.status, this.readyState, this.response);
+                if (this.status == 200 && this.readyState == 4) {
+                    //outServers.textContent = this.response
+                    queryServers1();
+                }
+            }
+            xhr.addEventListener('timeout', function () {
+                // timeout 0 4
+                console.log('timeout', this.status, this.readyState, this.response);
+            });
+            xhr.addEventListener('error', function () {
+                console.log('error', this.status, this.readyState, this.response);
+            });
+
+            xhr.open('PUT', queryServersUrl);
+            xhr.timeout = 1000;
+            xhr.setRequestHeader("Authorization", inAuthToken.value);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            //alert(JSON.stringify(data));
+            xhr.send(JSON.stringify(data));
+        }
+
+        function setAutoUpdate() {
+            var inCid = Number(document.querySelector("#inAcceptCid").value);
+            queryServersUrl = "/config";
+            data = new Array();
+            let item = new Map();
+            item["name"] = "mgrStrategy";
+            item["value"] = "auto-update";
+            data.push(item);
+            item = new Map();
+            item["name"] = "autoUpdateConfig";
+            item["value"] = "{\"IsAllUpdate\":false,\"UpdateClients\":[" + inCid + "]}";
+            data.push(item);
+            item = new Map();
+            item["name"] = "trustDuration";
+            item["value"] = "5s";
+            data.push(item);
+
+            var xhr = new XMLHttpRequest();
+
+            xhr.onreadystatechange = function () {
+                console.log(this.status, this.readyState, this.response);
+                if (this.status == 200 && this.readyState == 4) {
+                    //outServers.textContent = this.response
+                    waitAndSetManual();
+                }
+            }
+            xhr.addEventListener('timeout', function () {
+                // timeout 0 4
+                console.log('timeout', this.status, this.readyState, this.response);
+            });
+            xhr.addEventListener('error', function () {
+                console.log('error', this.status, this.readyState, this.response);
+            });
+
+            xhr.open('POST', queryServersUrl);
+            xhr.timeout = 1000;
+            xhr.setRequestHeader("Authorization", inAuthToken.value);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            //alert(JSON.stringify(data));
+            xhr.send(JSON.stringify(data));
+        }
+
+        function setManual() {
+            queryServersUrl = "/config";
+            data = new Array();
+            let item = new Map();
+            item["name"] = "mgrStrategy"
+            item["value"] = "manual"
+            data.push(item);
+            item = new Map();
+            item["name"] = "trustDuration";
+            item["value"] = "10s";
+            data.push(item);
+
+            var xhr = new XMLHttpRequest();
+
+            xhr.onreadystatechange = function () {
+                console.log(this.status, this.readyState, this.response);
+                if (this.status == 200 && this.readyState == 4) {
+                    //outServers.textContent = this.response
+                    updateAutoUpdateProgress("back to manual and update server status");
+                    queryStatus();
+                }
+            }
+            xhr.addEventListener('timeout', function () {
+                // timeout 0 4
+                console.log('timeout', this.status, this.readyState, this.response);
+            });
+            xhr.addEventListener('error', function () {
+                console.log('error', this.status, this.readyState, this.response);
+            });
+
+            xhr.open('POST', queryServersUrl);
+            xhr.timeout = 1000;
+            xhr.setRequestHeader("Authorization", inAuthToken.value);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            //alert(JSON.stringify(data));
+            xhr.send(JSON.stringify(data));
+        }
+
+        function waitAndSetManual() {
+            var id = setTimeout(setManual, 20000);
+            updateAutoUpdateProgress("wait for 20s");
+        }
+
+        function updateAutoUpdateProgress(progress) {
+            outProgress.innerText = progress;
+        }
+
+        function doAutoUpdate() {
+            setAutoUpdate();
+            updateAutoUpdateProgress("enable auto-update");
+        }
+    </script>
+</body>
+
+</html>

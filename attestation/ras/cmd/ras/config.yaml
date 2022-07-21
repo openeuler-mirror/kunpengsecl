@@ -7,14 +7,15 @@ database:
 log:
   path: ./ras-log.txt
 racconfig:
-  digestalgorithm: "sha1"
+  digestalgorithm: sha256
   hbduration: 5s
-  trustduration: 2m0s
+  trustduration: 10s
 rasconfig:
   authkeyfile: ./ecdsakey.pub
   auto-update-config:
     isallupdate: false
-    updateclients: []
+    updateclients:
+    - 1
   basevalue-extract-rules:
     manifest:
     - name:
@@ -31,11 +32,11 @@ rasconfig:
       - 2
       - 3
       - 4
-  changetime: 1970-01-01T08:00:00+08:00
-  mgrstrategy: auto
+  changetime: 2022-07-10T22:39:50.6083338+08:00
+  mgrstrategy: manual
   pcakeycertfile: ./pca-ek.crt
   pcaprivkeyfile: ./pca-ek.key
   port: 127.0.0.1:40001
-  rest: 127.0.0.1:40002
+  rest: 0.0.0.0:40002
   rootkeycertfile: ./pca-root.crt
   rootprivkeyfile: ./pca-root.key

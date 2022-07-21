@@ -6,6 +6,15 @@ info:
 Servers:
 -url: https://localhost
 paths:
+  /:
+    get:
+      summary: return a demo html page
+      response:
+        '200':
+          description: A demo html page
+          content:
+            text/html:
+
   /version:
     get:
       summary: Return the version of current API

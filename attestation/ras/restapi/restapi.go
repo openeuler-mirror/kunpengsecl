@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -29,6 +30,18 @@ import (
 
 type RasServer struct {
 	cm *cache.CacheMgr
+}
+
+// return a demo html page
+// (GET /)
+func (s *RasServer) Get(ctx echo.Context) error {
+	data, err := ioutil.ReadFile("./demo.html")
+	if err != nil {
+		log.Print("Not able to get demo.html.")
+		return ctx.HTML(http.StatusNoContent, err.Error())
+	}
+
+	return ctx.HTML(http.StatusOK, string(data))
 }
 
 // Return a list of all config items in key:value pair format
@@ -423,6 +436,7 @@ func (s *RasServer) GetReportServerId(ctx echo.Context, serverId int64) error {
 type ServerBriefInfo struct {
 	ClientId   int64
 	Ip         string
+	System     string
 	Registered bool
 }
 
@@ -437,6 +451,7 @@ func (s *RasServer) GetServer(ctx echo.Context) error {
 	briefinfo := []ServerBriefInfo{}
 	var infoName []string
 	infoName = append(infoName, "ip")
+	infoName = append(infoName, "system")
 	for _, v := range cids {
 		rc, err := trustmgr.GetRegisterClientById(v)
 		if err != nil {
@@ -446,7 +461,7 @@ func (s *RasServer) GetServer(ctx echo.Context) error {
 		if err != nil {
 			log.Println("not found ip")
 		}
-		briefinfo = append(briefinfo, ServerBriefInfo{ClientId: rc.ClientID, Ip: rt["ip"], Registered: !rc.IsDeleted})
+		briefinfo = append(briefinfo, ServerBriefInfo{ClientId: rc.ClientID, Ip: rt["ip"], System: rt["system"], Registered: !rc.IsDeleted})
 	}
 
 	return ctx.JSON(http.StatusOK, briefinfo)

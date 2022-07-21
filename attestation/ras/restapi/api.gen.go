@@ -218,6 +218,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// Get request
+	Get(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetConfig request
 	GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -307,6 +310,18 @@ type ClientInterface interface {
 
 	// GetVersion request
 	GetVersion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) Get(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -703,6 +718,33 @@ func (c *Client) GetVersion(ctx context.Context, reqEditors ...RequestEditorFn) 
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewGetRequest generates requests for Get
+func NewGetRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/")
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewGetConfigRequest generates requests for GetConfig
@@ -1625,6 +1667,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// Get request
+	GetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetResponse, error)
+
 	// GetConfig request
 	GetConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetConfigResponse, error)
 
@@ -1714,6 +1759,27 @@ type ClientWithResponsesInterface interface {
 
 	// GetVersion request
 	GetVersionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVersionResponse, error)
+}
+
+type GetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type GetConfigResponse struct {
@@ -2220,6 +2286,15 @@ func (r GetVersionResponse) StatusCode() int {
 	return 0
 }
 
+// GetWithResponse request returning *GetResponse
+func (c *ClientWithResponses) GetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetResponse, error) {
+	rsp, err := c.Get(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetResponse(rsp)
+}
+
 // GetConfigWithResponse request returning *GetConfigResponse
 func (c *ClientWithResponses) GetConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetConfigResponse, error) {
 	rsp, err := c.GetConfig(ctx, reqEditors...)
@@ -2506,6 +2581,25 @@ func (c *ClientWithResponses) GetVersionWithResponse(ctx context.Context, reqEdi
 		return nil, err
 	}
 	return ParseGetVersionResponse(rsp)
+}
+
+// ParseGetResponse parses an HTTP response from a GetWithResponse call
+func ParseGetResponse(rsp *http.Response) (*GetResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
 }
 
 // ParseGetConfigResponse parses an HTTP response from a GetConfigWithResponse call
@@ -2966,6 +3060,9 @@ func ParseGetVersionResponse(rsp *http.Response) (*GetVersionResponse, error) {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// return a demo html page
+	// (GET /)
+	Get(ctx echo.Context) error
 	// Return a list of all config items in key:value pair format
 	// (GET /config)
 	GetConfig(ctx echo.Context) error
@@ -3043,6 +3140,15 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// Get converts echo context to params.
+func (w *ServerInterfaceWrapper) Get(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.Get(ctx)
+	return err
 }
 
 // GetConfig converts echo context to params.
@@ -3421,6 +3527,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.GET(baseURL+"/", wrapper.Get)
 	router.GET(baseURL+"/config", wrapper.GetConfig)
 	router.POST(baseURL+"/config", wrapper.PostConfig)
 	router.GET(baseURL+"/container/basevalue/:uuid", wrapper.GetContainerBasevalueUuid)
@@ -3451,34 +3558,34 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"/wUAAP//e+1u3eAtAAA=",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

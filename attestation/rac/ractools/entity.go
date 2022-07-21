@@ -29,8 +29,8 @@ type PcrValue string
 
 const (
 	emptyPassword   = ""
-	TestImaLogPath  = "./ascii_runtime_measurements"
-	TestBiosLogPath = "./binary_bios_measurements"
+	TestImaLogPath  = "./ascii_runtime_measurements_sha256"
+	TestBiosLogPath = "./binary_bios_measurements_sha256"
 	ImaLogPath      = "/sys/kernel/security/ima/ascii_runtime_measurements"
 	BiosLogPath     = "/sys/kernel/security/tpm0/binary_bios_measurements"
 )
