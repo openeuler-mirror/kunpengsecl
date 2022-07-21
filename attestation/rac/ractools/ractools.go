@@ -23,7 +23,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os/exec"
 	"strings"
@@ -362,13 +361,13 @@ func GetClientInfo(useHW bool) (string, error) {
 	var out2 bytes.Buffer
 	var ip string
 	if useHW {
-		cmd0 := exec.Command("dmidecode", "-t", "0")
+		cmd0 := exec.Command("sudo", "dmidecode", "-t", "0")
 		cmd0.Stdout = &out0
 		if err = cmd0.Run(); err != nil {
 			return "", err
 		}
 
-		cmd1 := exec.Command("dmidecode", "-t", "1")
+		cmd1 := exec.Command("sudo", "dmidecode", "-t", "1")
 		cmd1.Stdout = &out1
 		if err = cmd1.Run(); err != nil {
 			return "", err
@@ -400,14 +399,19 @@ func GetClientInfo(useHW bool) (string, error) {
 
 func getManifest(imaPath, biosPath string) ([]Manifest, error) {
 	var manifest []Manifest
-	f, err := ioutil.ReadFile(imaPath)
-	if err == nil {
-		manifest = append(manifest, Manifest{Type: "ima", Content: f})
+	var out0 bytes.Buffer
+	var out1 bytes.Buffer
+	var err error
+	cmd0 := exec.Command("sudo", "cat", imaPath)
+	cmd0.Stdout = &out0
+	if err = cmd0.Run(); err == nil {
+		manifest = append(manifest, Manifest{Type: "ima", Content: out0.Bytes()})
 	}
 
-	f, err = ioutil.ReadFile(biosPath)
-	if err == nil {
-		manifest = append(manifest, Manifest{Type: "bios", Content: f})
+	cmd1 := exec.Command("sudo", "cat", biosPath)
+	cmd1.Stdout = &out1
+	if err := cmd1.Run(); err == nil {
+		manifest = append(manifest, Manifest{Type: "bios", Content: out1.Bytes()})
 	}
 
 	return manifest, err
