@@ -68,6 +68,7 @@ const (
 	IndexSM2P256EKCertH5   uint32 = 0x01C0001A
 	IndexRsa3072EKCertH6   uint32 = 0x01C0001C
 	IndexRsa4096EKCertH7   uint32 = 0x01C0001E
+	IndexExpEKCert         uint32 = 0x01000001
 
 	biosStr      = "bios"
 	imaStr       = "ima"
@@ -272,7 +273,7 @@ func (tpm *TPM) GenerateEKey() error {
 
 // LoadEKeyCert reads ek certificate from NVRAM, the simulator is the same
 func (tpm *TPM) LoadEKeyCert() error {
-	ekCertDer, err := tpm.ReadNVRAM(IndexRsa2048EKCert)
+	ekCertDer, err := tpm.ReadNVRAM(IndexExpEKCert)
 	if err != nil {
 		return errFailTPMInit
 	}

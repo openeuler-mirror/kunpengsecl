@@ -121,8 +121,8 @@ func createTPMConfig(testMode bool) *ractools.TPMConfig {
 // to sign it, after that saves it into NVRAM, like manufactory did.
 func generateEKeyCert(t *ractools.TPM) {
 	cfg := config.GetDefault(config.ConfClient)
-	testMode := cfg.GetTestMode()
-	if testMode {
+	//testMode := cfg.GetTestMode()
+	if true {
 		if cfg.GetEKeyCertTest() == nil {
 			ekPubDer, err := x509.MarshalPKIXPublicKey(t.EK.Pub)
 			if err != nil {
@@ -138,8 +138,8 @@ func generateEKeyCert(t *ractools.TPM) {
 			}
 			cfg.SetEKeyCertTest(rspEC.EkCert)
 		}
-		t.DefineNVRAM(ractools.IndexRsa2048EKCert, uint16(len(cfg.GetEKeyCertTest())))
-		t.WriteNVRAM(ractools.IndexRsa2048EKCert, cfg.GetEKeyCertTest())
+		t.DefineNVRAM(ractools.IndexExpEKCert, uint16(len(cfg.GetEKeyCertTest())))
+		t.WriteNVRAM(ractools.IndexExpEKCert, cfg.GetEKeyCertTest())
 	}
 }
 
