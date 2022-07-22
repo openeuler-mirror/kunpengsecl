@@ -1,230 +1,372 @@
 openapi: 3.0.1
 info:
-  title: KunpengSecL Remote Attestation REST server
   description: KunpengSecL remote attestation server provides RESTful APIs to manage the trust reports and get the trust status of managed target servers.
+  title: KunpengSecL Remote Attestation REST API server
+  license:
+    name: MulanPSL-2.0
+    url: http://license.coscl.org.cn/MulanPSL2
   version: 1.0.0
-Servers:
--url: https://localhost
+servers:
+  - description: KunpengSecL Remote Attestation REST API server
+    url: https://localhost
 paths:
+  /:
+    get:
+      description: get a list of briefing info for all servers
+      responses:
+        '200':
+          description: return a list of briefing info for all servers
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerInfo'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerInfo'
+  /{id}:
+    get:
+      description: get a specific server's info
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: return a specific server's info
+          content:
+            text/plain:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/ServerInfo'
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/ServerInfo'
+    post:
+      description: modify a specific server's info
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: success change a specific server's info
+      security:
+        - servermgt_oauth2:
+          - write:servers
+    delete:
+      description: delete a specific server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: success delete a specific server
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{from}/{to}:
+    get:
+      description: get a specific list of servers' info
+      parameters:
+        - name: from
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: to
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: a specific server's info
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerInfo'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerInfo'
+  /{id}/reports:
+    get:
+      description: get a specific server's all reports
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: return a specific server's all reports
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReportInfo'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReportInfo'
+  /{id}/reports/{reportid}:
+    get:
+      description: get a specific server's specific report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: reportid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: return a specific server's specific report
+          content:
+            text/plain:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/ReportInfo'
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/ReportInfo'
+    delete:
+      description: delete a specific server's specific report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: reportid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: success delete a specific server's specific report
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{id}/basevalues:
+    get:
+      description: get a specific server's all base values
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: return a specific server's all base values
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BaseValueInfo'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BaseValueInfo'
+  /{id}/newbasevalue:
+    get:
+      description: get a specific server's new base value page
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: return a specific server's new empty base value
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BaseValueInfo'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BaseValueInfo'
+    post:
+      description: add a new base value to a specific server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: success add a new base value to a specific server
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{id}/basevalues/{basevalueid}:
+    get:
+      description: get a specific server's specific base values
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: basevalueid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: return a specific server's specific base values
+          content:
+            text/plain:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/BaseValueInfo'
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/BaseValueInfo'
+    post:
+      description: modify a specific base value to a specific server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: basevalueid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: success modify a specific base value to a specific server
+      security:
+        - servermgt_oauth2:
+          - write:servers
+    delete:
+      description: delete a specific server's specific base value
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: basevalueid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: success delete a specific server's specific base value
+      security:
+        - servermgt_oauth2:
+          - write:servers
   /version:
     get:
-      summary: Return the version of current API
-      response:
+      description: get the current version of the rest api
+      responses:
         '200':
-          description: A version string
+          description: success return a version string
           content:
+            text/plain:
+              schema:
+                type: string
             application/json:
               schema:
                 type: string
+  /login:
+    post:
+      description: login as a admin user
+      responses:
+        '200':
+          description: success login
+      security:
+        - servermgt_oauth2:
+          - write:servers
   /config:
     get:
-      summary: Return a list of all config items in key:value pair format
-      response:
-        '200':
-          description: A JSON array of config items
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ConfigItem'
-    post:
-      summary: Create a list of config items
-      requestBody:
-        description: config items to be created or updated
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/ConfigItem'
+      description: get the current configuration of ras
       responses:
         '200':
-          description: Given config items created
-          content: {}
-      security:
-      - servermgt_auth:
-        - write:config
-  /server:
-    get:
-      summary: Return a list of briefing info for all servers
-      response:
-        '200':
-          description: A JSON array of server briefing info
+          description: success return the configuration of ras
           content:
-            application/json:
+            text/plain:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ServerBriefInfo'
-    put:
-      summary: put a list of servers into given status
-      requestBody:
-        description: servers identified by clientids to be put into given status
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ServerRegistryStatus'
-      responses:
-        '200':
-          description: Given servers registry status updated
-          content: {}
-      security:
-      - servermgt_auth:
-        - write:servers
-  /server/basevalue/{serverId}:
-    get:
-      summary: Return the base value of a given server
-      parameters:
-      - name: serverId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      response:
-        '200':
-          description: the base value info
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerBaseValue'
-    put:
-      summary: create/update the base value of the given server
-      parameters:
-      - name: serverId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      requestBody:
-        description: the base value info to be set for given server
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ServerBaseValue'
-      responses:
-        '200':
-          description: the base value of given server updated
-          content: {}
-      security:
-      - servermgt_auth:
-        - write:servers
-  /status:
-    get:
-      summary: Return a list of trust status for all servers
-      response:
-        '200':
-          description: A JSON array of server trust status
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ServerTrustStatus'
-  /status/{serverId}:
-    get:
-      summary: Return a trust status for given server
-      parameters:
-      - name: serverId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      response:
-        '200':
-          description: trust status of the given server
-          content:
+                type: string
             application/json:
               schema:
                 type: string
-                default: unknown
-                enum:
-                - unknown
-                - untrusted
-                - trusted
-  /report/{serverId}:
-    get:
-      summary: Return the trust report for the given server
-      parameters:
-      - name: serverId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      response:
-        '200':
-          description: A server trust report
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServerTrustReport'
-  /container/{uuid}:
-    get:
-      summary: Return briefing info for the given container
-      parameters:
-      - name: uuid
-        in: path
-        required: true
-        schema:
-          type: string
-      response:
-        '200':
-          description: The container briefing info
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ContainerBriefInfo'
     post:
-      summary: create info for a container 
-      parameters:
-      - name: uuid
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: container identified by uuid to be registered
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ContainerBriefInfo'
+      description: modify a new configuration of ras
       responses:
         '200':
-          description: Given container registered
-          content: {}
+          description: success modify the new configuration of ras
       security:
-      - servermgt_auth:
-        - write:servers
-    put:
-      summary: put a container into given status
-      parameters:
-      - name: uuid
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: container identified by uuid to be put into given status
-        content:
-          application/json:
-            schema:
-              registered:
-                type: boolean
-                default: false
-      responses:
-        '200':
-          description: Given container registry status updated
-          content: {}
-      security:
-      - servermgt_auth:
-        - write:servers
-  /container/basevalue/{uuid}:
+        - servermgt_oauth2:
+          - write:servers
+  /{uuid}/basevalue:
     get:
-      summary: Return the base value of a given container
+      summary: Return the base value of a given container/device
       parameters:
       - name: uuid
         in: path
@@ -237,9 +379,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ContainerBaseValue'
-    put:
-      summary: create/update the base value of the given container
+                $ref: '#/components/schemas/BaseValueInfo'
+    post:
+      summary: create/update the base value of the given container/device
       parameters:
       - name: uuid
         in: path
@@ -247,21 +389,28 @@ paths:
         schema:
           type: string
       requestBody:
-        description: the base value info to be set for given container
+        description: the base value info to be set for given container/device
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ContainerBaseValue'
+              $ref: '#/components/schemas/BaseValueInfo'
       responses:
         '200':
           description: the base value of given container updated
           content: {}
       security:
-      - servermgt_auth:
-        - write:servers
-  /container/status:
+        - servermgt_oauth2:
+          - write:servers
+  /{id}/container/status:
     get:
-      summary: Return a list of trust status for all containers
+      summary: Return a list of trust status for all containers of a given client
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
       response:
         '200':
           description: A JSON array of container trust status
@@ -270,10 +419,13 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ContainerTrustStatus'
-  /container/status/{uuid}:
+                  $ref: '#/components/schemas/TrustStatus'
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{uuid}/status:
     get:
-      summary: Return a trust status for given container
+      summary: Return a trust status for given container/device
       parameters:
       - name: uuid
         in: path
@@ -282,22 +434,19 @@ paths:
           type: string
       response:
         '200':
-          description: trust status of the given container
+          description: trust status of the given container/device
           content:
             application/json:
               schema:
-                type: string
-                default: unknown
-                enum:
-                - unnkown
-                - untrusted
-                - trusted
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrustStatus'
       security:
-      - servermgt_auth:
-        - read:servers
-  /device/{id}:
+        - servermgt_oauth2:
+          - write:servers
+  /{id}/device/status:
     get:
-      summary: Return briefing info for the given device
+      summary: Return a list of trust status for all devices of a given client
       parameters:
       - name: id
         in: path
@@ -305,101 +454,6 @@ paths:
         schema:
           type: integer
           format: int64
-      response:
-        '200':
-          description: The device briefing info
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeviceBriefInfo'
-    post:
-      summary: create info for a device 
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      requestBody:
-        description: device identified by id to be registered
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeviceBriefInfo'
-      responses:
-        '200':
-          description: Given device registered
-          content: {}
-      security:
-      - servermgt_auth:
-        - write:servers
-    put:
-      summary: put a device into given status
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      requestBody:
-        description: device identified by id to be put into given status
-        content:
-          application/json:
-            schema:
-              registered:
-                type: boolean
-                default: false
-      responses:
-        '200':
-          description: Given device registry status updated
-          content: {}
-      security:
-      - servermgt_auth:
-        - write:servers
-  /device/basevalue/{id}:
-    get:
-      summary: Return the base value of a given device
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      response:
-        '200':
-          description: the base value info
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeviceBaseValue'
-    put:
-      summary: create/update the base value of the given device
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      requestBody:
-        description: the base value info to be set for given device
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeviceBaseValue'
-      responses:
-        '200':
-          description: the base value of given device updated
-          content: {}
-      security:
-      - servermgt_auth:
-        - write:servers
-  /device/status:
-    get:
-      summary: Return a list of trust status for all devices
       response:
         '200':
           description: A JSON array of device trust status
@@ -408,180 +462,123 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/DeviceTrustStatus'
-  /device/status/{id}:
-    get:
-      summary: Return a trust status for given device
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      response:
-        '200':
-          description: trust status of the given deviceqqqqq
-          content:
-            application/json:
-              schema:
-                type: string
-                default: unknown
-                enum:
-                - unknown
-                - untrusted
-                - trusted
-
+                  $ref: '#/components/schemas/TrustStatus'
+      security:
+        - servermgt_oauth2:
+          - write:servers
 components:
   schemas:
-    ConfigItem:
+    ServerInfo:
       type: object
+      required:
+        - id
+        - regtime
+        - online
+        - trusted
+        - isautoupdate
+        - info
       properties:
-        name:
+        id:
+          type: integer
+          format: int64
+        regtime:
           type: string
-        value:
+        online:
+          type: boolean
+          default: false
+        trusted:
+          type: boolean
+          default: false
+        isautoupdate:
+          type: boolean
+          default: false
+        info:
           type: string
-    ServerBriefInfo:
+    ReportInfo:
       type: object
+      required:
+        - id
+        - createtime
+        - validated
+        - trusted
+        - quoted
+        - signature
+        - pcrlog
+        - bioslog
+        - imalog
       properties:
+        id:
+          type: integer
+          format: int64
+        createtime:
+          type: string
+        validated:
+          type: boolean
+          default: false
+        trusted:
+          type: boolean
+          default: false
+        quoted:
+          type: string
+        signature:
+          type: string
+        pcrlog:
+          type: string
+        bioslog:
+          type: string
+        imalog:
+          type: string
+    BaseValueInfo:
+      type: object
+      required:
+        - id
+        - clientid
+        - uuid
+        - basetype
+        - createtime
+        - name
+        - pcr
+        - bios
+        - ima
+        - enabled
+      properties:
+        id:
+          type: integer
+          format: int64
         clientid:
           type: integer
           format: int64
-        ip:
+        uuid:
           type: string
-        registered:
-          type: boolean
-          default: false
-    ServerRegistryStatus:
-      type: object
-      properties:
-        registered:
-          type: boolean
-          default: false
-        clientids:
-          type: array
-          items:
-            type: integer
-            format: int64
+        basetype:
+          type: string
+        createtime:
+          type: string
+        name:
+          type: string
+        pcr:
+          type: string
+        bios:
+          type: string
+        ima:
+          type: string
+        enabled:
+          type: boolean     
     TrustStatus:
       type: string
       default: unknown
       enum:
+      - not found
       - unknown
       - untrusted
       - trusted
-    ServerTrustStatus:
-      type: object
-      properties:
-        clientid:
-          type: integer
-          format: int64
-        status:
-          $ref: '#/components/schemas/TrustStatus'
-    ServerTrustReport:
-      type: object
-      properties:
-        clientid:
-          type: integer
-          format: int64
-        report:
-          type: object
-          properties:
-            pcrvalues:
-              type: array
-              items:
-                $ref: '#/components/schemas/PcrValue'
-            manifest:
-              type: string
-            quote:
-              type: string
-    ServerBaseValue:
-      type: object
-      properties:
-        pcrvalues:
-          type: array
-          items:
-            $ref: '#/components/schemas/PcrValue'
-        measurements:
-          type: array
-          items:
-            $ref: '#/components/schemas/Measurement'
-    PcrValue:
-      type: object
-      properties:
-        index:
-          type: integer
-          maximum: 23
-          minimum: 0
-        value:
-          type: string
-    Measurement:
-      type: object
-      properties:
-        type:
-          type: string
-          default: ima
-          enum:
-          - bios
-          - ima
-        name:
-          type: string
-        value:
-          type: string
-    ContainerBriefInfo:
-      type: object
-      properties:
-        uuid:
-          type: string
-        serverid:
-          type: integer
-          format: int64
-        registered:
-          type: boolean
-          default: false
-    ContainerBaseValue:
-      type: object
-      properties:
-        measurements:
-          type: array
-          items:
-            $ref: '#/components/schemas/Measurement'
-    ContainerTrustStatus:
-      type: object
-      properties:
-        uuid:
-          type: string
-        status:
-          $ref: '#/components/schemas/TrustStatus'
-    DeviceBriefInfo:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        serverid:
-          type: integer
-          format: int64
-        registered:
-          type: boolean
-          default: false
-    DeviceBaseValue:
-      type: object
-      properties:
-        measurements:
-          type: array
-          items:
-            $ref: '#/components/schemas/Measurement'
-    DeviceTrustStatus:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        status:
-          $ref: '#/components/schemas/TrustStatus'
   securitySchemes:
-    servermgt_auth:
+    servermgt_http:
+      description: http basic authentication to remote attestation server
+      type: http
+      scheme: basic
+    servermgt_oauth2:
+      description: oauth2 authentication to remote attestation server
       type: oauth2
       flows:
         authorizationCode:

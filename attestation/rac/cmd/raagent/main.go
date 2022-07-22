@@ -1,105 +1,156 @@
+/*
+kunpengsecl licensed under the Mulan PSL v2.
+You can use this software according to the terms and conditions of
+the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
+    http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details.
+
+Author: jiayunhao
+Create: 2021-09-17
+Description: raagent main package entry.
+	1. 2022-01-22	wucaijun
+		refine the tpm simulator start process and send trust report process.
+*/
+
+// main package for raagent.
 package main
 
 import (
+	"crypto/rand"
 	"crypto/x509"
-	"fmt"
+	"encoding/json"
 	"log"
+	"math"
+	"math/big"
 	"os"
 	"time"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/rac/ractools"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"github.com/spf13/pflag"
 )
 
 const (
-	raagentVersion = "version 1.0.0"
+	raagentVersion = "version 2.0.0"
 )
-
-func init() {
-	config.InitRacFlags()
-}
-
-func handleFlags() {
-	pflag.Parse()
-	if *config.VersionFlag {
-		fmt.Printf("remote attestation client(raagent): %s\n", raagentVersion)
-		os.Exit(0)
-	}
-	if *config.VerboseFlag {
-		log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile)
-	} else {
-		log.SetFlags(log.Ldate | log.Ltime)
-	}
-}
 
 func main() {
 	// step 1. get configuration from local file, clientId, hbDuration, Cert, etc.
+	initFlags()
+	loadConfigs()
 	handleFlags()
-	cfg := config.GetDefault(config.ConfClient)
-	config.SetupSignalHandler()
-	testMode := cfg.GetTestMode()
-	cid := cfg.GetClientId()
+	signalHandler()
 
-	tpmConf := createTPMConfig(testMode)
-	tpm, err := ractools.OpenTPM(!testMode, tpmConf)
-	if err != nil {
-		log.Fatalf("Client: openTPM failed, error: %s", err)
+	logger.L.Debug("open tpm...")
+	tpmConf := createTPMConfig(GetTestMode())
+	if GetTestMode() && GetSeed() == -1 {
+		random, err0 := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+		if err0 != nil {
+			log.Fatalf("Client: generate seed failed, error: %s", err0)
+		}
+		SetSeed(random.Int64())
 	}
-	defer tpm.Close()
+	err := ractools.OpenTPM(!GetTestMode(), tpmConf, GetSeed())
+	if err != nil {
+		logger.L.Sugar().Errorf("open tpm failed, %s", err)
+		os.Exit(1)
+	}
+	defer ractools.CloseTPM()
+	logger.L.Debug("open tpm success")
+
+	prepare()
+
+	// step 3. if rac has clientId, it uses clientId to send heart beat.
+	loop()
+}
+
+func prepare() {
+	ras, err := clientapi.CreateConn(GetServer())
+	if err != nil {
+		logger.L.Sugar().Fatalf("connect ras server fail, %s", err)
+		os.Exit(1)
+	}
+	defer clientapi.ReleaseConn(ras)
+	// set digest algorithm
 
 	// assume tpm chip has an Ek from tpm2.CreatePrimary and its EC is stored in
 	// NVRAM. So in test mode, create EK and sign it from PCA, save it to NVRAM
-	err = tpm.GenerateEKey()
+	logger.L.Debug("generate EK...")
+	err = ractools.GenerateEKey()
 	if err != nil {
-		log.Fatalf("Client: generate ek failed, error: %s", err)
+		logger.L.Sugar().Errorf("generate EK failed, %s", err)
 	}
-	generateEKeyCert(tpm)
-	err = tpm.LoadEKeyCert()
+	logger.L.Debug("generate EK success")
+
+	logger.L.Debug("load EK certificate...")
+	if !GetTestMode() && racCfg.eKeyCert == nil {
+		err = LoadEKeyCert()
+		if err != nil {
+			logger.L.Sugar().Errorf("load EK certificate failed, %s", err)
+		} else {
+			logger.L.Debug("load EK certificate success")
+		}
+	}
+	if GetEKeyCert() == nil {
+		generateEKeyCert(ras)
+	}
+
+	logger.L.Debug("load IK certificate...")
+	err = ractools.GenerateIKey()
 	if err != nil {
-		log.Fatalf("Client: load ek cert failed, error: %s", err)
+		logger.L.Sugar().Errorf("generate IK  failed, %s", err)
 	}
-	err = tpm.GenerateIKey()
-	if err != nil {
-		log.Fatalf("Client: generate ik failed, error: %s", err)
+	if GetIKeyCert() == nil {
+		generateIKeyCert(ras)
 	}
-	generateIKeyCert(tpm)
+	logger.L.Debug("load IK certificate success")
 
 	// step 2. if rac doesn't have clientId, uses EC and ikPub to sign
 	// a IC and do the register process.
-	if cid <= 0 {
-		cid = registerClientID()
+	id := GetClientId()
+	for id <= 0 {
+		id = registerClientID(ras)
+		if id > 0 {
+			SetClientId(id)
+			logger.L.Sugar().Debugf("get client id %d success", id)
+		} else {
+			logger.L.Debug("get client id fail, try again...")
+			time.Sleep(2 * time.Second)
+		}
 	}
-	config.Save()
-
-	tpm.SetDigestAlg(cfg.GetDigestAlgorithm())
-	err = tpm.PreparePCRsTest()
+	saveConfigs()
+	err = ractools.SetDigestAlg(GetDigestAlgorithm())
 	if err != nil {
-		log.Fatalf("Client: prepare PCRs failed, error: %s", err)
+		logger.L.Sugar().Errorf("set digest algorithm, %s", err)
 	}
-
-	// step 3. if rac has clientId, it uses clientId to send heart beat.
-	clientLoop(tpm, cid)
+	//err = tpm.PreparePCRsTest()
+	if err != nil {
+		logger.L.Sugar().Errorf("prepare PCRs failed, %s", err)
+	}
 }
 
-func clientLoop(tpm *ractools.TPM, cid int64) {
-	cfg := config.GetDefault(config.ConfClient)
-	server := cfg.GetServer()
+func loop() {
 	for {
-		rpy, err := clientapi.DoSendHeartbeat(server, &clientapi.SendHeartbeatRequest{ClientId: cid})
+		logger.L.Debug("send heart beat...")
+		ras, err := clientapi.CreateConn(GetServer())
 		if err != nil {
-			// log the error but continue to allow recover from connection breaking
-			log.Printf("Client: send heart beat error %v, return %s", err, rpy.String())
-		} else {
-			log.Printf("Client: get heart beat back %v", rpy.GetNextAction())
-
-			// step 4. do what ras tells to do by NextAction...
-			DoNextAction(tpm, server, cid, rpy)
+			logger.L.Sugar().Errorf("connect ras server fail, %s", err)
+			time.Sleep(10 * time.Second)
+			continue
 		}
-		// step n. sleep and wait.
-		time.Sleep(cfg.GetHBDuration())
+		rpy, err := clientapi.DoSendHeartbeatWithConn(ras,
+			&clientapi.SendHeartbeatRequest{ClientId: GetClientId()})
+		if err == nil {
+			logger.L.Debug("send heart beat ok")
+			// step 4. do what ras tells client to do by NextAction...
+			doNextAction(ras, rpy)
+		}
+		clientapi.ReleaseConn(ras)
+		time.Sleep(GetHBDuration())
 	}
 }
 
@@ -108,72 +159,77 @@ func createTPMConfig(testMode bool) *ractools.TPMConfig {
 	if testMode {
 		tpmConf.IMALogPath = ractools.TestImaLogPath
 		tpmConf.BIOSLogPath = ractools.TestBiosLogPath
-		tpmConf.ReportHashAlg = ""
+		tpmConf.ReportHashAlg = typdefs.Sha1AlgStr
+		tpmConf.SeedPath = ractools.TestSeedPath
 	} else {
 		tpmConf.IMALogPath = ractools.ImaLogPath
 		tpmConf.BIOSLogPath = ractools.BiosLogPath
-		tpmConf.ReportHashAlg = ""
+		tpmConf.ReportHashAlg = typdefs.Sha1AlgStr
 	}
 	return &tpmConf
 }
 
-// generateEKeyCert gets the EK public from tpm simulator and sends to PCA
-// to sign it, after that saves it into NVRAM, like manufactory did.
-func generateEKeyCert(t *ractools.TPM) {
-	cfg := config.GetDefault(config.ConfClient)
-	testMode := cfg.GetTestMode()
-	if testMode {
-		if cfg.GetEKeyCertTest() == nil {
-			ekPubDer, err := x509.MarshalPKIXPublicKey(t.EK.Pub)
-			if err != nil {
-				log.Fatalf("Client: can't get Ek public der data, %v", err)
-			}
-			server := cfg.GetServer()
-			reqEC := clientapi.GenerateEKCertRequest{
-				EkPub: ekPubDer,
-			}
-			rspEC, err := clientapi.DoGenerateEKCert(server, &reqEC)
-			if err != nil {
-				log.Fatalf("Client: can't Create EkCert %v, return %s", err, rspEC.String())
-			}
-			cfg.SetEKeyCertTest(rspEC.EkCert)
-		}
-		t.DefineNVRAM(ractools.IndexRsa2048EKCert, uint16(len(cfg.GetEKeyCertTest())))
-		t.WriteNVRAM(ractools.IndexRsa2048EKCert, cfg.GetEKeyCertTest())
+func generateEKeyCert(ras *clientapi.RasConn) {
+	ekPubDer, err := x509.MarshalPKIXPublicKey(ractools.GetEKPub())
+	if err != nil {
+		logger.L.Sugar().Errorf("can't get Ek public der data, %v", err)
+		return
 	}
+	reqEC := clientapi.GenerateEKCertRequest{
+		EkPub: ekPubDer,
+	}
+	rspEC, err := clientapi.DoGenerateEKCertWithConn(ras, &reqEC)
+	if err != nil {
+		logger.L.Sugar().Errorf("can't Create EkCert, %v", err)
+		return
+	}
+	if len(rspEC.EkCert) > 0 {
+		SetEKeyCert(rspEC.EkCert)
+	}
+}
+
+// LoadEKeyCert reads ek certificate from NVRAM
+func LoadEKeyCert() error {
+	ekCertDer, err := ractools.ReadNVRAM(ractools.IndexRsa2048EKCert)
+	if err != nil {
+		logger.L.Sugar().Errorf("can't read Ek Cert der data, %v", err)
+		return err
+	}
+	// There is an extra zero sequence behind the physical tpm certificate,
+	// which should be removed, otherwise the certificate parsing will be wrong.
+	for i := range ekCertDer {
+		if ekCertDer[i] == 0 && ekCertDer[i+1] == 0 {
+			ekCertDer = ekCertDer[:i]
+			break
+		}
+	}
+	SetEKeyCert(ekCertDer)
+	return nil
 }
 
 // generateIKeyCert gets the IK public from tpm simulator and sends to PCA
 // to sign it, after that saves it into config.
-func generateIKeyCert(t *ractools.TPM) {
-	cfg := config.GetDefault(config.ConfClient)
-	testMode := cfg.GetTestMode()
-	var ikCert []byte
-	if testMode {
-		ikCert = cfg.GetIKeyCertTest()
-	} else {
-		ikCert = cfg.GetIKeyCert()
-	}
+func generateIKeyCert(ras *clientapi.RasConn) {
+	ikCert := GetIKeyCert()
 	if ikCert != nil {
 		return
 	}
-
-	ikPubDer, err := x509.MarshalPKIXPublicKey(t.IK.Pub)
+	ikPubDer, err := x509.MarshalPKIXPublicKey(ractools.GetIKPub())
 	if err != nil {
-		log.Fatalf("Client: can't get Ik public der data, %v", err)
+		logger.L.Sugar().Errorf("can't get Ik public der data, %v", err)
+		return
 	}
-
 	reqIC := clientapi.GenerateIKCertRequest{
-		EkCert: cfg.GetEKeyCert(),
+		EkCert: GetEKeyCert(),
 		IkPub:  ikPubDer,
-		IkName: t.IK.Name,
+		IkName: ractools.GetIKName(),
 	}
-	server := cfg.GetServer()
-	rspIC, err := clientapi.DoGenerateIKCert(server, &reqIC)
+	rspIC, err := clientapi.DoGenerateIKCertWithConn(ras, &reqIC)
 	if err != nil {
-		log.Fatalf("Client: can't Create IkCert %v, return %s", err, rspIC.String())
+		logger.L.Sugar().Errorf("can't Create IkCert, %v", err)
+		return
 	}
-	icDer, err := t.ActivateIKCert(&ractools.IKCertInput{
+	icDer, err := ractools.ActivateIKCert(&ractools.IKCertInput{
 		CredBlob:        rspIC.CredBlob,
 		EncryptedSecret: rspIC.EncryptedSecret,
 		EncryptedCert:   rspIC.EncryptedIC,
@@ -181,101 +237,94 @@ func generateIKeyCert(t *ractools.TPM) {
 		DecryptParam:    rspIC.EncryptParam,
 	})
 	if err != nil {
-		log.Fatalf("Client: activateIKCert failed, error: %v", err)
+		logger.L.Sugar().Errorf("activateIKCert failed, %v", err)
+		return
 	}
-	if testMode {
-		cfg.SetIKeyCertTest(icDer)
-	} else {
-		cfg.SetIKeyCert(icDer)
-	}
+	SetIKeyCert(icDer)
 }
 
-func registerClientID() int64 {
-	cfg := config.GetDefault(config.ConfClient)
-	server := cfg.GetServer()
-	var icDer []byte
-	testMode := cfg.GetTestMode()
-	if testMode {
-		icDer = cfg.GetIKeyCertTest()
-	} else {
-		icDer = cfg.GetIKeyCert()
-	}
-	clientInfo, err := ractools.GetClientInfo(!testMode)
+func registerClientID(ras *clientapi.RasConn) int64 {
+	icDer := GetIKeyCert()
+	clientInfo, err := ractools.GetClientInfo()
 	if err != nil {
-		log.Fatalf("Client: getClientInfo failed, error: %v", err)
+		logger.L.Sugar().Errorf("GetClientInfo failed, %v", err)
 	}
-	bk, err := clientapi.DoRegisterClient(server, &clientapi.RegisterClientRequest{
-		Ic:         &clientapi.Cert{Cert: icDer},
-		ClientInfo: &clientapi.ClientInfo{ClientInfo: clientInfo},
-	})
+	bk, err := clientapi.DoRegisterClientWithConn(ras,
+		&clientapi.RegisterClientRequest{
+			Cert:       icDer,
+			ClientInfo: clientInfo,
+		})
 	if err != nil {
-		log.Fatalf("Client: can't register rac! %v, return %s", err, bk.String())
+		logger.L.Sugar().Errorf("can't register rac, %v", err)
+		return -1
 	}
 	cid := bk.GetClientId()
 	cc := bk.GetClientConfig()
-	cfg.SetClientId(cid)
-	cfg.SetDigestAlgorithm(cc.GetDigestAlgorithm())
-	cfg.SetHBDuration(time.Duration(cc.GetHbDurationSeconds() * int64(time.Second)))
-	cfg.SetTrustDuration(time.Duration(cc.GetTrustDurationSeconds() * int64(time.Second)))
+	SetClientId(cid)
+	SetDigestAlgorithm(cc.GetDigestAlgorithm())
+	SetHBDuration(time.Duration(cc.GetHbDurationSeconds() * int64(time.Second)))
+	SetTrustDuration(time.Duration(cc.GetTrustDurationSeconds() * int64(time.Second)))
 	return cid
 }
 
-// DoNextAction checks the nextAction field and invoke the corresponding handler function.
-func DoNextAction(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
-	action := rpy.GetNextAction()
-	if (action & cache.CMDSENDCONF) == cache.CMDSENDCONF {
-		SetNewConf(rpy)
+// doNextAction checks the nextAction field and invoke the corresponding handler function.
+func doNextAction(ras *clientapi.RasConn, rpy *clientapi.SendHeartbeatReply) {
+	actions := rpy.GetNextAction()
+	if (actions & typdefs.CmdSendConfig) == typdefs.CmdSendConfig {
+		setNewConf(rpy)
 	}
-	if (action & cache.CMDGETREPORT) == cache.CMDGETREPORT {
-		SendTrustReport(tpm, srv, id, rpy)
+	if (actions & typdefs.CmdGetReport) == typdefs.CmdGetReport {
+		sendTrustReport(ras, rpy)
 	}
 	// add new command handler functions here.
 }
 
-// SetNewConf sets the new configuration values from RAS.
-func SetNewConf(rpy *clientapi.SendHeartbeatReply) {
-	log.Printf("Client: get new configuration from RAS.")
-	cfg := config.GetDefault(config.ConfClient)
-	conf := rpy.GetActionParameters().GetClientConfig()
-	cfg.SetHBDuration(time.Duration(conf.GetHbDurationSeconds() * int64(time.Second)))
-	cfg.SetTrustDuration(time.Duration(conf.GetTrustDurationSeconds() * int64(time.Second)))
+// setNewConf sets the new configuration values from RAS.
+func setNewConf(rpy *clientapi.SendHeartbeatReply) {
+	logger.L.Debug("save new configuration from ras")
+	conf := rpy.GetClientConfig()
+	SetHBDuration(time.Duration(conf.GetHbDurationSeconds() * int64(time.Second)))
+	SetTrustDuration(time.Duration(conf.GetTrustDurationSeconds() * int64(time.Second)))
+	saveConfigs()
 }
 
-// SendTrustReport sneds a new trust report to RAS.
-func SendTrustReport(tpm *ractools.TPM, srv string, id int64, rpy *clientapi.SendHeartbeatReply) {
-	cfg := config.GetDefault(config.ConfClient)
-	tRep, err := tpm.GetTrustReport(rpy.GetActionParameters().GetNonce(), id)
+// sendTrustReport sneds a new trust report to RAS.
+func sendTrustReport(ras *clientapi.RasConn, rpy *clientapi.SendHeartbeatReply) {
+	tRep, err := ractools.GetTrustReport(GetClientId(),
+		rpy.GetClientConfig().GetNonce(), GetDigestAlgorithm())
 	if err != nil {
-		log.Printf("Client: create a new trust report, failed :%v", err)
-	} else {
-		log.Printf("Client: create a new trust report, succeeded")
+		logger.L.Sugar().Errorf("prepare trust report failed, %v", err)
+		return
 	}
-	var manifest []*clientapi.Manifest
-	for _, m := range tRep.Manifest {
-		manifest = append(manifest, &clientapi.Manifest{Type: m.Type, Item: m.Content})
+	// handle clientInfo
+	ci := tRep.ClientInfo
+	ciMap := map[string]string{}
+	err = json.Unmarshal([]byte(ci), &ciMap)
+	if err != nil {
+		logger.L.Sugar().Errorf("unmarshal client info failed, %v", err)
+		return
 	}
+	ciMap[typdefs.DigestAlgStr] = GetDigestAlgorithm()
+	newCi, err := json.Marshal(ciMap)
+	if err != nil {
+		logger.L.Sugar().Errorf("marshal client info failed, %v", err)
+		return
+	}
+	tRep.ClientInfo = string(newCi)
 
-	srr, err := clientapi.DoSendReport(srv, &clientapi.SendReportRequest{
-		ClientId: id,
-		TrustReport: &clientapi.TrustReport{
-			PcrInfo: &clientapi.PcrInfo{
-				Algorithm: cfg.GetDigestAlgorithm(),
-				PcrValues: (map[int32]string)(tRep.PcrInfo.Values),
-				PcrQuote: &clientapi.PcrQuote{
-					Quoted:    tRep.PcrInfo.Quote.Quoted,
-					Signature: tRep.PcrInfo.Quote.Signature,
-				},
-			},
-			ClientId: tRep.ClientID,
-			ClientInfo: &clientapi.ClientInfo{
-				ClientInfo: tRep.ClientInfo,
-			},
-			Manifest: manifest,
-		},
-	})
-	if err == nil && srr.GetResult() {
-		log.Printf("Client: send a new trust report to RAS ok.")
-	} else {
-		log.Printf("Client: send a new trust report to RAS failed.")
+	var manifests []*clientapi.Manifest
+	for _, m := range tRep.Manifests {
+		manifests = append(manifests,
+			&clientapi.Manifest{Key: m.Key, Value: m.Value})
 	}
+	clientapi.DoSendReportWithConn(ras,
+		&clientapi.SendReportRequest{
+			ClientId:   tRep.ClientID,
+			Nonce:      tRep.Nonce,
+			ClientInfo: tRep.ClientInfo,
+			Quoted:     tRep.Quoted,
+			Signature:  tRep.Signature,
+			Manifests:  manifests,
+		})
+	logger.L.Debug("send trust report ok")
 }

@@ -1,5 +1,4 @@
 /*
-Copyright (c) Huawei Technologies Co., Ltd. 2021.
 kunpengsecl licensed under the Mulan PSL v2.
 You can use this software according to the terms and conditions of
 the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
@@ -18,11 +17,12 @@ package clientapi
 
 import (
 	"context"
+	"os"
 
-	"log"
 	"net"
 	"sync"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"google.golang.org/grpc"
 )
 
@@ -33,32 +33,32 @@ type rahub struct {
 }
 
 func (s *rahub) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
-	log.Printf("rahub: receive GenerateEKCert")
+	logger.L.Debug("rahub: receive GenerateEKCert")
 	return DoGenerateEKCert(s.rasAddr, in)
 }
 
 func (s *rahub) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
-	log.Printf("rahub: receive GenerateIKCert")
+	logger.L.Debug("rahub: receive GenerateIKCert")
 	return DoGenerateIKCert(s.rasAddr, in)
 }
 
 func (s *rahub) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
-	log.Printf("rahub: receive RegisterClient")
+	logger.L.Debug("rahub: receive RegisterClient")
 	return DoRegisterClient(s.rasAddr, in)
 }
 
 func (s *rahub) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
-	log.Printf("rahub: receive UnregisterClient")
+	logger.L.Debug("rahub: receive UnregisterClient")
 	return DoUnregisterClient(s.rasAddr, in)
 }
 
 func (s *rahub) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
-	log.Printf("rahub: receive SendHeartbeat")
+	logger.L.Debug("rahub: receive SendHeartbeat")
 	return DoSendHeartbeat(s.rasAddr, in)
 }
 
 func (s *rahub) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
-	log.Printf("rahub: receive SendReport")
+	logger.L.Debug("rahub: receive SendReport")
 	return DoSendReport(s.rasAddr, in)
 }
 
@@ -66,14 +66,14 @@ func (s *rahub) SendReport(ctx context.Context, in *SendReportRequest) (*SendRep
 func StartRaHub(addr, rasAddr string) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("rahub: fail to listen at %v", err)
-		return
+		logger.L.Sugar().Fatalf("rahub: fail to listen at %v", err)
+		os.Exit(1)
 	}
 	s := grpc.NewServer()
 	svc := &rahub{rasAddr: rasAddr}
 	RegisterRasServer(s, svc)
-	log.Printf("rahub: listen at %s", addr)
+	logger.L.Sugar().Debugf("rahub: listen at %s", addr)
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("rahub: fail to serve %v", err)
+		logger.L.Sugar().Errorf("rahub: fail to serve %v", err)
 	}
 }

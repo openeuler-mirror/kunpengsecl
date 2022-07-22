@@ -1,13 +1,57 @@
+/*
+kunpengsecl licensed under the Mulan PSL v2.
+You can use this software according to the terms and conditions of
+the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
+    http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details.
+
+Author: gwei3/yemaolin/wanghaijing
+Create: 2021-09-17
+Description: provide rest api to outside to control ras server.
+	1. 2022-02-17	wucaijun
+		refine the rest api structure to support both application/json and
+		text/plain, make api more readable.
+
+
+The following comments are just for test and make the rest api understand easily.
+
+curl -X POST -H "Accept: application/json" -H "Content-type: application/json" -d "{'name':'Joe', 'email':'joe@example.com'}" http://localhost:40002/
+curl -X POST -H "Content-type: application/json" -d "{'name':'Joe', 'email':'joe@example.com'}" http://localhost:40002/
+curl -X GET -H "Content-type: application/json" http://localhost:40002/
+curl -X GET http://localhost:40002/
+
+GET /version            显示当前rest api版本信息
+POST /login             采用账号密码方式登录的入口
+GET/POST /config        对RAS进行运行时配置的入口
+GET /                   显示所有server的基本信息
+GET /{from}/{to}        显示指定从from到to的server的基本信息
+
+GET     /{id}                   显示指定server的基本信息
+POST    /{id}                   修改指定server的基本信息
+DELETE  /{id}                   删除指定server
+GET     /{id}/reports           显示指定server的所有可信报告
+GET     /{id}/reports/{rid}     显示指定server的指定可信报告
+DELETE  /{id}/reports/{rid}     删除指定server的指定可信报告
+GET     /{id}/basevalues        显示指定server的所有基准值
+POST    /{id}/basevalues        新增指定server的基准值
+GET     /{id}/basevalues/{bid}  显示指定server的指定基准值
+POST    /{id}/basevalues/{bid}  修改指定server的指定基准值
+DELETE  /{id}/basevalues/{bid}  删除指定server的指定基准值
+*/
+
+// restapi package provides the restful api interface based on openapi standard.
 package restapi
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
-	"math/rand"
+	"io/ioutil"
+	"math"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -15,555 +59,187 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
-	echomiddleware "github.com/labstack/echo/v4/middleware"
-	echolog "github.com/labstack/gommon/log"
 	"github.com/lestrrat-go/jwx/jwt"
 
+	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/entity"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
 
-type RasServer struct {
-	cm *cache.CacheMgr
+const (
+	// (GET /)
+	htmlAllList = `<html><head><title>All Nodes Information</title>
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+</head><body><script>$(document).ready(function(){$("button").click(function(){
+$.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
+{if(status=="success"){location.reload(true);}},});});});</script>
+<a href="/login">login</a>&emsp;<a href="/version">version</a>
+&emsp;<a href="/config">config</a><br/><table border="1">
+<tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
+<th>Online</th><th>IP Address</th><th>Trusted</th><th>Info</th><th>Trust Reports</th>
+<th>Base Values</th><th>Action</th></tr>`
+	htmlListInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td><td>%s</td>
+<td>%v</td><td><a href="/%d">link</a></td><td><a href="/%d/reports">link</a></td>
+<td><a href="/%d/basevalues">link</a></td>
+<td><button type="button" value="/%d">Delete</button></td></tr>`
+	htmlListEnd = `</table></body></html>`
+
+	// (GET /config)
+	htmlConfig = `<html><head><title>Config Setting</title></head><body>
+<a href="/">Back</a><br/><table border="1"><form action="/config" method="post">
+<tr align="center" bgcolor="#00FF00"><th>Parameter</th><th>Value</th></tr>`
+	htmlConfigEdit = `<tr><td>%s</td><td align="center">
+<input type="text" name="%s" value="%d"/></td></tr>`
+	htmlConfigEnd = `</table><input type="submit" value="Save"/></form></body></html>`
+
+	// (GET /version)
+	htmlVersion = `<html><head><title>Version</title></head><body>
+<a href="/">Back</a><br/>Version: %s</body></html>`
+
+	// (GET /{id})
+	htmlOneNode = `<html><head><title>One Node Information</title></head><body>
+<a href="/">Back</a><br/><table border="1">
+<tr align="center" bgcolor="#00FF00"><th>Parameter</th><th>Value</th></tr>`
+	htmlNodeInfo = `<tr><td>%s</td><td align="center">%v</td></tr>`
+	htmlTableEnd = `</table></body></html>`
+
+	// (GET /{id}/basevalues)
+	htmlListBaseValues = `<html><head><title>Base Values List</title>
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script></head><body>
+<script>$(document).ready(function(){$("button").click(function(){$.ajax({url:this.value,
+type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
+}},});});});</script><a href="/">Back</a>&emsp;<a href="/%d/newbasevalue">Add</a><br/>
+<table border="1"><tr align="center" bgcolor="#00FF00">
+<th>Index</th><th>Create Time</th><th>Name</th><th>Enabled</th><th>Verified</th>
+<th>Trusted</th><th>Pcr</th><th>Bios</th><th>Ima</th><th>Action</th></tr>`
+	htmlBaseValueInfo = `<tr><td>%d</td><td>%s</td><td>%s</td><td>%v</td>
+<td>%v</td><td>%v</td><td><a href="/%d/basevalues/%d">Link</a></td>
+<td><a href="/%d/basevalues/%d">Link</a></td><td><a href="/%d/basevalues/%d">Link</a></td>
+<td><button type="button" value="/%d/basevalues/%d">Delete</button></td></tr>`
+
+	// (GET /{id}/basevalues/{basevalueid})
+	htmlOneBaseValue = `<html><head><title>Base Value Detail</title></head><body>
+<a href="/%d/basevalues">Back</a><br/><table border="1"><tr align="center" bgcolor="#00FF00">
+<th>Parameter</th><th>Value</th></tr>`
+	htmlBaseValue = `<tr><td align="center">%s</td><td>%v</td></tr>`
+
+	// (GET /{id}/newbasevalue)
+	htmlNewBaseValue = `<html><head><title>New Base Value</title></head><body>
+<a href="/%d/basevalues">Back</a><br/>
+<form action="/%d/newbasevalue" method="post" enctype="multipart/form-data">
+<table border="1"><tr align="center" bgcolor="#00FF00">
+<th>Parameter</th><th>Value</th></tr>
+<tr><td>Name</td><td><input type="text" name="Name" /></td></tr>
+<tr><td>Enabled</td><td><select name="Enabled"><option value ="true">True</option>
+<option value ="false">False</option></select></td></tr>
+<tr><td>PCR Base Value File</td><td><input type="file" name="Pcr" /></td></tr>
+<tr><td>BIOS Base Value File</td><td><input type="file" name="Bios" /></td></tr>
+<tr><td>IMA Base Value File</td><td><input type="file" name="Ima" /></td></tr>
+</table><br/><input type="submit" value="Save" /></form></body></html>`
+
+	// (GET /{id}/reports)
+	htmlListReports = `<html><head><title>Trust Reports List</title>
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script></head><body>
+<style type="text/css">td{white-space: pre-line;}</style>
+<script>$(document).ready(function(){$("button").click(function(){$.ajax({url:this.value,
+type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
+}},});});});</script><a href="/">Back</a><br/><b>Client %d Trust Reports List</b><br/>
+<table border="1"><tr align="center" bgcolor="#00FF00"><th>Index</th><th>Create Time</th>
+<th>Validated</th><th>Trusted</th><th>Details</th><th>Action</th></tr>`
+	htmlReportInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td>
+<td>%v</td><td><a href="/%d/reports/%d">Link</a></td><td>
+<button type="button" value="/%d/reports/%d">Delete</button></td></tr>`
+
+	// (GET /{id}/reports/{reportid})
+	htmlOneReport = `<html><head><title>Trust Report Detail</title></head><body>
+<style type="text/css">td{white-space: pre-line;}</style>
+<a href="/%d/reports">Back</a><br/><table border="1"><tr align="center" bgcolor="#00FF00">
+<th>Parameter</th><th>Value</th></tr>`
+	htmlReportValue = `<tr><td align="center">%s</td><td>%v</td></tr>`
+
+	strHBDuration     = `Heart Beat Duration(s)`
+	nameHBDuration    = `hbduration`
+	strTrustDuration  = `Trust Report Duration(s)`
+	nameTrustDuration = `trustduration`
+	strReportID       = `Report ID`
+	strRegTime        = `Register Time`
+	strCreateTime     = `Create Time`
+	strOnline         = `Online`
+	strTrusted        = `Trusted`
+	strUnknown        = "unknown"
+	strUntrusted      = "untrusted"
+	strNotFound       = "not found"
+	strValidated      = `Validated`
+	strQuoted         = `Quoted`
+	strSignature      = `Signature`
+	strPcrLog         = `PcrLog`
+	strBiosLog        = `BiosLog`
+	strImaLog         = `ImaLog`
+	strClientID       = `ClientID`
+	strBaseType       = `BaseType`
+	strContainer      = "container"
+	strDevice         = "device"
+	strName           = "Name"
+	strEnabled        = "Enabled"
+	strIsAutoUpdate   = "IsAutoUpdate"
+	strVerified       = "Verified"
+	strPCR            = "Pcr"
+	strBIOS           = "Bios"
+	strIMA            = "Ima"
+	strBaseValueID    = `BaseValue ID`
+	errNoClient       = `rest api error: %v`
+
+	strDeleteClientSuccess    = `delete client %d success`
+	strDeleteReportSuccess    = `delete client %d report %d success`
+	strDeleteReportFail       = `delete client %d report %d fail, %v`
+	strDeleteBaseValueSuccess = `delete client %d base value %d success`
+	strDeleteBaseValueFail    = `delete client %d base value %d fail, %v`
+)
+
+type MyRestAPIServer struct {
 }
 
-// Return a list of all config items in key:value pair format
-// (GET /config)
-func (s *RasServer) GetConfig(ctx echo.Context) error {
-	cfg := config.GetDefault(config.ConfServer)
-	er := cfg.GetExtractRules()
-	byteER, err := json.Marshal(er)
-	if err != nil {
-		log.Print("Marshal extract rules to []byte failed.")
-		return ctx.JSON(http.StatusForbidden, err)
-	}
-	strER := string(byteER)
-	auc := cfg.GetAutoUpdateConfig()
-	byteAUC, err := json.Marshal(auc)
-	if err != nil {
-		log.Print("Marshal auto update config to []byte failed.")
-		return ctx.JSON(http.StatusForbidden, err)
-	}
-	strAUC := string(byteAUC)
-	cfgMap := map[string]string{
-		"dbHost":           cfg.GetHost(),
-		"dbName":           cfg.GetDBName(),
-		"dbUser":           cfg.GetUser(),
-		"dbPort":           fmt.Sprint(cfg.GetDBPort()),
-		"mgrStrategy":      cfg.GetMgrStrategy(),
-		"changeTime":       fmt.Sprint(cfg.GetChangeTime()),
-		"extractRules":     strER,
-		"hbDuration":       fmt.Sprint(cfg.GetHBDuration()),
-		"trustDuration":    fmt.Sprint(cfg.GetTrustDuration()),
-		"digestAlgorithm":  cfg.GetDigestAlgorithm(),
-		"autoUpdateConfig": strAUC,
-	}
-	configs := []ConfigItem{}
-	for key, val := range cfgMap {
-		k, v := key, val
-		configs = append(configs, ConfigItem{&k, &v})
-	}
-	return ctx.JSON(http.StatusOK, configs)
+type JsonResult struct {
+	Result string
 }
 
-// Create a list of config items
-// (POST /config)
-func (s *RasServer) PostConfig(ctx echo.Context) error {
-	var configBody PostConfigJSONBody
-	cfg := config.GetDefault(config.ConfServer)
-	err := ctx.Bind(&configBody)
-	if err != nil {
-		log.Print("Bind configBody failed.\n")
-		return ctx.JSON(http.StatusNoContent, err)
+func StartServer(https bool) {
+	if !https {
+		//https off ,use http protocol
+		StartServerHttp(config.GetRestPort())
+	} else {
+		//https on
+		StartServerHttps(config.GetHttpsPort())
 	}
-	postCfgMap := map[string]func(s string){
-		"dbHost":           func(s string) { cfg.SetHost(s) },
-		"dbName":           func(s string) { cfg.SetDBName(s) },
-		"dbUser":           func(s string) { cfg.SetUser(s) },
-		"dbPort":           func(s string) { setDBport(s) },
-		"dbPassword":       func(s string) { cfg.SetPassword(s) },
-		"mgrStrategy":      func(s string) { cfg.SetMgrStrategy(s) },
-		"extractRules":     func(s string) { setExtractRules(s) },
-		"hbDuration":       func(s string) { setHBDuration(s) },
-		"trustDuration":    func(s string) { setTDuration(s) },
-		"digestAlgorithm":  func(s string) { setDigestAlgorithm(s) },
-		"autoUpdateConfig": func(s string) { setAUConfig(s) },
-	}
-	if len(configBody) == 0 {
-		log.Print("Not have specification about the config items that need modified.\n")
-	}
-	for i := range configBody {
-		doFunc, ok := postCfgMap[*configBody[i].Name]
-		if ok {
-			doFunc(*configBody[i].Value)
-		} else {
-			log.Print("Modify config failed.\n")
-		}
-	}
-	return ctx.JSON(http.StatusOK, nil)
 }
 
-//Modify some config information respectively
-func setDBport(val string) {
-	cfg := config.GetDefault(config.ConfServer)
-	port, err := strconv.Atoi(val)
+func StartServerHttp(port string) {
+	e := echo.New()
+	// TODO: need to be replaced with a formal authenticator implementation
+	v, err := internal.NewFakeAuthenticator(config.GetAuthKeyFile())
 	if err != nil {
-		log.Print("Convert string to int failed.")
+		fmt.Println(err)
 		return
 	}
-	cfg.SetDBPort(port)
+	logger.L.Sugar().Debug(CreateAuthValidator(v))
+	RegisterHandlers(e, &MyRestAPIServer{})
+	logger.L.Sugar().Debug(e.Start(port))
 }
 
-func setExtractRules(val string) {
-	cfg := config.GetDefault(config.ConfServer)
-	byteER := []byte(val)
-	var extractRules entity.ExtractRules
-	err := json.Unmarshal(byteER, &extractRules)
+func StartServerHttps(httpsPort string) {
+	e := echo.New()
+	// TODO: need to be replaced with a formal authenticator implementation
+	v, err := internal.NewFakeAuthenticator(config.GetAuthKeyFile())
 	if err != nil {
-		log.Print("Unmarshal byte to struct failed.")
+		fmt.Println(err)
 		return
 	}
-	cfg.SetExtractRules(extractRules)
-}
-
-func setHBDuration(val string) {
-	cfg := config.GetDefault(config.ConfServer)
-	duration, err := time.ParseDuration(val)
-	if err != nil {
-		log.Print("Convert string to duration failed.")
-		return
-	}
-	if duration == cfg.GetHBDuration() {
-		log.Print("Set same config value for HBDuration, ignored.")
-		return
-	}
-	cfg.SetHBDuration(duration)
-	server.cm.SyncConfig()
-}
-
-func setTDuration(val string) {
-	cfg := config.GetDefault(config.ConfServer)
-	duration, err := time.ParseDuration(val)
-	if err != nil {
-		log.Print("Convert string to duration failed.")
-		return
-	}
-	if duration == cfg.GetTrustDuration() {
-		log.Print("Set same config value for TrustDuration, ignored.")
-		return
-	}
-	cfg.SetTrustDuration(duration)
-	server.cm.SyncConfig()
-}
-
-func setDigestAlgorithm(val string) {
-	cfg := config.GetDefault(config.ConfServer)
-	if val == cfg.GetDigestAlgorithm() {
-		log.Print("Set same config value for DigestAlgorithm, ignored.")
-		return
-	}
-	cfg.SetDigestAlgorithm(val)
-	server.cm.SyncConfig()
-}
-
-func setAUConfig(val string) {
-	cfg := config.GetDefault(config.ConfServer)
-	byteAUC := []byte(val)
-	var autoUpdateConfig entity.AutoUpdateConfig
-	err := json.Unmarshal(byteAUC, &autoUpdateConfig)
-	if err != nil {
-		log.Print("Unmarshal byte to struct failed.")
-		return
-	}
-	cfg.SetAutoUpdateConfig(autoUpdateConfig)
-}
-
-// Return the base value of a given container
-// (GET /container/basevalue/{uuid})
-func (s *RasServer) GetContainerBasevalueUuid(ctx echo.Context, uuid string) error {
-	cbv, err := trustmgr.GetContainerBaseValueByUUId(uuid)
-	if err != nil {
-		return ctx.JSON(http.StatusNotFound, err)
-	}
-	return ctx.JSON(http.StatusOK, cbv)
-}
-
-// create/update the base value of the given container
-// (PUT /container/basevalue/{uuid})
-func (s *RasServer) PutContainerBasevalueUuid(ctx echo.Context, uuid string) error {
-	var body PutContainerBasevalueUuidJSONBody
-	err := ctx.Bind(&body)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	cbv := map[string]string{}
-	for _, m := range *body.Measurements {
-		cbv[*m.Name] = *m.Value
-	}
-	err = trustmgr.AddContainerBaseValue(&entity.ContainerBaseValue{
-		ContainerUUID: uuid,
-		Value:         cbv,
-	})
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	return ctx.JSON(http.StatusOK, nil)
-}
-
-// Return a list of trust status for all containers
-// (GET /container/status)
-func (s *RasServer) GetContainerStatus(ctx echo.Context) error {
-	s.cm.Lock()
-	ts, err := s.cm.GetAllContainerTrustStatus()
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	s.cm.Unlock()
-	status := make([]ContainerTrustStatus, 0, len(ts))
-	for key, statu := range ts {
-		status = append(status, ContainerTrustStatus{UUID: key, Status: statu})
-	}
-	return ctx.JSON(http.StatusOK, status)
-}
-
-type ContainerTrustStatus struct {
-	UUID   string
-	Status string
-}
-
-type DeviceTrustStatus struct {
-	deviceId int64
-	Status   string
-}
-
-// Return a trust status for given container
-// (GET /container/status/{uuid})
-func (s *RasServer) GetContainerStatusUuid(ctx echo.Context, uuID string) error {
-	s.cm.Lock()
-	ts := s.cm.GetContainerTrustStatusByUUId(uuID)
-	s.cm.Unlock()
-	return ctx.JSON(http.StatusOK, ContainerTrustStatus{UUID: uuID, Status: ts})
-}
-
-// Return briefing info for the given container
-// (GET /container/{uuid})
-func (s *RasServer) GetContainerUuid(ctx echo.Context, uuID string) error {
-	c, err := trustmgr.GetContainerByUUId(uuID)
-	if err != nil {
-		return ctx.JSON(http.StatusNotFound, err)
-	}
-	return ctx.JSON(http.StatusOK, c)
-}
-
-// create info for a container
-// (POST /container/{uuid})
-func (s *RasServer) PostContainerUuid(ctx echo.Context, uuID string) error {
-	var body PostContainerUuidJSONBody
-	err := ctx.Bind(&body)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	c := entity.Container{
-		UUID:     *body.Uuid,
-		ClientId: *body.Serverid,
-		Online:   true,
-		Deleted:  !*body.Registered,
-	}
-	err = trustmgr.AddContainer(&c)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	return ctx.JSON(http.StatusOK, nil)
-}
-
-// put a container into given status
-// (PUT /container/{uuid})
-func (s *RasServer) PutContainerUuid(ctx echo.Context, uuID string) error {
-	var body PutContainerUuidJSONBody
-	err := ctx.Bind(&body)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	if result, ok := body.(bool); ok {
-		trustmgr.UpdateContainerStatusByUUId(uuID, !result)
-		return ctx.JSON(http.StatusOK, nil)
-	}
-	return ctx.JSON(http.StatusNoContent, fmt.Errorf("put container failed"))
-}
-
-// Return the base value of a given device
-// (GET /device/basevalue/{id})
-func (s *RasServer) GetDeviceBasevalueId(ctx echo.Context, id int64) error {
-	dbv, err := trustmgr.GetDeviceBaseValueById(id)
-	if err != nil {
-		return ctx.JSON(http.StatusNotFound, err)
-	}
-	return ctx.JSON(http.StatusOK, dbv)
-}
-
-// create/update the base value of the given device
-// (PUT /device/basevalue/{id})
-func (s *RasServer) PutDeviceBasevalueId(ctx echo.Context, id int64) error {
-	var body PutDeviceBasevalueIdJSONBody
-	err := ctx.Bind(&body)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	dbv := map[string]string{}
-	for _, m := range *body.Measurements {
-		dbv[*m.Name] = *m.Value
-	}
-	err = trustmgr.AddDeviceBaseValue(&entity.PcieBaseValue{
-		DeviceID: id,
-		Value:    dbv,
-	})
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	return ctx.JSON(http.StatusOK, nil)
-}
-
-// Return a list of trust status for all devices
-// (GET /device/status)
-func (s *RasServer) GetDeviceStatus(ctx echo.Context) error {
-	s.cm.Lock()
-	ts, err := s.cm.GetAllDeviceTrustStatus()
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	s.cm.Unlock()
-	status := make([]DeviceTrustStatus, 0, len(ts))
-	for key, s := range ts {
-		status = append(status, DeviceTrustStatus{deviceId: key, Status: s})
-	}
-	return ctx.JSON(http.StatusOK, status)
-}
-
-// Return a trust status for given device
-// (GET /device/status/{id})
-func (s *RasServer) GetDeviceStatusId(ctx echo.Context, id int64) error {
-	s.cm.Lock()
-	ts := s.cm.GetDeviceTrustStatusById(id)
-	s.cm.Unlock()
-	return ctx.JSON(http.StatusOK, DeviceTrustStatus{deviceId: id, Status: ts})
-}
-
-// Return briefing info for the given device
-// (GET /device/{id})
-func (s *RasServer) GetDeviceId(ctx echo.Context, id int64) error {
-	d, err := trustmgr.GetDeviceById(id)
-	if err != nil {
-		return ctx.JSON(http.StatusNotFound, err)
-	}
-	return ctx.JSON(http.StatusOK, d)
-}
-
-// create info for a device
-// (POST /device/{id})
-func (s *RasServer) PostDeviceId(ctx echo.Context, id int64) error {
-	var body PostDeviceIdJSONBody
-	err := ctx.Bind(&body)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	d := entity.PcieDevice{
-		ID:       *body.Id,
-		ClientId: *body.Serverid,
-		Online:   true,
-		Deleted:  !*body.Registered,
-	}
-	err = trustmgr.AddDevice(&d)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	return ctx.JSON(http.StatusOK, nil)
-}
-
-// put a device into given status
-// (PUT /device/{id})
-func (s *RasServer) PutDeviceId(ctx echo.Context, id int64) error {
-	var body PutDeviceIdJSONBody
-	err := ctx.Bind(&body)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	if result, ok := body.(bool); ok {
-		err = trustmgr.UpdateDeviceStatusById(id, !result)
-		if err != nil {
-			return ctx.JSON(http.StatusNoContent, err)
-		}
-		return ctx.JSON(http.StatusOK, nil)
-	}
-	return ctx.JSON(http.StatusNoContent, fmt.Errorf("put device failed"))
-}
-
-// Return the trust report for the given server
-// (GET /report/{serverId})
-func (s *RasServer) GetReportServerId(ctx echo.Context, serverId int64) error {
-	s.cm.Lock()
-	c := s.cm.GetCache(serverId)
-	s.cm.Unlock()
-
-	if c == nil {
-		return ctx.JSON(http.StatusNotFound, nil)
-	}
-
-	report, err := trustmgr.GetLatestReportById(serverId)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, nil)
-	}
-
-	return ctx.JSON(http.StatusOK, *report)
-}
-
-type ServerBriefInfo struct {
-	ClientId   int64
-	Ip         string
-	Registered bool
-}
-
-// Return a list of briefing info for all servers
-// (GET /server)
-func (s *RasServer) GetServer(ctx echo.Context) error {
-	//get server briefing info from sql
-	cids, err := trustmgr.GetAllClientID()
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, err)
-	}
-	briefinfo := []ServerBriefInfo{}
-	var infoName []string
-	infoName = append(infoName, "ip")
-	for _, v := range cids {
-		rc, err := trustmgr.GetRegisterClientById(v)
-		if err != nil {
-			return ctx.JSON(http.StatusNoContent, err)
-		}
-		rt, err := trustmgr.GetClientInfoByID(v, infoName)
-		if err != nil {
-			log.Println("not found ip")
-		}
-		briefinfo = append(briefinfo, ServerBriefInfo{ClientId: rc.ClientID, Ip: rt["ip"], Registered: !rc.IsDeleted})
-	}
-
-	return ctx.JSON(http.StatusOK, briefinfo)
-}
-
-// put a list of servers into given status
-// (PUT /server)
-func (s *RasServer) PutServer(ctx echo.Context) error {
-	var serverBody PutServerJSONBody
-	err := ctx.Bind(&serverBody)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, nil)
-	}
-	cids := *serverBody.Clientids
-	if serverBody.Registered != nil {
-		for _, cid := range cids {
-			err = trustmgr.UpdateRegisterStatusById(cid, !*serverBody.Registered)
-			if err != nil {
-				return ctx.JSON(http.StatusForbidden, nil)
-			}
-		}
-	}
-	return nil
-}
-
-// Return the base value of a given server
-// (GET /server/basevalue/{serverId})
-func (s *RasServer) GetServerBasevalueServerId(ctx echo.Context, serverId int64) error {
-	meInfo, err := trustmgr.GetBaseValueById(serverId)
-	if err != nil {
-		return ctx.JSON(http.StatusNotFound, nil)
-	}
-	return ctx.JSON(http.StatusOK, meInfo)
-}
-
-// create/update the base value of the given server
-// (PUT /server/basevalue/{serverId})
-func (s *RasServer) PutServerBasevalueServerId(ctx echo.Context, serverId int64) error {
-	var serverBvBody PutServerBasevalueServerIdJSONBody
-	err := ctx.Bind(&serverBvBody)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, nil)
-	}
-	mInfo, err := trustmgr.GetBaseValueById(serverId)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, nil)
-	}
-	modifyManifest(mInfo, *serverBvBody.Measurements)
-	modifyPcrValue(mInfo, *serverBvBody.Pcrvalues)
-	err = trustmgr.SaveBaseValueById(serverId, mInfo)
-	if err != nil {
-		return ctx.JSON(http.StatusNoContent, nil)
-	}
-	return nil
-}
-
-func modifyManifest(mInfo *entity.MeasurementInfo, ms []Measurement) {
-	var mf entity.Measurement
-	for i := range ms {
-		if i < len(mInfo.Manifest) {
-			mInfo.Manifest[i].Name = *ms[i].Name
-			mInfo.Manifest[i].Type = string(*ms[i].Type)
-			mInfo.Manifest[i].Value = *ms[i].Value
-		} else {
-			mf.Name = *ms[i].Name
-			mf.Type = string(*ms[i].Type)
-			mf.Value = *ms[i].Value
-			mInfo.Manifest = append(mInfo.Manifest, mf)
-		}
-	}
-}
-
-func modifyPcrValue(mInfo *entity.MeasurementInfo, pValues []PcrValue) {
-	for _, con := range pValues {
-		mInfo.PcrInfo.Values[*con.Index] = *con.Value
-	}
-}
-
-type ServerTrustStatus struct {
-	ClientID int64
-	Status   string
-}
-
-// Return a list of trust status for all servers
-// (GET /status)
-func (s *RasServer) GetStatus(ctx echo.Context) error {
-	// get server status list from cache
-	s.cm.Lock()
-	ts := s.cm.GetAllTrustStatus()
-	s.cm.Unlock()
-	status := make([]ServerTrustStatus, 0, len(ts))
-	for key, s := range ts {
-		status = append(status, ServerTrustStatus{ClientID: key, Status: s})
-	}
-	return ctx.JSON(http.StatusOK, status)
-}
-
-// Return a trust status for given server
-// (GET /status/{serverId})
-func (s *RasServer) GetStatusServerId(ctx echo.Context, serverId int64) error {
-	s.cm.Lock()
-	ts := s.cm.GetTrustStatusById(serverId)
-	s.cm.Unlock()
-	return ctx.JSON(http.StatusOK, ServerTrustStatus{ClientID: serverId, Status: ts})
-}
-
-// Return the version of current API
-// (GET /version)
-func (s *RasServer) GetVersion(ctx echo.Context) error {
-
-	return ctx.JSON(http.StatusOK, "1.0.0")
-}
-
-var server *RasServer
-
-func NewRasServer(cm *cache.CacheMgr) *RasServer {
-	return &RasServer{cm: cm}
+	logger.L.Sugar().Debug(CreateAuthValidator(v))
+	RegisterHandlers(e, &MyRestAPIServer{})
+	e.Logger.Fatal(e.StartTLS(httpsPort, "pca-root.crt", "pca-root.key"))
 }
 
 // getJWS fetch the JWS string from an Authorization header
@@ -675,53 +351,623 @@ func CreateAuthValidator(v JWSValidator) (echo.MiddlewareFunc, error) {
 	return validator, nil
 }
 
-func StartServer(addr string, cm *cache.CacheMgr) {
-	router := echo.New()
-
-	// TODO: need to be replaced with a formal authenticator implementation
-	v, err := internal.NewFakeAuthenticator(config.GetDefault(config.ConfServer).GetAuthKeyFile())
-	if err != nil {
-		fmt.Println(err)
-		return
+func checkJSON(ctx echo.Context) bool {
+	cty := ctx.Request().Header.Get(echo.HeaderContentType)
+	if cty == echo.MIMEApplicationJSON || cty == echo.MIMEApplicationJSONCharsetUTF8 {
+		return true
 	}
-
-	av, err := CreateAuthValidator(v)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	router.Pre(echomiddleware.RemoveTrailingSlash())
-	router.Use(echomiddleware.Logger())
-	router.Use(av)
-
-	server = NewRasServer(cm)
-	RegisterHandlers(router, server)
-
-	if *config.VerboseFlag {
-		router.Logger.SetLevel(echolog.DEBUG)
-	} else {
-		router.Logger.SetLevel(echolog.ERROR)
-	}
-	router.Logger.Fatal(router.Start(addr))
+	return false
 }
 
-func CreateTestAuthToken() ([]byte, error) {
-	authKeyPubFile := config.GetDefault(config.ConfServer).GetAuthKeyFile()
-	authKeyFile := os.TempDir() + "/at" + strconv.FormatInt(rand.Int63(), 16)
-	test.CreateAuthKeyFile(authKeyFile, authKeyPubFile)
-	defer os.Remove(authKeyFile)
+func genAllListHtml(nodes []typdefs.NodeInfo) string {
+	var buf bytes.Buffer
+	buf.WriteString(htmlAllList)
+	for _, n := range nodes {
+		buf.WriteString(fmt.Sprintf(htmlListInfo, n.ID, n.RegTime,
+			n.Online, n.IPAddress, n.Trusted, n.ID, n.ID, n.ID, n.ID))
+	}
+	buf.WriteString(htmlListEnd)
+	return buf.String()
+}
 
-	v, err := internal.NewFakeAuthenticator(authKeyFile)
+func showListNodesByRange(ctx echo.Context, from, to int64) error {
+	nodes, err := trustmgr.GetAllNodes(from, to)
+	if checkJSON(ctx) {
+		if err != nil {
+			logger.L.Sugar().Debugf(errNoClient, err)
+			return ctx.JSON(http.StatusNotFound, []typdefs.NodeInfo{})
+		}
+		return ctx.JSON(http.StatusOK, nodes)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("Create Authenticator failed: %v", err)
+		logger.L.Sugar().Debugf(errNoClient, err)
+		return ctx.HTML(http.StatusNotFound, "")
+	}
+	return ctx.HTML(http.StatusOK, genAllListHtml(nodes))
+}
+
+// (GET /)
+// get all nodes information
+//  read all nodes information as html
+//    curl -X GET http://localhost:40002
+//  read all nodes information as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002
+func (s *MyRestAPIServer) Get(ctx echo.Context) error {
+	return showListNodesByRange(ctx, math.MinInt64, math.MaxInt64)
+}
+
+// TODO: add more parameters in this struct to export to outside control.
+type cfgRecord struct {
+	HBDuration    time.Duration `json:"hbduration" form:"hbduration"`
+	TrustDuration time.Duration `json:"trustduration" form:"trustduration"`
+}
+
+func genConfigJson() *cfgRecord {
+	return &cfgRecord{
+		HBDuration:    config.GetHBDuration() / time.Second,
+		TrustDuration: config.GetTrustDuration() / time.Second,
+	}
+}
+
+func genConfigHtml() string {
+	var buf bytes.Buffer
+	buf.WriteString(htmlConfig)
+	buf.WriteString(fmt.Sprintf(htmlConfigEdit, strHBDuration,
+		nameHBDuration, config.GetHBDuration()/time.Second))
+	buf.WriteString(fmt.Sprintf(htmlConfigEdit, strTrustDuration,
+		nameTrustDuration, config.GetTrustDuration()/time.Second))
+	buf.WriteString(htmlConfigEnd)
+	return buf.String()
+}
+
+// (GET /config)
+// get ras server configuration
+//  read config as html
+//    curl -X GET http://localhost:40002/config
+//  read config as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/config
+func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusOK, genConfigJson())
+	}
+	return ctx.HTML(http.StatusOK, genConfigHtml())
+}
+
+// (POST /config)
+// modify ras server configuration
+//  write config as html/form
+//    curl -X POST -d "hbduration=20" -d "trustduration=30" http://localhost:40002/config
+//  write config as json
+//    curl -X POST -H "Content-type: application/json" -d '{"hbduration": 100, "trustduration": 200}' http://localhost:40002/config
+// Notice: key name must be enclosed by "" in json format!!!
+func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
+	cfg := new(cfgRecord)
+	err := ctx.Bind(cfg)
+	if err != nil {
+		logger.L.Sugar().Debugf(errNoClient, err)
+		return err
+	}
+	config.SetHBDuration(cfg.HBDuration * time.Second)
+	config.SetTrustDuration(cfg.TrustDuration * time.Second)
+	trustmgr.UpdateAllNodes()
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusOK, genConfigJson())
+	}
+	return ctx.HTML(http.StatusOK, genConfigHtml())
+}
+
+// (POST /login)
+// login/logout ras server as admin
+func (s *MyRestAPIServer) PostLogin(ctx echo.Context) error {
+	return ctx.HTML(http.StatusOK, "login...")
+}
+
+// (GET /version)
+// get ras server version information
+//  read version as html
+//    curl -X GET http://localhost:40002/version
+//  read version as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/version
+func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
+	if checkJSON(ctx) {
+		res := struct {
+			Version string
+		}{
+			config.RasVersion,
+		}
+		return ctx.JSON(http.StatusOK, res)
+	}
+	res := fmt.Sprintf(htmlVersion, config.RasVersion)
+	return ctx.HTML(http.StatusOK, res)
+}
+
+// (GET /{from}/{to})
+// get nodes information from "from" node to "to" node sequentially
+//  read a range nodes info as html
+//    curl -X GET http://localhost:40002/{from}/{to}
+//  read a range nodes info as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/{from}/{to}
+func (s *MyRestAPIServer) GetFromTo(ctx echo.Context, from int64, to int64) error {
+	return showListNodesByRange(ctx, from, to)
+}
+
+// (DELETE /{id})
+// delete node {id}
+//  delete a node by html
+//    curl -X DELETE http://localhost:40002/{id}
+//  delete a node by json
+//    curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}
+func (s *MyRestAPIServer) DeleteId(ctx echo.Context, id int64) error {
+	trustmgr.UnRegisterClientByID(id)
+	if checkJSON(ctx) {
+		res := JsonResult{}
+		res.Result = fmt.Sprintf(strDeleteClientSuccess, id)
+		return ctx.JSON(http.StatusOK, res)
+	}
+	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteClientSuccess, id))
+}
+
+// TODO: add more information of the node
+func genNodeHtml(c *cache.Cache) string {
+	var buf bytes.Buffer
+	buf.WriteString(htmlOneNode)
+	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strRegTime, c.GetRegTime()))
+	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strOnline, c.GetOnline()))
+	buf.WriteString(fmt.Sprintf(htmlNodeInfo, strTrusted, c.GetTrusted()))
+	buf.WriteString(htmlTableEnd)
+	return buf.String()
+}
+
+// (GET /{id})
+// get node {id} information
+//  read node {id} info as html
+//    curl -X GET http://localhost:40002/{id}
+//  read node {id} info as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}
+func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
+	c, err := trustmgr.GetCache(id)
+	if checkJSON(ctx) {
+		if err != nil {
+			logger.L.Sugar().Debugf(errNoClient, err)
+			return ctx.JSON(http.StatusNotFound, &typdefs.NodeInfo{ID: id})
+		}
+		ni := typdefs.NodeInfo{
+			ID:           id,
+			RegTime:      c.GetRegTime(),
+			Online:       c.GetOnline(),
+			Trusted:      c.GetTrusted(),
+			IsAutoUpdate: c.GetIsAutoUpdate(),
+		}
+		return ctx.JSON(http.StatusOK, &ni)
+	}
+	if err != nil {
+		logger.L.Sugar().Debugf(errNoClient, err)
+		return ctx.JSON(http.StatusNotFound, "")
+	}
+	return ctx.HTML(http.StatusOK, genNodeHtml(c))
+}
+
+// (POST /{id})
+// modify node {id} information
+//  modify node {id} information by json
+//    curl -X POST -H "Content-type: multipart/form-data" -F "IsAutoUpdate=true;type=application/json" http://localhost:40002/{id}
+func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
+	sIsU := ctx.FormValue(strIsAutoUpdate)
+	isAutoUpdate, _ := strconv.ParseBool(sIsU)
+	c, err := trustmgr.GetCache(id)
+	if err != nil {
+		return err
+	}
+	c.SetIsAutoUpdate(isAutoUpdate)
+	res := fmt.Sprintf("change server %d information", id)
+	return ctx.HTML(http.StatusOK, res)
+}
+
+func genBaseValuesHtml(id int64, rows []typdefs.BaseRow) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlListBaseValues, id))
+	for _, n := range rows {
+		buf.WriteString(fmt.Sprintf(htmlBaseValueInfo, n.ID,
+			n.CreateTime.Format(typdefs.StrTimeFormat), n.Name, n.Enabled,
+			n.Verified, n.Trusted, id, n.ID, id, n.ID, id, n.ID, id, n.ID))
+	}
+	buf.WriteString(htmlTableEnd)
+	return buf.String()
+}
+
+// (GET /{id}/basevalues)
+// get node {id} all base values
+func (s *MyRestAPIServer) GetIdBasevalues(ctx echo.Context, id int64) error {
+	rows, err := trustmgr.FindBaseValuesByClientID(id)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, rows)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, genBaseValuesHtml(id, rows))
+}
+
+// (DELETE /{id}/basevalues/{basevalueid})
+// delete node {id} one base value {basevalueid}
+func (s *MyRestAPIServer) DeleteIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
+	err := trustmgr.DeleteBaseValueByID(basevalueid)
+	if checkJSON(ctx) {
+		res := JsonResult{}
+		if err != nil {
+			res.Result = fmt.Sprintf(strDeleteBaseValueFail, id, basevalueid, err)
+			return ctx.JSON(http.StatusOK, res)
+		}
+		res.Result = fmt.Sprintf(strDeleteBaseValueSuccess, id, basevalueid)
+		return ctx.JSON(http.StatusOK, res)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteBaseValueSuccess, id, basevalueid))
+}
+
+func genBaseValueHtml(basevalue *typdefs.BaseRow) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlOneBaseValue, basevalue.ClientID))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strBaseValueID, basevalue.ID))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strCreateTime,
+		basevalue.CreateTime.Format(typdefs.StrTimeFormat)))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strName, basevalue.Name))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strEnabled, basevalue.Enabled))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strVerified, basevalue.Verified))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strTrusted, basevalue.Trusted))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strPCR, basevalue.Pcr))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strBIOS, basevalue.Bios))
+	buf.WriteString(fmt.Sprintf(htmlBaseValue, strIMA, basevalue.Ima))
+	buf.WriteString(htmlTableEnd)
+	return buf.String()
+}
+
+// (GET /{id}/basevalues/{basevalueid})
+// get node {id} one base value {basevalueid}
+func (s *MyRestAPIServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
+	row, err := trustmgr.FindBaseValueByID(basevalueid)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, row)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, genBaseValueHtml(row))
+}
+
+// (POST /{id}/basevalues/{basevalueid})
+// modify node {id} one base value {basevalueid}
+func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusOK, s)
+	}
+	res := fmt.Sprintf("post server %d to modify base value %d", id, basevalueid)
+	return ctx.HTML(http.StatusOK, res)
+}
+
+func genNewBaseValueHtml(id int64) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlNewBaseValue, id, id))
+	return buf.String()
+}
+
+// (GET /{id}/newbasevalue)
+//  get a empty page as html for new base value, no need for json!!!
+//    curl -X GET http://localhost:40002/{id}/newbasevalue
+func (s *MyRestAPIServer) GetIdNewbasevalue(ctx echo.Context, id int64) error {
+	return ctx.HTML(http.StatusOK, genNewBaseValueHtml(id))
+}
+
+func (s *MyRestAPIServer) getFile(ctx echo.Context, name string) (string, error) {
+	param, err := ctx.FormFile(name)
+	if err != nil {
+		return "", err
+	}
+	file, err := param.Open()
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// (POST /{id}/newbasevalue)
+//  save node {id} a new base value by html
+//    curl -X POST -H "Content-type: multipart/form-data" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/1/newbasevalue
+//  save node {id} a new base value by json
+//    curl -X POST -H "Content-type: multipart/form-data" -F "Name=test;type=application/json" -F "Enabled=true;type=application/json" -F "Pcr=@./cmd_history;type=application/json" -F "Bios=@./cmd_history;type=application/json" -F "Ima=@./cmd_history;type=application/json" http://localhost:40002/{id}/newbasevalue
+func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
+	name := ctx.FormValue(strName)
+	sEnv := ctx.FormValue(strEnabled)
+	enabled, _ := strconv.ParseBool(sEnv)
+	pcr, err := s.getFile(ctx, strPCR)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	bios, err := s.getFile(ctx, strBIOS)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	ima, err := s.getFile(ctx, strIMA)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	row := &typdefs.BaseRow{
+		ClientID:   id,
+		BaseType:   "host",
+		CreateTime: time.Now(),
+		Name:       name,
+		Enabled:    enabled,
+		Pcr:        pcr,
+		Bios:       bios,
+		Ima:        ima,
+	}
+	trustmgr.SaveBaseValue(row)
+	/* // no use???
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusFound, row)
+	}
+	*/
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/basevalues", id))
+}
+
+func genReportsHtml(id int64, rows []typdefs.ReportRow) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlListReports, id))
+	for _, n := range rows {
+		buf.WriteString(fmt.Sprintf(htmlReportInfo, n.ID,
+			n.CreateTime.Format(typdefs.StrTimeFormat), n.Validated,
+			n.Trusted, n.ClientID, n.ID, n.ClientID, n.ID))
+	}
+	buf.WriteString(htmlTableEnd)
+	return buf.String()
+}
+
+// (GET /{id}/reports)
+// get node {id} all reports
+//  get node {id} all reports as html
+//    curl -X GET http://localhost:40002/{id}/reports
+//  get node {id} all reports as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/reports
+func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
+	rows, err := trustmgr.FindReportsByClientID(id)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, rows)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, genReportsHtml(id, rows))
+}
+
+// (DELETE /{id}/reports/{reportid})
+// delete node {id} one report {reportid}
+//  delete node {id} report {reportid} by html
+//    curl -X DELETE http://localhost:40002/{id}/reports/{reportid}
+//  delete node {id} report {reportid} by json
+//    curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}/reports/{reportid}
+func (s *MyRestAPIServer) DeleteIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
+	err := trustmgr.DeleteReportByID(reportid)
+	if checkJSON(ctx) {
+		res := JsonResult{}
+		if err != nil {
+			res.Result = fmt.Sprintf(strDeleteReportFail, id, reportid, err)
+			return ctx.JSON(http.StatusOK, res)
+		}
+		res.Result = fmt.Sprintf(strDeleteReportSuccess, id, reportid)
+		return ctx.JSON(http.StatusOK, res)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteReportSuccess, id, reportid))
+}
+
+func genReportHtml(report *typdefs.ReportRow) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlOneReport, report.ClientID))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strReportID, report.ID))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strCreateTime,
+		report.CreateTime.Format(typdefs.StrTimeFormat)))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strValidated, report.Validated))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strTrusted, report.Trusted))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strQuoted, report.Quoted))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strSignature, report.Signature))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strPcrLog, report.PcrLog))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strBiosLog, report.BiosLog))
+	buf.WriteString(fmt.Sprintf(htmlReportValue, strImaLog, report.ImaLog))
+	buf.WriteString(htmlTableEnd)
+	return buf.String()
+}
+
+// (GET /{id}/reports/{reportid})
+// get node {id} one report {reportid}
+//  get node {id} report {reportid} as html
+//    curl -X GET http://localhost:40002/{id}/reports/{reportid}
+//  get node {id} report {reportid} as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/reports/{reportid}
+func (s *MyRestAPIServer) GetIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
+	row, err := trustmgr.FindReportByID(reportid)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, row)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, genReportHtml(row))
+}
+
+// Return a list of trust status for all containers of a given client
+// (GET /{id}/container/status)
+func (s *MyRestAPIServer) GetIdContainerStatus(ctx echo.Context, cid int64) error {
+	c, err := trustmgr.GetCache(cid)
+	if err != nil {
+		return err
+	}
+	rows := c.ContainerBases
+	var buf bytes.Buffer
+	for i := 0; i < len(rows); i++ {
+		if rows[i].BaseType != strContainer {
+			continue
+		}
+		var status string
+		if rows[i].Verified {
+			status = strUnknown
+		} else {
+			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) { //验证过并且未超时
+				status = strTrusted
+			} else {
+				status = strUntrusted
+			}
+		}
+		buf.WriteString(fmt.Sprintf("%s : %s\n", rows[i].Uuid, status))
 	}
 
-	// create a JWT with config write & server write permission
-	writeJWT, err := v.CreateJWSWithClaims([]string{"write:config", "write:servers"})
+	return ctx.JSON(http.StatusOK, buf.String())
+}
+
+// Return a list of trust status for all devices of a given client
+// (GET /{id}/device/status)
+func (s *MyRestAPIServer) GetIdDeviceStatus(ctx echo.Context, cid int64) error {
+	c, err := trustmgr.GetCache(cid)
 	if err != nil {
-		return nil, fmt.Errorf("Create token failed: %v", err)
+		return err
+	}
+	rows := c.DeviceBases
+	var buf bytes.Buffer
+	for i := 0; i < len(rows); i++ {
+		if rows[i].BaseType != strDevice {
+			continue
+		}
+		var status string
+		if rows[i].Verified {
+			status = strUnknown
+		} else {
+			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) {
+				status = strTrusted
+			} else {
+				status = strUntrusted
+			}
+		}
+		buf.WriteString(fmt.Sprintf("%s : %s\n", rows[i].Uuid, status))
 	}
 
-	return writeJWT, nil
+	return ctx.JSON(http.StatusOK, buf.String())
+}
+
+// Return the base value of a given container/device
+// (GET /{uuid}/device/basevalue)
+func (s *MyRestAPIServer) GetUuidBasevalue(ctx echo.Context, uuid string) error {
+	row, err := trustmgr.FindBaseValueByUuid(uuid)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, row)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, genBaseValueHtml(row))
+}
+
+// create/update the base value of the given device
+// (POST /{uuid}/device/basevalue)
+//  save node {id} a new base value by html
+//    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=XX"  -F "BaseType=XX" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/{uuid}/device/basevalue
+//  save node {id} a new base value by json
+//    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=1234;type=application/json" -F "BaseType=container;type=application/json" -F "Name=test;type=application/json" -F "Enabled=true;type=application/json" -F "Pcr=@./cmd_history;type=application/json" -F "Bios=@./cmd_history;type=application/json" -F "Ima=@./cmd_history;type=application/json" http://localhost:40002/{uuid}/device/basevalue
+func (s *MyRestAPIServer) PostUuidBasevalue(ctx echo.Context, uuid string) error {
+	cid := ctx.FormValue(strClientID)
+	id, _ := strconv.ParseInt(cid, 10, 64)
+	name := ctx.FormValue(strName)
+	baseType := ctx.FormValue(strBaseType)
+	sEnv := ctx.FormValue(strEnabled)
+	enabled, _ := strconv.ParseBool(sEnv)
+	pcr, err := s.getFile(ctx, strPCR)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	bios, err := s.getFile(ctx, strBIOS)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	ima, err := s.getFile(ctx, strIMA)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	row := &typdefs.BaseRow{
+		ClientID:   id,
+		BaseType:   baseType,
+		Uuid:       uuid,
+		CreateTime: time.Now(),
+		Name:       name,
+		Enabled:    enabled,
+		Pcr:        pcr,
+		Bios:       bios,
+		Ima:        ima,
+	}
+	trustmgr.SaveBaseValue(row)
+	/* // no use???
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusFound, row)
+	}
+	*/
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%s/basevalue", uuid))
+}
+
+// Return a trust status for given container/device
+// (GET /{uuid}/device/status)
+func (s *MyRestAPIServer) GetUuidStatus(ctx echo.Context, uuid string) error {
+	baseRow, err := trustmgr.FindBaseValueByUuid(uuid)
+	if err != nil {
+		logger.L.Sugar().Errorf("can't find target base")
+		return err
+	}
+	var ans string
+	c, err := trustmgr.GetCache(baseRow.ClientID)
+	if err != nil {
+		return err
+	}
+	var row *typdefs.BaseRow
+	baseRows := append(c.ContainerBases, c.DeviceBases...)
+	find := false
+	for _, v := range baseRows {
+		if v.Uuid == uuid {
+			row = v
+			find = true
+			break
+		}
+	}
+	if !find {
+		ans = strNotFound
+	}
+	if row.Verified {
+		ans = strUnknown
+	} else {
+		if row.Trusted {
+			ans = strTrusted
+		} else {
+			ans = strUntrusted
+		}
+	}
+	return ctx.JSON(http.StatusOK, ans)
 }

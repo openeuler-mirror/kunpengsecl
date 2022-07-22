@@ -1,0 +1,40 @@
+database:
+  host: localhost
+  name: kunpengsecl
+  password: postgres
+  port: 5432
+  user: postgres
+log:
+  file: ./logs/ras-log.txt
+racconfig:
+  digestalgorithm: sha1
+  hbduration: 10s
+  trustduration: 2m0s
+rasconfig:
+  authkeyfile: ./ecdsakey.pub
+  pcakeycertfile: ""
+  pcaprivkeyfile: ""
+  httpsswitch: false
+  restport: 127.0.0.1:40002
+  httpsport: 127.0.0.1:40003
+  rootkeycertfile: ""
+  rootprivkeyfile: ""
+  serialnumber: 0
+  serverport: 127.0.0.1:40001
+  onlineduration: 30s
+  basevalue-extract-rules:
+    manifest:
+    - name:
+      - 8-0
+      - 80000008-1
+      type: bios
+    - name:
+      - boot_aggregate
+      - /etc/modprobe.d/tuned.conf
+      type: ima
+    pcrinfo:
+      pcrselection:
+      - 1
+      - 2
+      - 3
+      - 4

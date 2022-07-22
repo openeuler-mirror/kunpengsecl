@@ -1,3 +1,5 @@
+
+PKGPATH=pkg
 TESTEES=./ractools
 RACPATH = ./cmd/raagent
 HUBPATH = ./cmd/rahub
@@ -14,13 +16,14 @@ test:
 	go test -count=1 $(TESTEES)
 
 build: 
-	go build -mod=vendor -o pkg/raagent cmd/raagent/*.go
-	go build -mod=vendor -o pkg/ractools ractools/*.go
-	go build -mod=vendor -o pkg/tbprovisioner cmd/tbprovisioner/*.go
-	go build -mod=vendor -o pkg/rahub cmd/rahub/*.go
+	go build -mod=vendor -o $(PKGPATH)/ractools ractools/*.go
+	go build -mod=vendor -o $(PKGPATH)/raagent cmd/raagent/*.go
+	#go build -mod=vendor -o $(PKGPATH)/tbprovisioner cmd/tbprovisioner/*.go
+	go build -mod=vendor -o $(PKGPATH)/rahub cmd/rahub/*.go
+
 
 clean:
-	@rm -rf pkg
+	@rm -rf $(PKGPATH)
 
 install: build
 	sudo mkdir -p $(DESTDIR)$(ETCTAR)/rac $(DESTDIR)$(ETCTAR)/rahub $(DESTDIR)$(ETCTAR)/auth_file $(DESTDIR)$(SHARETAR)/rac $(DESTDIR)$(DOCTAR)/rac $(DESTDIR)$(DOCTAR)/rahub $(DESTDIR)$(BINTAR)
@@ -52,4 +55,4 @@ check:
 gofmt:
 	gofmt -s -w *
 
-.PHONY: all build test clean install uninstall check
+.PHONY: all test build clean install check gofmt

@@ -1,119 +1,130 @@
 package cache
 
 import (
-	"sort"
-	"strconv"
 	"testing"
 	"time"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/config/test"
-	"github.com/stretchr/testify/assert"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 )
 
-func TestCacheCommand(t *testing.T) {
-	c := &Cache{command: 0}
+var testCases1 = []time.Duration{time.Second, time.Second * 3, time.Millisecond * 10}
 
-	c.SetCMDSendConfigure()
-	if (c.command & CMDSENDCONF) != CMDSENDCONF {
-		t.Errorf("test cache command error at send configure\n")
-	}
-
-	c.ClearCommands()
-
-	c.SetCMDGetTrustReport()
-	if (c.command & CMDGETREPORT) != CMDGETREPORT {
-		t.Errorf("test cache command error at get trust report\n")
-	}
-}
-
-func TestCacheUpdate(t *testing.T) {
-	test.CreateServerConfigFile()
-	defer test.RemoveConfigFile()
-	cfg := config.GetDefault(config.ConfServer)
-	c := &Cache{
-		command:         0,
-		hbExpiration:    time.Now(),
-		trustExpiration: time.Now(),
-	}
-	testCases1 := []struct {
-		inputHB time.Duration
-		inputT  time.Duration
-		result  bool
-		cmd     uint64
-	}{
-		{10 * time.Second, 20 * time.Second, false, 0},
-		{2000000, 20 * time.Second, false, 0},
-		{10, 20, true, CMDGETREPORT}, // default nano-second unit.
-	}
+func TestHeartBeat(t *testing.T) {
 	for i := 0; i < len(testCases1); i++ {
-		c.ClearCommands()
-		cfg.SetTrustDuration(testCases1[i].inputT)
-		c.UpdateTrustReport()
-		cfg.SetHBDuration(testCases1[i].inputHB)
-		c.UpdateHeartBeat()
-		if c.IsHeartBeatExpired() != testCases1[i].result {
-			t.Errorf("test cache update error at case %d, expiration wrong\n", i)
+		c := NewCache()
+		c.UpdateHeartBeat(testCases1[i])
+		if !c.online {
+			t.Errorf("test UpdateHeartBeat error at case %d\n", i)
 		}
-		if c.command != testCases1[i].cmd {
-			t.Errorf("test cache update error at case %d, command wrong\n", i)
+		time.Sleep(testCases1[i] / 2)
+		b1 := c.IsHeartBeatExpired()
+		time.Sleep(testCases1[i])
+		b2 := c.IsHeartBeatExpired()
+		if b1 || !b2 {
+			t.Errorf("test IsHeartBeatExpired error at case %d\n", i)
 		}
 	}
 }
 
-func TestCacheTrust(t *testing.T) {
-	cfg := config.GetDefault(config.ConfServer)
-	c := &Cache{
-		command:         0,
-		hbExpiration:    time.Now(),
-		trustExpiration: time.Now(),
-	}
-	testCases1 := []struct {
-		inputT     time.Duration
-		inputDelay time.Duration
-		result     bool
-		cmd        uint64
-	}{
-		{time.Second, time.Second, false, CMDGETREPORT},
-		{2 * time.Second, time.Second, true, CMDGETREPORT},
-		{3 * time.Second, time.Second, true, 0},
-	}
+func TestUpdateTrustReport(t *testing.T) {
 	for i := 0; i < len(testCases1); i++ {
-		c.ClearCommands()
-		cfg.SetTrustDuration(testCases1[i].inputT)
-		c.UpdateTrustReport()
-		time.Sleep(testCases1[i].inputDelay)
-		if c.IsReportValid() != testCases1[i].result {
-			t.Errorf("test cache trust error at case %d, expiration wrong\n", i)
+		c := NewCache()
+		c.UpdateTrustReport(testCases1[i])
+		if c.GetTrustExpiration().Sub(time.Now().Add(testCases1[i])) > time.Microsecond {
+			t.Errorf("test UpdateTrustReport error at case %d\n", i)
 		}
-		if c.command != testCases1[i].cmd {
-			t.Errorf("test cache trust error at case %d, command wrong\n", i)
+	}
+}
+
+func TestOnline(t *testing.T) {
+	for i := 0; i < len(testCases1); i++ {
+		c := NewCache()
+		o1 := c.GetOnline()
+		c.UpdateOnline(testCases1[i])
+		o2 := c.GetOnline()
+		if c.onlineExpiration.Sub(time.Now().Add(testCases1[i])) > time.Microsecond {
+			t.Errorf("test UpdateOnline error at case %d\n", i)
+		}
+		time.Sleep(testCases1[i] * 2)
+		o3 := c.GetOnline()
+
+		if o1 || !o2 || o3 {
+			t.Errorf("test GetOnline error at case %d\n", i)
+		}
+	}
+}
+
+func TestCommands(t *testing.T) {
+	testCases2 := []uint64{typdefs.CmdGetReport, typdefs.CmdSendConfig}
+	for i := 0; i < len(testCases2); i++ {
+		c := NewCache()
+		o1 := c.HasCommands()
+		c.SetCommands(testCases2[i])
+		o2 := c.HasCommands()
+		if c.GetCommands() != testCases2[i] {
+			t.Errorf("test SetCommands and GetCommands error at case %d\n", i)
+		}
+		c.ClearCommands()
+		o3 := c.HasCommands()
+		if o1 || !o2 || o3 {
+			t.Errorf("test ClearCommands and HasCommands error at case %d\n", i)
+		}
+	}
+}
+
+func TestTrusted(t *testing.T) {
+	testCases2 := []bool{true, false}
+	for i := 0; i < len(testCases2); i++ {
+		c := NewCache()
+		c.trustExpiration = time.Now().Add(time.Second)
+		c.SetTrusted(testCases2[i])
+		if c.GetTrusted() != testCases2[i] {
+			t.Errorf("test Trusted error at case %d\n", i)
 		}
 	}
 }
 
 func TestNonce(t *testing.T) {
-	c := &Cache{}
-	for i := 0; i < 10; i++ {
-		nonce, err := c.CreateNonce()
-		if err != nil {
-			t.FailNow()
-		}
-		t.Log(len(strconv.FormatUint(nonce, 2)))
+	c := NewCache()
+	n := c.GetNonce()
+	c.nonce = n
+	if !c.CompareNonce(n) {
+		t.Errorf("test Nonce error")
 	}
-
 }
 
-func TestGetAllClientIDs(t *testing.T) {
-	oids := []int64{1, 2, 3}
-	cs := map[int64]*Cache{}
-	for _, id := range oids {
-		cs[id] = &Cache{cid: id}
+func TestIKeyCert(t *testing.T) {
+	testCases2 := []string{"abcdef12345", "123#$%^&*()!@#", "zxcdfeaonasdfasdf"}
+	for i := 0; i < len(testCases2); i++ {
+		c := NewCache()
+		c.SetIKeyCert(testCases2[i])
+		got := c.GetIKeyCert()
+		want, _, _ := cryptotools.DecodeKeyCertFromPEM([]byte(testCases2[i]))
+		if got != want {
+			t.Errorf("test IKeyCert error at case %d\n", i)
+		}
 	}
-	cm := CacheMgr{
-		caches: cs,
+}
+
+func TestRegTime(t *testing.T) {
+	testCases2 := []string{"abcdef12345", "123#$%^&*()!@#", "zxcdfeaonasdfasdf"}
+	for i := 0; i < len(testCases1); i++ {
+		c := NewCache()
+		c.SetRegTime(testCases2[i])
+		if c.GetRegTime() != testCases2[i] {
+			t.Errorf("test RegTime error at case %d\n", i)
+		}
 	}
-	ids := cm.GetAllClientID()
-	sort.SliceStable(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	assert.Equal(t, oids, ids)
+}
+
+func TestIsAutoUpdate(t *testing.T) {
+	testCases2 := []bool{true, false}
+	for i := 0; i < len(testCases2); i++ {
+		c := NewCache()
+		c.SetIsAutoUpdate(testCases2[i])
+		if c.GetIsAutoUpdate() != testCases2[i] {
+			t.Errorf("test IsAutoUpdate error at case %d\n", i)
+		}
+	}
 }

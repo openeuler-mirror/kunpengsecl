@@ -1,5 +1,5 @@
 log:
-  path: "./rac-log.txt"
+  path: ./rac-log.txt
 racconfig:
   clientid: -1
   digestalgorithm: sha1
@@ -7,5 +7,6 @@ racconfig:
   hbduration: 5s
   ikcerttest: ""
   password: ""
+  seed: -1
   server: 127.0.0.1:40001
   trustduration: 2m0s
