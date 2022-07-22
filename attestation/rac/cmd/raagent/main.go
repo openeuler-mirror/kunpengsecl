@@ -95,7 +95,7 @@ func prepare() {
 			logger.L.Debug("load EK certificate success")
 		}
 	}
-	if GetEKeyCert() == nil {
+	if GetEKeyCert() == nil || len(GetEKeyCert()) == 0 {
 		generateEKeyCert(ras)
 	}
 
@@ -104,7 +104,7 @@ func prepare() {
 	if err != nil {
 		logger.L.Sugar().Errorf("generate IK  failed, %s", err)
 	}
-	if GetIKeyCert() == nil {
+	if GetIKeyCert() == nil || len(GetIKeyCert()) == 0 {
 		generateIKeyCert(ras)
 	}
 	logger.L.Debug("load IK certificate success")
@@ -211,7 +211,7 @@ func LoadEKeyCert() error {
 // to sign it, after that saves it into config.
 func generateIKeyCert(ras *clientapi.RasConn) {
 	ikCert := GetIKeyCert()
-	if ikCert != nil {
+	if ikCert != nil && len(GetIKeyCert()) != 0 {
 		return
 	}
 	ikPubDer, err := x509.MarshalPKIXPublicKey(ractools.GetIKPub())

@@ -586,6 +586,8 @@ func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {
 				buf.WriteString(fmt.Sprintf(" sha1 %02d\n", pcr))
 			case tpm2.AlgSHA256:
 				buf.WriteString(fmt.Sprintf(" sha256 %02d\n", pcr))
+			case AlgSM3:
+				buf.WriteString(fmt.Sprintf(" sm3 %02d\n", pcr))
 			}
 		}
 	}
