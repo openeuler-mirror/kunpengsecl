@@ -400,12 +400,16 @@ func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 type cfgRecord struct {
 	HBDuration    time.Duration `json:"hbduration" form:"hbduration"`
 	TrustDuration time.Duration `json:"trustduration" form:"trustduration"`
+	IsAllupdate   bool          `json:"isallupdate" form:"true"`
+	LogTeseMode   bool          `json:"logtestmode" form:"true"`
 }
 
 func genConfigJson() *cfgRecord {
 	return &cfgRecord{
 		HBDuration:    config.GetHBDuration() / time.Second,
 		TrustDuration: config.GetTrustDuration() / time.Second,
+		IsAllupdate:   config.GetIsAllUpdate(),
+		LogTeseMode:   config.GetLoggerMode(),
 	}
 }
 
@@ -436,9 +440,9 @@ func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 // (POST /config)
 // modify ras server configuration
 //  write config as html/form
-//    curl -X POST -d "hbduration=20" -d "trustduration=30" http://localhost:40002/config
+//    curl -X POST -d "hbduration=20" -d "trustduration=30"  -d"isallupdate=true" http://localhost:40002/config
 //  write config as json
-//    curl -X POST -H "Content-type: application/json" -d '{"hbduration": 100, "trustduration": 200}' http://localhost:40002/config
+//    curl -X POST -H "Content-type: application/json" -d '{"hbduration": 100, "trustduration": 200, "isallupdate": true}' http://localhost:40002/config
 // Notice: key name must be enclosed by "" in json format!!!
 func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	cfg := new(cfgRecord)
@@ -449,6 +453,8 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	}
 	config.SetHBDuration(cfg.HBDuration * time.Second)
 	config.SetTrustDuration(cfg.TrustDuration * time.Second)
+	config.SetIsAllUpdate(cfg.IsAllupdate)
+	config.SetLoggerMode(cfg.LogTeseMode)
 	trustmgr.UpdateAllNodes()
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson())

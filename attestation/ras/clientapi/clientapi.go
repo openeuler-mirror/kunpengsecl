@@ -196,13 +196,17 @@ func (s *rasService) GenerateIKCert(ctx context.Context, in *GenerateIKCertReque
 // RegisterClient registers a new client by IK certificate and its client information string.
 func (s *rasService) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
 	//logger.L.Debug("get RegisterClient request")
+	registered := false
+	if config.GetMgrStrategy() == config.AutoStrategy {
+		registered = true
+	}
 	ikDer := in.GetCert()
 	ikPem, err := cryptotools.EncodeKeyCertToPEM(ikDer)
 	if err != nil {
 		logger.L.Sugar().Errorf("encode IK Cert to PEM fail, %v", err)
 		return &RegisterClientReply{ClientId: -1}, err
 	}
-	client, err := trustmgr.RegisterClientByIK(string(ikPem), in.GetClientInfo())
+	client, err := trustmgr.RegisterClientByIK(string(ikPem), in.GetClientInfo(), registered)
 	if err != nil {
 		logger.L.Sugar().Errorf("register client fail, %v", err)
 		return &RegisterClientReply{ClientId: -1}, err

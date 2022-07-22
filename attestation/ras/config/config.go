@@ -76,6 +76,9 @@ const (
 	confHbDuration      = "racconfig.hbduration"
 	confTrustDuration   = "racconfig.trustduration"
 	confDigestAlgorithm = "racconfig.digestalgorithm"
+	confMgrStrategy     = "rasconfig.mgrstrategy"
+	confChangeTime      = "rasconfig.changetime"
+	confExtRules        = "rasconfig.basevalue-extract-rules"
 	// RAS config default value
 	nullString      = ""
 	rasLogFile      = "./logs/ras-log.txt"
@@ -120,11 +123,9 @@ const (
 	sflagVerbose = "v"
 	helpVerbose  = "show running debug information"
 	//mgr strategy
-	mgrStrategy        = "rasconfig.mgrstrategy"
 	AutoStrategy       = "auto"
 	AutoUpdateStrategy = "auto-update"
-	changeTime         = "rasconfig.changetime"
-	extRules           = "rasconfig.basevalue-extract-rules"
+	ManualStrategy     = "manual"
 )
 
 type (
@@ -156,6 +157,7 @@ type (
 		authKeyFile     string
 		changeTime      time.Time
 		mgrStrategy     string
+		isallupdate     bool
 		extractRules    typdefs.ExtractRules
 		onlineDuration  time.Duration
 		// rac configuration
@@ -248,9 +250,9 @@ func getConfigs() {
 	rasCfg.onlineDuration = viper.GetDuration(confOnlineDuration)
 	rasCfg.trustDuration = viper.GetDuration(confTrustDuration)
 	rasCfg.digestAlgorithm = viper.GetString(confDigestAlgorithm)
-	rasCfg.mgrStrategy = viper.GetString(mgrStrategy)
+	rasCfg.mgrStrategy = viper.GetString(confMgrStrategy)
 	var ers typdefs.ExtractRules
-	if viper.UnmarshalKey(extRules, &ers) == nil {
+	if viper.UnmarshalKey(confExtRules, &ers) == nil {
 		rasCfg.extractRules = ers
 	} else {
 		rasCfg.extractRules = typdefs.ExtractRules{}
@@ -428,6 +430,8 @@ func LoadConfigs() {
 		hbDuration:      hbDuration,
 		trustDuration:   trustDuration,
 		digestAlgorithm: digestAlgorithm,
+		// default ras configure
+		isallupdate: false,
 	}
 	// set config.yaml loading name and path
 	viper.SetConfigName(confName)
@@ -470,6 +474,7 @@ func SaveConfigs() {
 	viper.Set(confOnlineDuration, rasCfg.onlineDuration)
 	viper.Set(confTrustDuration, rasCfg.trustDuration)
 	viper.Set(confDigestAlgorithm, rasCfg.digestAlgorithm)
+	viper.Set(confMgrStrategy, rasCfg.mgrStrategy)
 	err := viper.WriteConfig()
 	if err != nil {
 		_ = viper.SafeWriteConfig()
@@ -590,6 +595,38 @@ func SetServerPort(s string) {
 		return
 	}
 	rasCfg.servPort = s
+}
+
+// SetMgrStrategy sets the ras mgrStrategy configuration.
+func SetMgrStrategy(s string) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.mgrStrategy = s
+}
+
+// GetMgrStrategy returns the ras mgrStrategy configuration.
+func GetMgrStrategy() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.mgrStrategy
+}
+
+// SetIsAllUpdate sets the ras isallupdate configuration.
+func SetIsAllUpdate(b bool) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.isallupdate = b
+}
+
+// SetIsAllUpdate sets the ras isallupdate configuration.
+func GetIsAllUpdate() bool {
+	if rasCfg == nil {
+		return false
+	}
+	return rasCfg.isallupdate
 }
 
 // GetHttpsSwitch returns the ras restful api interface protocol(http or https) configuration.
@@ -752,4 +789,38 @@ func GetDigestAlgorithm() string {
 		return ""
 	}
 	return rasCfg.digestAlgorithm
+}
+
+func SetDigestAlgorithm(s string) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.digestAlgorithm = s
+}
+
+func SetLoggerMode(testMode bool) {
+	logF := GetLogFile()
+	logD := filepath.Dir(logF)
+	if logF == nullString {
+		logF = rasLogFile
+		logD = filepath.Dir(logF)
+	}
+	err := os.MkdirAll(logD, defaultMode)
+	if err != nil {
+		fmt.Printf("mkdir '%s' error: %v\n", logD, err)
+	}
+	*verboseFlag = testMode
+	if testMode {
+		logger.L = logger.NewDebugLogger(logF)
+	} else {
+		logger.L = logger.NewInfoLogger(logF)
+	}
+	rasCfg.logFile = logF
+}
+
+func GetLoggerMode() bool {
+	if rasCfg == nil {
+		return false
+	}
+	return *verboseFlag
 }
