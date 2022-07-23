@@ -189,6 +189,7 @@ var (
 	ErrNonceNotMatch     = errors.New("report nonce not match")
 	ErrPCRNotMatch       = errors.New("report pcr not match")
 	ErrNotSupportAlg     = errors.New("algorithm is not supported")
+	ErrNotMatchAlg       = errors.New("algorithms in ima mesurement and ras don't match")
 
 	SupportAlgAndLenMap = map[string]int{
 		Sha1AlgStr:   Sha1DigestLen,
@@ -223,7 +224,7 @@ type (
 		ID           int64  `json:"id" form:"id"`
 		RegTime      string `json:"regtime" form:"regtime"`
 		Online       bool   `json:"online" form:"online"`
-		IPAddress	 string `json:"ipaddress" form:"ipaddress"`
+		IPAddress    string `json:"ipaddress" form:"ipaddress"`
 		Trusted      bool   `json:"trusted" form:"trusted"`
 		IsAutoUpdate bool   `json:"isautoupdate" form:"isautoupdate"`
 	}
@@ -845,7 +846,18 @@ func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte, algStr string) (bool, e
 	if len(ws) != ImaLogItemNum {
 		return false, ErrImaLogFormatWrong
 	}
-	if !bytes.Equal(ws[3], []byte(aggr)) {
+	aggrNameAndHash := bytes.Split(ws[3], Colon)
+	var sAggr []byte
+	if len(aggrNameAndHash) > 1 {
+		sAlgName := aggrNameAndHash[0]
+		if string(sAlgName) != algStr {
+			return false, ErrNotMatchAlg
+		}
+		sAggr = aggrNameAndHash[1]
+	} else {
+		sAggr = aggrNameAndHash[0]
+	}
+	if !bytes.Equal(sAggr, []byte(aggr)) {
 		return false, ErrBiosAggregateFail
 	}
 	for _, line := range lines {
