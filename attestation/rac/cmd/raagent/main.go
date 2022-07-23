@@ -46,7 +46,7 @@ func main() {
 	signalHandler()
 
 	logger.L.Debug("open tpm...")
-	tpmConf := createTPMConfig(GetTestMode())
+	tpmConf := createTPMConfig(GetTestMode(), GetImaLogPath(), GetBiosLogPath(), GetDigestAlgorithm())
 	if GetTestMode() && GetSeed() == -1 {
 		random, err0 := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 		if err0 != nil {
@@ -154,17 +154,17 @@ func loop() {
 	}
 }
 
-func createTPMConfig(testMode bool) *ractools.TPMConfig {
+func createTPMConfig(testMode bool, imaLogPath, biosLogPath string, hashAlg string) *ractools.TPMConfig {
 	tpmConf := ractools.TPMConfig{}
 	if testMode {
-		tpmConf.IMALogPath = ractools.TestImaLogPath
-		tpmConf.BIOSLogPath = ractools.TestBiosLogPath
-		tpmConf.ReportHashAlg = typdefs.Sha1AlgStr
+		tpmConf.IMALogPath = imaLogPath
+		tpmConf.BIOSLogPath = biosLogPath
+		tpmConf.ReportHashAlg = hashAlg
 		tpmConf.SeedPath = ractools.TestSeedPath
 	} else {
 		tpmConf.IMALogPath = ractools.ImaLogPath
 		tpmConf.BIOSLogPath = ractools.BiosLogPath
-		tpmConf.ReportHashAlg = typdefs.Sha1AlgStr
+		tpmConf.ReportHashAlg = hashAlg
 	}
 	return &tpmConf
 }

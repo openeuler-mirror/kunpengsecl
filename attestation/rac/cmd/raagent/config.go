@@ -59,6 +59,8 @@ const (
 	defaultTestMode    = false
 	defaultVerboseMode = false
 	defaultDigestAlg   = "sha1"
+	defaultImaLog      = "./ascii_runtime_measurements"
+	defaultBiosLog     = "./binary_bios_measurements"
 	// ras server listen ip:port
 	lflagServer = "server"
 	sflagServer = "s"
@@ -79,6 +81,14 @@ const (
 	//lflagAlg = "algorithm"
 	//sflagAlg = "a"
 	//helpAlg  = "input sha1 sha256 or sm3"
+	// ima log path for testing mode
+	lflagIma = "imalog"
+	sflagIma = "i"
+	helpIma  = "input ima log path"
+	// digest alg output
+	lflagBios = "bioslog"
+	sflagBios = "b"
+	helpBios  = "input bios log path"
 )
 
 type (
@@ -118,6 +128,8 @@ var (
 	versionFlag *bool   = nil
 	verboseFlag *bool   = nil
 	//algDigest   *string = nil
+	imaLogPath  *string = nil
+	biosLogPath *string = nil
 )
 
 // initFlags inits the raagent whole command flags.
@@ -127,6 +139,8 @@ func initFlags() {
 	versionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
 	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, defaultVerboseMode, helpVerbose)
 	//algDigest = pflag.StringP(lflagAlg, sflagAlg, defaultDigestAlg, helpAlg)
+	imaLogPath = pflag.StringP(lflagIma, sflagIma, defaultImaLog, helpIma)
+	biosLogPath = pflag.StringP(lflagBios, sflagBios, defaultBiosLog, helpBios)
 	pflag.Parse()
 }
 
@@ -165,6 +179,7 @@ func handleFlags() {
 		SetTestMode(*testMode)
 		getEKCertTest()
 		getIKCertTest()
+
 	} else {
 		// for TPM hardware, only load IK/IC
 		getEKCert()
@@ -454,10 +469,32 @@ func SetDigestAlgorithm(algorithm string) {
 
 // GetSeed returns the tpm-simulator seed configuration.
 func GetSeed() int64 {
+	if racCfg == nil {
+		return 0
+	}
 	return racCfg.seed
 }
 
 // SetSeed sets the tpm-simulator seed configuration.
 func SetSeed(seed int64) {
+	if racCfg == nil {
+		return
+	}
 	racCfg.seed = seed
+}
+
+// GetImaLogPath gets the ima log path configuration for testing mode.
+func GetImaLogPath() string {
+	if imaLogPath == nil {
+		return ""
+	}
+	return *imaLogPath
+}
+
+// GetBiosLogPath gets the bios log path configuration for testing mode.
+func GetBiosLogPath() string {
+	if biosLogPath == nil {
+		return ""
+	}
+	return *biosLogPath
 }
