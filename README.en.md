@@ -6,7 +6,7 @@ This project develops basic security software components running on Kunpeng proc
 #### Software architecture
 Software architecture description
 
-![kunpengsecl arch](https://gitee.com/openeuler/G11N/raw/master/learning-materials/open-source-basics/images/%E6%8D%95%E8%8E%B7.PNG)
+![kunpengsecl arch](doc/RA-arch-1-en.png)
 
 #### Getting Started
 
