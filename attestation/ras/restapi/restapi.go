@@ -48,8 +48,10 @@ package restapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -396,21 +398,46 @@ func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 
 // TODO: add more parameters in this struct to export to outside control.
 type cfgRecord struct {
-	HBDuration    time.Duration `json:"hbduration" form:"hbduration"`
-	TrustDuration time.Duration `json:"trustduration" form:"trustduration"`
-	IsAllupdate   bool          `json:"isallupdate" form:"true"`
-	LogTeseMode   bool          `json:"logtestmode" form:"true"`
+	HBDuration      time.Duration `json:"hbduration" form:"hbduration"`
+	TrustDuration   time.Duration `json:"trustduration" form:"trustduration"`
+	IsAllupdate     bool          `json:"isallupdate" form:"true"`
+	LogTeseMode     bool          `json:"logtestmode" form:"true"`
+	DBHost          string
+	DBName          string
+	DBPassword      string
+	DBPort          int
+	DBUser          string
+	DigestAlgorithm string
+	MgrStrategy     string
+	ExtractRules    string
 }
 
 func genConfigJson() *cfgRecord {
 	return &cfgRecord{
-		HBDuration:    config.GetHBDuration() / time.Second,
-		TrustDuration: config.GetTrustDuration() / time.Second,
-		IsAllupdate:   config.GetIsAllUpdate(),
-		LogTeseMode:   config.GetLoggerMode(),
+		HBDuration:      config.GetHBDuration() / time.Second,
+		TrustDuration:   config.GetTrustDuration() / time.Second,
+		IsAllupdate:     config.GetIsAllUpdate(),
+		LogTeseMode:     config.GetLoggerMode(),
+		DBHost:          config.GetDBHost(),
+		DBName:          config.GetDBName(),
+		DBPassword:      config.GetDBPassword(),
+		DBPort:          config.GetDBPort(),
+		DBUser:          config.GetDBUser(),
+		DigestAlgorithm: config.GetDigestAlgorithm(),
+		MgrStrategy:     config.GetMgrStrategy(),
+		ExtractRules:    getExtractRules(),
 	}
 }
 
+func getExtractRules() string {
+	e := config.GetExtractRules()
+	res, err := json.Marshal(e)
+	if err != nil {
+		log.Print("Unmarshal struct to string failed.")
+		return ""
+	}
+	return string(res)
+}
 func genConfigHtml() string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlConfig)
@@ -453,6 +480,14 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	config.SetTrustDuration(cfg.TrustDuration * time.Second)
 	config.SetIsAllUpdate(cfg.IsAllupdate)
 	config.SetLoggerMode(cfg.LogTeseMode)
+	config.SetDBHost(cfg.DBHost)
+	config.SetDBName(cfg.DBName)
+	config.SetDBPassword(cfg.DBPassword)
+	config.SetDBPort(cfg.DBPort)
+	config.SetDBUser(cfg.DBUser)
+	config.SetDigestAlgorithm(cfg.DigestAlgorithm)
+	config.SetMgrStrategy(cfg.MgrStrategy)
+	config.SetExtractRules(cfg.ExtractRules)
 	trustmgr.UpdateAllNodes()
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson())
@@ -833,7 +868,7 @@ func (s *MyRestAPIServer) GetIdContainerStatus(ctx echo.Context, cid int64) erro
 			continue
 		}
 		var status string
-		if rows[i].Verified {
+		if !rows[i].Verified {
 			status = strUnknown
 		} else {
 			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) { //验证过并且未超时
@@ -862,7 +897,7 @@ func (s *MyRestAPIServer) GetIdDeviceStatus(ctx echo.Context, cid int64) error {
 			continue
 		}
 		var status string
-		if rows[i].Verified {
+		if !rows[i].Verified {
 			status = strUnknown
 		} else {
 			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) {
@@ -964,7 +999,7 @@ func (s *MyRestAPIServer) GetUuidStatus(ctx echo.Context, uuid string) error {
 	if !find {
 		ans = strNotFound
 	}
-	if row.Verified {
+	if !row.Verified {
 		ans = strUnknown
 	} else {
 		if row.Trusted {
