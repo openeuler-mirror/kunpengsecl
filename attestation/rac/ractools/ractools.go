@@ -649,3 +649,94 @@ func GetTrustReport(clientID int64, nonce uint64, algStr string) (*typdefs.Trust
 	}
 	return &report, nil
 }
+
+func getManifest(imaPath, biosPath string) ([]typdefs.Manifest, error) {
+	var manifest []typdefs.Manifest
+	f, err := ioutil.ReadFile(imaPath)
+	if err == nil {
+		manifest = append(manifest, typdefs.Manifest{Key: "ima", Value: f})
+	}
+
+	f, err = ioutil.ReadFile(biosPath)
+	if err == nil {
+		manifest = append(manifest, typdefs.Manifest{Key: "bios", Value: f})
+	}
+
+	return manifest, err
+}
+
+// PreparePCRsTest method replay the bios/ima manifests into pcrs in test mode.
+func PreparePCRsTest() error {
+	if tpmRef.useHW {
+		return nil
+	}
+	pcrs := typdefs.NewPcrGroups()
+	// read the manifest files into memory
+	manifest, err := getManifest(tpmRef.config.IMALogPath, tpmRef.config.BIOSLogPath)
+	if err != nil {
+		return err
+	}
+
+	// replay bios manifest
+	biosContent := getManifestContent(manifest, typdefs.StrBios)
+	if biosContent != nil {
+		replayBIOSManifestTest(pcrs, biosContent)
+	}
+	// replay ima manifest
+	imaContent := getManifestContent(manifest, typdefs.StrIma)
+	if imaContent != nil {
+		replayIMAManifestTest(pcrs, imaContent)
+	}
+
+	return nil
+}
+
+func getManifestContent(ms []typdefs.Manifest, t string) []byte {
+	for _, m := range ms {
+		if m.Key == t {
+			return m.Value
+		}
+	}
+	return nil
+}
+
+func replayBIOSManifestTest(pcrs *typdefs.PcrGroups, content []byte) error {
+	//use bios manifest to replay pcrs
+	btLog, _ := typdefs.TransformBIOSBinLogToTxt(content)
+	typdefs.ExtendPCRWithBIOSTxtLog(pcrs, btLog)
+	algID := algIdMap[tpmRef.config.ReportHashAlg]
+	var v [24][]byte
+	switch tpmRef.config.ReportHashAlg {
+	case typdefs.Sha1AlgStr:
+		v = pcrs.Sha1Pcrs
+	case typdefs.Sha256AlgStr:
+		v = pcrs.Sha256Pcrs
+	case typdefs.Sm3AlgStr:
+		v = pcrs.SM3Pcrs
+	}
+	for i := 0; i < typdefs.PcrMaxNum; i++ {
+		tpm2.PCRExtend(tpmRef.dev, tpmutil.Handle(i), algID, v[i], emptyPassword)
+	}
+
+	return nil
+}
+
+func replayIMAManifestTest(pcrs *typdefs.PcrGroups, content []byte) error {
+	//use ima manifest to replay pcrs
+	typdefs.ExtendPCRWithIMALog(pcrs, content, tpmRef.config.ReportHashAlg)
+	algID := algIdMap[tpmRef.config.ReportHashAlg]
+	var v [24][]byte
+	switch tpmRef.config.ReportHashAlg {
+	case typdefs.Sha1AlgStr:
+		v = pcrs.Sha1Pcrs
+	case typdefs.Sha256AlgStr:
+		v = pcrs.Sha256Pcrs
+	case typdefs.Sm3AlgStr:
+		v = pcrs.SM3Pcrs
+	}
+	for i := 0; i < typdefs.PcrMaxNum; i++ {
+		tpm2.PCRExtend(tpmRef.dev, tpmutil.Handle(i), algID, v[i], emptyPassword)
+	}
+
+	return nil
+}
