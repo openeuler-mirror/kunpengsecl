@@ -355,6 +355,8 @@ func (pcrs *PcrGroups) ExtendIMANGLog(index int, value, name []byte, algStr stri
 	}
 	var h hash.Hash
 	switch algStr {
+	case Sha1AlgStr:
+		h = pcrs.Sha1Hash[index]
 	case Sha256AlgStr:
 		h = pcrs.Sha256Hash[index]
 	case Sm3AlgStr:
@@ -379,6 +381,8 @@ func (pcrs *PcrGroups) ExtendIMANGLog(index int, value, name []byte, algStr stri
 	h.Write(name)
 	h.Write([]byte{0})
 	switch algStr {
+	case Sha1AlgStr:
+		pcrs.Sha1Pcrs[index] = h.Sum(nil)
 	case Sha256AlgStr:
 		pcrs.Sha256Pcrs[index] = h.Sum(nil)
 	case Sm3AlgStr:
