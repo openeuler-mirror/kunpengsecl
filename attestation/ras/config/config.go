@@ -22,7 +22,9 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"net"
 	"os"
@@ -823,4 +825,15 @@ func GetLoggerMode() bool {
 		return false
 	}
 	return *verboseFlag
+}
+
+func SetExtractRules(val string) {
+	byteER := []byte(val)
+	var extractRules typdefs.ExtractRules
+	err := json.Unmarshal(byteER, &extractRules)
+	if err != nil {
+		log.Print("Unmarshal byte to struct failed.")
+		return
+	}
+	rasCfg.extractRules = extractRules
 }

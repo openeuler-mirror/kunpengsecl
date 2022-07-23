@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -27,13 +28,16 @@ const (
 
 // BaseValueInfo defines model for BaseValueInfo.
 type BaseValueInfo struct {
+	Basetype   string `json:"basetype"`
 	Bios       string `json:"bios"`
+	Clientid   int64  `json:"clientid"`
 	Createtime string `json:"createtime"`
 	Enabled    bool   `json:"enabled"`
 	Id         int64  `json:"id"`
 	Ima        string `json:"ima"`
 	Name       string `json:"name"`
 	Pcr        string `json:"pcr"`
+	Uuid       string `json:"uuid"`
 }
 
 // ReportInfo defines model for ReportInfo.
@@ -51,12 +55,19 @@ type ReportInfo struct {
 
 // ServerInfo defines model for ServerInfo.
 type ServerInfo struct {
-	Id      int64  `json:"id"`
-	Info    string `json:"info"`
-	Online  bool   `json:"online"`
-	Regtime string `json:"regtime"`
-	Trusted bool   `json:"trusted"`
+	Id           int64  `json:"id"`
+	Info         string `json:"info"`
+	Isautoupdate bool   `json:"isautoupdate"`
+	Online       bool   `json:"online"`
+	Regtime      string `json:"regtime"`
+	Trusted      bool   `json:"trusted"`
 }
+
+// PostUuidBasevalueJSONBody defines parameters for PostUuidBasevalue.
+type PostUuidBasevalueJSONBody BaseValueInfo
+
+// PostUuidBasevalueJSONRequestBody defines body for PostUuidBasevalue for application/json ContentType.
+type PostUuidBasevalueJSONRequestBody PostUuidBasevalueJSONBody
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -170,6 +181,12 @@ type ClientInterface interface {
 	// PostIdBasevaluesBasevalueid request
 	PostIdBasevaluesBasevalueid(ctx context.Context, id int64, basevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetIdContainerStatus request
+	GetIdContainerStatus(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIdDeviceStatus request
+	GetIdDeviceStatus(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetIdNewbasevalue request
 	GetIdNewbasevalue(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -184,6 +201,17 @@ type ClientInterface interface {
 
 	// GetIdReportsReportid request
 	GetIdReportsReportid(ctx context.Context, id int64, reportid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUuidBasevalue request
+	GetUuidBasevalue(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostUuidBasevalue request  with any body
+	PostUuidBasevalueWithBody(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostUuidBasevalue(ctx context.Context, uuid string, body PostUuidBasevalueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUuidStatus request
+	GetUuidStatus(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) Get(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -342,6 +370,30 @@ func (c *Client) PostIdBasevaluesBasevalueid(ctx context.Context, id int64, base
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetIdContainerStatus(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIdContainerStatusRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIdDeviceStatus(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIdDeviceStatusRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetIdNewbasevalue(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetIdNewbasevalueRequest(c.Server, id)
 	if err != nil {
@@ -392,6 +444,54 @@ func (c *Client) DeleteIdReportsReportid(ctx context.Context, id int64, reportid
 
 func (c *Client) GetIdReportsReportid(ctx context.Context, id int64, reportid int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetIdReportsReportidRequest(c.Server, id, reportid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUuidBasevalue(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUuidBasevalueRequest(c.Server, uuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUuidBasevalueWithBody(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUuidBasevalueRequestWithBody(c.Server, uuid, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUuidBasevalue(ctx context.Context, uuid string, body PostUuidBasevalueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUuidBasevalueRequest(c.Server, uuid, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUuidStatus(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUuidStatusRequest(c.Server, uuid)
 	if err != nil {
 		return nil, err
 	}
@@ -837,6 +937,74 @@ func NewPostIdBasevaluesBasevalueidRequest(server string, id int64, basevalueid 
 	return req, nil
 }
 
+// NewGetIdContainerStatusRequest generates requests for GetIdContainerStatus
+func NewGetIdContainerStatusRequest(server string, id int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/container/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIdDeviceStatusRequest generates requests for GetIdDeviceStatus
+func NewGetIdDeviceStatusRequest(server string, id int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/device/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetIdNewbasevalueRequest generates requests for GetIdNewbasevalue
 func NewGetIdNewbasevalueRequest(server string, id int64) (*http.Request, error) {
 	var err error
@@ -1021,6 +1189,121 @@ func NewGetIdReportsReportidRequest(server string, id int64, reportid int64) (*h
 	return req, nil
 }
 
+// NewGetUuidBasevalueRequest generates requests for GetUuidBasevalue
+func NewGetUuidBasevalueRequest(server string, uuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uuid", runtime.ParamLocationPath, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/basevalue", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostUuidBasevalueRequest calls the generic PostUuidBasevalue builder with application/json body
+func NewPostUuidBasevalueRequest(server string, uuid string, body PostUuidBasevalueJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostUuidBasevalueRequestWithBody(server, uuid, "application/json", bodyReader)
+}
+
+// NewPostUuidBasevalueRequestWithBody generates requests for PostUuidBasevalue with any type of body
+func NewPostUuidBasevalueRequestWithBody(server string, uuid string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uuid", runtime.ParamLocationPath, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/basevalue", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetUuidStatusRequest generates requests for GetUuidStatus
+func NewGetUuidStatusRequest(server string, uuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uuid", runtime.ParamLocationPath, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1103,6 +1386,12 @@ type ClientWithResponsesInterface interface {
 	// PostIdBasevaluesBasevalueid request
 	PostIdBasevaluesBasevalueidWithResponse(ctx context.Context, id int64, basevalueid int64, reqEditors ...RequestEditorFn) (*PostIdBasevaluesBasevalueidResponse, error)
 
+	// GetIdContainerStatus request
+	GetIdContainerStatusWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdContainerStatusResponse, error)
+
+	// GetIdDeviceStatus request
+	GetIdDeviceStatusWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdDeviceStatusResponse, error)
+
 	// GetIdNewbasevalue request
 	GetIdNewbasevalueWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdNewbasevalueResponse, error)
 
@@ -1117,6 +1406,17 @@ type ClientWithResponsesInterface interface {
 
 	// GetIdReportsReportid request
 	GetIdReportsReportidWithResponse(ctx context.Context, id int64, reportid int64, reqEditors ...RequestEditorFn) (*GetIdReportsReportidResponse, error)
+
+	// GetUuidBasevalue request
+	GetUuidBasevalueWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetUuidBasevalueResponse, error)
+
+	// PostUuidBasevalue request  with any body
+	PostUuidBasevalueWithBodyWithResponse(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUuidBasevalueResponse, error)
+
+	PostUuidBasevalueWithResponse(ctx context.Context, uuid string, body PostUuidBasevalueJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUuidBasevalueResponse, error)
+
+	// GetUuidStatus request
+	GetUuidStatusWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetUuidStatusResponse, error)
 }
 
 type GetResponse struct {
@@ -1399,6 +1699,48 @@ func (r PostIdBasevaluesBasevalueidResponse) StatusCode() int {
 	return 0
 }
 
+type GetIdContainerStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIdContainerStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIdContainerStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetIdDeviceStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIdDeviceStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIdDeviceStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetIdNewbasevalueResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1501,6 +1843,69 @@ func (r GetIdReportsReportidResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetIdReportsReportidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetUuidBasevalueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUuidBasevalueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUuidBasevalueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostUuidBasevalueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostUuidBasevalueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostUuidBasevalueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetUuidStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUuidStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUuidStatusResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1624,6 +2029,24 @@ func (c *ClientWithResponses) PostIdBasevaluesBasevalueidWithResponse(ctx contex
 	return ParsePostIdBasevaluesBasevalueidResponse(rsp)
 }
 
+// GetIdContainerStatusWithResponse request returning *GetIdContainerStatusResponse
+func (c *ClientWithResponses) GetIdContainerStatusWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdContainerStatusResponse, error) {
+	rsp, err := c.GetIdContainerStatus(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIdContainerStatusResponse(rsp)
+}
+
+// GetIdDeviceStatusWithResponse request returning *GetIdDeviceStatusResponse
+func (c *ClientWithResponses) GetIdDeviceStatusWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdDeviceStatusResponse, error) {
+	rsp, err := c.GetIdDeviceStatus(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIdDeviceStatusResponse(rsp)
+}
+
 // GetIdNewbasevalueWithResponse request returning *GetIdNewbasevalueResponse
 func (c *ClientWithResponses) GetIdNewbasevalueWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetIdNewbasevalueResponse, error) {
 	rsp, err := c.GetIdNewbasevalue(ctx, id, reqEditors...)
@@ -1667,6 +2090,41 @@ func (c *ClientWithResponses) GetIdReportsReportidWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseGetIdReportsReportidResponse(rsp)
+}
+
+// GetUuidBasevalueWithResponse request returning *GetUuidBasevalueResponse
+func (c *ClientWithResponses) GetUuidBasevalueWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetUuidBasevalueResponse, error) {
+	rsp, err := c.GetUuidBasevalue(ctx, uuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUuidBasevalueResponse(rsp)
+}
+
+// PostUuidBasevalueWithBodyWithResponse request with arbitrary body returning *PostUuidBasevalueResponse
+func (c *ClientWithResponses) PostUuidBasevalueWithBodyWithResponse(ctx context.Context, uuid string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUuidBasevalueResponse, error) {
+	rsp, err := c.PostUuidBasevalueWithBody(ctx, uuid, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUuidBasevalueResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostUuidBasevalueWithResponse(ctx context.Context, uuid string, body PostUuidBasevalueJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUuidBasevalueResponse, error) {
+	rsp, err := c.PostUuidBasevalue(ctx, uuid, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUuidBasevalueResponse(rsp)
+}
+
+// GetUuidStatusWithResponse request returning *GetUuidStatusResponse
+func (c *ClientWithResponses) GetUuidStatusWithResponse(ctx context.Context, uuid string, reqEditors ...RequestEditorFn) (*GetUuidStatusResponse, error) {
+	rsp, err := c.GetUuidStatus(ctx, uuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUuidStatusResponse(rsp)
 }
 
 // ParseGetResponse parses an HTTP response from a GetWithResponse call
@@ -1986,6 +2444,44 @@ func ParsePostIdBasevaluesBasevalueidResponse(rsp *http.Response) (*PostIdBaseva
 	return response, nil
 }
 
+// ParseGetIdContainerStatusResponse parses an HTTP response from a GetIdContainerStatusWithResponse call
+func ParseGetIdContainerStatusResponse(rsp *http.Response) (*GetIdContainerStatusResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIdContainerStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetIdDeviceStatusResponse parses an HTTP response from a GetIdDeviceStatusWithResponse call
+func ParseGetIdDeviceStatusResponse(rsp *http.Response) (*GetIdDeviceStatusResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIdDeviceStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
 // ParseGetIdNewbasevalueResponse parses an HTTP response from a GetIdNewbasevalueWithResponse call
 func ParseGetIdNewbasevalueResponse(rsp *http.Response) (*GetIdNewbasevalueResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2111,6 +2607,63 @@ func ParseGetIdReportsReportidResponse(rsp *http.Response) (*GetIdReportsReporti
 	return response, nil
 }
 
+// ParseGetUuidBasevalueResponse parses an HTTP response from a GetUuidBasevalueWithResponse call
+func ParseGetUuidBasevalueResponse(rsp *http.Response) (*GetUuidBasevalueResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUuidBasevalueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParsePostUuidBasevalueResponse parses an HTTP response from a PostUuidBasevalueWithResponse call
+func ParsePostUuidBasevalueResponse(rsp *http.Response) (*PostUuidBasevalueResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostUuidBasevalueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetUuidStatusResponse parses an HTTP response from a GetUuidStatusWithResponse call
+func ParseGetUuidStatusResponse(rsp *http.Response) (*GetUuidStatusResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUuidStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -2152,6 +2705,12 @@ type ServerInterface interface {
 
 	// (POST /{id}/basevalues/{basevalueid})
 	PostIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error
+	// Return a list of trust status for all containers of a given client
+	// (GET /{id}/container/status)
+	GetIdContainerStatus(ctx echo.Context, id int64) error
+	// Return a list of trust status for all devices of a given client
+	// (GET /{id}/device/status)
+	GetIdDeviceStatus(ctx echo.Context, id int64) error
 
 	// (GET /{id}/newbasevalue)
 	GetIdNewbasevalue(ctx echo.Context, id int64) error
@@ -2167,6 +2726,15 @@ type ServerInterface interface {
 
 	// (GET /{id}/reports/{reportid})
 	GetIdReportsReportid(ctx echo.Context, id int64, reportid int64) error
+	// Return the base value of a given container/device
+	// (GET /{uuid}/basevalue)
+	GetUuidBasevalue(ctx echo.Context, uuid string) error
+	// create/update the base value of the given container/device
+	// (POST /{uuid}/basevalue)
+	PostUuidBasevalue(ctx echo.Context, uuid string) error
+	// Return a trust status for given container/device
+	// (GET /{uuid}/status)
+	GetUuidStatus(ctx echo.Context, uuid string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -2391,6 +2959,42 @@ func (w *ServerInterfaceWrapper) PostIdBasevaluesBasevalueid(ctx echo.Context) e
 	return err
 }
 
+// GetIdContainerStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) GetIdContainerStatus(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetIdContainerStatus(ctx, id)
+	return err
+}
+
+// GetIdDeviceStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) GetIdDeviceStatus(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetIdDeviceStatus(ctx, id)
+	return err
+}
+
 // GetIdNewbasevalue converts echo context to params.
 func (w *ServerInterfaceWrapper) GetIdNewbasevalue(ctx echo.Context) error {
 	var err error
@@ -2491,6 +3095,58 @@ func (w *ServerInterfaceWrapper) GetIdReportsReportid(ctx echo.Context) error {
 	return err
 }
 
+// GetUuidBasevalue converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUuidBasevalue(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetUuidBasevalue(ctx, uuid)
+	return err
+}
+
+// PostUuidBasevalue converts echo context to params.
+func (w *ServerInterfaceWrapper) PostUuidBasevalue(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostUuidBasevalue(ctx, uuid)
+	return err
+}
+
+// GetUuidStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUuidStatus(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetUuidStatus(ctx, uuid)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -2532,41 +3188,51 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.DELETE(baseURL+"/:id/basevalues/:basevalueid", wrapper.DeleteIdBasevaluesBasevalueid)
 	router.GET(baseURL+"/:id/basevalues/:basevalueid", wrapper.GetIdBasevaluesBasevalueid)
 	router.POST(baseURL+"/:id/basevalues/:basevalueid", wrapper.PostIdBasevaluesBasevalueid)
+	router.GET(baseURL+"/:id/container/status", wrapper.GetIdContainerStatus)
+	router.GET(baseURL+"/:id/device/status", wrapper.GetIdDeviceStatus)
 	router.GET(baseURL+"/:id/newbasevalue", wrapper.GetIdNewbasevalue)
 	router.POST(baseURL+"/:id/newbasevalue", wrapper.PostIdNewbasevalue)
 	router.GET(baseURL+"/:id/reports", wrapper.GetIdReports)
 	router.DELETE(baseURL+"/:id/reports/:reportid", wrapper.DeleteIdReportsReportid)
 	router.GET(baseURL+"/:id/reports/:reportid", wrapper.GetIdReportsReportid)
+	router.GET(baseURL+"/:uuid/basevalue", wrapper.GetUuidBasevalue)
+	router.POST(baseURL+"/:uuid/basevalue", wrapper.PostUuidBasevalue)
+	router.GET(baseURL+"/:uuid/status", wrapper.GetUuidStatus)
 
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
