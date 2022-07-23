@@ -262,6 +262,11 @@ func registerClientID(ras *clientapi.RasConn) int64 {
 	cc := bk.GetClientConfig()
 	SetClientId(cid)
 	SetDigestAlgorithm(cc.GetDigestAlgorithm())
+	err = ractools.SetDigestAlg(cc.GetDigestAlgorithm())
+	if err != nil {
+		logger.L.Sugar().Errorf("can't register rac, %v", err)
+		return -1
+	}
 	SetHBDuration(time.Duration(cc.GetHbDurationSeconds() * int64(time.Second)))
 	SetTrustDuration(time.Duration(cc.GetTrustDurationSeconds() * int64(time.Second)))
 	return cid
@@ -285,6 +290,11 @@ func setNewConf(rpy *clientapi.SendHeartbeatReply) {
 	conf := rpy.GetClientConfig()
 	SetHBDuration(time.Duration(conf.GetHbDurationSeconds() * int64(time.Second)))
 	SetTrustDuration(time.Duration(conf.GetTrustDurationSeconds() * int64(time.Second)))
+	SetDigestAlgorithm(conf.GetDigestAlgorithm())
+	err := ractools.SetDigestAlg(GetDigestAlgorithm())
+	if err != nil {
+		logger.L.Sugar().Errorf("can't set new digest algorithm, %v", err)
+	}
 	saveConfigs()
 }
 
