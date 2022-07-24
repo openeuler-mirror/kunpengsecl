@@ -27,7 +27,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
+	"strconv"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
@@ -150,7 +150,7 @@ type (
 		pcaPrivKey      crypto.PrivateKey
 		pcaKeyCert      *x509.Certificate
 		servPort        string
-		httpsSwitch     bool
+		httpsSwitch     string
 		restPort        string
 		httpsPort       string
 		authKeyFile     string
@@ -184,7 +184,7 @@ var (
 // InitFlags inits the ras server command flags.
 func InitFlags() {
 	servPort = pflag.StringP(lflagServerPort, sflagServerPort, nullString, helpServerPort)
-	httpsSwitch = pflag.StringP(lflagHttpsSwitch, sflagHttpsSwitch, "true", helpHttpsSwitch)
+	httpsSwitch = pflag.StringP(lflagHttpsSwitch, sflagHttpsSwitch, nullString, helpHttpsSwitch)
 	restPort = pflag.StringP(lflagRestPort, sflagRestPort, nullString, helpRestPort)
 	httpsPort = pflag.StringP(lflagHttpsPort, sflagHttpsPort, nullString, helpHttpsPort)
 	TokenFlag = pflag.BoolP(lflagToken, sflagToken, false, helpToken)
@@ -216,7 +216,7 @@ func HandleFlags() {
 	if servPort != nil && *servPort != nullString {
 		SetServerPort(*servPort)
 	}
-	if httpsSwitch != nil {
+	if httpsSwitch != nil && *httpsSwitch != nullString {
 		SetHttpsSwitch(*httpsSwitch)
 	}
 	if restPort != nil && *restPort != nullString {
@@ -240,7 +240,7 @@ func getConfigs() {
 	rasCfg.dbUser = viper.GetString(dbUser)
 	rasCfg.dbPassword = viper.GetString(dbPassword)
 	rasCfg.servPort = viper.GetString(confServerPort)
-	rasCfg.httpsSwitch = viper.GetBool(confhttpsSwitch)
+	rasCfg.httpsSwitch = viper.GetString(confhttpsSwitch)
 	rasCfg.restPort = viper.GetString(confRestPort)
 	rasCfg.httpsPort = viper.GetString(confHttpsPort)
 	rasCfg.authKeyFile = viper.GetString(confAuthKeyFile)
@@ -595,9 +595,14 @@ func SetServerPort(s string) {
 // GetHttpsSwitch returns the ras restful api interface protocol(http or https) configuration.
 func GetHttpsSwitch() bool {
 	if rasCfg == nil {
-		return false
+		return true
 	}
-	return rasCfg.httpsSwitch
+	httpsswitch, err := strconv.ParseBool(rasCfg.httpsSwitch)
+	if err != nil {
+		logger.L.Debug("get-httpsswitch output error")
+		return true
+	}
+	return httpsswitch
 }
 
 // SetHttpsSwitch sets the ras restful api interface protocol(http or https) configuration.
@@ -605,12 +610,15 @@ func SetHttpsSwitch(p string) {
 	if rasCfg == nil {
 		return
 	}
-	if strings.EqualFold(p, "false") {
-		rasCfg.httpsSwitch = false
-	} else if strings.EqualFold(p, "true") {
-		rasCfg.httpsSwitch = true
-	} else {
+	rs, err := strconv.ParseBool(p)
+	if err != nil {
+		logger.L.Debug("set-httpsswitch input error")
 		return
+	}
+	if rs {
+		rasCfg.httpsSwitch = "true"
+	} else {
+		rasCfg.httpsSwitch = "false"
 	}
 }
 
