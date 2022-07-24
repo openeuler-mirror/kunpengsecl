@@ -573,6 +573,12 @@ func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bo
 	imaLog := findManifest(report, typdefs.StrIma)
 	row.BiosLog = string(btLog)
 	row.ImaLog = string(imaLog)
+	pcrLog := findManifest(report, typdefs.StrPcr)
+	pcrMap := pcrLogToMap(pcrLog)
+	err := typdefs.AddPcr8And9FromPcrMap(pcrs, pcrMap, config.GetDigestAlgorithm())
+	if err != nil {
+		return false, err
+	}
 	return typdefs.ExtendPCRWithIMALog(pcrs, imaLog, config.GetDigestAlgorithm())
 }
 
