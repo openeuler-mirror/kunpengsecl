@@ -775,9 +775,13 @@ func getIMATemplateName(item *entity.ManifestItem) string {
 	return parsedManifest.TemplateName
 }
 
-func validateIMABootAggregate(h hash.Hash, pcrInfo *entity.PcrInfo, aggregateValue string) error {
-	// use pcr0-7 in report to calculate boot_aggregate
-	for i := 0; i < 8; i++ {
+func validateIMABootAggregate(alg string, h hash.Hash, pcrInfo *entity.PcrInfo, aggregateValue string) error {
+	// use pcr0-7 or pcr 0-9 in report to calculate boot_aggregate
+	pcrLimit := 8
+	if alg != sha1AlgStr {
+		pcrLimit = 10
+	}
+	for i := 0; i < pcrLimit; i++ {
 		pcrValueBytes, err := hex.DecodeString(pcrInfo.Values[i])
 		if err != nil {
 			return fmt.Errorf("DecodeString failed")
@@ -794,12 +798,12 @@ func validateIMABootAggregate(h hash.Hash, pcrInfo *entity.PcrInfo, aggregateVal
 	return nil
 }
 
-func validateIMANGBootAggregate(h hash.Hash, pcrInfo *entity.PcrInfo, aggregateValue string) error {
+func validateIMANGBootAggregate(alg string, h hash.Hash, pcrInfo *entity.PcrInfo, aggregateValue string) error {
 	// remove the [alg:] prefix
 	idx := strings.Index(aggregateValue, ":")
 	agValue := aggregateValue[idx+1:]
 
-	return validateIMABootAggregate(h, pcrInfo, agValue)
+	return validateIMABootAggregate(alg, h, pcrInfo, agValue)
 }
 
 func newHash(alg string) hash.Hash {
@@ -818,7 +822,7 @@ func validateIMATemplateIMA(hashAlg string, pcrInfo *entity.PcrInfo, manifest *e
 	if h == nil {
 		return fmt.Errorf("out of memory")
 	}
-	err := validateIMABootAggregate(h, pcrInfo, manifest.Items[0].Value)
+	err := validateIMABootAggregate(sha1AlgStr, h, pcrInfo, manifest.Items[0].Value)
 	if err != nil {
 		return fmt.Errorf("ima manifest validation falied: %v", err)
 	}
@@ -848,7 +852,7 @@ func validateIMATemplateIMANG(hashAlg string, pcrInfo *entity.PcrInfo, manifest 
 	if h == nil {
 		return fmt.Errorf("out of memory or not supported hash algorithm")
 	}
-	err := validateIMANGBootAggregate(h, pcrInfo, manifest.Items[0].Value)
+	err := validateIMANGBootAggregate(hashAlg, h, pcrInfo, manifest.Items[0].Value)
 	if err != nil {
 		return fmt.Errorf("ima-ng manifest validation falied: %v", err)
 	}
