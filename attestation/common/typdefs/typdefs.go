@@ -408,7 +408,7 @@ func (pcrs *PcrGroups) AggregateSha1(from, to int) string {
 	if from < 0 || from >= PcrMaxNum {
 		return ""
 	}
-	if to < 0 || to >= PcrMaxNum || from > to {
+	if to < 0 || to > PcrMaxNum || from > to {
 		return ""
 	}
 	h := sha1.New()
@@ -423,7 +423,7 @@ func (pcrs *PcrGroups) AggregateSha256(from, to int) string {
 	if from < 0 || from >= PcrMaxNum {
 		return ""
 	}
-	if to < 0 || to >= PcrMaxNum || from > to {
+	if to < 0 || to > PcrMaxNum || from > to {
 		return ""
 	}
 	h := sha256.New()
@@ -438,7 +438,7 @@ func (pcrs *PcrGroups) AggregateSM3(from, to int) string {
 	if from < 0 || from >= PcrMaxNum {
 		return ""
 	}
-	if to < 0 || to >= PcrMaxNum || from > to {
+	if to < 0 || to > PcrMaxNum || from > to {
 		return ""
 	}
 	h := sm3.New()
@@ -838,9 +838,9 @@ func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte, algStr string) (bool, e
 	case Sha1AlgStr:
 		aggr = pcrs.AggregateSha1(0, 8)
 	case Sha256AlgStr:
-		aggr = pcrs.AggregateSha256(0, 8)
+		aggr = pcrs.AggregateSha256(0, 10)
 	case Sm3AlgStr:
-		aggr = pcrs.AggregateSM3(0, 8)
+		aggr = pcrs.AggregateSM3(0, 10)
 	default:
 		return false, ErrNotSupportAlg
 	}
@@ -871,6 +871,38 @@ func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte, algStr string) (bool, e
 		}
 	}
 	return true, nil
+}
+
+/*
+	AddPcr8And9FromPcrMap is called because of this commit in openEuler 2203 :
+
+	commit 20c59ce010f84300f6c655d32db2610d3433f85c
+    ima: extend boot_aggregate with kernel measurements
+    Registers 8-9 are used to store measurements of the kernel and its
+    command line (e.g., grub2 bootloader with tpm module enabled). IMA
+    should include them in the boot aggregate. Registers 8-9 should be
+    only included in non-SHA1 digests to avoid ambiguity.
+
+*/
+func AddPcr8And9FromPcrMap(pcrs *PcrGroups, pcrMap map[int]string, algStr string) error {
+	if algStr == Sha1AlgStr {
+		return nil
+	}
+	for i := 8; i <= 9; i++ {
+		pcrValueBytes, err := hex.DecodeString(pcrMap[i])
+		if err != nil {
+			return err
+		}
+		switch algStr {
+		case Sha256AlgStr:
+			pcrs.Sha256Pcrs[i] = pcrValueBytes
+		case Sm3AlgStr:
+			pcrs.SM3Pcrs[i] = pcrValueBytes
+		default:
+			return ErrNotSupportAlg
+		}
+	}
+	return nil
 }
 
 func parseFile(name string) [][][]byte {
