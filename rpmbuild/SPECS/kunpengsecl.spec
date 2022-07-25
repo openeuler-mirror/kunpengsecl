@@ -51,7 +51,7 @@ rm -rf %{buildroot}/etc/
 mkdir -p %{buildroot}/etc/attestation/rac/
 mkdir -p %{buildroot}/etc/attestation/rahub/
 mkdir -p %{buildroot}/etc/attestation/ras/
-mkdir -p %{buildroot}/etc/attestation/default_test
+mkdir -p -m 777 %{buildroot}/etc/attestation/default_test
 rm -rf %{buildroot}/usr/share/
 mkdir -p %{buildroot}/usr/share/attestation/rac/
 mkdir -p %{buildroot}/usr/share/attestation/ras/
@@ -66,7 +66,7 @@ install -m 555 %{_builddir}/%{name}-%{version}/attestation/ras/pkg/ras %{buildro
 
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/config.yaml %{buildroot}/etc/attestation/rac/
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/rahub/config.yaml %{buildroot}/etc/attestation/rahub/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/config.yaml %{buildroot}/etc/attestation/ras/
+install -m 666 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/config.yaml %{buildroot}/etc/attestation/ras/
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/ascii_runtime_measurements* %{buildroot}/etc/attestation/default_test/
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/binary_bios_measurements* %{buildroot}/etc/attestation/default_test/
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/ecdsakey.pub %{buildroot}/etc/attestation/default_test/
