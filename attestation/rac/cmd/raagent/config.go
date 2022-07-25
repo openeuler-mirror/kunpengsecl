@@ -27,8 +27,8 @@ import (
 const (
 	// path
 	strLocalConf = "."
-	strHomeConf  = "$HOME/.config/attestation/ras"
-	strSysConf   = "/etc/attestation/ras"
+	strHomeConf  = "$HOME/.config/attestation/rac"
+	strSysConf   = "/etc/attestation/rac"
 	// config file name
 	confName = "config"
 	confExt  = "yaml"
