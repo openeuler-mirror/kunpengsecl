@@ -64,23 +64,25 @@ const (
 	// logger
 	logFile = "log.file"
 	// RAS config key
-	confRootPrivKeyFile = "rasconfig.rootprivkeyfile"
-	confRootKeyCertFile = "rasconfig.rootkeycertfile"
-	confPcaPrivKeyFile  = "rasconfig.pcaprivkeyfile"
-	confPcaKeyCertFile  = "rasconfig.pcakeycertfile"
-	confServerPort      = "rasconfig.serverport"
-	confhttpsSwitch     = "rasconfig.httpsswitch"
-	confRestPort        = "rasconfig.restport"
-	confHttpsPort       = "rasconfig.httpsport"
-	confAuthKeyFile     = "rasconfig.authkeyfile"
-	confSerialNumber    = "rasconfig.serialnumber"
-	confOnlineDuration  = "rasconfig.onlineduration"
-	confHbDuration      = "racconfig.hbduration"
-	confTrustDuration   = "racconfig.trustduration"
-	confDigestAlgorithm = "racconfig.digestalgorithm"
-	confMgrStrategy     = "rasconfig.mgrstrategy"
-	confChangeTime      = "rasconfig.changetime"
-	confExtRules        = "rasconfig.basevalue-extract-rules"
+	confHttpsPrivKeyFile = "rasconfig.httpsprivkeyfile"
+	confHttpsKeyCertFile = "rasconfig.httpskeycertfile"
+	confRootPrivKeyFile  = "rasconfig.rootprivkeyfile"
+	confRootKeyCertFile  = "rasconfig.rootkeycertfile"
+	confPcaPrivKeyFile   = "rasconfig.pcaprivkeyfile"
+	confPcaKeyCertFile   = "rasconfig.pcakeycertfile"
+	confServerPort       = "rasconfig.serverport"
+	confhttpsSwitch      = "rasconfig.httpsswitch"
+	confRestPort         = "rasconfig.restport"
+	confHttpsPort        = "rasconfig.httpsport"
+	confAuthKeyFile      = "rasconfig.authkeyfile"
+	confSerialNumber     = "rasconfig.serialnumber"
+	confOnlineDuration   = "rasconfig.onlineduration"
+	confHbDuration       = "racconfig.hbduration"
+	confTrustDuration    = "racconfig.trustduration"
+	confDigestAlgorithm  = "racconfig.digestalgorithm"
+	confMgrStrategy      = "rasconfig.mgrstrategy"
+	confChangeTime       = "rasconfig.changetime"
+	confExtRules         = "rasconfig.basevalue-extract-rules"
 	// RAS config default value
 	nullString      = ""
 	rasLogFile      = "./logs/ras-log.txt"
@@ -88,6 +90,7 @@ const (
 	crtExt          = ".crt"
 	rootKey         = "./pca-root"
 	eKey            = "./pca-ek"
+	httpsKey        = "./https"
 	authKey         = "./ecdsakey"
 	hbDuration      = 20   // seconds
 	trustDuration   = 1200 // seconds
@@ -144,24 +147,28 @@ type (
 		dbPort     int
 
 		// ras configuration
-		rootPrivKeyFile string
-		rootKeyCertFile string
-		rootPrivKey     crypto.PrivateKey
-		rootKeyCert     *x509.Certificate
-		pcaPrivKeyFile  string
-		pcaKeyCertFile  string
-		pcaPrivKey      crypto.PrivateKey
-		pcaKeyCert      *x509.Certificate
-		servPort        string
-		httpsSwitch     string
-		restPort        string
-		httpsPort       string
-		authKeyFile     string
-		changeTime      time.Time
-		mgrStrategy     string
-		isallupdate     bool
-		extractRules    typdefs.ExtractRules
-		onlineDuration  time.Duration
+		httpsPrivKeyFile string
+		httpsKeyCertFile string
+		httpsPrivKey     crypto.PrivateKey
+		httpsKeyCert     *x509.Certificate
+		rootPrivKeyFile  string
+		rootKeyCertFile  string
+		rootPrivKey      crypto.PrivateKey
+		rootKeyCert      *x509.Certificate
+		pcaPrivKeyFile   string
+		pcaKeyCertFile   string
+		pcaPrivKey       crypto.PrivateKey
+		pcaKeyCert       *x509.Certificate
+		servPort         string
+		httpsSwitch      string
+		restPort         string
+		httpsPort        string
+		authKeyFile      string
+		changeTime       time.Time
+		mgrStrategy      string
+		isallupdate      bool
+		extractRules     typdefs.ExtractRules
+		onlineDuration   time.Duration
 		// rac configuration
 		hbDuration      time.Duration // heartbeat duration
 		trustDuration   time.Duration // trust state duration
@@ -414,6 +421,90 @@ func getPcaKeyCert() {
 	}
 }
 
+// getHttpsKeyCert loads privacy https private key and certificate from files.
+func getHttpsKeyCert() {
+	var err error
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.httpsPrivKeyFile = viper.GetString(confHttpsPrivKeyFile)
+	if rasCfg.httpsPrivKeyFile != nullString {
+		rasCfg.httpsPrivKey, _, err = cryptotools.DecodePrivateKeyFromFile(rasCfg.httpsPrivKeyFile)
+		if err != nil {
+			rasCfg.httpsPrivKey = nil
+			rasCfg.httpsPrivKeyFile = nullString
+		}
+	} else {
+		rasCfg.httpsPrivKey = nil
+	}
+	rasCfg.httpsKeyCertFile = viper.GetString(confHttpsKeyCertFile)
+	if rasCfg.httpsKeyCertFile != nullString {
+		rasCfg.httpsKeyCert, _, err = cryptotools.DecodeKeyCertFromFile(rasCfg.httpsKeyCertFile)
+		if err != nil {
+			rasCfg.httpsKeyCert = nil
+			rasCfg.httpsKeyCertFile = nullString
+			rasCfg.httpsPrivKey = nil
+			rasCfg.httpsPrivKeyFile = nullString
+		}
+	} else {
+		rasCfg.httpsKeyCert = nil
+		rasCfg.httpsPrivKey = nil
+		rasCfg.httpsPrivKeyFile = nullString
+	}
+	if rasCfg.httpsPrivKey == nil {
+		// modify rootTemplate fields
+		t := time.Now()
+		rootTemplate := x509.Certificate{
+			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
+			Subject: pkix.Name{
+				Country:      []string{strChina},
+				Organization: []string{strCompany},
+				CommonName:   strRootCA,
+			},
+			NotBefore:             t.Add(-10 * time.Second),
+			NotAfter:              t.AddDate(10, 0, 0),
+			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+			BasicConstraintsValid: true,
+			IsCA:                  true,
+			MaxPathLen:            2,
+			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
+		}
+		httpsTemplate := x509.Certificate{
+			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
+			Subject: pkix.Name{
+				Country:      []string{strChina},
+				Organization: []string{strCompany},
+				CommonName:   strPrivacyCA,
+			},
+			NotBefore:             t.Add(-10 * time.Second),
+			NotAfter:              t.AddDate(1, 0, 0),
+			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			BasicConstraintsValid: true,
+			IsCA:                  true,
+			MaxPathLenZero:        false,
+			MaxPathLen:            1,
+			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
+		}
+		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
+		// sign by root ca
+		certDer, err := x509.CreateCertificate(rand.Reader, &httpsTemplate,
+			&rootTemplate, &priv.PublicKey, rasCfg.rootPrivKey)
+		if err != nil {
+			return
+		}
+		rasCfg.httpsKeyCert, err = x509.ParseCertificate(certDer)
+		if err == nil {
+			rasCfg.httpsPrivKey = priv
+			rasCfg.httpsPrivKeyFile = httpsKey + keyExt
+			rasCfg.httpsKeyCertFile = httpsKey + crtExt
+			cryptotools.EncodePrivateKeyToFile(priv, rasCfg.httpsPrivKeyFile)
+			cryptotools.EncodeKeyCertToFile(certDer, rasCfg.httpsKeyCertFile)
+		}
+	}
+}
+
 // LoadConfigs searches and loads config from config.yaml file.
 func LoadConfigs() {
 	if rasCfg != nil {
@@ -449,6 +540,7 @@ func LoadConfigs() {
 	getConfigs()
 	getRootKeyCert()
 	getPcaKeyCert()
+	getHttpsKeyCert()
 }
 
 // SaveConfigs saves all config variables to the config.yaml file.
@@ -466,6 +558,8 @@ func SaveConfigs() {
 	viper.Set(confRootKeyCertFile, rasCfg.rootKeyCertFile)
 	viper.Set(confPcaPrivKeyFile, rasCfg.pcaPrivKeyFile)
 	viper.Set(confPcaKeyCertFile, rasCfg.pcaKeyCertFile)
+	viper.Set(confHttpsPrivKeyFile, rasCfg.httpsPrivKeyFile)
+	viper.Set(confHttpsKeyCertFile, rasCfg.httpsKeyCertFile)
 	viper.Set(confServerPort, rasCfg.servPort)
 	viper.Set(confhttpsSwitch, rasCfg.httpsSwitch)
 	viper.Set(confRestPort, rasCfg.restPort)
@@ -727,6 +821,22 @@ func GetPcaKeyCert() *x509.Certificate {
 		return nil
 	}
 	return rasCfg.pcaKeyCert
+}
+
+// GetHttpsPrivateKey returns the https private key configuration.
+func GetHttpsPrivateKey() crypto.PrivateKey {
+	if rasCfg == nil {
+		return nil
+	}
+	return rasCfg.httpsPrivKey
+}
+
+// GetHttpsKeyCert returns the https key certificate configuration.
+func GetHttpsKeyCert() *x509.Certificate {
+	if rasCfg == nil {
+		return nil
+	}
+	return rasCfg.httpsKeyCert
 }
 
 // GetAuthKeyFile returns the auth token key configuration.
