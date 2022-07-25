@@ -1,4 +1,7 @@
 #!/bin/bash
+# define some constants
+Name=kunpengsecl
+Version=v1.1.0
 
 # install the rpm tools.
 #yum -y install rpm-build rpmdevtools rpm-devel
@@ -15,9 +18,12 @@ rm -rf ./attestation/{vendor,go.sum}
 make vendor
 
 # build source tar ball.
-tar -czf ./rpmbuild/SOURCES/kunpengsecl-1.0.0.tar.gz \
+tar -czf ./rpmbuild/SOURCES/$Name-$Version.tar.gz \
             attestation doc \
             LICENSE Makefile README.md README.en.md
+
+# get patch files.
+cp ./rpmbuild/SPECS/*.patch ./rpmbuild/SOURCES/
 
 go env -w GO111MODULE="on"
 rpmbuild -ba ./rpmbuild/SPECS/kunpengsecl.spec
