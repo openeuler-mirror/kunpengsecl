@@ -1,4 +1,4 @@
-# Kunpeng security library (kunpengsecl)
+# Kunpeng Security Libraries (kunpengsecl)
 
 #### Description
 This project develops basic security software components running on Kunpeng processors. In the early stage, the project focuses on trusted computing fields such as remote attestation to empower security developers in the community.
