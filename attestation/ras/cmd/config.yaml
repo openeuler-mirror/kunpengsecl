@@ -14,6 +14,8 @@ rasconfig:
   authkeyfile: ./ecdsakey.pub
   pcakeycertfile: ""
   pcaprivkeyfile: ""
+  httpskeycertfile: ""
+  httpsprivkeyfile: ""
   httpsswitch: "true"
   restport: 127.0.0.1:40002
   httpsport: 127.0.0.1:40003

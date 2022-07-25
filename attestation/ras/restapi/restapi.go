@@ -111,6 +111,7 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
 	// (GET /{id}/basevalues)
 	htmlListBaseValues = `<html><head><title>Base Values List</title>
 <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script></head><body>
+<style type="text/css">td{white-space: pre-line;}</style>
 <script>$(document).ready(function(){$("button").click(function(){$.ajax({url:this.value,
 type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
 }},});});});</script><a href="/">Back</a>&emsp;<a href="/%d/newbasevalue">Add</a><br/>
@@ -124,6 +125,7 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 
 	// (GET /{id}/basevalues/{basevalueid})
 	htmlOneBaseValue = `<html><head><title>Base Value Detail</title></head><body>
+<style type="text/css">td{white-space: pre-line;}</style>
 <a href="/%d/basevalues">Back</a><br/><table border="1"><tr align="center" bgcolor="#00FF00">
 <th>Parameter</th><th>Value</th></tr>`
 	htmlBaseValue = `<tr><td align="center">%s</td><td>%v</td></tr>`
@@ -241,7 +243,7 @@ func StartServerHttps(httpsPort string) {
 	}
 	logger.L.Sugar().Debug(CreateAuthValidator(v))
 	RegisterHandlers(e, &MyRestAPIServer{})
-	e.Logger.Fatal(e.StartTLS(httpsPort, "pca-root.crt", "pca-root.key"))
+	e.Logger.Fatal(e.StartTLS(httpsPort, "https.crt", "https.key"))
 }
 
 // getJWS fetch the JWS string from an Authorization header
