@@ -243,7 +243,7 @@ func StartServerHttps(httpsPort string) {
 	}
 	logger.L.Sugar().Debug(CreateAuthValidator(v))
 	RegisterHandlers(e, &MyRestAPIServer{})
-	e.Logger.Fatal(e.StartTLS(httpsPort, "https.crt", "https.key"))
+	e.Logger.Fatal(e.StartTLS(httpsPort, config.GetHttpsKeyCertFile(), config.GetHttpsPrivateKeyFile()))
 }
 
 // getJWS fetch the JWS string from an Authorization header
