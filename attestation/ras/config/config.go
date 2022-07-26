@@ -839,6 +839,22 @@ func GetHttpsKeyCert() *x509.Certificate {
 	return rasCfg.httpsKeyCert
 }
 
+// GetHttpsPrivateKeyFile returns the HttpsPrivateKeyFile configuration.
+func GetHttpsPrivateKeyFile() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.httpsPrivKeyFile
+}
+
+// GetHttpsKeyCertFile returns the HttpsKeyCertFile configuration.
+func GetHttpsKeyCertFile() string {
+	if rasCfg == nil {
+		return ""
+	}
+	return rasCfg.httpsKeyCertFile
+}
+
 // GetAuthKeyFile returns the auth token key configuration.
 func GetAuthKeyFile() string {
 	if rasCfg == nil {
