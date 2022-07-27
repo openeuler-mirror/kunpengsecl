@@ -145,10 +145,8 @@ func TestConfigInTestMode(t *testing.T) {
 
 	loadConfigs()
 	s := viper.GetString(confServer)
-	algD := "sha1"
 	test := true
 	server = &s
-	algDigest = &algD
 	testMode = &test
 	handleFlags()
 
