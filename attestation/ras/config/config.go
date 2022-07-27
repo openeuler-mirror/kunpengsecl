@@ -269,41 +269,10 @@ func getConfigs() {
 	cryptotools.SetSerialNumber(viper.GetInt64(confSerialNumber))
 }
 
-// getRootKeyCert loads root private key and certificate from files.
-func getRootKeyCert() {
-	var err error
-	if rasCfg == nil {
-		return
-	}
-	rasCfg.rootPrivKeyFile = viper.GetString(confRootPrivKeyFile)
-	if rasCfg.rootPrivKeyFile != nullString {
-		rasCfg.rootPrivKey, _, err = cryptotools.DecodePrivateKeyFromFile(rasCfg.rootPrivKeyFile)
-		if err != nil {
-			rasCfg.rootPrivKey = nil
-			rasCfg.rootPrivKeyFile = nullString
-		}
-	} else {
-		rasCfg.rootPrivKey = nil
-	}
-	rasCfg.rootKeyCertFile = viper.GetString(confRootKeyCertFile)
-	if rasCfg.rootKeyCertFile != nullString {
-		rasCfg.rootKeyCert, _, err = cryptotools.DecodeKeyCertFromFile(rasCfg.rootKeyCertFile)
-		if err != nil {
-			rasCfg.rootKeyCert = nil
-			rasCfg.rootKeyCertFile = nullString
-			rasCfg.rootPrivKey = nil
-			rasCfg.rootPrivKeyFile = nullString
-		}
-	} else {
-		rasCfg.rootKeyCert = nil
-		rasCfg.rootPrivKey = nil
-		rasCfg.rootPrivKeyFile = nullString
-	}
-	// if no loading root ca key/cert, create and self-signing one
-	if rasCfg.rootPrivKey == nil {
-		// modify rootTemplate fields
-		t := time.Now()
-		rootTemplate := x509.Certificate{
+func createCertTemplate(t time.Time, c_type string) *x509.Certificate {
+	switch c_type {
+	case "root":
+		rootTemplate := &x509.Certificate{
 			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
 			Subject: pkix.Name{
 				Country:      []string{strChina},
@@ -319,20 +288,124 @@ func getRootKeyCert() {
 			MaxPathLen:            2,
 			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
 		}
+		return rootTemplate
+	case "ek":
+		ekTemplate := &x509.Certificate{
+			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
+			Subject: pkix.Name{
+				Country:      []string{strChina},
+				Organization: []string{strCompany},
+				CommonName:   strPrivacyCA,
+			},
+			NotBefore:             t.Add(-10 * time.Second),
+			NotAfter:              t.AddDate(1, 0, 0),
+			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			BasicConstraintsValid: true,
+			IsCA:                  true,
+			MaxPathLenZero:        false,
+			MaxPathLen:            1,
+			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
+		}
+		return ekTemplate
+	}
+	return nil
+}
+
+// if no loading root ca key/cert, create and self-signing one
+func createRootCertKey() {
+	if rasCfg.rootPrivKey == nil {
+		// modify rootTemplate fields
+		t := time.Now()
+		rootTemplate := createCertTemplate(t, "root")
 		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
 		// self signing
-		certDer, err := x509.CreateCertificate(rand.Reader, &rootTemplate,
-			&rootTemplate, &priv.PublicKey, priv)
+		certDer, err := x509.CreateCertificate(rand.Reader, rootTemplate,
+			rootTemplate, &priv.PublicKey, priv)
 		if err != nil {
 			return
 		}
 		rasCfg.rootKeyCert, err = x509.ParseCertificate(certDer)
 		if err == nil {
 			rasCfg.rootPrivKey = priv
-			rasCfg.rootPrivKeyFile = rootKey + keyExt
-			rasCfg.rootKeyCertFile = rootKey + crtExt
-			cryptotools.EncodePrivateKeyToFile(priv, rasCfg.rootPrivKeyFile)
-			cryptotools.EncodeKeyCertToFile(certDer, rasCfg.rootKeyCertFile)
+			// rasCfg.rootPrivKeyFile = rootKey + keyExt
+			// rasCfg.rootKeyCertFile = rootKey + crtExt
+			err = cryptotools.EncodePrivateKeyToFile(priv, rasCfg.rootPrivKeyFile)
+			if err != nil {
+				rasCfg.rootPrivKeyFile = rootKey + keyExt
+				cryptotools.EncodePrivateKeyToFile(priv, rasCfg.rootPrivKeyFile)
+			}
+			err = cryptotools.EncodeKeyCertToFile(certDer, rasCfg.rootKeyCertFile)
+			if err != nil {
+				rasCfg.rootKeyCertFile = rootKey + crtExt
+				cryptotools.EncodeKeyCertToFile(certDer, rasCfg.rootKeyCertFile)
+			}
+		}
+	}
+}
+
+// getRootKeyCert loads root private key and certificate from files.
+func getRootKeyCert() {
+	var err error
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.rootPrivKeyFile = viper.GetString(confRootPrivKeyFile)
+	if rasCfg.rootPrivKeyFile != nullString {
+		rasCfg.rootPrivKey, _, err = cryptotools.DecodePrivateKeyFromFile(rasCfg.rootPrivKeyFile)
+		if err != nil {
+			rasCfg.rootPrivKey = nil
+			// rasCfg.rootPrivKeyFile = nullString
+		}
+	} else {
+		rasCfg.rootPrivKey = nil
+	}
+	rasCfg.rootKeyCertFile = viper.GetString(confRootKeyCertFile)
+	if rasCfg.rootKeyCertFile != nullString {
+		rasCfg.rootKeyCert, _, err = cryptotools.DecodeKeyCertFromFile(rasCfg.rootKeyCertFile)
+		if err != nil {
+			rasCfg.rootKeyCert = nil
+			// rasCfg.rootKeyCertFile = nullString
+			rasCfg.rootPrivKey = nil
+			// rasCfg.rootPrivKeyFile = nullString
+		}
+	} else {
+		rasCfg.rootKeyCert = nil
+		rasCfg.rootPrivKey = nil
+		// rasCfg.rootPrivKeyFile = nullString
+	}
+	createRootCertKey()
+}
+
+// if no loading pca key/cert, create and root-signing one
+func createPcaCertKey() {
+	if rasCfg.pcaPrivKey == nil {
+		// modify rootTemplate fields
+		t := time.Now()
+		rootTemplate := createCertTemplate(t, "root")
+		pcaTemplate := createCertTemplate(t, "ek")
+		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
+		// sign by root ca
+		certDer, err := x509.CreateCertificate(rand.Reader, pcaTemplate,
+			rootTemplate, &priv.PublicKey, rasCfg.rootPrivKey)
+		if err != nil {
+			return
+		}
+		rasCfg.pcaKeyCert, err = x509.ParseCertificate(certDer)
+		if err == nil {
+			rasCfg.pcaPrivKey = priv
+			// rasCfg.pcaPrivKeyFile = eKey + keyExt
+			// rasCfg.pcaKeyCertFile = eKey + crtExt
+			err = cryptotools.EncodePrivateKeyToFile(priv, rasCfg.pcaPrivKeyFile)
+			if err != nil {
+				rasCfg.pcaPrivKeyFile = eKey + keyExt
+				cryptotools.EncodePrivateKeyToFile(priv, rasCfg.pcaPrivKeyFile)
+			}
+			err = cryptotools.EncodeKeyCertToFile(certDer, rasCfg.pcaKeyCertFile)
+			if err != nil {
+				rasCfg.pcaKeyCertFile = eKey + crtExt
+				cryptotools.EncodeKeyCertToFile(certDer, rasCfg.pcaKeyCertFile)
+			}
 		}
 	}
 }
@@ -348,7 +421,7 @@ func getPcaKeyCert() {
 		rasCfg.pcaPrivKey, _, err = cryptotools.DecodePrivateKeyFromFile(rasCfg.pcaPrivKeyFile)
 		if err != nil {
 			rasCfg.pcaPrivKey = nil
-			rasCfg.pcaPrivKeyFile = nullString
+			// rasCfg.pcaPrivKeyFile = nullString
 		}
 	} else {
 		rasCfg.pcaPrivKey = nil
@@ -358,65 +431,47 @@ func getPcaKeyCert() {
 		rasCfg.pcaKeyCert, _, err = cryptotools.DecodeKeyCertFromFile(rasCfg.pcaKeyCertFile)
 		if err != nil {
 			rasCfg.pcaKeyCert = nil
-			rasCfg.pcaKeyCertFile = nullString
+			// rasCfg.pcaKeyCertFile = nullString
 			rasCfg.pcaPrivKey = nil
-			rasCfg.pcaPrivKeyFile = nullString
+			// rasCfg.pcaPrivKeyFile = nullString
 		}
 	} else {
 		rasCfg.pcaKeyCert = nil
 		rasCfg.pcaPrivKey = nil
-		rasCfg.pcaPrivKeyFile = nullString
+		// rasCfg.pcaPrivKeyFile = nullString
 	}
-	if rasCfg.pcaPrivKey == nil {
+	createPcaCertKey()
+}
+
+// if no loading https key/cert, create and root-signing one
+func createHttpsCertKey() {
+	if rasCfg.httpsPrivKey == nil {
 		// modify rootTemplate fields
 		t := time.Now()
-		rootTemplate := x509.Certificate{
-			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
-			Subject: pkix.Name{
-				Country:      []string{strChina},
-				Organization: []string{strCompany},
-				CommonName:   strRootCA,
-			},
-			NotBefore:             t.Add(-10 * time.Second),
-			NotAfter:              t.AddDate(10, 0, 0),
-			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
-			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-			BasicConstraintsValid: true,
-			IsCA:                  true,
-			MaxPathLen:            2,
-			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
-		}
-		pcaTemplate := x509.Certificate{
-			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
-			Subject: pkix.Name{
-				Country:      []string{strChina},
-				Organization: []string{strCompany},
-				CommonName:   strPrivacyCA,
-			},
-			NotBefore:             t.Add(-10 * time.Second),
-			NotAfter:              t.AddDate(1, 0, 0),
-			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
-			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-			BasicConstraintsValid: true,
-			IsCA:                  true,
-			MaxPathLenZero:        false,
-			MaxPathLen:            1,
-			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
-		}
+		rootTemplate := createCertTemplate(t, "root")
+		httpsTemplate := createCertTemplate(t, "ek")
 		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
 		// sign by root ca
-		certDer, err := x509.CreateCertificate(rand.Reader, &pcaTemplate,
-			&rootTemplate, &priv.PublicKey, rasCfg.rootPrivKey)
+		certDer, err := x509.CreateCertificate(rand.Reader, httpsTemplate,
+			rootTemplate, &priv.PublicKey, rasCfg.rootPrivKey)
 		if err != nil {
 			return
 		}
-		rasCfg.pcaKeyCert, err = x509.ParseCertificate(certDer)
+		rasCfg.httpsKeyCert, err = x509.ParseCertificate(certDer)
 		if err == nil {
-			rasCfg.pcaPrivKey = priv
-			rasCfg.pcaPrivKeyFile = eKey + keyExt
-			rasCfg.pcaKeyCertFile = eKey + crtExt
-			cryptotools.EncodePrivateKeyToFile(priv, rasCfg.pcaPrivKeyFile)
-			cryptotools.EncodeKeyCertToFile(certDer, rasCfg.pcaKeyCertFile)
+			rasCfg.httpsPrivKey = priv
+			// rasCfg.httpsPrivKeyFile = httpsKey + keyExt
+			// rasCfg.httpsKeyCertFile = httpsKey + crtExt
+			err = cryptotools.EncodePrivateKeyToFile(priv, rasCfg.httpsPrivKeyFile)
+			if err != nil {
+				rasCfg.httpsPrivKeyFile = httpsKey + keyExt
+				cryptotools.EncodePrivateKeyToFile(priv, rasCfg.httpsPrivKeyFile)
+			}
+			err = cryptotools.EncodeKeyCertToFile(certDer, rasCfg.httpsKeyCertFile)
+			if err != nil {
+				rasCfg.httpsKeyCertFile = httpsKey + crtExt
+				cryptotools.EncodeKeyCertToFile(certDer, rasCfg.httpsKeyCertFile)
+			}
 		}
 	}
 }
@@ -432,7 +487,7 @@ func getHttpsKeyCert() {
 		rasCfg.httpsPrivKey, _, err = cryptotools.DecodePrivateKeyFromFile(rasCfg.httpsPrivKeyFile)
 		if err != nil {
 			rasCfg.httpsPrivKey = nil
-			rasCfg.httpsPrivKeyFile = nullString
+			// rasCfg.httpsPrivKeyFile = nullString
 		}
 	} else {
 		rasCfg.httpsPrivKey = nil
@@ -442,67 +497,16 @@ func getHttpsKeyCert() {
 		rasCfg.httpsKeyCert, _, err = cryptotools.DecodeKeyCertFromFile(rasCfg.httpsKeyCertFile)
 		if err != nil {
 			rasCfg.httpsKeyCert = nil
-			rasCfg.httpsKeyCertFile = nullString
+			// rasCfg.httpsKeyCertFile = nullString
 			rasCfg.httpsPrivKey = nil
-			rasCfg.httpsPrivKeyFile = nullString
+			// rasCfg.httpsPrivKeyFile = nullString
 		}
 	} else {
 		rasCfg.httpsKeyCert = nil
 		rasCfg.httpsPrivKey = nil
-		rasCfg.httpsPrivKeyFile = nullString
+		// rasCfg.httpsPrivKeyFile = nullString
 	}
-	if rasCfg.httpsPrivKey == nil {
-		// modify rootTemplate fields
-		t := time.Now()
-		rootTemplate := x509.Certificate{
-			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
-			Subject: pkix.Name{
-				Country:      []string{strChina},
-				Organization: []string{strCompany},
-				CommonName:   strRootCA,
-			},
-			NotBefore:             t.Add(-10 * time.Second),
-			NotAfter:              t.AddDate(10, 0, 0),
-			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
-			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-			BasicConstraintsValid: true,
-			IsCA:                  true,
-			MaxPathLen:            2,
-			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
-		}
-		httpsTemplate := x509.Certificate{
-			SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
-			Subject: pkix.Name{
-				Country:      []string{strChina},
-				Organization: []string{strCompany},
-				CommonName:   strPrivacyCA,
-			},
-			NotBefore:             t.Add(-10 * time.Second),
-			NotAfter:              t.AddDate(1, 0, 0),
-			KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
-			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-			BasicConstraintsValid: true,
-			IsCA:                  true,
-			MaxPathLenZero:        false,
-			MaxPathLen:            1,
-			IPAddresses:           []net.IP{net.ParseIP(typdefs.GetIP())},
-		}
-		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
-		// sign by root ca
-		certDer, err := x509.CreateCertificate(rand.Reader, &httpsTemplate,
-			&rootTemplate, &priv.PublicKey, rasCfg.rootPrivKey)
-		if err != nil {
-			return
-		}
-		rasCfg.httpsKeyCert, err = x509.ParseCertificate(certDer)
-		if err == nil {
-			rasCfg.httpsPrivKey = priv
-			rasCfg.httpsPrivKeyFile = httpsKey + keyExt
-			rasCfg.httpsKeyCertFile = httpsKey + crtExt
-			cryptotools.EncodePrivateKeyToFile(priv, rasCfg.httpsPrivKeyFile)
-			cryptotools.EncodeKeyCertToFile(certDer, rasCfg.httpsKeyCertFile)
-		}
-	}
+	createHttpsCertKey()
 }
 
 // LoadConfigs searches and loads config from config.yaml file.

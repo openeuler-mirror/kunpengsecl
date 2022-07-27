@@ -198,7 +198,7 @@ func getEKCertTest() {
 		_, racCfg.eKeyCertTest, err = cryptotools.DecodeKeyCertFromFile(racCfg.ecTestFile)
 		if err != nil {
 			racCfg.eKeyCertTest = []byte{}
-			racCfg.ecTestFile = ekCertTest + crtExt
+			// racCfg.ecTestFile = ekCertTest + crtExt
 		}
 	} else {
 		racCfg.ecTestFile = ekCertTest + crtExt
@@ -216,7 +216,7 @@ func getIKCertTest() {
 		_, racCfg.iKeyCertTest, err = cryptotools.DecodeKeyCertFromFile(racCfg.icTestFile)
 		if err != nil {
 			racCfg.iKeyCertTest = []byte{}
-			racCfg.icTestFile = ikCertTest + crtExt
+			// racCfg.icTestFile = ikCertTest + crtExt
 		}
 	} else {
 		racCfg.icTestFile = ikCertTest + crtExt
@@ -233,7 +233,7 @@ func getEKCert() {
 		_, racCfg.eKeyCert, err = cryptotools.DecodeKeyCertFromFile(racCfg.ecFile)
 		if err != nil {
 			racCfg.eKeyCert = []byte{}
-			racCfg.ecFile = ekCert + crtExt
+			// racCfg.ecFile = ekCert + crtExt
 		}
 	} else {
 		racCfg.ecFile = ekCert + crtExt
@@ -250,7 +250,7 @@ func getIKCert() {
 		_, racCfg.iKeyCert, err = cryptotools.DecodeKeyCertFromFile(racCfg.icFile)
 		if err != nil {
 			racCfg.iKeyCert = []byte{}
-			racCfg.icFile = ikCert + crtExt
+			// racCfg.icFile = ikCert + crtExt
 		}
 	} else {
 		racCfg.icFile = ikCert + crtExt
@@ -301,13 +301,29 @@ func saveConfigs() {
 	if racCfg.testMode {
 		viper.Set(confEKeyCertTest, racCfg.ecTestFile)
 		viper.Set(confIKeyCertTest, racCfg.icTestFile)
-		cryptotools.EncodeKeyCertToFile(racCfg.eKeyCertTest, racCfg.ecTestFile)
-		cryptotools.EncodeKeyCertToFile(racCfg.iKeyCertTest, racCfg.icTestFile)
+		err := cryptotools.EncodeKeyCertToFile(racCfg.eKeyCertTest, racCfg.ecTestFile)
+		if err != nil {
+			racCfg.ecTestFile = ekCertTest + crtExt
+			cryptotools.EncodeKeyCertToFile(racCfg.eKeyCertTest, racCfg.ecTestFile)
+		}
+		err = cryptotools.EncodeKeyCertToFile(racCfg.iKeyCertTest, racCfg.icTestFile)
+		if err != nil {
+			racCfg.icTestFile = ikCertTest + crtExt
+			cryptotools.EncodeKeyCertToFile(racCfg.iKeyCertTest, racCfg.icTestFile)
+		}
 	} else {
 		viper.Set(confEKeyCert, racCfg.ecFile)
 		viper.Set(confIKeyCert, racCfg.icFile)
-		cryptotools.EncodeKeyCertToFile(racCfg.eKeyCert, racCfg.ecFile)
-		cryptotools.EncodeKeyCertToFile(racCfg.iKeyCert, racCfg.icFile)
+		err := cryptotools.EncodeKeyCertToFile(racCfg.eKeyCert, racCfg.ecFile)
+		if err != nil {
+			racCfg.ecFile = ekCert + crtExt
+			cryptotools.EncodeKeyCertToFile(racCfg.eKeyCert, racCfg.ecFile)
+		}
+		err = cryptotools.EncodeKeyCertToFile(racCfg.iKeyCert, racCfg.icFile)
+		if err != nil {
+			racCfg.icFile = ikCert + crtExt
+			cryptotools.EncodeKeyCertToFile(racCfg.iKeyCert, racCfg.icFile)
+		}
 	}
 	err := viper.WriteConfig()
 	if err != nil {

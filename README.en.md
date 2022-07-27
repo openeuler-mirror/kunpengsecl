@@ -86,7 +86,7 @@ make rpm
 ```
 so that you can generate the RPM package of this program
 
-According to actual demand, you can choose to install the corresponding *RAS* or *RAC* RPM package. 
+According to actual demand, you can choose to install the corresponding *RAS*, *RAC* or *RAHUB* RPM package. 
 The specific command is as follows:
 ```
 sudo rpm -ivh xxx.rpm
@@ -102,6 +102,11 @@ sudo rpm -e xxx
 Before running this software, please enter the *kunpengsecl/attestation/quick-scripts/* directory and use 
 **prepare-database-env.sh** 
 to prepare the necessary database environment
+
+##### configuration instruction
+By default, the configuration file on which the program runs has three paths: the current directory './config.yaml', the HOME directory '${HOME}/.config/attestation/ras(rac)(rahub)/config.yaml, and the system directory '/etc/attestation/ras(rac)(rahub)/config.yaml
+
+In order to create the home directory configuration file, you can execute the script **prepare-ras(rac)(hub)conf-env.sh** under kunpengsecl root directory after installing the RPM package. Besides, you can find the script in /usr/share/attestation/ras(rac)(rahub) directory. This automatically completes the deployment of the home directory configuration file
 
 ##### Server aspect
 Executing ``ras`` in the *kunpengsecl/attestation/ras/cmd/ras/* directory that you can start server. 
