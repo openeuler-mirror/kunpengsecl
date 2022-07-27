@@ -223,10 +223,11 @@ type (
 	NodeInfo struct {
 		ID           int64  `json:"id" form:"id"`
 		RegTime      string `json:"regtime" form:"regtime"`
+		Registered   bool   `json:"registered" form:"registered"`
 		Online       bool   `json:"online" form:"online"`
-		IPAddress    string `json:"ipaddress" form:"ipaddress"`
 		Trusted      string `json:"trusted" form:"trusted"`
 		IsAutoUpdate bool   `json:"isautoupdate" form:"isautoupdate"`
+		IPAddress    string `json:"ipaddress" form:"ipaddress"`
 	}
 
 	ArrNodeInfo []NodeInfo

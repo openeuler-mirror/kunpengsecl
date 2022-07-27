@@ -473,16 +473,19 @@ components:
       required:
         - id
         - regtime
+        - registered
         - online
         - trusted
         - isautoupdate
-        - info
       properties:
         id:
           type: integer
           format: int64
         regtime:
           type: string
+        registered:           
+          type: boolean           
+          default: false
         online:
           type: boolean
           default: false
@@ -492,8 +495,6 @@ components:
         isautoupdate:
           type: boolean
           default: false
-        info:
-          type: string
     ReportInfo:
       type: object
       required:
