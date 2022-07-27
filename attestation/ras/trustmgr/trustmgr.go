@@ -34,7 +34,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"sort"
@@ -56,12 +55,12 @@ const (
 	constRacDefault = 5000
 
 	// for database management sql
-	sqlRegisterClientByIK       = `INSERT INTO client(regtime, deleted, info, ikcert) VALUES ($1, $2, $3, $4) RETURNING id`
-	sqlFindAllEnabledClients    = `SELECT id, regtime, ikcert FROM client WHERE deleted=false`
-	sqlFindClientByID           = `SELECT regtime, deleted, info, ikcert FROM client WHERE id=$1`
+	sqlRegisterClientByIK       = `INSERT INTO client(regtime, registered, info, ikcert) VALUES ($1, $2, $3, $4) RETURNING id`
+	sqlFindAllEnabledClients    = `SELECT id, regtime, ikcert FROM client WHERE registered=true`
+	sqlFindClientByID           = `SELECT regtime, registered, info, ikcert FROM client WHERE id=$1`
 	sqlFindClientIDByIK         = `SELECT id FROM client WHERE ikcert=$1`
-	sqlFindClientFullByIK       = `SELECT id, regtime, deleted, info FROM client WHERE ikcert=$1`
-	sqlFindClientsByInfo        = `SELECT id, regtime, deleted, info, ikcert FROM client WHERE info @> $1`
+	sqlFindClientFullByIK       = `SELECT id, regtime, registered, info FROM client WHERE ikcert=$1`
+	sqlFindClientsByInfo        = `SELECT id, regtime, registered, info, ikcert FROM client WHERE info @> $1`
 	sqlFindReportsByClientID    = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
 	sqlFindReportByID           = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
 	sqlFindBaseValuesByClientID = `SELECT id, basetype, uuid, createtime, name, enabled FROM base WHERE clientid=$1 ORDER BY createtime ASC`
@@ -69,7 +68,7 @@ const (
 	sqlFindBaseValueByUuid      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
 	sqlDeleteReportByID         = `DELETE FROM report WHERE id=$1`
 	sqlDeleteBaseValueByID      = `DELETE FROM base WHERE id=$1`
-	sqlUnRegisterClientByID     = `UPDATE client SET deleted=true WHERE id=$1`
+	sqlUnRegisterClientByID     = `UPDATE client SET registered=false WHERE id=$1`
 	sqlUpdateClientByID         = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport        = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	sqlInsertBase               = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
@@ -210,13 +209,13 @@ func RegisterClientByIK(ikCert, info string, registered bool) (*typdefs.ClientRo
 		return nil, typdefs.ErrAlreadyRegistered
 	}
 	c = typdefs.ClientRow{
-		RegTime: time.Now(),
-		Deleted: !registered,
-		Info:    info,
-		IKCert:  ikCert,
+		RegTime:    time.Now(),
+		Registered: registered,
+		Info:       info,
+		IKCert:     ikCert,
 	}
 	err = tmgr.db.QueryRow(sqlRegisterClientByIK, c.RegTime,
-		c.Deleted, c.Info, c.IKCert).Scan(&c.ID)
+		c.Registered, c.Info, c.IKCert).Scan(&c.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +246,7 @@ func FindClientByIK(ikCert string) (*typdefs.ClientRow, error) {
 	}
 	c := typdefs.ClientRow{IKCert: ikCert}
 	err := tmgr.db.QueryRow(sqlFindClientFullByIK, ikCert).Scan(&c.ID,
-		&c.RegTime, &c.Deleted, &c.Info)
+		&c.RegTime, &c.Registered, &c.Info)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +261,7 @@ func FindClientByID(id int64) (*typdefs.ClientRow, error) {
 	}
 	c := typdefs.ClientRow{ID: id}
 	err = tmgr.db.QueryRow(sqlFindClientByID, id).Scan(&c.RegTime,
-		&c.Deleted, &c.Info, &c.IKCert)
+		&c.Registered, &c.Info, &c.IKCert)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +281,7 @@ func FindClientsByInfo(info string) ([]typdefs.ClientRow, error) {
 	cs := make([]typdefs.ClientRow, 0, 10)
 	for rows.Next() {
 		c := typdefs.ClientRow{}
-		err2 := rows.Scan(&c.ID, &c.RegTime, &c.Deleted, &c.Info, &c.IKCert)
+		err2 := rows.Scan(&c.ID, &c.RegTime, &c.Registered, &c.Info, &c.IKCert)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -405,17 +404,17 @@ func DeleteBaseValueByID(id int64) error {
 }
 
 // HandleHeartbeat handles the heat beat request, update client cache and reply some commands.
-func HandleHeartbeat(id int64) (uint64, uint64, error) {
+func HandleHeartbeat(id int64) (uint64, uint64) {
 	c, err := GetCache(id)
 	if err != nil {
-		return 0, 0, err
+		return typdefs.CmdNone, 0
 	}
 	c.UpdateHeartBeat(config.GetHBDuration())
 	c.UpdateOnline(config.GetOnlineDuration())
 	cmd := c.GetCommands()
 	nonce := c.GetNonce()
 	c.ClearCommands()
-	return cmd, nonce, nil
+	return cmd, nonce
 }
 
 // ValidateReport validates the report and returns the result.
@@ -427,7 +426,7 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 	}
 	// 1. use cache to check Nonce value.
 	if !c.CompareNonce(report.Nonce) {
-		c.SetTrusted(false)
+		c.SetTrusted(cache.StrUntrusted)
 		return false, typdefs.ErrNonceNotMatch
 	}
 	row := &typdefs.ReportRow{
@@ -437,24 +436,24 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 	// 2. check the Quoted/Signature
 	_, err = checkQuote(c, report, row)
 	if err != nil {
-		c.SetTrusted(false)
+		c.SetTrusted(cache.StrUntrusted)
 		return false, err
 	}
 	// 3. check pcr log
 	_, err = checkPcrLog(report, row)
 	if err != nil {
-		c.SetTrusted(false)
+		c.SetTrusted(cache.StrUntrusted)
 		return false, err
 	}
 	// 4. check bios and ima log
 	_, err = checkBiosAndImaLog(report, row)
 	if err != nil {
-		c.SetTrusted(false)
+		c.SetTrusted(cache.StrUntrusted)
 		return false, err
 	}
 	row.Validated = true
 	row.Trusted = true
-	c.SetTrusted(true)
+	c.SetTrusted(cache.StrTrusted)
 	c.UpdateTrustReport(config.GetTrustDuration())
 	go pushToStorePipe(row)
 	return true, nil
@@ -584,41 +583,44 @@ func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bo
 
 func HandleBaseValue(report *typdefs.TrustReport) error {
 	// if this client's AutoUpdate is true, save base value of rac which in the update list
-	switch config.GetMgrStrategy() {
-	case config.AutoUpdateStrategy:
-		if config.GetIsAllUpdate() || tmgr.cache[report.ClientID].GetIsAutoUpdate() {
-			{
-				err := recordAutoUpdateReport(report)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	case config.AutoStrategy:
-		// if this client's AutoUpdate is false, and if this is the first report of this RAC, extract base value
-		isFirstReport, err := isFirstReport(report.ClientID)
-		if err != nil {
-			return err
-		}
-		baseValue := typdefs.BaseRow{}
-		if isFirstReport {
-			// this is first report, so oldBase is nil
-			err = extract(report, nil, &baseValue)
+	if config.GetIsAllUpdate() || tmgr.cache[report.ClientID].GetIsAutoUpdate() {
+		{
+			err := recordAutoUpdateReport(report)
 			if err != nil {
 				return err
 			}
-			baseValue.ClientID = report.ClientID
-			baseValue.CreateTime = time.Now()
-			baseValue.Enabled = false
-			baseValue.Verified = false
-			baseValue.Trusted = false
-			SaveBaseValue(&baseValue)
-		} else {
+		}
+	} else {
+		switch config.GetMgrStrategy() {
+		case config.AutoUpdateStrategy:
+		case config.AutoStrategy:
+			// if this client's AutoUpdate is false, and if this is the first report of this RAC, extract base value
+			isFirstReport, err := isFirstReport(report.ClientID)
+			if err != nil {
+				return err
+			}
+			if isFirstReport {
+				// this is first report, so oldBase is nil
+				baseValue := typdefs.BaseRow{
+					ClientID: report.ClientID,
+					Enabled:  false,
+					Verified: false,
+					Trusted:  false,
+				}
+				err = extract(report, nil, &baseValue)
+				if err != nil {
+					return err
+				}
+				baseValue.CreateTime = time.Now()
+				SaveBaseValue(&baseValue)
+			} else {
+				verifyReport(report)
+			}
+		case config.ManualStrategy:
 			verifyReport(report)
 		}
-	case config.ManualStrategy:
-		verifyReport(report)
 	}
+
 	return nil
 }
 
@@ -758,7 +760,7 @@ func verifyPCR(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 
 	for i, s := range rPcrMap {
 		if s != bPcrMap[i] {
-			return errors.New(fmt.Sprintf("pcr %d not equal.", i))
+			return fmt.Errorf("pcr %d not equal", i)
 		}
 	}
 	return nil

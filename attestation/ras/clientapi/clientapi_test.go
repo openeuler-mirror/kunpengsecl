@@ -214,7 +214,7 @@ func TestClientapi(t *testing.T) {
 
 	// test empty clientId
 	_, err = ras.c.SendHeartbeat(ctx, &SendHeartbeatRequest{})
-	if err == nil {
+	if err != nil {
 		t.Errorf("test SendHeartbeat with empty ClientId failed")
 	}
 
@@ -332,7 +332,7 @@ func TestDoClientapi(t *testing.T) {
 
 	// test empty clientId
 	_, err = DoSendHeartbeat(server, &SendHeartbeatRequest{})
-	if err == nil {
+	if err != nil {
 		t.Errorf("test DoSendHeartbeat with empty ClientId failed")
 	}
 
@@ -460,7 +460,7 @@ func TestDoClientapiWithConn(t *testing.T) {
 
 	// test empty clientId
 	_, err = DoSendHeartbeatWithConn(ras, &SendHeartbeatRequest{})
-	if err == nil {
+	if err != nil {
 		t.Errorf("test SendHeartbeatWithConn with empty ClientId failed")
 	}
 

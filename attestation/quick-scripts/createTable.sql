@@ -1,7 +1,7 @@
 CREATE TABLE client (
     id BIGSERIAL PRIMARY KEY NOT NULL,
     regtime TIMESTAMPTZ,
-    deleted BOOLEAN,
+    registered BOOLEAN,
     info JSONB,
     ikcert TEXT
 );
