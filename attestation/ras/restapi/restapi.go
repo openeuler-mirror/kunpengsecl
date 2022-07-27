@@ -80,9 +80,10 @@ const (
 <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
 </head><body><script>$(document).ready(function(){$("button").click(function(){
 $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
-{if(status=="success"){location.reload(true);}},});});});</script>
-<a href="/login">login</a>&emsp;<a href="/version">version</a>
-&emsp;<a href="/config">config</a><br/><table border="1">
+{if(status=="success"){location.reload(true);}},});});});
+function logout(){localStorage.setItem("token", null);alert("logout successfully");}</script>
+<a href="/login">login</a>&emsp;<a href="javascript:void(0)" onclick="logout()">logout</a>
+&emsp;<a href="/version">version</a>&emsp;<a href="/config">config</a><br/><table border="1">
 <tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
 <th>Online</th><th>IP Address</th><th>Trusted</th><th>Info</th><th>Trust Reports</th>
 <th>Base Values</th><th>Action</th></tr>`
@@ -91,6 +92,14 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
 <td><a href="/%d/basevalues">link</a></td>
 <td><button type="button" value="/%d">Delete</button></td></tr>`
 	htmlListEnd = `</table></body></html>`
+
+	// login
+	htmlLogin = `<html><head><title>login</title>
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+<body><script>$(document).ready(function(){$("#login").click(function(){var token = $("#token").val();
+localStorage.setItem("token", token);alert("save token successful");})})</script>
+<div><input type="token" name="token" id ="token" placeholder="please enter the token here"></div>
+<div><input type="button" id="login" value="login" ></div></body></html>`
 
 	// (GET /config)
 	htmlConfig = `<html><head><title>Config Setting</title></head><body>
@@ -527,7 +536,10 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 // (POST /login)
 // login/logout ras server as admin
 func (s *MyRestAPIServer) PostLogin(ctx echo.Context) error {
-	return ctx.HTML(http.StatusOK, "login...")
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusOK, htmlLogin)
+	}
+	return ctx.HTML(http.StatusOK, htmlLogin)
 }
 
 // (GET /version)
