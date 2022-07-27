@@ -49,14 +49,12 @@ func handleGlobalFlags() {
 		os.Exit(0)
 	}
 	if config.TokenFlag != nil && *config.TokenFlag {
-		/*
-			token, err := restapi.CreateTestAuthToken()
-			if err != nil {
-				fmt.Printf("create test auth token failed: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("please pass below line as a whole in http Authorization header:\nBearer %s\n", string(token))
-		*/
+		token, err := restapi.CreateTestAuthToken()
+		if err != nil {
+			fmt.Printf("create test auth token failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("please pass below line as a whole in http Authorization header:\nBearer %s\n", string(token))
 		os.Exit(0)
 	}
 }

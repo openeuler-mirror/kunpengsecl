@@ -53,7 +53,9 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -68,6 +70,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
 
@@ -361,6 +364,28 @@ func checkJSON(ctx echo.Context) bool {
 		return true
 	}
 	return false
+}
+
+func CreateTestAuthToken() ([]byte, error) {
+	authKeyPubFile := config.GetAuthKeyFile()
+	authKeyFile := os.TempDir() + "/at" + strconv.FormatInt(rand.Int63(), 16)
+	test.CreateAuthKeyFile(authKeyFile, authKeyPubFile)
+	defer os.Remove(authKeyFile)
+
+	v, err := internal.NewFakeAuthenticator(authKeyFile)
+	if err != nil {
+		logger.L.Sugar().Errorf("Create Authenticator failed")
+		return nil, err
+	}
+
+	// create a JWT with config write & server write permission
+	writeJWT, err := v.CreateJWSWithClaims([]string{"write:config", "write:servers"})
+	if err != nil {
+		logger.L.Sugar().Errorf("Create Token failed")
+		return nil, err
+	}
+
+	return writeJWT, nil
 }
 
 func genAllListHtml(nodes []typdefs.NodeInfo) string {
