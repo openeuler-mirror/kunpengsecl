@@ -237,11 +237,7 @@ func (s *rasService) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest
 	var out SendHeartbeatReply
 	cid := in.GetClientId()
 	//logger.L.Sugar().Debugf("get hb from %d", cid)
-	cmds, nonce, err := trustmgr.HandleHeartbeat(cid)
-	if err != nil {
-		logger.L.Sugar().Errorf("client(%d) heart beat fail, %v", cid, err)
-		return nil, err
-	}
+	cmds, nonce := trustmgr.HandleHeartbeat(cid)
 	if cmds == typdefs.CmdNone {
 		out = SendHeartbeatReply{
 			NextAction: cmds,

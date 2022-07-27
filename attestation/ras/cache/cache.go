@@ -32,6 +32,9 @@ import (
 
 const (
 	defaultBaseRows = 10
+	StrUnknown      = "unknown"
+	StrTrusted      = "trusted"
+	StrUntrusted    = "untrusted"
 )
 
 type (
@@ -39,7 +42,7 @@ type (
 	Cache struct {
 		regtime      string
 		online       bool
-		hostTrusted  bool
+		hostTrusted  string
 		isAutoUpdate bool //true表示信任下一次的可信报告，不验证直接抽取更新基准值；false则正常对下一次报告进行验证
 		// current commands for RAC.
 		commands uint64
@@ -63,7 +66,7 @@ func NewCache() *Cache {
 	c := &Cache{
 		regtime:         "",
 		online:          false,
-		hostTrusted:     false,
+		hostTrusted:     StrUnknown,
 		isAutoUpdate:    false,
 		commands:        typdefs.CmdNone,
 		trustExpiration: time.Now(),
@@ -119,17 +122,20 @@ func (c *Cache) GetCommands() uint64 {
 }
 
 // SetVerified sets the trusted field.
-func (c *Cache) SetTrusted(v bool) {
+func (c *Cache) SetTrusted(v string) {
 	c.hostTrusted = v
 }
 
 // GetTrusted checks where the RAC trust report is valid or not.
-func (c *Cache) GetTrusted() bool {
+func (c *Cache) GetTrusted() string {
 	// After trust report expiration there is no one report received,
 	// the RAC can't be trusted any more and needs to get a new trust report.
+	if !c.online {
+		c.hostTrusted = StrUnknown
+	}
 	if time.Now().After(c.trustExpiration) {
 		c.SetCommands(typdefs.CmdGetReport)
-		c.hostTrusted = false
+		c.hostTrusted = StrUnknown
 	}
 	return c.hostTrusted
 }

@@ -104,11 +104,11 @@ type (
 	// ClientRow stores one record of client basic information
 	// in database table `client`.
 	ClientRow struct {
-		ID      int64
-		RegTime time.Time
-		Deleted bool
-		Info    string
-		IKCert  string
+		ID         int64
+		RegTime    time.Time
+		Registered bool
+		Info       string
+		IKCert     string
 	}
 
 	// ReportRow stores one record of trust report information
@@ -225,7 +225,7 @@ type (
 		RegTime      string `json:"regtime" form:"regtime"`
 		Online       bool   `json:"online" form:"online"`
 		IPAddress    string `json:"ipaddress" form:"ipaddress"`
-		Trusted      bool   `json:"trusted" form:"trusted"`
+		Trusted      string `json:"trusted" form:"trusted"`
 		IsAutoUpdate bool   `json:"isautoupdate" form:"isautoupdate"`
 	}
 

@@ -74,11 +74,12 @@ func TestCommands(t *testing.T) {
 }
 
 func TestTrusted(t *testing.T) {
-	testCases2 := []bool{true, false}
+	testCases2 := []string{"trusted", "untrusted", "unknown"}
 	for i := 0; i < len(testCases2); i++ {
 		c := NewCache()
-		c.trustExpiration = time.Now().Add(time.Second)
+		c.trustExpiration = time.Now().Add(time.Second * 3)
 		c.SetTrusted(testCases2[i])
+		c.online = true
 		if c.GetTrusted() != testCases2[i] {
 			t.Errorf("test Trusted error at case %d\n", i)
 		}
