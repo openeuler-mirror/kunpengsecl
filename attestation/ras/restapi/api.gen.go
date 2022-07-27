@@ -2775,7 +2775,7 @@ func (w *ServerInterfaceWrapper) PostConfig(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) PostLogin(ctx echo.Context) error {
 	var err error
 
-	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+	//ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PostLogin(ctx)
@@ -3178,7 +3178,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/", wrapper.Get)
 	router.GET(baseURL+"/config", wrapper.GetConfig)
 	router.POST(baseURL+"/config", wrapper.PostConfig)
-	router.POST(baseURL+"/login", wrapper.PostLogin)
+	router.GET(baseURL+"/login", wrapper.PostLogin)
 	router.GET(baseURL+"/version", wrapper.GetVersion)
 	router.GET(baseURL+"/:from/:to", wrapper.GetFromTo)
 	router.DELETE(baseURL+"/:id", wrapper.DeleteId)
