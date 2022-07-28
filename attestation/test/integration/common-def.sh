@@ -13,7 +13,7 @@ TESTDIR_PREFIX=${TESTDIR_PREFIX:-kunpengsecl-test}
 RACPKG=${PROJROOT}/attestation/rac/pkg
 RAAGENT=${RACPKG}/raagent
 RAHUB=${RACPKG}/rahub
-TBPRO=${RACPKG}/tbprovisioner
+# TBPRO=${RACPKG}/tbprovisioner
 
 CMDRAAGENT=${PROJROOT}/attestation/rac/cmd/raagent
 CMDRAHUB=${PROJROOT}/attestation/rac/cmd/rahub
@@ -25,11 +25,11 @@ BIOSMANIFEST=${CMDRAAGENT}/${BIOSFILE}
 IMAMANIFEST=${CMDRAAGENT}/${IMAFILE}
 
 RAS=${PROJROOT}/attestation/ras/pkg/ras
-RASCONF=${PROJROOT}/attestation/ras/cmd/ras/config.yaml
-RASAUTHKEY=${PROJROOT}/attestation/ras/cmd/ras/ecdsakey.pub
+RASCONF=${PROJROOT}/attestation/ras/cmd/config.yaml
+RASAUTHKEY=${PROJROOT}/attestation/ras/cmd/ecdsakey.pub
 
-EXAMPLE=${PROJROOT}/attestation/ras/example
-SAMPLEAUTHSVR=${EXAMPLE}/pkg/server
-SAMPLECLIENT=${EXAMPLE}/pkg/client
-SAMPLEAUTHSVRAUTHKEY=${EXAMPLE}/sampleauthserver/ecdsakey
-SAMPLEAUTHSVRSTATIC=${EXAMPLE}/sampleauthserver/static
+# EXAMPLE=${PROJROOT}/attestation/ras/example
+# SAMPLEAUTHSVR=${EXAMPLE}/pkg/server
+# SAMPLECLIENT=${EXAMPLE}/pkg/client
+# SAMPLEAUTHSVRAUTHKEY=${EXAMPLE}/sampleauthserver/ecdsakey
+# SAMPLEAUTHSVRSTATIC=${EXAMPLE}/sampleauthserver/static

@@ -62,6 +62,7 @@ rasconfig:
   restport: 127.0.0.1:40002
   rootkeycertfile: ""
   rootprivkeyfile: ""
+  mgrstrategy: "auto"
   serialnumber: 0
   serverport: 127.0.0.1:40001
   onlineduration: 30s

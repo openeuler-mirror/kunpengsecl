@@ -247,17 +247,19 @@ func RegisterClientByIK(ikCert, info string, registered bool) (*typdefs.ClientRo
 	if err != nil {
 		return nil, err
 	}
-	ca := cache.NewCache()
-	ca.SetRegTime(c.RegTime.Format(typdefs.StrTimeFormat))
-	ca.SetIKeyCert(ikCert)
-	tmgr.mu.Lock()
-	tmgr.cache[c.ID] = ca
-	tmgr.mu.Unlock()
+	if registered {
+		ca := cache.NewCache()
+		ca.SetRegTime(c.RegTime.Format(typdefs.StrTimeFormat))
+		ca.SetIKeyCert(ikCert)
+		tmgr.mu.Lock()
+		tmgr.cache[c.ID] = ca
+		tmgr.mu.Unlock()
+	}
 	return &c, nil
 }
 
 func RegisterClientByID(id int64, regtime time.Time, ik string) {
-	if tmgr != nil {
+	if tmgr == nil {
 		return
 	}
 	tmgr.mu.Lock()
