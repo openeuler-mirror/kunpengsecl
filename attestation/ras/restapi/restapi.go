@@ -184,6 +184,7 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 	strRegTime        = `Register Time`
 	strCreateTime     = `Create Time`
 	strOnline         = `Online`
+	strNull           = ``
 	strTrusted        = `Trusted`
 	strUnknown        = "unknown"
 	strUntrusted      = "untrusted"
@@ -201,6 +202,7 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 	strName           = "Name"
 	strEnabled        = "Enabled"
 	strIsAutoUpdate   = "IsAutoUpdate"
+	strRegistered     = "registered"
 	strVerified       = "Verified"
 	strPCR            = "Pcr"
 	strBIOS           = "Bios"
@@ -397,7 +399,7 @@ func CreateTestAuthToken() ([]byte, error) {
 	return writeJWT, nil
 }
 
-func genAllListHtml(nodes []typdefs.NodeInfo) string {
+func genAllListHtml(nodes map[int64]*typdefs.NodeInfo) string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlAllList)
 	for _, n := range nodes {
@@ -413,7 +415,7 @@ func showListNodesByRange(ctx echo.Context, from, to int64) error {
 	if checkJSON(ctx) {
 		if err != nil {
 			logger.L.Sugar().Debugf(errNoClient, err)
-			return ctx.JSON(http.StatusNotFound, []typdefs.NodeInfo{})
+			return ctx.JSON(http.StatusNotFound, map[int64]*typdefs.NodeInfo{})
 		}
 		return ctx.JSON(http.StatusOK, nodes)
 	}
@@ -438,8 +440,8 @@ func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 type cfgRecord struct {
 	HBDuration      time.Duration `json:"hbduration" form:"hbduration"`
 	TrustDuration   time.Duration `json:"trustduration" form:"trustduration"`
-	IsAllupdate     bool          `json:"isallupdate" form:"true"`
-	LogTeseMode     bool          `json:"logtestmode" form:"true"`
+	IsAllupdate     bool          `json:"isallupdate" form:"isallupdate"`
+	LogTeseMode     bool          `json:"logtestmode" form:"logtestmode"`
 	DBHost          string
 	DBName          string
 	DBPassword      string
@@ -454,7 +456,6 @@ func genConfigJson() *cfgRecord {
 	return &cfgRecord{
 		HBDuration:      config.GetHBDuration() / time.Second,
 		TrustDuration:   config.GetTrustDuration() / time.Second,
-		IsAllupdate:     config.GetIsAllUpdate(),
 		LogTeseMode:     config.GetLoggerMode(),
 		DBHost:          config.GetDBHost(),
 		DBName:          config.GetDBName(),
@@ -509,23 +510,49 @@ func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 // Notice: key name must be enclosed by "" in json format!!!
 func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	cfg := new(cfgRecord)
+	cfg.LogTeseMode = config.GetLoggerMode()
 	err := ctx.Bind(cfg)
 	if err != nil {
 		logger.L.Sugar().Debugf(errNoClient, err)
 		return err
 	}
-	config.SetHBDuration(cfg.HBDuration * time.Second)
-	config.SetTrustDuration(cfg.TrustDuration * time.Second)
-	config.SetIsAllUpdate(cfg.IsAllupdate)
-	config.SetLoggerMode(cfg.LogTeseMode)
-	config.SetDBHost(cfg.DBHost)
-	config.SetDBName(cfg.DBName)
-	config.SetDBPassword(cfg.DBPassword)
-	config.SetDBPort(cfg.DBPort)
-	config.SetDBUser(cfg.DBUser)
-	config.SetDigestAlgorithm(cfg.DigestAlgorithm)
-	config.SetMgrStrategy(cfg.MgrStrategy)
-	config.SetExtractRules(cfg.ExtractRules)
+	if cfg.HBDuration != 0 {
+		config.SetHBDuration(cfg.HBDuration * time.Second)
+	}
+	if cfg.TrustDuration != 0 {
+		config.SetTrustDuration(cfg.TrustDuration * time.Second)
+	}
+	if cfg.IsAllupdate {
+		trustmgr.UpdateCaches()
+	}
+	if cfg.LogTeseMode != config.GetLoggerMode() {
+		config.SetLoggerMode(cfg.LogTeseMode)
+	}
+	if cfg.DBHost != strNull {
+		config.SetDBHost(cfg.DBHost)
+	}
+	if cfg.DBName != strNull {
+		config.SetDBName(cfg.DBName)
+	}
+	if cfg.DBPassword != strNull {
+		config.SetDBPassword(cfg.DBPassword)
+	}
+	if cfg.DBPort != 0 {
+		config.SetDBPort(cfg.DBPort)
+	}
+	if cfg.DBUser != strNull {
+		config.SetDBUser(cfg.DBUser)
+	}
+	if cfg.DigestAlgorithm == typdefs.Sha1AlgStr || cfg.DigestAlgorithm == typdefs.Sha256AlgStr || cfg.DigestAlgorithm == typdefs.Sm3AlgStr {
+		config.SetDigestAlgorithm(cfg.DigestAlgorithm)
+	}
+	if cfg.MgrStrategy == config.AutoStrategy || cfg.MgrStrategy == config.ManualStrategy {
+		config.SetMgrStrategy(cfg.MgrStrategy)
+	}
+	if cfg.ExtractRules != strNull {
+		config.SetExtractRules(cfg.ExtractRules)
+	}
+
 	trustmgr.UpdateAllNodes()
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson())
@@ -605,23 +632,32 @@ func genNodeHtml(c *cache.Cache) string {
 //  read node {id} info as json
 //    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
-	c, err := trustmgr.GetCache(id)
+	cr, err1 := trustmgr.FindClientByID(id)
+	c, err2 := trustmgr.GetCache(id)
 	if checkJSON(ctx) {
-		if err != nil {
-			logger.L.Sugar().Debugf(errNoClient, err)
+		if err1 != nil {
+			logger.L.Sugar().Debugf(errNoClient, err1)
 			return ctx.JSON(http.StatusNotFound, &typdefs.NodeInfo{ID: id})
 		}
 		ni := typdefs.NodeInfo{
 			ID:           id,
-			RegTime:      c.GetRegTime(),
-			Online:       c.GetOnline(),
-			Trusted:      c.GetTrusted(),
-			IsAutoUpdate: c.GetIsAutoUpdate(),
+			RegTime:      cr.RegTime.String(),
+			Registered:   false,
+			Online:       false,
+			Trusted:      cache.StrUnknown,
+			IsAutoUpdate: false,
+			IPAddress:    typdefs.GetIP(),
+		}
+		if err2 == nil {
+			ni.Registered = true
+			ni.Online = c.GetOnline()
+			ni.Trusted = c.GetTrusted()
+			ni.IsAutoUpdate = c.GetIsAutoUpdate()
 		}
 		return ctx.JSON(http.StatusOK, &ni)
 	}
-	if err != nil {
-		logger.L.Sugar().Debugf(errNoClient, err)
+	if err1 != nil {
+		logger.L.Sugar().Debugf(errNoClient, err1)
 		return ctx.JSON(http.StatusNotFound, "")
 	}
 	return ctx.HTML(http.StatusOK, genNodeHtml(c))
@@ -632,13 +668,30 @@ func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 //  modify node {id} information by json
 //    curl -X POST -H "Content-type: multipart/form-data" -F "IsAutoUpdate=true;type=application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
+	sReg := ctx.FormValue(strIsAutoUpdate)
+	registered, _ := strconv.ParseBool(sReg)
 	sIsU := ctx.FormValue(strIsAutoUpdate)
 	isAutoUpdate, _ := strconv.ParseBool(sIsU)
+
+	cr, err1 := trustmgr.FindClientByID(id)
+	if err1 != nil {
+		return err1
+	}
+
+	if !cr.Registered && registered {
+		trustmgr.RegisterClientByID(id, cr.RegTime, cr.IKCert)
+	} else if cr.Registered && !registered {
+		trustmgr.UnRegisterClientByID(id)
+	}
 	c, err := trustmgr.GetCache(id)
-	if err != nil {
+	if err == nil {
+		if isAutoUpdate != c.GetIsAutoUpdate() {
+			c.SetIsAutoUpdate(isAutoUpdate)
+		}
+	} else {
 		return err
 	}
-	c.SetIsAutoUpdate(isAutoUpdate)
+
 	res := fmt.Sprintf("change server %d information", id)
 	return ctx.HTML(http.StatusOK, res)
 }

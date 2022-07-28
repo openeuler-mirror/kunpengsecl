@@ -36,7 +36,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,6 +55,7 @@ const (
 
 	// for database management sql
 	sqlRegisterClientByIK       = `INSERT INTO client(regtime, registered, info, ikcert) VALUES ($1, $2, $3, $4) RETURNING id`
+	sqlFindAllClients           = `SELECT id, regtime FROM client WHERE 1=1`
 	sqlFindAllEnabledClients    = `SELECT id, regtime, ikcert FROM client WHERE registered=true`
 	sqlFindClientByID           = `SELECT regtime, registered, info, ikcert FROM client WHERE id=$1`
 	sqlFindClientIDByIK         = `SELECT id FROM client WHERE ikcert=$1`
@@ -68,6 +68,7 @@ const (
 	sqlFindBaseValueByUuid      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
 	sqlDeleteReportByID         = `DELETE FROM report WHERE id=$1`
 	sqlDeleteBaseValueByID      = `DELETE FROM base WHERE id=$1`
+	sqlRegisterClientByID       = `UPDATE client SET registered=true WHERE id=$1`
 	sqlUnRegisterClientByID     = `UPDATE client SET registered=false WHERE id=$1`
 	sqlUpdateClientByID         = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport        = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
@@ -163,26 +164,41 @@ func GetCache(id int64) (*cache.Cache, error) {
 
 // GetAllNodes returns all clients cache information from "f" to "t"
 // and returns a list nodes to rest api.
-func GetAllNodes(f, t int64) (typdefs.ArrNodeInfo, error) {
-	var nodes typdefs.ArrNodeInfo
+func GetAllNodes(f, t int64) (map[int64]*typdefs.NodeInfo, error) {
+	nodes := make(map[int64]*typdefs.NodeInfo, constRacDefault)
 	if tmgr == nil {
 		return nil, typdefs.ErrParameterWrong
 	}
 	tmgr.mu.Lock()
 	defer tmgr.mu.Unlock()
-	for i, v := range tmgr.cache {
-		if f <= i && i < t {
+	var id int64
+	var regitime string
+	rows, err := tmgr.db.Query(sqlFindAllClients)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		err = rows.Scan(&id, &regitime)
+		if err == nil {
 			n := typdefs.NodeInfo{
-				ID:        i,
-				RegTime:   v.GetRegTime(),
-				Online:    v.GetOnline(),
-				IPAddress: typdefs.GetIP(),
-				Trusted:   v.GetTrusted(),
+				ID:           id,
+				RegTime:      regitime,
+				Registered:   false,
+				Online:       false,
+				Trusted:      cache.StrUnknown,
+				IsAutoUpdate: false,
 			}
-			nodes = append(nodes, n)
+			nodes[id] = &n
 		}
 	}
-	sort.Sort(nodes)
+	for i, v := range tmgr.cache {
+		if f <= i && i < t {
+			nodes[i].Registered = true
+			nodes[i].Online = v.GetOnline()
+			nodes[i].Trusted = v.GetTrusted()
+			nodes[i].IsAutoUpdate = v.GetIsAutoUpdate()
+		}
+	}
 	return nodes, nil
 }
 
@@ -195,6 +211,18 @@ func UpdateAllNodes() {
 	defer tmgr.mu.Unlock()
 	for _, n := range tmgr.cache {
 		n.SetCommands(typdefs.CmdSendConfig)
+	}
+}
+
+// UpdateeCaches sets all clients's isAutoUpdate to true.
+func UpdateCaches() {
+	if tmgr == nil {
+		return
+	}
+	tmgr.mu.Lock()
+	defer tmgr.mu.Unlock()
+	for _, n := range tmgr.cache {
+		n.SetIsAutoUpdate(true)
 	}
 }
 
@@ -228,6 +256,19 @@ func RegisterClientByIK(ikCert, info string, registered bool) (*typdefs.ClientRo
 	return &c, nil
 }
 
+func RegisterClientByID(id int64, regtime time.Time, ik string) {
+	if tmgr != nil {
+		return
+	}
+	tmgr.mu.Lock()
+	c := cache.NewCache()
+	c.SetRegTime(regtime.Format(typdefs.StrTimeFormat))
+	c.SetIKeyCert(ik)
+	tmgr.cache[id] = c
+	tmgr.mu.Unlock()
+	tmgr.db.Exec(sqlRegisterClientByID, id)
+}
+
 func UnRegisterClientByID(id int64) {
 	_, err := GetCache(id)
 	if err != nil {
@@ -255,12 +296,8 @@ func FindClientByIK(ikCert string) (*typdefs.ClientRow, error) {
 
 // FindClientByID gets client from database by id.
 func FindClientByID(id int64) (*typdefs.ClientRow, error) {
-	_, err := GetCache(id)
-	if err != nil {
-		return nil, err
-	}
 	c := typdefs.ClientRow{ID: id}
-	err = tmgr.db.QueryRow(sqlFindClientByID, id).Scan(&c.RegTime,
+	err := tmgr.db.QueryRow(sqlFindClientByID, id).Scan(&c.RegTime,
 		&c.Registered, &c.Info, &c.IKCert)
 	if err != nil {
 		return nil, err
@@ -583,16 +620,16 @@ func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bo
 
 func HandleBaseValue(report *typdefs.TrustReport) error {
 	// if this client's AutoUpdate is true, save base value of rac which in the update list
-	if config.GetIsAllUpdate() || tmgr.cache[report.ClientID].GetIsAutoUpdate() {
+	if tmgr.cache[report.ClientID].GetIsAutoUpdate() {
 		{
 			err := recordAutoUpdateReport(report)
+			tmgr.cache[report.ClientID].SetIsAutoUpdate(false)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
 		switch config.GetMgrStrategy() {
-		case config.AutoUpdateStrategy:
 		case config.AutoStrategy:
 			// if this client's AutoUpdate is false, and if this is the first report of this RAC, extract base value
 			isFirstReport, err := isFirstReport(report.ClientID)

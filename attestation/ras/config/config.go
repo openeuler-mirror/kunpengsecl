@@ -128,9 +128,8 @@ const (
 	sflagVerbose = "v"
 	helpVerbose  = "show running debug information"
 	//mgr strategy
-	AutoStrategy       = "auto"
-	AutoUpdateStrategy = "auto-update"
-	ManualStrategy     = "manual"
+	AutoStrategy   = "auto"
+	ManualStrategy = "manual"
 )
 
 type (
