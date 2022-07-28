@@ -63,6 +63,7 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwt"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
@@ -77,20 +78,27 @@ import (
 const (
 	// (GET /)
 	htmlAllList = `<html><head><title>All Nodes Information</title>
-<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
-</head><body><script>$(document).ready(function(){$("button").click(function(){
-$.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr)
-{if(status=="success"){location.reload(true);}},});});});
-function logout(){localStorage.setItem("token", null);alert("logout successfully");}</script>
-<a href="/login">login</a>&emsp;<a href="javascript:void(0)" onclick="logout()">logout</a>
-&emsp;<a href="/version">version</a>&emsp;<a href="/config">config</a><br/><table border="1">
-<tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
-<th>Online</th><th>IP Address</th><th>Trusted</th><th>Info</th><th>Trust Reports</th>
-<th>Base Values</th><th>Action</th></tr>`
+	<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+	</head><body><script>$(document).ready(function(){$("button").click(function(){
+	$.ajax({
+		url:this.value,
+		type:"POST",
+		contentType: "application/json",
+		/*this need to change true or false by registerd*/
+		data: {"registered":true} 
+		success:function(result,status,xhr)
+	{if(status=="success"){location.reload(true);}},});});});</script>
+	<script>function logout(){localStorage.setItem("token", null);alert("logout successfully");}</script>
+	<a href="/login">login</a>&emsp;
+	<a href="javascript:void(0)" onclick="logout()">logout</a>&emsp;
+	<a href="/version">version</a>&emsp;<a href="/config">config</a><br/><table border="1">
+	<tr align="center" bgcolor="#00FF00"><th>ID</th><th>RegTime</th>
+	<th>Online</th><th>IP Address</th><th>Trusted</th><th>Info</th><th>Trust Reports</th>
+	<th>Base Values</th><th>IsAutoUpdate</th><th>Registered</th><th>Action</th></tr>`
 	htmlListInfo = `<tr align="center"><td>%d</td><td>%s</td><td>%v</td><td>%s</td>
-<td>%v</td><td><a href="/%d">link</a></td><td><a href="/%d/reports">link</a></td>
-<td><a href="/%d/basevalues">link</a></td>
-<td><button type="button" value="/%d">Delete</button></td></tr>`
+	<td>%v</td><td><a href="/%d">link</a></td><td><a href="/%d/reports">link</a></td>
+	<td><a href="/%d/basevalues">link</a></td><td>%v</td><td>%v</td>
+	<td><button type="button" value="/%d">%s</button></td></tr>`
 	htmlListEnd = `</table></body></html>`
 
 	// login
@@ -242,7 +250,13 @@ func StartServerHttp(port string) {
 		fmt.Println(err)
 		return
 	}
-	logger.L.Sugar().Debug(CreateAuthValidator(v))
+	av, err := CreateAuthValidator(v)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	e.Use(echomiddleware.Logger())
+	e.Use(av)
 	RegisterHandlers(e, &MyRestAPIServer{})
 	logger.L.Sugar().Debug(e.Start(port))
 }
@@ -255,7 +269,13 @@ func StartServerHttps(httpsPort string) {
 		fmt.Println(err)
 		return
 	}
-	logger.L.Sugar().Debug(CreateAuthValidator(v))
+	av, err := CreateAuthValidator(v)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	e.Use(echomiddleware.Logger())
+	e.Use(av)
 	RegisterHandlers(e, &MyRestAPIServer{})
 	e.Logger.Fatal(e.StartTLS(httpsPort, config.GetHttpsKeyCertFile(), config.GetHttpsPrivateKeyFile()))
 }
@@ -401,10 +421,16 @@ func CreateTestAuthToken() ([]byte, error) {
 
 func genAllListHtml(nodes map[int64]*typdefs.NodeInfo) string {
 	var buf bytes.Buffer
+	var button string
 	buf.WriteString(htmlAllList)
 	for _, n := range nodes {
+		if n.Registered {
+			button = "unRegister"
+		} else {
+			button = "Register"
+		}
 		buf.WriteString(fmt.Sprintf(htmlListInfo, n.ID, n.RegTime,
-			n.Online, n.IPAddress, n.Trusted, n.ID, n.ID, n.ID, n.ID))
+			n.Online, n.IPAddress, n.Trusted, n.ID, n.ID, n.ID, n.IsAutoUpdate, n.Registered, n.ID, button))
 	}
 	buf.WriteString(htmlListEnd)
 	return buf.String()
