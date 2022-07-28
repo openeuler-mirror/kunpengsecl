@@ -816,12 +816,47 @@ func (s *MyRestAPIServer) getFile(ctx echo.Context, name string) (string, error)
 	return string(data), nil
 }
 
+type baseValueJson struct {
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+	Pcr     string `json:"pcr"`
+	Bios    string `json:"bios"`
+	Ima     string `json:"ima"`
+}
+
 // (POST /{id}/newbasevalue)
 //  save node {id} a new base value by html
 //    curl -X POST -H "Content-type: multipart/form-data" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/1/newbasevalue
 //  save node {id} a new base value by json
-//    curl -X POST -H "Content-type: multipart/form-data" -F "Name=test;type=application/json" -F "Enabled=true;type=application/json" -F "Pcr=@./cmd_history;type=application/json" -F "Bios=@./cmd_history;type=application/json" -F "Ima=@./cmd_history;type=application/json" http://localhost:40002/{id}/newbasevalue
+//    curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/newbasevalue -d '{"name":"test", "enabled":true, "pcr":"pcr value", "bios":"bios value", "ima":"ima value"}'
 func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
+	if checkJSON(ctx) {
+		return s.postBValueByJson(ctx, id)
+	}
+	return s.postBValueByMultiForm(ctx, id)
+}
+
+func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
+	bv := new(baseValueJson)
+	err := ctx.Bind(bv)
+	if err != nil {
+		return ctx.JSON(http.StatusNotAcceptable, "parse parameters failed!")
+	}
+	row := &typdefs.BaseRow{
+		ClientID:   id,
+		BaseType:   "host",
+		CreateTime: time.Now(),
+		Name:       bv.Name,
+		Enabled:    bv.Enabled,
+		Pcr:        bv.Pcr,
+		Bios:       bv.Bios,
+		Ima:        bv.Ima,
+	}
+	trustmgr.SaveBaseValue(row)
+	return ctx.JSON(http.StatusOK, "add a new base value ok!")
+}
+
+func (s *MyRestAPIServer) postBValueByMultiForm(ctx echo.Context, id int64) error {
 	name := ctx.FormValue(strName)
 	sEnv := ctx.FormValue(strEnabled)
 	enabled, _ := strconv.ParseBool(sEnv)
