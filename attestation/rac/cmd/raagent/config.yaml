@@ -3,9 +3,11 @@ log:
 racconfig:
   clientid: -1
   digestalgorithm: sha1
-  ekcerttest: ""
+  ecfile: ""
+  ectestfile: ""
   hbduration: 5s
-  ikcerttest: ""
+  icfile: ""
+  ictestfile: ""
   password: ""
   seed: -1
   server: 127.0.0.1:40001

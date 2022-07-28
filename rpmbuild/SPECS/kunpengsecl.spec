@@ -55,6 +55,7 @@ mkdir -p -m 777 %{buildroot}/etc/attestation/default_test
 rm -rf %{buildroot}/usr/share/
 mkdir -p %{buildroot}/usr/share/attestation/rac/
 mkdir -p %{buildroot}/usr/share/attestation/ras/
+mkdir -p %{buildroot}/usr/share/attestation/rahub/
 mkdir -p %{buildroot}/usr/share/doc/attestation/ras/
 mkdir -p %{buildroot}/usr/share/doc/attestation/rac/
 mkdir -p %{buildroot}/usr/share/doc/attestation/rahub/
@@ -66,7 +67,7 @@ install -m 555 %{_builddir}/%{name}-%{version}/attestation/ras/pkg/ras %{buildro
 
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/config.yaml %{buildroot}/etc/attestation/rac/
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/rahub/config.yaml %{buildroot}/etc/attestation/rahub/
-install -m 666 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/config.yaml %{buildroot}/etc/attestation/ras/
+install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/config.yaml %{buildroot}/etc/attestation/ras/
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/ascii_runtime_measurements* %{buildroot}/etc/attestation/default_test/
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/binary_bios_measurements* %{buildroot}/etc/attestation/default_test/
 install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/ecdsakey.pub %{buildroot}/etc/attestation/default_test/
@@ -77,6 +78,9 @@ install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/createT
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clearTable.sql %{buildroot}/usr/share/attestation/ras/
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/dropTable.sql %{buildroot}/usr/share/attestation/ras/
 install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/integritytools/*.sh %{buildroot}/usr/share/attestation/rac/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-rasconf-env.sh %{buildroot}/usr/share/attestation/ras/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-racconf-env.sh %{buildroot}/usr/share/attestation/rac/
+install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-hubconf-env.sh %{buildroot}/usr/share/attestation/rahub/
 
 install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}/usr/share/doc/attestation/ras/
 install -m 644 %{_builddir}/%{name}-%{version}/README.en.md %{buildroot}/usr/share/doc/attestation/ras/
@@ -109,6 +113,7 @@ install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/do
 %{_datadir}/attestation/rac/containerintegritytool.sh
 %{_datadir}/attestation/rac/pcieintegritytool.sh
 %{_datadir}/attestation/rac/hostintegritytool.sh
+%{_datadir}/attestation/rac/prepare-racconf-env.sh
 %{_docdir}/attestation/rac/README.md
 %{_docdir}/attestation/rac/README.en.md
 %{_docdir}/attestation/rac/LICENSE
@@ -122,6 +127,7 @@ install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/do
 %{_datadir}/attestation/ras/createTable.sql
 %{_datadir}/attestation/ras/clearTable.sql
 %{_datadir}/attestation/ras/dropTable.sql
+%{_datadir}/attestation/ras/prepare-rasconf-env.sh
 %{_docdir}/attestation/ras/README.md
 %{_docdir}/attestation/ras/README.en.md
 %{_docdir}/attestation/ras/LICENSE
@@ -129,6 +135,7 @@ install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/do
 %files   rahub
 %{_bindir}/rahub
 %{_sysconfdir}/attestation/rahub/config.yaml
+%{_datadir}/attestation/rahub/prepare-hubconf-env.sh
 %{_docdir}/attestation/rahub/README.md
 %{_docdir}/attestation/rahub/README.en.md
 %{_docdir}/attestation/rahub/LICENSE

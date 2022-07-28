@@ -85,7 +85,7 @@ make rpm
 ```
 即可生成程序的rpm包
 
-之后，您可根据实际需求，选择安装rac或ras对应的rpm包，安装命令如下：
+之后，您可根据实际需求，选择安装rac、ras或rahub对应的rpm包，安装命令如下：
 ```
 sudo rpm -ivh xxx.rpm
 ```
@@ -97,6 +97,11 @@ sudo rpm -e xxx
 在运行本软件前，请进入kunpengsecl/attestation/quick-scripts/目录执行
 **prepare-database-env.sh**
 脚本以准备必需的数据库环境
+
+##### 配置说明
+程序运行所依赖的配置文件默认有三个读取路径，分别为当前目录'./config.yaml'，家目录'${HOME}/.config/attestation/ras(rac)(rahub)/config.yaml，以及系统目录'/etc/attestation/ras(rac)(rahub)/config.yaml
+
+为了创建您的家目录配置文件，您可在安装好rpm包后，于kunpengsecl根目录执行位于/usr/share/attestation/ras(rac)(rahub)下的脚本**prepare-ras(rac)(hub)conf-env.sh**，从而自动完成家目录配置文件的部署
 
 ##### 服务器方面
 于kunpengsecl/attestation/ras/cmd/ras/目录下命令行输入
