@@ -624,8 +624,8 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 	// if this client's AutoUpdate is true, save base value of rac which in the update list
 	if tmgr.cache[report.ClientID].GetIsAutoUpdate() {
 		{
-			err := recordAutoUpdateReport(report)
 			tmgr.cache[report.ClientID].SetIsAutoUpdate(false)
+			err := recordAutoUpdateReport(report)
 			if err != nil {
 				return err
 			}
@@ -650,6 +650,7 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 				if err != nil {
 					return err
 				}
+				tmgr.cache[report.ClientID].SetTrusted(cache.StrTrusted)
 				baseValue.CreateTime = time.Now()
 				SaveBaseValue(&baseValue)
 			} else {
@@ -666,14 +667,22 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 // Traverse the base values ​​in the cache and compare with report,
 // save the result in the cache
 func verifyReport(report *typdefs.TrustReport) {
-	for _, base := range tmgr.cache[report.ClientID].HostBase {
-		err := Verify(base, report)
-		base.Verified = true
-		if err != nil {
-			base.Trusted = false
-		} else {
-			base.Trusted = true
+	if len(tmgr.cache[report.ClientID].HostBase) == 0 {
+		tmgr.cache[report.ClientID].SetTrusted(cache.StrUnknown)
+		return
+	} else {
+		trusted := cache.StrTrusted
+		for _, base := range tmgr.cache[report.ClientID].HostBase {
+			err := Verify(base, report)
+			base.Verified = true
+			if err != nil {
+				base.Trusted = false
+				trusted = cache.StrUntrusted
+			} else {
+				base.Trusted = true
+			}
 		}
+		tmgr.cache[report.ClientID].SetTrusted(trusted)
 	}
 }
 
@@ -696,6 +705,7 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	if err != nil {
 		return err
 	}
+	c.SetTrusted(cache.StrTrusted)
 	// TODO:1.保证一个ClientID的基准值同时只有一个Enabled=TRUE
 	// 2.完善Name字段
 	if isBaseUpdate(&oldBase, &newBase) {
