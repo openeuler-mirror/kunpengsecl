@@ -17,6 +17,7 @@ import (
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
 
 const (
@@ -261,19 +262,14 @@ func TestClientapi(t *testing.T) {
 	if err != nil {
 		t.Error(emptyClientInfoErr)
 	}
-	r, err := ras.c.RegisterClient(ctx, &RegisterClientRequest{
+	r1, err := ras.c.RegisterClient(ctx, &RegisterClientRequest{
 		Cert:       createCert(),
 		ClientInfo: string(ci),
 	})
 	if err != nil {
 		t.Errorf("test RegisterClient with empty clientinfo error %v", err)
 	}
-	_, err = ras.c.UnregisterClient(ctx, &UnregisterClientRequest{
-		ClientId: r.GetClientId(),
-	})
-	if err != nil {
-		t.Errorf("test UnregisterClient with empty clientinfo error %v", err)
-	}
+	defer trustmgr.DeleteClientByID(r1.GetClientId())
 
 	// test empty request
 	_, err = ras.c.RegisterClient(ctx, &RegisterClientRequest{})
@@ -297,7 +293,7 @@ func TestClientapi(t *testing.T) {
 	if err != nil {
 		t.Error(createClientInfoErr)
 	}
-	r, err = ras.c.RegisterClient(ctx, &RegisterClientRequest{
+	r2, err := ras.c.RegisterClient(ctx, &RegisterClientRequest{
 		Cert:       ikCertDer,
 		ClientInfo: string(ci),
 	})
@@ -311,7 +307,7 @@ func TestClientapi(t *testing.T) {
 		t.Errorf("test SendHeartbeat with empty ClientId failed")
 	}
 
-	HBrep, err := ras.c.SendHeartbeat(ctx, &SendHeartbeatRequest{ClientId: r.GetClientId()})
+	HBrep, err := ras.c.SendHeartbeat(ctx, &SendHeartbeatRequest{ClientId: r2.GetClientId()})
 	if err != nil {
 		t.Errorf("test SendHeartbeat error %v", err)
 	}
@@ -325,7 +321,7 @@ func TestClientapi(t *testing.T) {
 	testbios, _ := ioutil.ReadFile(BIOSLogPath)
 	testima, _ := ioutil.ReadFile(IMALogPath)
 	srRep, _ = ras.c.SendReport(ctx, &SendReportRequest{
-		ClientId:   r.GetClientId(),
+		ClientId:   r2.GetClientId(),
 		Nonce:      HBrep.ClientConfig.Nonce,
 		ClientInfo: string(ci),
 		Quoted:     testquote,
@@ -347,11 +343,13 @@ func TestClientapi(t *testing.T) {
 	}
 
 	_, err = ras.c.UnregisterClient(ctx, &UnregisterClientRequest{
-		ClientId: r.GetClientId(),
+		ClientId: r2.GetClientId(),
 	})
 	if err != nil {
 		t.Errorf("test UnregisterClient error %v", err)
 	}
+	defer trustmgr.DeleteClientByID(r2.GetClientId())
+	defer trustmgr.DeleteReportByID(r2.GetClientId())
 }
 
 func TestDoClientapi(t *testing.T) {
@@ -389,19 +387,14 @@ func TestDoClientapi(t *testing.T) {
 	if err != nil {
 		t.Error(emptyClientInfoErr)
 	}
-	r, err := DoRegisterClient(server, &RegisterClientRequest{
+	r1, err := DoRegisterClient(server, &RegisterClientRequest{
 		Cert:       createCert(),
 		ClientInfo: string(ci),
 	})
 	if err != nil {
 		t.Errorf("test DoRegisterClient with empty clientinfo error %v", err)
 	}
-	_, err = DoUnregisterClient(server, &UnregisterClientRequest{
-		ClientId: r.GetClientId(),
-	})
-	if err != nil {
-		t.Errorf("test DoUnregisterClient with empty clientinfo error %v", err)
-	}
+	defer trustmgr.DeleteClientByID(r1.GetClientId())
 
 	// test empty request
 	_, err = DoRegisterClient(server, &RegisterClientRequest{})
@@ -425,7 +418,7 @@ func TestDoClientapi(t *testing.T) {
 	if err != nil {
 		t.Error(createClientInfoErr)
 	}
-	r, err = DoRegisterClient(server, &RegisterClientRequest{
+	r2, err := DoRegisterClient(server, &RegisterClientRequest{
 		Cert:       ikCertDer,
 		ClientInfo: string(ci),
 	})
@@ -439,7 +432,7 @@ func TestDoClientapi(t *testing.T) {
 		t.Errorf("test DoSendHeartbeat with empty ClientId failed")
 	}
 
-	HBrep, err := DoSendHeartbeat(server, &SendHeartbeatRequest{ClientId: r.GetClientId()})
+	HBrep, err := DoSendHeartbeat(server, &SendHeartbeatRequest{ClientId: r2.GetClientId()})
 	if err != nil {
 		t.Errorf("test DoSendHeartbeat error %v", err)
 	}
@@ -453,7 +446,7 @@ func TestDoClientapi(t *testing.T) {
 	testbios, _ := ioutil.ReadFile(BIOSLogPath)
 	testima, _ := ioutil.ReadFile(IMALogPath)
 	srRep, _ = DoSendReport(server, &SendReportRequest{
-		ClientId:   r.GetClientId(),
+		ClientId:   r2.GetClientId(),
 		Nonce:      HBrep.ClientConfig.Nonce,
 		ClientInfo: string(ci),
 		Quoted:     testquote,
@@ -473,11 +466,13 @@ func TestDoClientapi(t *testing.T) {
 	}
 
 	_, err = DoUnregisterClient(server, &UnregisterClientRequest{
-		ClientId: r.GetClientId(),
+		ClientId: r2.GetClientId(),
 	})
 	if err != nil {
 		t.Errorf("test DoUnregisterClient error %v", err)
 	}
+	defer trustmgr.DeleteClientByID(r2.GetClientId())
+	defer trustmgr.DeleteReportByID(r2.GetClientId())
 }
 
 func TestClientapiWithConn(t *testing.T) {
@@ -521,19 +516,14 @@ func TestClientapiWithConn(t *testing.T) {
 	if err != nil {
 		t.Error(emptyClientInfoErr)
 	}
-	r, err := DoRegisterClientWithConn(ras, &RegisterClientRequest{
+	r1, err := DoRegisterClientWithConn(ras, &RegisterClientRequest{
 		Cert:       createCert(),
 		ClientInfo: string(ci),
 	})
 	if err != nil {
 		t.Errorf("test DoRegisterClientWithConn with empty clientinfo error %v", err)
 	}
-	_, err = DoUnregisterClientWithConn(ras, &UnregisterClientRequest{
-		ClientId: r.GetClientId(),
-	})
-	if err != nil {
-		t.Errorf("test DoUnregisterClientWithConn with empty clientinfo error %v", err)
-	}
+	defer trustmgr.DeleteClientByID(r1.GetClientId())
 
 	// test empty request
 	_, err = DoRegisterClientWithConn(ras, &RegisterClientRequest{})
@@ -557,14 +547,14 @@ func TestClientapiWithConn(t *testing.T) {
 	if err != nil {
 		t.Error(createClientInfoErr)
 	}
-	r, err = DoRegisterClientWithConn(ras, &RegisterClientRequest{
+	r2, err := DoRegisterClientWithConn(ras, &RegisterClientRequest{
 		Cert:       ikCertDer,
 		ClientInfo: string(ci),
 	})
 	if err != nil {
 		t.Errorf("test DoRegisterClientWithConn error %v", err)
 	}
-	_, err = DoSendHeartbeatWithConn(ras, &SendHeartbeatRequest{ClientId: r.GetClientId()})
+	_, err = DoSendHeartbeatWithConn(ras, &SendHeartbeatRequest{ClientId: r2.GetClientId()})
 	if err != nil {
 		t.Errorf("test DoSendHeartbeatWithConn error %v", err)
 	}
@@ -575,7 +565,7 @@ func TestClientapiWithConn(t *testing.T) {
 		t.Errorf("test SendHeartbeatWithConn with empty ClientId failed")
 	}
 
-	HBrep, err := DoSendHeartbeatWithConn(ras, &SendHeartbeatRequest{ClientId: r.GetClientId()})
+	HBrep, err := DoSendHeartbeatWithConn(ras, &SendHeartbeatRequest{ClientId: r2.GetClientId()})
 	if err != nil {
 		t.Errorf("test SendHeartbeatWithConn error %v", err)
 	}
@@ -589,7 +579,7 @@ func TestClientapiWithConn(t *testing.T) {
 	testbios, _ := ioutil.ReadFile(BIOSLogPath)
 	testima, _ := ioutil.ReadFile(IMALogPath)
 	srRep, _ = DoSendReportWithConn(ras, &SendReportRequest{
-		ClientId:   r.GetClientId(),
+		ClientId:   r2.GetClientId(),
 		Nonce:      HBrep.ClientConfig.Nonce,
 		ClientInfo: string(ci),
 		Quoted:     testquote,
@@ -611,11 +601,13 @@ func TestClientapiWithConn(t *testing.T) {
 	}
 
 	_, err = DoUnregisterClientWithConn(ras, &UnregisterClientRequest{
-		ClientId: r.GetClientId(),
+		ClientId: r2.GetClientId(),
 	})
 	if err != nil {
 		t.Errorf("test DoUnregisterClientWithConn error %v", err)
 	}
+	defer trustmgr.DeleteClientByID(r2.GetClientId())
+	defer trustmgr.DeleteReportByID(r2.GetClientId())
 }
 
 func createCert() []byte {
