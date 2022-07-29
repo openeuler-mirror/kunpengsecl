@@ -12,19 +12,16 @@ import (
 )
 
 const (
-	constinfo                  = `{"ip": "8.8.8.%d", "name": "google DNS", "last": %d}`
-	consttimeformat            = "06-01-02-15-04-05"
-	constregisterfailed        = "register fail %v"
-	sqlDeleteReportsByClientID = `DELETE FROM report WHERE clientid=$1`
-	sqlDeleteBasesByClientID   = `DELETE FROM base WHERE clientid=$1`
-	sqlDeleteClient            = `DELETE FROM client WHERE id=$1`
-	constPath                  = "/reports"
-	constDB                    = "postgres"
-	constDNS                   = "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
-	testImaLogPath             = "./ascii_runtime_measurements"
-	testBiosLogPath            = "./binary_bios_measurements"
-	configFilePath             = "./config.yaml"
-	rasConfig                  = `
+	constinfo           = `{"ip": "8.8.8.%d", "name": "google DNS", "last": %d}`
+	consttimeformat     = "06-01-02-15-04-05"
+	constregisterfailed = "register fail %v"
+	constPath           = "/reports"
+	constDB             = "postgres"
+	constDNS            = "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
+	testImaLogPath      = "./ascii_runtime_measurements"
+	testBiosLogPath     = "./binary_bios_measurements"
+	configFilePath      = "./config.yaml"
+	rasConfig           = `
 	database:
   host: localhost
   name: kunpengsecl
@@ -480,7 +477,7 @@ func TestRegisterClient(t *testing.T) {
 		if err != nil {
 			t.Errorf("test FindClientByIK failed, err: %s", err)
 		}
-		defer tmgr.db.Exec(sqlDeleteClient, c1.ID)
+		defer DeleteClientByID(c1.ID)
 	}
 	GetAllNodes(1, 7)
 	UpdateAllNodes()
@@ -495,7 +492,7 @@ func TestFindClient(t *testing.T) {
 	if err != nil {
 		t.Logf(constregisterfailed, err)
 	}
-	defer tmgr.db.Exec(sqlDeleteClient, c.ID)
+	defer DeleteClientByID(c.ID)
 	c1, err := FindClientByIK(c.IKCert)
 	if err == nil {
 		t.Logf("find client by ik=%s, c=%v\n", c1.IKCert, c1)
@@ -551,7 +548,7 @@ func TestReport(t *testing.T) {
 	if err != nil {
 		t.Logf(constregisterfailed, err)
 	}
-	defer tmgr.db.Exec(sqlDeleteClient, cRow.ID)
+	defer DeleteClientByID(cRow.ID)
 
 	row := &typdefs.ReportRow{
 		ClientID:   cRow.ID,
@@ -563,7 +560,7 @@ func TestReport(t *testing.T) {
 	if err != nil {
 		t.Errorf("insert trust report error,  %v", err)
 	}
-	defer tmgr.db.Exec(sqlDeleteReportsByClientID, row.ClientID)
+	defer DeleteClientByID(cRow.ID)
 	c1, err := FindReportsByClientID(row.ClientID)
 	if err != nil {
 		t.Errorf("FindReportByID failed, err: %s", err)
@@ -587,7 +584,7 @@ func TestBaseValue(t *testing.T) {
 	if err != nil {
 		t.Logf(constregisterfailed, err)
 	}
-	defer tmgr.db.Exec(sqlDeleteClient, cRow.ID)
+	defer DeleteClientByID(cRow.ID)
 
 	baseRow := &typdefs.BaseRow{
 		ClientID:   cRow.ID,

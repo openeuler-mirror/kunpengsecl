@@ -210,6 +210,8 @@ func TestRASConfig2(t *testing.T) {
 	GetRootPrivateKey()
 	GetPcaKeyCert()
 	GetPcaPrivateKey()
+	GetHttpsKeyCert()
+	GetHttpsPrivateKey()
 	GetDigestAlgorithm()
 
 	testExRule := typdefs.ExtractRules{
@@ -227,6 +229,8 @@ func TestRASConfig2(t *testing.T) {
 	os.Remove(rasCfg.rootPrivKeyFile)
 	os.Remove(rasCfg.pcaKeyCertFile)
 	os.Remove(rasCfg.pcaPrivKeyFile)
+	os.Remove(rasCfg.httpsKeyCertFile)
+	os.Remove(rasCfg.httpsPrivKeyFile)
 }
 
 func testHBDuration(t *testing.T) {
@@ -280,4 +284,6 @@ func TestRACConfig(t *testing.T) {
 	os.Remove(rasCfg.rootPrivKeyFile)
 	os.Remove(rasCfg.pcaKeyCertFile)
 	os.Remove(rasCfg.pcaPrivKeyFile)
+	os.Remove(rasCfg.httpsKeyCertFile)
+	os.Remove(rasCfg.httpsPrivKeyFile)
 }

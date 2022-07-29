@@ -68,6 +68,7 @@ const (
 	sqlFindBaseValueByUuid      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
 	sqlDeleteReportByID         = `DELETE FROM report WHERE id=$1`
 	sqlDeleteBaseValueByID      = `DELETE FROM base WHERE id=$1`
+	sqlDeleteClientByID         = `DELETE FROM client WHERE id=$1`
 	sqlRegisterClientByID       = `UPDATE client SET registered=true WHERE id=$1`
 	sqlUnRegisterClientByID     = `UPDATE client SET registered=false WHERE id=$1`
 	sqlUpdateClientByID         = `UPDATE client SET info=$2 WHERE id=$1`
@@ -327,6 +328,17 @@ func FindClientsByInfo(info string) ([]typdefs.ClientRow, error) {
 		cs = append(cs, c)
 	}
 	return cs, nil
+}
+
+func DeleteClientByID(id int64) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Exec(sqlDeleteClientByID, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // FindReportsByClientID returns all reports by a specific client id.
