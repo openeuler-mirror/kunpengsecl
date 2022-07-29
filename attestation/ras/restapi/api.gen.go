@@ -151,8 +151,8 @@ type ClientInterface interface {
 	// PostConfig request
 	PostConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostLogin request
-	PostLogin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetLogin request
+	GetLogin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetVersion request
 	GetVersion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -250,8 +250,8 @@ func (c *Client) PostConfig(ctx context.Context, reqEditors ...RequestEditorFn) 
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostLogin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostLoginRequest(c.Server)
+func (c *Client) GetLogin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLoginRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -583,8 +583,8 @@ func NewPostConfigRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewPostLoginRequest generates requests for PostLogin
-func NewPostLoginRequest(server string) (*http.Request, error) {
+// NewGetLoginRequest generates requests for GetLogin
+func NewGetLoginRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -602,7 +602,7 @@ func NewPostLoginRequest(server string) (*http.Request, error) {
 
 	queryURL := serverURL.ResolveReference(&operationURL)
 
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1356,8 +1356,8 @@ type ClientWithResponsesInterface interface {
 	// PostConfig request
 	PostConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostConfigResponse, error)
 
-	// PostLogin request
-	PostLoginWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostLoginResponse, error)
+	// GetLogin request
+	GetLoginWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLoginResponse, error)
 
 	// GetVersion request
 	GetVersionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVersionResponse, error)
@@ -1484,13 +1484,13 @@ func (r PostConfigResponse) StatusCode() int {
 	return 0
 }
 
-type PostLoginResponse struct {
+type GetLoginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 }
 
 // Status returns HTTPResponse.Status
-func (r PostLoginResponse) Status() string {
+func (r GetLoginResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1498,7 +1498,7 @@ func (r PostLoginResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostLoginResponse) StatusCode() int {
+func (r GetLoginResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1939,13 +1939,13 @@ func (c *ClientWithResponses) PostConfigWithResponse(ctx context.Context, reqEdi
 	return ParsePostConfigResponse(rsp)
 }
 
-// PostLoginWithResponse request returning *PostLoginResponse
-func (c *ClientWithResponses) PostLoginWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostLoginResponse, error) {
-	rsp, err := c.PostLogin(ctx, reqEditors...)
+// GetLoginWithResponse request returning *GetLoginResponse
+func (c *ClientWithResponses) GetLoginWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLoginResponse, error) {
+	rsp, err := c.GetLogin(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostLoginResponse(rsp)
+	return ParseGetLoginResponse(rsp)
 }
 
 // GetVersionWithResponse request returning *GetVersionResponse
@@ -2204,15 +2204,15 @@ func ParsePostConfigResponse(rsp *http.Response) (*PostConfigResponse, error) {
 	return response, nil
 }
 
-// ParsePostLoginResponse parses an HTTP response from a PostLoginWithResponse call
-func ParsePostLoginResponse(rsp *http.Response) (*PostLoginResponse, error) {
+// ParseGetLoginResponse parses an HTTP response from a GetLoginWithResponse call
+func ParseGetLoginResponse(rsp *http.Response) (*GetLoginResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
 	defer rsp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostLoginResponse{
+	response := &GetLoginResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2676,8 +2676,8 @@ type ServerInterface interface {
 	// (POST /config)
 	PostConfig(ctx echo.Context) error
 
-	// (POST /login)
-	PostLogin(ctx echo.Context) error
+	// (GET /login)
+	GetLogin(ctx echo.Context) error
 
 	// (GET /version)
 	GetVersion(ctx echo.Context) error
@@ -2771,14 +2771,12 @@ func (w *ServerInterfaceWrapper) PostConfig(ctx echo.Context) error {
 	return err
 }
 
-// PostLogin converts echo context to params.
-func (w *ServerInterfaceWrapper) PostLogin(ctx echo.Context) error {
+// GetLogin converts echo context to params.
+func (w *ServerInterfaceWrapper) GetLogin(ctx echo.Context) error {
 	var err error
 
-	//ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
-
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostLogin(ctx)
+	err = w.Handler.GetLogin(ctx)
 	return err
 }
 
@@ -3178,7 +3176,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/", wrapper.Get)
 	router.GET(baseURL+"/config", wrapper.GetConfig)
 	router.POST(baseURL+"/config", wrapper.PostConfig)
-	router.GET(baseURL+"/login", wrapper.PostLogin)
+	router.GET(baseURL+"/login", wrapper.GetLogin)
 	router.GET(baseURL+"/version", wrapper.GetVersion)
 	router.GET(baseURL+"/:from/:to", wrapper.GetFromTo)
 	router.DELETE(baseURL+"/:id", wrapper.DeleteId)
@@ -3204,35 +3202,35 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

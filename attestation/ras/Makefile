@@ -51,6 +51,7 @@ proto:
 	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative ./clientapi/api.proto
 
 restapi:
+	export PATH="${PATH}:$(go env GOPATH)/bin"
 	oapi-codegen -package restapi -generate types,server,client,spec -o restapi/api.gen.go restapi/api.yaml
 
 .PHONY: all test build clean install check gofmt proto restapi
