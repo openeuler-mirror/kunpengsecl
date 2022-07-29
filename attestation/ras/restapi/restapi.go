@@ -516,7 +516,7 @@ func genConfigHtml() string {
 //  read config as html
 //    curl -X GET http://localhost:40002/config
 //  read config as json
-//    curl -X GET -H "Content-type: application/json" http://localhost:40002/config
+//    curl -k -X GET -H "Content-type: application/json" https://localhost:40003/config
 func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson())
