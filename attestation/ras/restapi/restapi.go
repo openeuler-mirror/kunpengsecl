@@ -356,8 +356,8 @@ func CreateAuthValidator(v JWSValidator) (echo.MiddlewareFunc, error) {
 					// ignore the not used template paramenter
 					_ = ctx
 					// check expected security scheme
-					if in.SecuritySchemeName != "servermgt_auth" {
-						return fmt.Errorf("security scheme %s != 'servermgt_auth'", in.SecuritySchemeName)
+					if in.SecuritySchemeName != "servermgt_oauth2" {
+						return fmt.Errorf("security scheme %s != 'servermgt_oauth2'", in.SecuritySchemeName)
 					}
 
 					// get JWS from the request
