@@ -5,10 +5,9 @@ info:
   license:
     name: MulanPSL-2.0
     url: http://license.coscl.org.cn/MulanPSL2
-  version: 1.0.0
+  version: 1.1.0
 servers:
   - description: KunpengSecL Remote Attestation REST API server
-    url: https://localhost
 paths:
   /:
     get:
@@ -335,14 +334,11 @@ paths:
               schema:
                 type: string
   /login:
-    post:
+    get:
       description: login as a admin user
       responses:
         '200':
           description: success login
-      security:
-        - servermgt_oauth2:
-          - write:servers
   /config:
     get:
       description: get the current configuration of ras

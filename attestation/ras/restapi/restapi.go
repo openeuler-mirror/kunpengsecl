@@ -63,7 +63,6 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
-	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwt"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
@@ -255,7 +254,6 @@ func StartServerHttp(port string) {
 		fmt.Println(err)
 		return
 	}
-	e.Use(echomiddleware.Logger())
 	e.Use(av)
 	RegisterHandlers(e, &MyRestAPIServer{})
 	logger.L.Sugar().Debug(e.Start(port))
@@ -274,7 +272,6 @@ func StartServerHttps(httpsPort string) {
 		fmt.Println(err)
 		return
 	}
-	e.Use(echomiddleware.Logger())
 	e.Use(av)
 	RegisterHandlers(e, &MyRestAPIServer{})
 	e.Logger.Fatal(e.StartTLS(httpsPort, config.GetHttpsKeyCertFile(), config.GetHttpsPrivateKeyFile()))
@@ -425,7 +422,7 @@ func genAllListHtml(nodes map[int64]*typdefs.NodeInfo) string {
 	buf.WriteString(htmlAllList)
 	for _, n := range nodes {
 		if n.Registered {
-			button = "unRegister"
+			button = "Unregister"
 		} else {
 			button = "Register"
 		}
@@ -586,9 +583,9 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	return ctx.HTML(http.StatusOK, genConfigHtml())
 }
 
-// (POST /login)
+// (GET /login)
 // login/logout ras server as admin
-func (s *MyRestAPIServer) PostLogin(ctx echo.Context) error {
+func (s *MyRestAPIServer) GetLogin(ctx echo.Context) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, htmlLogin)
 	}
