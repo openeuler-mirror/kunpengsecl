@@ -689,37 +689,43 @@ func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, genNodeHtml(c))
 }
 
+type clientInfo struct {
+	Registered   *bool `json:"registered"`
+	IsAutoUpdate *bool `json:"isautoupdate"`
+}
+
 // (POST /{id})
 // modify node {id} information
 //  modify node {id} information by json
 //    curl -X POST -H "Content-type: multipart/form-data" -F "IsAutoUpdate=true;type=application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
-	sReg := ctx.FormValue(strIsAutoUpdate)
-	registered, _ := strconv.ParseBool(sReg)
-	sIsU := ctx.FormValue(strIsAutoUpdate)
-	isAutoUpdate, _ := strconv.ParseBool(sIsU)
+	cinfo := new(clientInfo)
+	err := ctx.Bind(cinfo)
+	if err != nil {
+		return ctx.JSON(http.StatusNotAcceptable, "parse parameters failed!")
+	}
 
 	cr, err1 := trustmgr.FindClientByID(id)
 	if err1 != nil {
-		return err1
+		return ctx.JSON(http.StatusNotFound, "client not found!")
 	}
 
-	if !cr.Registered && registered {
+	if !cr.Registered && *cinfo.Registered {
 		trustmgr.RegisterClientByID(id, cr.RegTime, cr.IKCert)
-	} else if cr.Registered && !registered {
+	} else if cr.Registered && !*cinfo.Registered {
 		trustmgr.UnRegisterClientByID(id)
 	}
 	c, err := trustmgr.GetCache(id)
 	if err == nil {
-		if isAutoUpdate != c.GetIsAutoUpdate() {
-			c.SetIsAutoUpdate(isAutoUpdate)
+		if cinfo.IsAutoUpdate != nil && *cinfo.IsAutoUpdate != c.GetIsAutoUpdate() {
+			c.SetIsAutoUpdate(*cinfo.IsAutoUpdate)
 		}
 	} else {
-		return err
+		return ctx.JSON(http.StatusNotModified, "modify cache failed!")
 	}
 
 	res := fmt.Sprintf("change server %d information", id)
-	return ctx.HTML(http.StatusOK, res)
+	return ctx.JSON(http.StatusOK, res)
 }
 
 func genBaseValuesHtml(id int64, rows []typdefs.BaseRow) string {
@@ -843,18 +849,19 @@ func (s *MyRestAPIServer) getFile(ctx echo.Context, name string) (string, error)
 }
 
 type baseValueJson struct {
-	Name    string `json:"name"`
-	Enabled bool   `json:"enabled"`
-	Pcr     string `json:"pcr"`
-	Bios    string `json:"bios"`
-	Ima     string `json:"ima"`
+	Name       *string `json:"name"`
+	Enabled    *bool   `json:"enabled"`
+	Pcr        *string `json:"pcr"`
+	Bios       *string `json:"bios"`
+	Ima        *string `json:"ima"`
+	IsNewGroup bool    `json:"isnewgroup"` // TRUE represent this request will create a new group of base value, otherwise it just be added in an existing base value group. This field must be contained in the request!
 }
 
 // (POST /{id}/newbasevalue)
 //  save node {id} a new base value by html
 //    curl -X POST -H "Content-type: multipart/form-data" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/1/newbasevalue
 //  save node {id} a new base value by json
-//    curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/newbasevalue -d '{"name":"test", "enabled":true, "pcr":"pcr value", "bios":"bios value", "ima":"ima value"}'
+//    curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/newbasevalue -d '{"name":"test", "enabled":true, "pcr":"pcr value", "bios":"bios value", "ima":"ima value", "isnewgroup":false}'
 func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
 	if checkJSON(ctx) {
 		return s.postBValueByJson(ctx, id)
@@ -872,11 +879,16 @@ func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 		ClientID:   id,
 		BaseType:   "host",
 		CreateTime: time.Now(),
-		Name:       bv.Name,
-		Enabled:    bv.Enabled,
-		Pcr:        bv.Pcr,
-		Bios:       bv.Bios,
-		Ima:        bv.Ima,
+		Name:       *bv.Name,
+		Enabled:    *bv.Enabled,
+		Pcr:        *bv.Pcr,
+		Bios:       *bv.Bios,
+		Ima:        *bv.Ima,
+	}
+	if bv.IsNewGroup {
+		// set other base value records' enabled field to false.
+		// TODO: need a interface to do the above operation!
+		logger.L.Debug("set other base value records' enabled field to false...")
 	}
 	trustmgr.SaveBaseValue(row)
 	return ctx.JSON(http.StatusOK, "add a new base value ok!")
