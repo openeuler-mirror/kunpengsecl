@@ -55,7 +55,7 @@ type (
 		nonce  uint64
 		ikCert *x509.Certificate
 		// for verify process
-		HostBase       []*typdefs.BaseRow
+		HostBases      []*typdefs.BaseRow
 		ContainerBases []*typdefs.BaseRow
 		DeviceBases    []*typdefs.BaseRow
 	}
@@ -72,7 +72,7 @@ func NewCache() *Cache {
 		trustExpiration: time.Now(),
 		nonce:           0,
 		ikCert:          nil,
-		HostBase:        make([]*typdefs.BaseRow, 0, defaultBaseRows),
+		HostBases:       make([]*typdefs.BaseRow, 0, defaultBaseRows),
 		ContainerBases:  make([]*typdefs.BaseRow, 0, defaultBaseRows),
 		DeviceBases:     make([]*typdefs.BaseRow, 0, defaultBaseRows),
 	}

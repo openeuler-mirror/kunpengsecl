@@ -54,26 +54,31 @@ const (
 	constRacDefault = 5000
 
 	// for database management sql
-	sqlRegisterClientByIK       = `INSERT INTO client(regtime, registered, info, ikcert) VALUES ($1, $2, $3, $4) RETURNING id`
-	sqlFindAllClients           = `SELECT id, regtime FROM client WHERE 1=1`
-	sqlFindAllEnabledClients    = `SELECT id, regtime, ikcert FROM client WHERE registered=true`
-	sqlFindClientByID           = `SELECT regtime, registered, info, ikcert FROM client WHERE id=$1`
-	sqlFindClientIDByIK         = `SELECT id FROM client WHERE ikcert=$1`
-	sqlFindClientFullByIK       = `SELECT id, regtime, registered, info FROM client WHERE ikcert=$1`
-	sqlFindClientsByInfo        = `SELECT id, regtime, registered, info, ikcert FROM client WHERE info @> $1`
-	sqlFindReportsByClientID    = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
-	sqlFindReportByID           = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
-	sqlFindBaseValuesByClientID = `SELECT id, basetype, uuid, createtime, name, enabled FROM base WHERE clientid=$1 ORDER BY createtime ASC`
-	sqlFindBaseValueByID        = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE id=$1 ORDER BY createtime ASC`
-	sqlFindBaseValueByUuid      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
-	sqlDeleteReportByID         = `DELETE FROM report WHERE id=$1`
-	sqlDeleteBaseValueByID      = `DELETE FROM base WHERE id=$1`
-	sqlDeleteClientByID         = `DELETE FROM client WHERE id=$1`
-	sqlRegisterClientByID       = `UPDATE client SET registered=true WHERE id=$1`
-	sqlUnRegisterClientByID     = `UPDATE client SET registered=false WHERE id=$1`
-	sqlUpdateClientByID         = `UPDATE client SET info=$2 WHERE id=$1`
-	sqlInsertTrustReport        = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlInsertBase               = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlRegisterClientByIK                = `INSERT INTO client(regtime, registered, info, ikcert) VALUES ($1, $2, $3, $4) RETURNING id`
+	sqlFindAllClients                    = `SELECT id, regtime FROM client WHERE 1=1`
+	sqlFindAllEnabledClients             = `SELECT id, regtime, ikcert FROM client WHERE registered=true`
+	sqlFindClientByID                    = `SELECT regtime, registered, info, ikcert FROM client WHERE id=$1`
+	sqlFindClientIDByIK                  = `SELECT id FROM client WHERE ikcert=$1`
+	sqlFindClientFullByIK                = `SELECT id, regtime, registered, info FROM client WHERE ikcert=$1`
+	sqlFindClientsByInfo                 = `SELECT id, regtime, registered, info, ikcert FROM client WHERE info @> $1`
+	sqlFindReportsByClientID             = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
+	sqlFindReportByID                    = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
+	sqlFindBaseValuesByClientID          = `SELECT id, basetype, uuid, createtime, name, enabled FROM base WHERE clientid=$1 ORDER BY createtime ASC`
+	sqlFindHostBaseValuesByClientID      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype="host" ORDER BY createtime ASC`
+	sqlFindContainerBaseValuesByClientID = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype="container" ORDER BY createtime ASC`
+	sqlFindDeviceBaseValuesByClientID    = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype="device" ORDER BY createtime ASC`
+	sqlFindBaseValueByID                 = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE id=$1 ORDER BY createtime ASC`
+	sqlFindBaseValueByUuid               = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
+	sqlDeleteReportByID                  = `DELETE FROM report WHERE id=$1`
+	sqlDeleteBaseValueByID               = `DELETE FROM base WHERE id=$1`
+	sqlDeleteClientByID                  = `DELETE FROM client WHERE id=$1`
+	sqlRegisterClientByID                = `UPDATE client SET registered=true WHERE id=$1`
+	sqlUnRegisterClientByID              = `UPDATE client SET registered=false WHERE id=$1`
+	sqlUpdateClientByID                  = `UPDATE client SET info=$2 WHERE id=$1`
+	sqlInsertTrustReport                 = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlModifyBaseValuesByClientID        = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype="host"`
+	sqlModifyBaseValueByid               = `UPDATE base set enabled=false WHERE id=$1`
 )
 
 type (
@@ -127,6 +132,18 @@ func CreateTrustManager(dbType, dbConfig string) {
 			c := cache.NewCache()
 			c.SetRegTime(regtime.Format(typdefs.StrTimeFormat))
 			c.SetIKeyCert(ik)
+			hb, err := FindHostBaseValuesByClientID(id)
+			if err == nil {
+				c.HostBases = hb
+			}
+			cb, err := FindContainerBaseValuesByClientID(id)
+			if err == nil {
+				c.ContainerBases = cb
+			}
+			db, err := FindDeviceBaseValuesByClientID(id)
+			if err == nil {
+				c.DeviceBases = db
+			}
 			tmgr.cache[id] = c
 		}
 	}
@@ -147,6 +164,30 @@ func ReleaseTrustManager() {
 	tmgr.mu.Unlock()
 	tmgr = nil
 	releaseStorePipe()
+}
+
+// ModifyEnabledByClientID modify all hostbase enabled=false
+func ModifyEnabledByClientID(id int64) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Query(sqlModifyBaseValuesByClientID, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ModifyEnabledByID modify base enabled=false
+func ModifyEnabledByID(id int64) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Query(sqlModifyBaseValueByid, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetCache returns the client cache ref by id or nil if not find.
@@ -412,6 +453,72 @@ func FindBaseValuesByClientID(id int64) ([]typdefs.BaseRow, error) {
 	return basevalues, nil
 }
 
+// FindHostBaseValuesByClientID returns all hostbase values by a specific client id.
+func FindHostBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindHostBaseValuesByClientID, id)
+	if err != nil {
+		return nil, err
+	}
+	basevalues := make([]*typdefs.BaseRow, 0, 20)
+	for rows.Next() {
+		res := typdefs.BaseRow{}
+		err2 := rows.Scan(&res.ID, &res.ClientID, &res.BaseType, &res.Uuid,
+			&res.CreateTime, &res.Name, &res.Enabled, &res.Pcr, &res.Bios, &res.Ima)
+		if err2 != nil {
+			return nil, err2
+		}
+		basevalues = append(basevalues, &res)
+	}
+	return basevalues, nil
+}
+
+// FindContainerBaseValuesByClientID returns all containerbase values by a specific client id.
+func FindContainerBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindContainerBaseValuesByClientID, id)
+	if err != nil {
+		return nil, err
+	}
+	basevalues := make([]*typdefs.BaseRow, 0, 20)
+	for rows.Next() {
+		res := typdefs.BaseRow{}
+		err2 := rows.Scan(&res.ID, &res.ClientID, &res.BaseType, &res.Uuid,
+			&res.CreateTime, &res.Name, &res.Enabled, &res.Pcr, &res.Bios, &res.Ima)
+		if err2 != nil {
+			return nil, err2
+		}
+		basevalues = append(basevalues, &res)
+	}
+	return basevalues, nil
+}
+
+// FindDeviceBaseValuesByClientID returns all devicebase values by a specific client id.
+func FindDeviceBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindDeviceBaseValuesByClientID, id)
+	if err != nil {
+		return nil, err
+	}
+	basevalues := make([]*typdefs.BaseRow, 0, 20)
+	for rows.Next() {
+		res := typdefs.BaseRow{}
+		err2 := rows.Scan(&res.ID, &res.ClientID, &res.BaseType, &res.Uuid,
+			&res.CreateTime, &res.Name, &res.Enabled, &res.Pcr, &res.Bios, &res.Ima)
+		if err2 != nil {
+			return nil, err2
+		}
+		basevalues = append(basevalues, &res)
+	}
+	return basevalues, nil
+}
+
 // FindBaseValueByID returns a specific base value by base value id.
 func FindBaseValueByID(id int64) (*typdefs.BaseRow, error) {
 	if tmgr == nil {
@@ -643,6 +750,7 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 	if tmgr.cache[report.ClientID].GetIsAutoUpdate() {
 		{
 			tmgr.cache[report.ClientID].SetIsAutoUpdate(false)
+			ModifyEnabledByClientID(report.ClientID)
 			err := recordAutoUpdateReport(report)
 			if err != nil {
 				return err
@@ -686,12 +794,11 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 // Traverse the base values ​​in the cache and compare with report,
 // save the result in the cache
 func verifyReport(report *typdefs.TrustReport) {
-	if len(tmgr.cache[report.ClientID].HostBase) == 0 {
-		tmgr.cache[report.ClientID].SetTrusted(cache.StrUnknown)
-		return
-	} else {
-		trusted := cache.StrTrusted
-		for _, base := range tmgr.cache[report.ClientID].HostBase {
+	var hasEnabled bool = false
+	trusted := cache.StrTrusted
+	for _, base := range tmgr.cache[report.ClientID].HostBases {
+		if base.Enabled {
+			hasEnabled = true
 			err := Verify(base, report)
 			base.Verified = true
 			if err != nil {
@@ -701,8 +808,11 @@ func verifyReport(report *typdefs.TrustReport) {
 				base.Trusted = true
 			}
 		}
-		tmgr.cache[report.ClientID].SetTrusted(trusted)
 	}
+	if !hasEnabled {
+		trusted = cache.StrUnknown
+	}
+	tmgr.cache[report.ClientID].SetTrusted(trusted)
 }
 
 func recordAutoUpdateReport(report *typdefs.TrustReport) error {
@@ -711,31 +821,50 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	if err != nil {
 		return err
 	}
-	bases := c.HostBase
-	newBase := typdefs.BaseRow{ClientID: report.ClientID}
-	oldBase := typdefs.EmptyBase
+	bases := c.HostBases
+	newBase := typdefs.BaseRow{
+		ClientID:   report.ClientID,
+		CreateTime: time.Now(),
+		Enabled:    true,
+		Verified:   true,
+		Trusted:    true,
+		BaseType:   typdefs.StrHost,
+	}
 	// If the client's basevalue exists in the cache,
-	// the extraction template is consistent with the newest one.
+	// the extraction template is consistent with the old.
 	// Otherwise, read extraction template from config.
-	if len(bases) != 0 {
-		oldBase = *bases[len(bases)-1]
-	}
-	err = extract(report, &oldBase, &newBase)
-	if err != nil {
-		return err
-	}
+	extractReportFromOldBases(bases, &newBase, report)
 	c.SetTrusted(cache.StrTrusted)
-	// TODO:1.保证一个ClientID的基准值同时只有一个Enabled=TRUE
-	// 2.完善Name字段
-	if isBaseUpdate(&oldBase, &newBase) {
-		newBase.CreateTime = time.Now()
-		newBase.Enabled = true
-		newBase.Verified = true
-		newBase.Trusted = true
-		newBase.BaseType = typdefs.StrHost
-		SaveBaseValue(&newBase)
-	}
 
+	return nil
+}
+
+func extractReportFromOldBases(bases []*typdefs.BaseRow, newBase *typdefs.BaseRow, report *typdefs.TrustReport) error {
+	hasEnabled := false
+	for _, oldBase := range bases {
+		if oldBase.Enabled {
+			hasEnabled = true
+			oldBase.Enabled = false
+			ModifyEnabledByID(oldBase.ID)
+			err := extract(report, oldBase, newBase)
+			if err != nil {
+				return err
+			}
+			if isBaseUpdate(oldBase, newBase) {
+				SaveBaseValue(newBase)
+			}
+		}
+	}
+	if !hasEnabled {
+		oldBase := typdefs.EmptyBase
+		err := extract(report, &oldBase, newBase)
+		if err != nil {
+			return err
+		}
+		if isBaseUpdate(&oldBase, newBase) {
+			SaveBaseValue(newBase)
+		}
+	}
 	return nil
 }
 
@@ -1164,12 +1293,7 @@ func handleStorePipe(i int) {
 			}
 			switch v.BaseType {
 			case typdefs.StrHost:
-				//如果新添加的基准值是host类型，把新的基准值替换原来的
-				if len(tmgr.cache[v.ClientID].HostBase) == 0 {
-					tmgr.cache[v.ClientID].HostBase = append(tmgr.cache[v.ClientID].HostBase, v)
-				} else {
-					tmgr.cache[v.ClientID].HostBase[0] = v
-				}
+				tmgr.cache[v.ClientID].HostBases = append(tmgr.cache[v.ClientID].HostBases, v)
 			case typdefs.StrContainer:
 				for i, base := range tmgr.cache[v.ClientID].ContainerBases {
 					if base.Uuid == v.Uuid {

@@ -885,6 +885,13 @@ func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 	if *bv.IsNewGroup {
 		// set other base value records' enabled field to false.
 		// TODO: need a interface to do the above operation!
+		c, err := trustmgr.GetCache(id)
+		if err == nil {
+			for _, base := range c.HostBases {
+				base.Enabled = false
+			}
+		}
+		trustmgr.ModifyEnabledByClientID(id)
 		logger.L.Debug("set other base value records' enabled field to false...")
 	}
 	trustmgr.SaveBaseValue(row)
