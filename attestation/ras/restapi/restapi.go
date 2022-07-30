@@ -707,9 +707,9 @@ func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
 		return ctx.JSON(http.StatusNotFound, "client not found!")
 	}
 
-	if !cr.Registered && *cinfo.Registered {
+	if cinfo.Registered != nil && !cr.Registered && *cinfo.Registered {
 		trustmgr.RegisterClientByID(id, cr.RegTime, cr.IKCert)
-	} else if cr.Registered && !*cinfo.Registered {
+	} else if cinfo.Registered != nil && cr.Registered && !*cinfo.Registered {
 		trustmgr.UnRegisterClientByID(id)
 	}
 	c, err := trustmgr.GetCache(id)
