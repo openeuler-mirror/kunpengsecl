@@ -31,18 +31,21 @@ strUNKNOWN="unknown"
 ### Here we launch in https mode
 echo "start ras..." | tee -a ${DST}/control.txt
 ( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v &>>${DST}/ras/echo.txt ;)&
+echo "wait for 5s..." | tee -a ${DST}/control.txt
+sleep 5
+AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
 
 ### change mgrstrategy to "manual"
 echo "check config items via restapi request..." | tee -a ${DST}/control.txt
-CONFIGS1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/config | jq -r '.')
-MGRSTRATEGY1=$(echo $CONFIGS | awk '/MgrStrategy/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
+CONFIGS1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/config)
+MGRSTRATEGY1=$(echo $CONFIGS1 | jq -r '.' | awk '/MgrStrategy/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
 if [ "$MGRSTRATEGY1" != "$strMANUAL" ]
 then
     echo "config mgrstrategy is not equal to manual, start to set it to manual..." | tee -a ${DST}/control.txt
-    curl -X POST -k -H "Content-Type: application/json" https://localhost:40003/config --data "{'MgrStrategy':${strMANUAL}}"
+    curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data "{\"trustduration\":20, \"MgrStrategy\":\"${strMANUAL}\"}"
 fi
-CONFIGS2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/config | jq -r '.')
-MGRSTRATEGY2=$(echo $CONFIGS | awk '/MgrStrategy/ {gsub(",","");print $2}')
+CONFIGS2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/config)
+MGRSTRATEGY2=$(echo $CONFIGS2 | jq -r '.' | awk '/MgrStrategy/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
 if [ "$MGRSTRATEGY2" == "$strMANUAL" ]
 then
     echo "mgrstrategy has been set to manual." | tee -a ${DST}/control.txt
@@ -71,12 +74,12 @@ cid=$(awk '{ if ($1 == "clientid:") { print $2 } }' ${DST}/rac-1/config.yaml)
 echo ${cid} | tee -a ${DST}/control.txt
 # query the registration status of cid
 echo "query registration status of ${cid}..." | tee -a ${DST}/control.txt
-NODEINFO1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid} | jq -r '.')
-RSTATUS1=$(echo $NODEINFO1 | awk '/registered/ {gsub(",","");print $2}')
-BASEVALUES1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues | jq -r '.')
-TSTATUS1=$(echo $NODEINFO1 | awk '/trusted/ {gsub(",","");print $2}')
-REPORTS1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/reports | jq -r '.')
-if [[ $RSTATUS1 == false && ! $BASEVALUES1 && $TSTATUS1 == ${strUNKNOWN} && ! $REPORTS1 ]]
+NODEINFO1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
+RSTATUS1=$(echo $NODEINFO1 | jq -r '.' | awk '/registered/ {gsub(",","");print $2}')
+BASEVALUES1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
+TSTATUS1=$(echo $NODEINFO1 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
+REPORTS1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/reports)
+if [[ $RSTATUS1 == false && $BASEVALUES1 == "[]" && $TSTATUS1 == ${strUNKNOWN} && $REPORTS1 == "[]" ]]
 then
     echo "the ${cid} client is not registered yet." | tee -a ${DST}/control.txt
     echo "the ${cid} client's basevalues are empty." | tee -a ${DST}/control.txt
@@ -93,17 +96,17 @@ else
 fi
 
 # set the specific client's registration status to true
-curl -X POST -k -H "Content-Type: application/json" -d '{"registered":true}' https://localhost:40003/${cid}
-NODEINFO2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid} | jq -r '.')
-RSTATUS2=$(echo $NODEINFO2 | awk '/registered/ {gsub(",","");print $2}')
+curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" -d '{"registered":true}' https://localhost:40003/${cid}
 echo "wait for 5s..." | tee -a ${DST}/control.txt
 sleep 5
-REPORTS2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/reports | jq -r '.')
-VSTATUS=$(echo $REPORTS2 | awk '/Validated/ {gsub(",","");print $2}')
-rid=$(echo $REPORTS2 | awk '/ID/ {gsub(",","");print $2}' | sed -n '1p')
-BASEVALUES2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues | jq -r '.')
-TSTATUS2=$(echo $NODEINFO2 | awk '/trusted/ {gsub(",","");print $2}')
-if [[ $RSTATUS2 == true && $VSTATUS == true && ! $BASEVALUES2 && $TSTATUS2 == ${strUNKNOWN} ]]
+NODEINFO2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
+RSTATUS2=$(echo $NODEINFO2 | jq -r '.' | awk '/registered/ {gsub(",","");print $2}')
+REPORTS2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/reports)
+VSTATUS=$(echo $REPORTS2 | jq -r '.' | awk '/Validated/ {gsub(",","");print $2}')
+rid=$(echo $REPORTS2 | jq -r '.' | awk '/ID/ {gsub(",","");print $2}' | sed -n '1p')
+BASEVALUES2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
+TSTATUS2=$(echo $NODEINFO2 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
+if [[ $RSTATUS2 == true && $VSTATUS == true && $BASEVALUES2 == "[]" && $TSTATUS2 == ${strUNKNOWN} ]]
 then
     echo "the ${cid} client has been registered." | tee -a ${DST}/control.txt
     echo "the ${cid} client's report${rid} is verified." | tee -a ${DST}/control.txt
@@ -120,19 +123,19 @@ else
 fi
 
 # set correct base value to test
-curl -k -X POST -H "Content-Type: application/json" -d "{'name':'test', 'enabled':true, \
-        'pcr':${strPCR}, 'bios':${strBIOS}, 'ima':${strIMA}}" \
+curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" -d "{\"name\":\"test\", \"enabled\":true, \
+        \"pcr\":\"${strPCR}\", \"bios\":\"${strBIOS}\", \"ima\":\"${strIMA}\", \"isnewgroup\":true}" \
             https://localhost:40003/${cid}/newbasevalue
-echo "wait for 5s..." | tee -a ${DST}/control.txt
-sleep 5
-BASEVALUES3=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues | jq -r '.')
-bid=$(echo ${BASEVALUES3} | awk '/ID/ {gsub(",","");print $2}' | sed -n '1p')
-BVALUEDETAILS=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues/${bid} | jq -r '.')
-PCRTARGET=$(echo ${BVALUEDETAILS} | awk '/Pcr/ {gsub(",","");print $2}' )
-BIOSTARGET=$(echo ${BVALUEDETAILS} | awk '/Bios/ {gsub(",","");print $2}' )
-IMATARGET=$(echo ${BVALUEDETAILS} | awk '/Ima/ {gsub(",","");print $2}' )
-NODEINFO3=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid} | jq -r '.')
-TSTATUS3=$(echo $NODEINFO3 | awk '/trusted/ {gsub(",","");print $2}')
+echo "wait for 20s..." | tee -a ${DST}/control.txt
+sleep 20
+BASEVALUES3=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
+bid=$(echo ${BASEVALUES3} | jq -r '.' | awk '/ID/ {gsub(",","");print $2}' | sed -n '1p')
+BVALUEDETAILS=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues/${bid})
+PCRTARGET=$(echo ${BVALUEDETAILS} | jq -r '.' | awk '/Pcr/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
+BIOSTARGET=$(echo ${BVALUEDETAILS} | jq -r '.' | awk -F '"' '/Bios/ {print $4}')
+IMATARGET=$(echo ${BVALUEDETAILS} | jq -r '.' | awk -F '"' '/Ima/ {print $4}')
+NODEINFO3=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
+TSTATUS3=$(echo $NODEINFO3 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
 if [[ ${bid} == 1 && ${PCRTARGET} == ${strPCR} && ${BIOSTARGET} == ${strBIOS} && ${IMATARGET} == ${strIMA} && ${TSTATUS3} == ${strTRUSTED} ]]
 then
     echo "add a new base value succeeded." | tee -a ${DST}/control.txt
@@ -144,27 +147,27 @@ then
     echo "test3 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test3 failed." | tee -a ${DST}/control.txt
-    echo "kill all test processes..." | tee -a ${DST}/control.txt
-    pkill -u ${USER} ras
-    pkill -u ${USER} raagent
-    echo "test DONE!!!" | tee -a ${DST}/control.txt
-    exit 1
+    # echo "kill all test processes..." | tee -a ${DST}/control.txt
+    # pkill -u ${USER} ras
+    # pkill -u ${USER} raagent
+    # echo "test DONE!!!" | tee -a ${DST}/control.txt
+    # exit 1
 fi
 
 # set wrong base value to test
-curl -k -X POST -H "Content-Type: application/json" -d "{'name':'test', 'enabled':true, \
-        'pcr':${strPCR}, 'bios':${strBIOS}, 'ima':${strNEWIMA}}" \
+curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" -d "{\"name\":\"test\", \"enabled\":true, \
+        \"pcr\":\"${strPCR}\", \"bios\":\"${strBIOS}\", \"ima\":\"${strNEWIMA}\", \"isnewgroup\":true}" \
             https://localhost:40003/${cid}/newbasevalue
-echo "wait for 5s..." | tee -a ${DST}/control.txt
-sleep 5
-BASEVALUES4=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues | jq -r '.')
-bid2=$(echo ${BASEVALUES4} | awk '/ID/ {gsub(",","");print $2}' | sed -n '1p')
-BVALUEDETAILS2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues/${bid2} | jq -r '.')
-PCRTARGET2=$(echo ${BVALUEDETAILS2} | awk '/Pcr/ {gsub(",","");print $2}' )
-BIOSTARGET2=$(echo ${BVALUEDETAILS2} | awk '/Bios/ {gsub(",","");print $2}' )
-IMATARGET2=$(echo ${BVALUEDETAILS2} | awk '/Ima/ {gsub(",","");print $2}' )
-NODEINFO4=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid} | jq -r '.')
-TSTATUS4=$(echo $NODEINFO4 | awk '/trusted/ {gsub(",","");print $2}')
+echo "wait for 20s..." | tee -a ${DST}/control.txt
+sleep 20
+BASEVALUES4=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
+bid2=$(echo ${BASEVALUES4} | jq -r '.' | awk '/ID/ {gsub(",","");print $2}' | sed -n '1p')
+BVALUEDETAILS2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues/${bid2})
+PCRTARGET2=$(echo ${BVALUEDETAILS2} | jq -r '.' | awk '/Pcr/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
+BIOSTARGET2=$(echo ${BVALUEDETAILS2} | jq -r '.' | awk -F '"' '/Bios/ {print $4}')
+IMATARGET2=$(echo ${BVALUEDETAILS2} | jq -r '.' | awk -F '"' '/Ima/ {print $4}')
+NODEINFO4=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
+TSTATUS4=$(echo $NODEINFO4 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
 if [[ ${bid2} == 2 && ${PCRTARGET} == ${strPCR} && ${BIOSTARGET} == ${strBIOS} && ${IMATARGET} == ${strNEWIMA} && ${TSTATUS4} == ${strUNTRUSTED} ]]
 then
     echo "add a new base value succeeded." | tee -a ${DST}/control.txt
@@ -176,37 +179,37 @@ then
     echo "test4 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test4 failed." | tee -a ${DST}/control.txt
-    echo "kill all test processes..." | tee -a ${DST}/control.txt
-    pkill -u ${USER} ras
-    pkill -u ${USER} raagent
-    echo "test DONE!!!" | tee -a ${DST}/control.txt
-    exit 1
+    # echo "kill all test processes..." | tee -a ${DST}/control.txt
+    # pkill -u ${USER} ras
+    # pkill -u ${USER} raagent
+    # echo "test DONE!!!" | tee -a ${DST}/control.txt
+    # exit 1
 fi
 
 # set mgrstrategy to auto-update
 echo "set mgrstrategy to auto-update..." | tee -a ${DST}/control.txt
-curl -k -X POST -H "Content-Type: application/json" -d '{"isautoupdate":true}' https://localhost:40003/${cid}
-echo "wait for 5s..." | tee -a ${DST}/control.txt
-sleep 5
+curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" -d '{"isautoupdate":true}' https://localhost:40003/${cid}
+echo "wait for 20s..." | tee -a ${DST}/control.txt
+sleep 20
 
 # set mgrstrategy to manual
 echo "set mgrstrategy to manual..." | tee -a ${DST}/control.txt
-curl -k -X POST -H "Content-Type: application/json" -d '{"isautoupdate":false}' https://localhost:40003/${cid}
-echo "wait for 5s..." | tee -a ${DST}/control.txt
-sleep 5
-NODEINFO5=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid} | jq -r '.')
-TSTATUS5=$(echo $NODEINFO5 | awk '/trusted/ {gsub(",","");print $2}')
+curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" -d '{"isautoupdate":false}' https://localhost:40003/${cid}
+echo "wait for 20s..." | tee -a ${DST}/control.txt
+sleep 20
+NODEINFO5=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
+TSTATUS5=$(echo $NODEINFO5 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
 if [ "${TSTATUS5}" == ${strTRUSTED} ]
 then
     echo "get the client${cid}'s trust status is trusted." | tee -a ${DST}/control.txt
     echo "test5 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test5 failed." | tee -a ${DST}/control.txt
-    echo "kill all test processes..." | tee -a ${DST}/control.txt
-    pkill -u ${USER} ras
-    pkill -u ${USER} raagent
-    echo "test DONE!!!" | tee -a ${DST}/control.txt
-    exit 1
+    # echo "kill all test processes..." | tee -a ${DST}/control.txt
+    # pkill -u ${USER} ras
+    # pkill -u ${USER} raagent
+    # echo "test DONE!!!" | tee -a ${DST}/control.txt
+    # exit 1
 fi
 
 # stop raagent for a while
@@ -214,19 +217,19 @@ echo "kill raagent..." | tee -a ${DST}/control.txt
 pkill -u ${USER} raagent
 echo "wait for 5s..." | tee -a ${DST}/control.txt
 sleep 5
-NODEINFO6=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid} | jq -r '.')
-TSTATUS6=$(echo $NODEINFO6 | awk '/trusted/ {gsub(",","");print $2}')
+NODEINFO6=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
+TSTATUS6=$(echo $NODEINFO6 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
 if [ "${TSTATUS6}" == ${strUNKNOWN} ]
 then
     echo "get the client${cid}'s trust status is unknown." | tee -a ${DST}/control.txt
     echo "test6 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test6 failed." | tee -a ${DST}/control.txt
-    echo "kill all test processes..." | tee -a ${DST}/control.txt
-    pkill -u ${USER} ras
-    pkill -u ${USER} raagent
-    echo "test DONE!!!" | tee -a ${DST}/control.txt
-    exit 1
+    # echo "kill all test processes..." | tee -a ${DST}/control.txt
+    # pkill -u ${USER} ras
+    # pkill -u ${USER} raagent
+    # echo "test DONE!!!" | tee -a ${DST}/control.txt
+    # exit 1
 fi
 
 # restart raagent
@@ -242,31 +245,31 @@ do
         echo "restart ${i} rac clients at $(date)..." | tee -a ${DST}/control.txt
     fi
 done
-echo "wait for 5s..." | tee -a ${DST}/control.txt
-sleep 5
-NODEINFO7=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid} | jq -r '.')
-TSTATUS7=$(echo $NODEINFO7 | awk '/trusted/ {gsub(",","");print $2}')
+echo "wait for 20s..." | tee -a ${DST}/control.txt
+sleep 20
+NODEINFO7=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
+TSTATUS7=$(echo $NODEINFO7 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
 if [ "${TSTATUS7}" == ${strTRUSTED} ]
 then
     echo "get the client${cid}'s trust status is trusted." | tee -a ${DST}/control.txt
     echo "test7 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test7 failed." | tee -a ${DST}/control.txt
-    echo "kill all test processes..." | tee -a ${DST}/control.txt
-    pkill -u ${USER} ras
-    pkill -u ${USER} raagent
-    echo "test DONE!!!" | tee -a ${DST}/control.txt
-    exit 1
+    # echo "kill all test processes..." | tee -a ${DST}/control.txt
+    # pkill -u ${USER} ras
+    # pkill -u ${USER} raagent
+    # echo "test DONE!!!" | tee -a ${DST}/control.txt
+    # exit 1
 fi
 
 # delete the specific client
 echo "delete client${cid}..." | tee -a ${DST}/control.txt
-NODEINFO8=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid} | jq -r '.')
-RSTATUS3=$(echo $NODEINFO8 | awk '/deleted/ {gsub(",","");print $2}')
-BASEVALUES5=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues | jq -r '.')
-TSTATUS8=$(echo $NODEINFO8 | awk '/trusted/ {gsub(",","");print $2}')
-REPORTS3=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/reports | jq -r '.')
-if [[ $NODEINFO8 != "" && $RSTATUS3 == false && $REPORTS3 != "" && $BASEVALUES5 != "" && $TSTATUS8 == $strUNKNOWN ]]
+NODEINFO8=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
+RSTATUS3=$(echo $NODEINFO8 | jq -r '.' | awk '/registered/ {gsub(",","");print $2}')
+BASEVALUES5=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
+TSTATUS8=$(echo $NODEINFO8 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
+REPORTS3=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/reports)
+if [[ $NODEINFO8 != "[]" && $RSTATUS3 == false && $REPORTS3 != "[]" && $BASEVALUES5 != "[]" && $TSTATUS8 == $strUNKNOWN ]]
 then
     echo "the client${cid}'s information still exists." | tee -a ${DST}/control.txt
     echo "the client${cid}'s registration status is false." | tee -a ${DST}/control.txt
@@ -276,11 +279,11 @@ then
     echo "test8 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test8 failed." | tee -a ${DST}/control.txt
-    echo "kill all test processes..." | tee -a ${DST}/control.txt
-    pkill -u ${USER} ras
-    pkill -u ${USER} raagent
-    echo "test DONE!!!" | tee -a ${DST}/control.txt
-    exit 1
+    # echo "kill all test processes..." | tee -a ${DST}/control.txt
+    # pkill -u ${USER} ras
+    # pkill -u ${USER} raagent
+    # echo "test DONE!!!" | tee -a ${DST}/control.txt
+    # exit 1
 fi
 
 # stop test
