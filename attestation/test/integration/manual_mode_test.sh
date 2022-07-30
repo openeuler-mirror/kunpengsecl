@@ -19,8 +19,8 @@ popd
 
 ### define some constant
 strMANUAL="manual"
-strPCR="1:2ce976e4df6808c82fe206fac08f3acf012b0ec4\n2:c5e026af427eadae287b977035f49747e269e5a9\n3:c5e026af427eadae287b977035f49747e269e5a9\n4:d4dff43b56f1aacbecdae6c468d2cb7ffb27827e\n"
-strBIOS="8-0 53933be89080c1fdc6352bb6c8e78799d01f2300 sha256:77e41e1a6e98f7160a8ba85d1b681df84b749f88ffd585612e145421b42ee581\n80000008-1 c6daaaf66efce12d87254eb5dc4bd2b8ad0dc085 sha256:723ed4cf5accf65d8fe684491d5cb1f6167f6315fa553d57fbf946667b07c2ad\n"
+strPCR="1 2ce976e4df6808c82fe206fac08f3acf012b0ec4\n2 c5e026af427eadae287b977035f49747e269e5a9\n3 c5e026af427eadae287b977035f49747e269e5a9\n4 d4dff43b56f1aacbecdae6c468d2cb7ffb27827e\n"
+strBIOS="8-0 53933be89080c1fdc6352bb6c8e78799d01f2300 sha256:77e41e1a6e98f7160a8ba85d1b681df84b749f88ffd585612e145421b42ee581 N/A\n80000008-1 c6daaaf66efce12d87254eb5dc4bd2b8ad0dc085 sha256:723ed4cf5accf65d8fe684491d5cb1f6167f6315fa553d57fbf946667b07c2ad N/A\n"
 strIMA="ima 5e7bbf27b7dd568610cc1f1ea49ceaa420395690 boot_aggregate\nima 1b8ccbdcaac1956b7c48529efbfb32e76355b1ca /etc/modprobe.d/tuned.conf\n"
 strNEWIMA="ima 6e7bbf27b7dd568610cc1f1ea49ceaa420395690 boot_aggregate\nima 1b8ccbdcaac1956b7c48529efbfb32e76355b1ca /etc/modprobe.d/tuned.conf\n"
 strTRUSTED="trusted"
@@ -131,12 +131,12 @@ sleep 20
 BASEVALUES3=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
 bid=$(echo ${BASEVALUES3} | jq -r '.' | awk '/ID/ {gsub(",","");print $2}' | sed -n '1p')
 BVALUEDETAILS=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues/${bid})
-PCRTARGET=$(echo ${BVALUEDETAILS} | jq -r '.' | awk '/Pcr/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
+PCRTARGET=$(echo ${BVALUEDETAILS} | jq -r '.' | awk -F '"' '/Pcr/ {print $4}')
 BIOSTARGET=$(echo ${BVALUEDETAILS} | jq -r '.' | awk -F '"' '/Bios/ {print $4}')
 IMATARGET=$(echo ${BVALUEDETAILS} | jq -r '.' | awk -F '"' '/Ima/ {print $4}')
 NODEINFO3=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
 TSTATUS3=$(echo $NODEINFO3 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
-if [[ ${bid} == 1 && ${PCRTARGET} == ${strPCR} && ${BIOSTARGET} == ${strBIOS} && ${IMATARGET} == ${strIMA} && ${TSTATUS3} == ${strTRUSTED} ]]
+if [[ ${bid} == 1 && "${PCRTARGET}" == "${strPCR}" && "${BIOSTARGET}" == "${strBIOS}" && "${IMATARGET}" == "${strIMA}" && ${TSTATUS3} == ${strTRUSTED} ]]
 then
     echo "add a new base value succeeded." | tee -a ${DST}/control.txt
     echo "get the base value id is ${bid}." | tee -a ${DST}/control.txt
@@ -147,11 +147,11 @@ then
     echo "test3 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test3 failed." | tee -a ${DST}/control.txt
-    # echo "kill all test processes..." | tee -a ${DST}/control.txt
-    # pkill -u ${USER} ras
-    # pkill -u ${USER} raagent
-    # echo "test DONE!!!" | tee -a ${DST}/control.txt
-    # exit 1
+    echo "kill all test processes..." | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
 fi
 
 # set wrong base value to test
@@ -161,14 +161,14 @@ curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" -d "{
 echo "wait for 20s..." | tee -a ${DST}/control.txt
 sleep 20
 BASEVALUES4=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
-bid2=$(echo ${BASEVALUES4} | jq -r '.' | awk '/ID/ {gsub(",","");print $2}' | sed -n '1p')
+bid2=$(echo ${BASEVALUES4} | jq -r '.' | awk '/ID/ {gsub(",","");print $2}' | sed -n '3p')
 BVALUEDETAILS2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues/${bid2})
-PCRTARGET2=$(echo ${BVALUEDETAILS2} | jq -r '.' | awk '/Pcr/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
+PCRTARGET2=$(echo ${BVALUEDETAILS2} | jq -r '.' | awk -F '"' '/Pcr/ {print $4}')
 BIOSTARGET2=$(echo ${BVALUEDETAILS2} | jq -r '.' | awk -F '"' '/Bios/ {print $4}')
 IMATARGET2=$(echo ${BVALUEDETAILS2} | jq -r '.' | awk -F '"' '/Ima/ {print $4}')
 NODEINFO4=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
 TSTATUS4=$(echo $NODEINFO4 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
-if [[ ${bid2} == 2 && ${PCRTARGET} == ${strPCR} && ${BIOSTARGET} == ${strBIOS} && ${IMATARGET} == ${strNEWIMA} && ${TSTATUS4} == ${strUNTRUSTED} ]]
+if [[ ${bid2} == 2 && "${PCRTARGET2}" == "${strPCR}" && "${BIOSTARGET2}" == "${strBIOS}" && "${IMATARGET2}" == "${strNEWIMA}" && ${TSTATUS4} == ${strUNTRUSTED} ]]
 then
     echo "add a new base value succeeded." | tee -a ${DST}/control.txt
     echo "get the base value id is ${bid2}." | tee -a ${DST}/control.txt
@@ -179,11 +179,11 @@ then
     echo "test4 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test4 failed." | tee -a ${DST}/control.txt
-    # echo "kill all test processes..." | tee -a ${DST}/control.txt
-    # pkill -u ${USER} ras
-    # pkill -u ${USER} raagent
-    # echo "test DONE!!!" | tee -a ${DST}/control.txt
-    # exit 1
+    echo "kill all test processes..." | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
 fi
 
 # set mgrstrategy to auto-update
@@ -205,18 +205,18 @@ then
     echo "test5 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test5 failed." | tee -a ${DST}/control.txt
-    # echo "kill all test processes..." | tee -a ${DST}/control.txt
-    # pkill -u ${USER} ras
-    # pkill -u ${USER} raagent
-    # echo "test DONE!!!" | tee -a ${DST}/control.txt
-    # exit 1
+    echo "kill all test processes..." | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
 fi
 
 # stop raagent for a while
 echo "kill raagent..." | tee -a ${DST}/control.txt
 pkill -u ${USER} raagent
-echo "wait for 5s..." | tee -a ${DST}/control.txt
-sleep 5
+echo "wait for 20s..." | tee -a ${DST}/control.txt
+sleep 20
 NODEINFO6=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
 TSTATUS6=$(echo $NODEINFO6 | jq -r '.' | awk '/trusted/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
 if [ "${TSTATUS6}" == ${strUNKNOWN} ]
@@ -225,11 +225,11 @@ then
     echo "test6 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test6 failed." | tee -a ${DST}/control.txt
-    # echo "kill all test processes..." | tee -a ${DST}/control.txt
-    # pkill -u ${USER} ras
-    # pkill -u ${USER} raagent
-    # echo "test DONE!!!" | tee -a ${DST}/control.txt
-    # exit 1
+    echo "kill all test processes..." | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
 fi
 
 # restart raagent
@@ -255,15 +255,16 @@ then
     echo "test7 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test7 failed." | tee -a ${DST}/control.txt
-    # echo "kill all test processes..." | tee -a ${DST}/control.txt
-    # pkill -u ${USER} ras
-    # pkill -u ${USER} raagent
-    # echo "test DONE!!!" | tee -a ${DST}/control.txt
-    # exit 1
+    echo "kill all test processes..." | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
 fi
 
 # delete the specific client
 echo "delete client${cid}..." | tee -a ${DST}/control.txt
+curl -X DELETE -k -H "Authorization: $AUTHTOKEN" -H "Content-type: application/json" https://localhost:40003/${cid}
 NODEINFO8=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
 RSTATUS3=$(echo $NODEINFO8 | jq -r '.' | awk '/registered/ {gsub(",","");print $2}')
 BASEVALUES5=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
@@ -279,11 +280,11 @@ then
     echo "test8 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test8 failed." | tee -a ${DST}/control.txt
-    # echo "kill all test processes..." | tee -a ${DST}/control.txt
-    # pkill -u ${USER} ras
-    # pkill -u ${USER} raagent
-    # echo "test DONE!!!" | tee -a ${DST}/control.txt
-    # exit 1
+    echo "kill all test processes..." | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
 fi
 
 # stop test
