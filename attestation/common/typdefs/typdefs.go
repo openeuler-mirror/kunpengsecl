@@ -48,6 +48,9 @@ const (
 	StrBios         = "bios"
 	StrIma          = "ima"
 	StrImaNg        = "ima-ng"
+	StrHost         = "host"
+	StrContainer    = "container"
+	StrDevice       = "device"
 	Sha1DigestLen   = 20
 	Sha256DigestLen = 32
 	SM3DigestLen    = 32
@@ -171,6 +174,7 @@ var (
 	Space     = []byte(" ")
 	Colon     = []byte(":")
 	SpaceZero = " \x00"
+	EmptyBase = BaseRow{}
 
 	//
 	ErrPcrIndexWrong      = errors.New("pcr index wrong")
@@ -685,10 +689,11 @@ func GetHashValue(alg string, evt *BIOSManifestItem) string {
 // 	 column 3: BType
 //	 column 4: sha1 hash text
 //	 column 5: sha256 hash text
-//	 column 6: data hex string
+//	 column 6: sm3 hash text
+//	 column 7: data hex string
 // Notes:
-// 1) if sha1/sha256 doesn't exist, use "N/A" string to place.
-// 2) column6 data string is hex string, needs to explain later...
+// 1) if sha1/sha256/sm3 doesn't exist, use "N/A" string to place.
+// 2) column7 data string is hex string, needs to explain later...
 func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 	var point int64 = 0
 	var buf bytes.Buffer
@@ -717,13 +722,19 @@ func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 				event2Log.Pcr))
 			buf.WriteString(fmt.Sprint(fmt.Sprintf("%x", event2Log.BType), "-", i, " "))
 			buf.WriteString(GetHashValue(Sha1AlgStr, event2Log))
-			buf.WriteString(" " + Sha256AlgStr + ":")
-			buf.WriteString(GetHashValue(Sha256AlgStr, event2Log))
-
-			sm3HashValue := GetHashValue(Sm3AlgStr, event2Log)
-			if sm3HashValue != naStr {
+			strNext := GetHashValue(Sha256AlgStr, event2Log)
+			if strNext == naStr {
+				buf.WriteString(" " + naStr)
+			} else {
+				buf.WriteString(" " + Sha256AlgStr + ":")
+				buf.WriteString(strNext)
+			}
+			strNext = GetHashValue(Sm3AlgStr, event2Log)
+			if strNext == naStr {
+				buf.WriteString(" " + naStr)
+			} else {
 				buf.WriteString(" " + Sm3AlgStr + ":")
-				buf.WriteString(GetHashValue(Sm3AlgStr, event2Log))
+				buf.WriteString(strNext)
 			}
 
 			buf.WriteString(fmt.Sprintf(" %s\n", event2Log.DataHex))
@@ -745,20 +756,26 @@ func ExtendPCRWithBIOSTxtLog(pcrs *PcrGroups, biosTxtLog []byte) {
 			n, _ := strconv.Atoi(string(words[1]))
 			hex.Decode(s1, words[3])
 			pcrs.ExtendSha1(n, s1)
-			i := bytes.Index(words[4], Colon)
-			hex.Decode(s2, words[4][i+1:])
-			pcrs.ExtendSha256(n, s2)
+			if string(words[4]) != naStr {
+				i := bytes.Index(words[4], Colon)
+				hex.Decode(s2, words[4][i+1:])
+				pcrs.ExtendSha256(n, s2)
+			}
 		}
 		if len(words) == SM3BiosLogItemNum {
 			n, _ := strconv.Atoi(string(words[1]))
 			hex.Decode(s1, words[3])
 			pcrs.ExtendSha1(n, s1)
-			i := bytes.Index(words[4], Colon)
-			hex.Decode(s2, words[4][i+1:])
-			pcrs.ExtendSha256(n, s2)
-			j := bytes.Index(words[5], Colon)
-			hex.Decode(s3, words[5][j+1:])
-			pcrs.ExtendSM3(n, s3)
+			if string(words[4]) != naStr {
+				i := bytes.Index(words[4], Colon)
+				hex.Decode(s2, words[4][i+1:])
+				pcrs.ExtendSha256(n, s2)
+			}
+			if string(words[5]) != naStr {
+				j := bytes.Index(words[5], Colon)
+				hex.Decode(s3, words[5][j+1:])
+				pcrs.ExtendSM3(n, s3)
+			}
 		}
 	}
 }

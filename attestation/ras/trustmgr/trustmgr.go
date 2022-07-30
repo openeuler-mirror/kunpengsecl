@@ -568,6 +568,12 @@ func pcrLogToMap(pcrLog []byte) map[int]string {
 				m[i] = string(words[0])
 			}
 		}
+		if len(words) == 2 {
+			i, err := strconv.Atoi(string(words[0]))
+			if err == nil {
+				m[i] = string(words[1])
+			}
+		}
 	}
 	return m
 }
@@ -664,6 +670,7 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 				}
 				tmgr.cache[report.ClientID].SetTrusted(cache.StrTrusted)
 				baseValue.CreateTime = time.Now()
+				baseValue.BaseType = typdefs.StrHost
 				SaveBaseValue(&baseValue)
 			} else {
 				verifyReport(report)
@@ -706,7 +713,7 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	}
 	bases := c.HostBase
 	newBase := typdefs.BaseRow{ClientID: report.ClientID}
-	oldBase := typdefs.BaseRow{}
+	oldBase := typdefs.EmptyBase
 	// If the client's basevalue exists in the cache,
 	// the extraction template is consistent with the newest one.
 	// Otherwise, read extraction template from config.
@@ -725,6 +732,7 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 		newBase.Enabled = true
 		newBase.Verified = true
 		newBase.Trusted = true
+		newBase.BaseType = typdefs.StrHost
 		SaveBaseValue(&newBase)
 	}
 
@@ -789,6 +797,9 @@ func Verify(baseValue *typdefs.BaseRow, report *typdefs.TrustReport) error {
 func GetExtractRulesFromPcr(pcrlog string) []int {
 	res := []int{}
 	lines := bytes.Split([]byte(pcrlog), typdefs.NewLine)
+	if l := len(lines); l > 0 && len(lines[l-1]) == 0 {
+		lines = lines[:l-1]
+	}
 	for _, line := range lines {
 		v, _ := strconv.Atoi(string(line[0]))
 		res = append(res, v)
@@ -801,14 +812,14 @@ func extractPCR(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	pcrMap := pcrLogToMap(pcrLog)
 	pcrSelection := config.GetExtractRules().PcrRule.PcrSelection
 	// if oldBase exist, extractRules are consistent with it
-	if base != nil {
+	if base != nil && *base != typdefs.EmptyBase {
 		pcrSelection = GetExtractRulesFromPcr(base.Pcr)
 	}
 
 	var buf bytes.Buffer
 	for _, n := range pcrSelection {
 		if v, ok := pcrMap[n]; ok {
-			buf.WriteString(fmt.Sprintf("%d:%s\n", n, v))
+			buf.WriteString(fmt.Sprintf("%d %s\n", n, v))
 		}
 	}
 	return buf.String()
@@ -819,8 +830,8 @@ func verifyPCR(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 	rPcrMap := pcrLogToMap(pcrLog)
 	bPcrMap := pcrLogToMap([]byte(base.Pcr))
 
-	for i, s := range rPcrMap {
-		if s != bPcrMap[i] {
+	for i, s := range bPcrMap {
+		if s != rPcrMap[i] {
 			return fmt.Errorf("pcr %d not equal", i)
 		}
 	}
@@ -847,9 +858,18 @@ func extractBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 			}
 			if bn == string(words[2]) {
 				used[i] = true
-				buf.WriteString(bn + " ") //name sha1Hash sha256:sha256Hash
-				buf.WriteString(string(words[3]) + " ")
-				buf.WriteString(string(words[4]))
+				buf.WriteString(bn) //name sha1Hash sha256:sha256Hash sm3:sm3Hash
+				buf.WriteString(" " + string(words[3]))
+				if len(words) >= 5 {
+					buf.WriteString(" " + string(words[4]))
+				} else {
+					buf.WriteString(" N/A")
+				}
+				if len(words) >= 6 {
+					buf.WriteString(" " + string(words[5]))
+				} else {
+					buf.WriteString(" N/A")
+				}
 				buf.WriteString("\n")
 				break
 			}
@@ -859,33 +879,43 @@ func extractBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 }
 
 // There are multiple situations
-// bios may have one or two type of hash : sha1 N/A ;  N/A sha256 ;  sha1 sha256
+// bios may have one to three type of hash : sha1 sha256 sm3;  sha1 sha256 N/A;  N/A sha256 sm3; ...
 // There are four cases of return value:
 // 			0: means no errors
 // 			1: means their sha1 hash not equal
-// 			2: means their sha1 hash not equal
-// 			3: means their type of hash not equal, can't verify
+// 			2: means their second hash not equal
+// 			3: means their third hash not equal
+// 			-1: means their hash type not equal, can't verify
 func compareBiosHash(words1, words2 [][]byte) int {
-	if string(words1[3]) != "N/A" && string(words2[3]) != "N/A" {
+	if string(words1[3]) != "N/A" && string(words2[1]) != "N/A" {
 		// if both base and report have sha1 hash in bios, return the result of their comparison
-		if bytes.Equal(words1[3], words1[3]) {
+		if bytes.Equal(words1[3], words2[1]) {
 			return 0
 		} else {
 			return 1
 		}
 
 	}
-	if string(words1[4]) != "N/A" && string(words2[4]) != "N/A" {
+	if string(words1[4]) != "N/A" && string(words2[2]) != "N/A" {
 		// if both base and report have sha256 hash in bios, return the result of their comparison
-		if bytes.Equal(words1[4], words1[4]) {
+		if bytes.Equal(words1[4], words2[2]) {
 			return 0
 		} else {
 			return 2
 		}
 
 	}
-	// if there are no same type of hash in bios, return 3
-	return 3
+	if string(words1[5]) != "N/A" && string(words2[3]) != "N/A" {
+		// if both base and report have sm3 hash in bios, return the result of their comparison
+		if bytes.Equal(words1[5], words2[3]) {
+			return 0
+		} else {
+			return 3
+		}
+
+	}
+	// if there are no same type of hash in bios, return -1
+	return -1
 }
 
 func verifyBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
@@ -894,6 +924,12 @@ func verifyBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 	btLog2 := ([]byte)(base.Bios)
 	lines1 := bytes.Split(btLog1, typdefs.NewLine)
 	lines2 := bytes.Split(btLog2, typdefs.NewLine)
+	if l := len(lines1); l > 0 && len(lines1[l-1]) == 0 {
+		lines1 = lines1[:l-1]
+	}
+	if l := len(lines2); l > 0 && len(lines2[l-1]) == 0 {
+		lines2 = lines2[:l-1]
+	}
 	used := make([]bool, len(lines2))
 	for _, ln1 := range lines1 {
 		words1 := bytes.Split(ln1, typdefs.Space)
@@ -902,7 +938,7 @@ func verifyBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 				continue
 			}
 			words2 := bytes.Split(ln2, typdefs.Space)
-			if bytes.Equal(words1[2], words2[2]) {
+			if bytes.Equal(words1[2], words2[0]) {
 				used[i] = true
 				res := compareBiosHash(words1, words2)
 				switch res {
@@ -913,6 +949,8 @@ func verifyBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 				case 2:
 					return fmt.Errorf("%s sha256 hash not equal", string(words1[2]))
 				case 3:
+					return fmt.Errorf("%s sm3 hash not equal", string(words1[2]))
+				case -1:
 					return fmt.Errorf("there are no the same type of hash")
 				}
 			}
@@ -924,6 +962,9 @@ func verifyBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 func GetExtractRulesFromBios(bioslog string) []string {
 	var biosNames []string
 	lines := bytes.Split([]byte(bioslog), typdefs.NewLine)
+	if l := len(lines); l > 0 && len(lines[l-1]) == 0 {
+		lines = lines[:l-1]
+	}
 	for _, ln := range lines {
 		words := bytes.Split(ln, typdefs.Space)
 		biosNames = append(biosNames, string(words[0]))
@@ -934,7 +975,7 @@ func GetExtractRulesFromBios(bioslog string) []string {
 func getBiosExtractTemplate(oldBase *typdefs.BaseRow) []string {
 	var biosNames []string
 	// if oldBase exist, extractRules are consistent with it
-	if oldBase != nil {
+	if oldBase != nil && *oldBase != typdefs.EmptyBase {
 		biosNames = GetExtractRulesFromBios(oldBase.Bios)
 	} else {
 		mRule := config.GetExtractRules().ManifestRules
@@ -952,6 +993,9 @@ func getBiosExtractTemplate(oldBase *typdefs.BaseRow) []string {
 func GetExtractRulesFromIma(imalog string) []string {
 	var imaNames []string
 	lines := bytes.Split([]byte(imalog), typdefs.NewLine)
+	if l := len(lines); l > 0 && len(lines[l-1]) == 0 {
+		lines = lines[:l-1]
+	}
 	for _, ln := range lines {
 		words := bytes.Split(ln, typdefs.Space)
 		imaNames = append(imaNames, string(words[2]))
@@ -962,7 +1006,7 @@ func GetExtractRulesFromIma(imalog string) []string {
 func getIMAExtractTemplate(oldBase *typdefs.BaseRow) []string {
 	var imaNames []string
 	// if oldBase exist, extractRules are consistent with it
-	if oldBase != nil {
+	if oldBase != nil && *oldBase != typdefs.EmptyBase {
 		imaNames = GetExtractRulesFromIma(oldBase.Ima)
 	} else {
 		for _, rule := range config.GetExtractRules().ManifestRules {
@@ -1011,6 +1055,12 @@ func verifyIMA(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 	imaLog2 := []byte(base.Ima)
 	lines1 := bytes.Split(imaLog1, typdefs.NewLine)
 	lines2 := bytes.Split(imaLog2, typdefs.NewLine)
+	if l := len(lines1); l > 0 && len(lines1[l-1]) == 0 {
+		lines1 = lines1[:l-1]
+	}
+	if l := len(lines2); l > 0 && len(lines2[l-1]) == 0 {
+		lines2 = lines2[:l-1]
+	}
 	used := make([]bool, len(lines2))
 	for _, ln1 := range lines1 {
 		words1 := bytes.Split(ln1, typdefs.Space)
@@ -1019,10 +1069,10 @@ func verifyIMA(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 				continue
 			}
 			words2 := bytes.Split(ln2, typdefs.Space)
-			if bytes.Equal(words1[2], words2[2]) {
+			if bytes.Equal(words1[4], words2[2]) {
 				used[i] = true
-				if !bytes.Equal(words1[3], words2[3]) {
-					return fmt.Errorf("%s hash not equal", string(words1[2]))
+				if !bytes.Equal(words1[3], words2[1]) {
+					return fmt.Errorf("%s hash not equal", string(words1[4]))
 				}
 			}
 		}
@@ -1109,17 +1159,24 @@ func handleStorePipe(i int) {
 			if err != nil {
 				logger.L.Sugar().Errorf("insert base error, result %v, %v", res, err)
 			}
+			if tmgr.cache[v.ClientID] == nil {
+				continue
+			}
 			switch v.BaseType {
-			case "host":
+			case typdefs.StrHost:
 				//如果新添加的基准值是host类型，把新的基准值替换原来的
-				tmgr.cache[v.ClientID].HostBase[0] = v
-			case "container":
+				if len(tmgr.cache[v.ClientID].HostBase) == 0 {
+					tmgr.cache[v.ClientID].HostBase = append(tmgr.cache[v.ClientID].HostBase, v)
+				} else {
+					tmgr.cache[v.ClientID].HostBase[0] = v
+				}
+			case typdefs.StrContainer:
 				for i, base := range tmgr.cache[v.ClientID].ContainerBases {
 					if base.Uuid == v.Uuid {
 						tmgr.cache[v.ClientID].ContainerBases[i] = v
 					}
 				}
-			case "device":
+			case typdefs.StrDevice:
 				for i, base := range tmgr.cache[v.ClientID].DeviceBases {
 					if base.Uuid == v.Uuid {
 						tmgr.cache[v.ClientID].DeviceBases[i] = v

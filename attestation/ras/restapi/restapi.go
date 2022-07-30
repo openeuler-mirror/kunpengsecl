@@ -851,7 +851,7 @@ type baseValueJson struct {
 	Pcr        *string `json:"pcr"`
 	Bios       *string `json:"bios"`
 	Ima        *string `json:"ima"`
-	IsNewGroup bool    `json:"isnewgroup"` // TRUE represent this request will create a new group of base value, otherwise it just be added in an existing base value group. This field must be contained in the request!
+	IsNewGroup *bool   `json:"isnewgroup"` // TRUE represent this request will create a new group of base value, otherwise it just be added in an existing base value group. This field must be contained in the request!
 }
 
 // (POST /{id}/newbasevalue)
@@ -874,7 +874,7 @@ func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 	}
 	row := &typdefs.BaseRow{
 		ClientID:   id,
-		BaseType:   "host",
+		BaseType:   typdefs.StrHost,
 		CreateTime: time.Now(),
 		Name:       *bv.Name,
 		Enabled:    *bv.Enabled,
@@ -882,7 +882,7 @@ func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 		Bios:       *bv.Bios,
 		Ima:        *bv.Ima,
 	}
-	if bv.IsNewGroup {
+	if *bv.IsNewGroup {
 		// set other base value records' enabled field to false.
 		// TODO: need a interface to do the above operation!
 		logger.L.Debug("set other base value records' enabled field to false...")
