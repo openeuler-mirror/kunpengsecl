@@ -192,7 +192,7 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 	strCreateTime     = `Create Time`
 	strOnline         = `Online`
 	strNull           = ``
-	strTrusted        = `Trusted`
+	strTrusted        = `trusted`
 	strUnknown        = "unknown"
 	strUntrusted      = "untrusted"
 	strNotFound       = "not found"
@@ -202,18 +202,19 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 	strPcrLog         = `PcrLog`
 	strBiosLog        = `BiosLog`
 	strImaLog         = `ImaLog`
-	strClientID       = `ClientID`
-	strBaseType       = `BaseType`
+	strClientID       = `clientid`
+	strBaseType       = `baseType`
+	strUuid           = `uuid`
 	strContainer      = "container"
 	strDevice         = "device"
-	strName           = "Name"
-	strEnabled        = "Enabled"
-	strIsAutoUpdate   = "IsAutoUpdate"
+	strName           = "name"
+	strEnabled        = "enabled"
+	strIsAutoUpdate   = "isAutoUpdate"
 	strRegistered     = "registered"
 	strVerified       = "Verified"
-	strPCR            = "Pcr"
-	strBIOS           = "Bios"
-	strIMA            = "Ima"
+	strPCR            = "pcr"
+	strBIOS           = "bios"
+	strIMA            = "ima"
 	strBaseValueID    = `BaseValue ID`
 	errNoClient       = `rest api error: %v`
 
@@ -463,8 +464,8 @@ func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 type cfgRecord struct {
 	HBDuration      time.Duration `json:"hbduration" form:"hbduration"`
 	TrustDuration   time.Duration `json:"trustduration" form:"trustduration"`
-	IsAllupdate     bool          `json:"isallupdate" form:"isallupdate"`
-	LogTeseMode     bool          `json:"logtestmode" form:"logtestmode"`
+	IsAllupdate     *bool         `json:"isallupdate" form:"isallupdate"`
+	LogTeseMode     *bool         `json:"logtestmode" form:"logtestmode"`
 	DBHost          string
 	DBName          string
 	DBPassword      string
@@ -479,6 +480,7 @@ func genConfigJson() *cfgRecord {
 	return &cfgRecord{
 		HBDuration:      config.GetHBDuration() / time.Second,
 		TrustDuration:   config.GetTrustDuration() / time.Second,
+		IsAllupdate:     config.GetIsAllUpdate(),
 		LogTeseMode:     config.GetLoggerMode(),
 		DBHost:          config.GetDBHost(),
 		DBName:          config.GetDBName(),
@@ -533,6 +535,7 @@ func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 // Notice: key name must be enclosed by "" in json format!!!
 func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	cfg := new(cfgRecord)
+	cfg.IsAllupdate = config.GetIsAllUpdate()
 	cfg.LogTeseMode = config.GetLoggerMode()
 	err := ctx.Bind(cfg)
 	if err != nil {
@@ -545,11 +548,11 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	if cfg.TrustDuration != 0 {
 		config.SetTrustDuration(cfg.TrustDuration * time.Second)
 	}
-	if cfg.IsAllupdate {
+	if cfg.IsAllupdate != nil && *cfg.IsAllupdate {
 		trustmgr.UpdateCaches()
 	}
-	if cfg.LogTeseMode != config.GetLoggerMode() {
-		config.SetLoggerMode(cfg.LogTeseMode)
+	if cfg.LogTeseMode != nil && *cfg.LogTeseMode != *config.GetLoggerMode() {
+		config.SetLoggerMode(*cfg.LogTeseMode)
 	}
 	if cfg.DBHost != strNull {
 		config.SetDBHost(cfg.DBHost)
@@ -725,7 +728,7 @@ func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
 	return ctx.JSON(http.StatusOK, res)
 }
 
-func genBaseValuesHtml(id int64, rows []typdefs.BaseRow) string {
+func genBaseValuesHtml(id int64, rows []*typdefs.BaseRow) string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf(htmlListBaseValues, id))
 	for _, n := range rows {
@@ -807,12 +810,28 @@ func (s *MyRestAPIServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64,
 
 // (POST /{id}/basevalues/{basevalueid})
 // modify node {id} one base value {basevalueid}
-func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
-	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, s)
+//    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=XX"  -F "BaseType=XX" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/{uuid}/device/basevalue
+//  save node {id} a new base value by json
+//    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=1234;type=application/json" -F "BaseType=container;type=application/json" -F "Name=test;type=application/json" -F "Enabled=true;type=application/json" -F "Pcr=@./cmd_history;type=application/json" -F "Bios=@./cmd_history;type=application/json" -F "Ima=@./cmd_history;type=application/json" http://localhost:40002/{uuid}/device/basevalue
+// 因为这里只需要传enabled一个参数，所以不需要检查其是否为空,默认为false
+func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, cid, bid int64) error {
+	sEnv := ctx.FormValue(strEnabled)
+	enabled, _ := strconv.ParseBool(sEnv)
+	c, err := trustmgr.GetCache(cid)
+	if err != nil {
+		return err
 	}
-	res := fmt.Sprintf("post server %d to modify base value %d", id, basevalueid)
-	return ctx.HTML(http.StatusOK, res)
+	for _, base := range c.Bases {
+		if base.ID == bid {
+			base.Enabled = enabled
+		}
+	}
+	trustmgr.ModifyEnabledByID(bid, enabled)
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusFound, fmt.Sprintf("server id:%d, basevalueid:%d, modify enabled=%t", cid, bid, enabled))
+	}
+
+	return ctx.HTML(http.StatusFound, "") //这里应该需要鑫淼更新网页端修改，网页端显示基准值的页面应该有一个按钮，点击就会把该基准值的enabled字段修改一次.
 }
 
 func genNewBaseValueHtml(id int64) string {
@@ -846,12 +865,14 @@ func (s *MyRestAPIServer) getFile(ctx echo.Context, name string) (string, error)
 }
 
 type baseValueJson struct {
-	Name       *string `json:"name"`
-	Enabled    *bool   `json:"enabled"`
-	Pcr        *string `json:"pcr"`
-	Bios       *string `json:"bios"`
-	Ima        *string `json:"ima"`
-	IsNewGroup *bool   `json:"isnewgroup"` // TRUE represent this request will create a new group of base value, otherwise it just be added in an existing base value group. This field must be contained in the request!
+	BaseType   string `json:"basetype"`
+	Uuid       string `json:"uuid"`
+	Name       string `json:"name"`
+	Enabled    bool   `json:"enabled"`
+	Pcr        string `json:"pcr"`
+	Bios       string `json:"bios"`
+	Ima        string `json:"ima"`
+	IsNewGroup bool   `json:"isnewgroup"` // TRUE represent this request will create a new group of base value, otherwise it just be added in an existing base value group. This field must be contained in the request!
 }
 
 // (POST /{id}/newbasevalue)
@@ -874,24 +895,25 @@ func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 	}
 	row := &typdefs.BaseRow{
 		ClientID:   id,
-		BaseType:   typdefs.StrHost,
+		BaseType:   bv.BaseType,
+		Uuid:       bv.Uuid,
 		CreateTime: time.Now(),
-		Name:       *bv.Name,
-		Enabled:    *bv.Enabled,
-		Pcr:        *bv.Pcr,
-		Bios:       *bv.Bios,
-		Ima:        *bv.Ima,
+		Name:       bv.Name,
+		Enabled:    bv.Enabled,
+		Pcr:        bv.Pcr,
+		Bios:       bv.Bios,
+		Ima:        bv.Ima,
 	}
-	if *bv.IsNewGroup {
+	if bv.IsNewGroup {
 		// set other base value records' enabled field to false.
 		// TODO: need a interface to do the above operation!
 		c, err := trustmgr.GetCache(id)
 		if err == nil {
-			for _, base := range c.HostBases {
+			for _, base := range c.Bases {
 				base.Enabled = false
 			}
 		}
-		trustmgr.ModifyEnabledByClientID(id)
+		trustmgr.DisableBaseByClientID(id)
 		logger.L.Debug("set other base value records' enabled field to false...")
 	}
 	trustmgr.SaveBaseValue(row)
@@ -900,6 +922,8 @@ func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 
 func (s *MyRestAPIServer) postBValueByMultiForm(ctx echo.Context, id int64) error {
 	name := ctx.FormValue(strName)
+	baseType := ctx.FormValue(strBaseType)
+	uuid := ctx.FormValue(strUuid)
 	sEnv := ctx.FormValue(strEnabled)
 	enabled, _ := strconv.ParseBool(sEnv)
 	pcr, err := s.getFile(ctx, strPCR)
@@ -916,7 +940,8 @@ func (s *MyRestAPIServer) postBValueByMultiForm(ctx echo.Context, id int64) erro
 	}
 	row := &typdefs.BaseRow{
 		ClientID:   id,
-		BaseType:   "host",
+		BaseType:   baseType,
+		Uuid:       uuid,
 		CreateTime: time.Now(),
 		Name:       name,
 		Enabled:    enabled,
@@ -1032,7 +1057,7 @@ func (s *MyRestAPIServer) GetIdContainerStatus(ctx echo.Context, cid int64) erro
 	if err != nil {
 		return err
 	}
-	rows := c.ContainerBases
+	rows := c.Bases
 	var buf bytes.Buffer
 	for i := 0; i < len(rows); i++ {
 		if rows[i].BaseType != strContainer {
@@ -1061,7 +1086,7 @@ func (s *MyRestAPIServer) GetIdDeviceStatus(ctx echo.Context, cid int64) error {
 	if err != nil {
 		return err
 	}
-	rows := c.DeviceBases
+	rows := c.Bases
 	var buf bytes.Buffer
 	for i := 0; i < len(rows); i++ {
 		if rows[i].BaseType != strDevice {
@@ -1081,103 +1106,4 @@ func (s *MyRestAPIServer) GetIdDeviceStatus(ctx echo.Context, cid int64) error {
 	}
 
 	return ctx.JSON(http.StatusOK, buf.String())
-}
-
-// Return the base value of a given container/device
-// (GET /{uuid}/device/basevalue)
-func (s *MyRestAPIServer) GetUuidBasevalue(ctx echo.Context, uuid string) error {
-	row, err := trustmgr.FindBaseValueByUuid(uuid)
-	if checkJSON(ctx) {
-		if err != nil {
-			return err
-		}
-		return ctx.JSON(http.StatusOK, row)
-	}
-	if err != nil {
-		return err
-	}
-	return ctx.HTML(http.StatusOK, genBaseValueHtml(row))
-}
-
-// create/update the base value of the given device
-// (POST /{uuid}/device/basevalue)
-//  save node {id} a new base value by html
-//    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=XX"  -F "BaseType=XX" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/{uuid}/device/basevalue
-//  save node {id} a new base value by json
-//    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=1234;type=application/json" -F "BaseType=container;type=application/json" -F "Name=test;type=application/json" -F "Enabled=true;type=application/json" -F "Pcr=@./cmd_history;type=application/json" -F "Bios=@./cmd_history;type=application/json" -F "Ima=@./cmd_history;type=application/json" http://localhost:40002/{uuid}/device/basevalue
-func (s *MyRestAPIServer) PostUuidBasevalue(ctx echo.Context, uuid string) error {
-	cid := ctx.FormValue(strClientID)
-	id, _ := strconv.ParseInt(cid, 10, 64)
-	name := ctx.FormValue(strName)
-	baseType := ctx.FormValue(strBaseType)
-	sEnv := ctx.FormValue(strEnabled)
-	enabled, _ := strconv.ParseBool(sEnv)
-	pcr, err := s.getFile(ctx, strPCR)
-	if err != nil && err != http.ErrMissingFile {
-		return err
-	}
-	bios, err := s.getFile(ctx, strBIOS)
-	if err != nil && err != http.ErrMissingFile {
-		return err
-	}
-	ima, err := s.getFile(ctx, strIMA)
-	if err != nil && err != http.ErrMissingFile {
-		return err
-	}
-	row := &typdefs.BaseRow{
-		ClientID:   id,
-		BaseType:   baseType,
-		Uuid:       uuid,
-		CreateTime: time.Now(),
-		Name:       name,
-		Enabled:    enabled,
-		Pcr:        pcr,
-		Bios:       bios,
-		Ima:        ima,
-	}
-	trustmgr.SaveBaseValue(row)
-	/* // no use???
-	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusFound, row)
-	}
-	*/
-	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%s/basevalue", uuid))
-}
-
-// Return a trust status for given container/device
-// (GET /{uuid}/device/status)
-func (s *MyRestAPIServer) GetUuidStatus(ctx echo.Context, uuid string) error {
-	baseRow, err := trustmgr.FindBaseValueByUuid(uuid)
-	if err != nil {
-		logger.L.Sugar().Errorf("can't find target base")
-		return err
-	}
-	var ans string
-	c, err := trustmgr.GetCache(baseRow.ClientID)
-	if err != nil {
-		return err
-	}
-	var row *typdefs.BaseRow
-	baseRows := append(c.ContainerBases, c.DeviceBases...)
-	find := false
-	for _, v := range baseRows {
-		if v.Uuid == uuid {
-			row = v
-			find = true
-			break
-		}
-	}
-	if !find {
-		ans = strNotFound
-	}
-	if !row.Verified {
-		ans = strUnknown
-	} else {
-		if row.Trusted {
-			ans = strTrusted
-		} else {
-			ans = strUntrusted
-		}
-	}
-	return ctx.JSON(http.StatusOK, ans)
 }

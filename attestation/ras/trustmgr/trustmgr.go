@@ -77,8 +77,9 @@ const (
 	sqlUpdateClientByID                  = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport                 = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlModifyBaseValuesByClientID        = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype="host"`
-	sqlModifyBaseValueByid               = `UPDATE base set enabled=false WHERE id=$1`
+	sqlDisableBaseValuesByClientID       = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype="host"`
+	sqlEnableBaseValueByid               = `UPDATE base set enabled=true WHERE id=$1`
+	sqlDisableBaseValueByid              = `UPDATE base set enabled=false WHERE id=$1`
 )
 
 type (
@@ -132,17 +133,9 @@ func CreateTrustManager(dbType, dbConfig string) {
 			c := cache.NewCache()
 			c.SetRegTime(regtime.Format(typdefs.StrTimeFormat))
 			c.SetIKeyCert(ik)
-			hb, err := FindHostBaseValuesByClientID(id)
+			bases, err := FindBaseValuesByClientID(id)
 			if err == nil {
-				c.HostBases = hb
-			}
-			cb, err := FindContainerBaseValuesByClientID(id)
-			if err == nil {
-				c.ContainerBases = cb
-			}
-			db, err := FindDeviceBaseValuesByClientID(id)
-			if err == nil {
-				c.DeviceBases = db
+				c.Bases = bases
 			}
 			tmgr.cache[id] = c
 		}
@@ -166,27 +159,34 @@ func ReleaseTrustManager() {
 	releaseStorePipe()
 }
 
-// ModifyEnabledByClientID modify all hostbase enabled=false
-func ModifyEnabledByClientID(id int64) error {
+// DisableBaseByClientID modify all hostbase enabled=false
+func DisableBaseByClientID(id int64) error {
 	if tmgr == nil {
 		return typdefs.ErrParameterWrong
 	}
-	_, err := tmgr.db.Query(sqlModifyBaseValuesByClientID, id)
+	_, err := tmgr.db.Query(sqlDisableBaseValuesByClientID, id)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// ModifyEnabledByID modify base enabled=false
-func ModifyEnabledByID(id int64) error {
+// ModifyEnabledByID modify base enabled flag
+func ModifyEnabledByID(id int64, enabled bool) error {
 	if tmgr == nil {
 		return typdefs.ErrParameterWrong
 	}
-	_, err := tmgr.db.Query(sqlModifyBaseValueByid, id)
+	var sql string
+	if enabled {
+		sql = sqlEnableBaseValueByid
+	} else {
+		sql = sqlDisableBaseValueByid
+	}
+	_, err := tmgr.db.Query(sql, id)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -432,7 +432,7 @@ func DeleteReportByID(id int64) error {
 }
 
 // FindBaseValuesByClientID returns all base values by a specific client id.
-func FindBaseValuesByClientID(id int64) ([]typdefs.BaseRow, error) {
+func FindBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
 	if tmgr == nil {
 		return nil, typdefs.ErrParameterWrong
 	}
@@ -440,7 +440,7 @@ func FindBaseValuesByClientID(id int64) ([]typdefs.BaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	basevalues := make([]typdefs.BaseRow, 0, 20)
+	basevalues := make([]*typdefs.BaseRow, 0, 20)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
 		err2 := rows.Scan(&res.ID, &res.BaseType, &res.Uuid,
@@ -448,7 +448,7 @@ func FindBaseValuesByClientID(id int64) ([]typdefs.BaseRow, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		basevalues = append(basevalues, res)
+		basevalues = append(basevalues, &res)
 	}
 	return basevalues, nil
 }
@@ -750,7 +750,7 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 	if tmgr.cache[report.ClientID].GetIsAutoUpdate() {
 		{
 			tmgr.cache[report.ClientID].SetIsAutoUpdate(false)
-			ModifyEnabledByClientID(report.ClientID)
+			DisableBaseByClientID(report.ClientID)
 			err := recordAutoUpdateReport(report)
 			if err != nil {
 				return err
@@ -796,8 +796,9 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 func verifyReport(report *typdefs.TrustReport) {
 	var hasEnabled bool = false
 	trusted := cache.StrTrusted
-	for _, base := range tmgr.cache[report.ClientID].HostBases {
-		if base.Enabled {
+	for _, base := range tmgr.cache[report.ClientID].Bases {
+		// we only verify hostbases now
+		if base.BaseType == typdefs.StrHost && base.Enabled {
 			hasEnabled = true
 			err := Verify(base, report)
 			base.Verified = true
@@ -821,7 +822,7 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	if err != nil {
 		return err
 	}
-	bases := c.HostBases
+	bases := c.Bases
 	newBase := typdefs.BaseRow{
 		ClientID:   report.ClientID,
 		CreateTime: time.Now(),
@@ -833,19 +834,19 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	// If the client's basevalue exists in the cache,
 	// the extraction template is consistent with the old.
 	// Otherwise, read extraction template from config.
-	extractReportFromOldBases(bases, &newBase, report)
+	extractFromOldBases(bases, &newBase, report)
 	c.SetTrusted(cache.StrTrusted)
 
 	return nil
 }
 
-func extractReportFromOldBases(bases []*typdefs.BaseRow, newBase *typdefs.BaseRow, report *typdefs.TrustReport) error {
+func extractFromOldBases(bases []*typdefs.BaseRow, newBase *typdefs.BaseRow, report *typdefs.TrustReport) error {
 	hasEnabled := false
 	for _, oldBase := range bases {
-		if oldBase.Enabled {
+		if oldBase.BaseType == typdefs.StrHost && oldBase.Enabled {
 			hasEnabled = true
 			oldBase.Enabled = false
-			ModifyEnabledByID(oldBase.ID)
+			ModifyEnabledByID(oldBase.ID, false)
 			err := extract(report, oldBase, newBase)
 			if err != nil {
 				return err
@@ -1291,23 +1292,7 @@ func handleStorePipe(i int) {
 			if tmgr.cache[v.ClientID] == nil {
 				continue
 			}
-			switch v.BaseType {
-			case typdefs.StrHost:
-				tmgr.cache[v.ClientID].HostBases = append(tmgr.cache[v.ClientID].HostBases, v)
-			case typdefs.StrContainer:
-				for i, base := range tmgr.cache[v.ClientID].ContainerBases {
-					if base.Uuid == v.Uuid {
-						tmgr.cache[v.ClientID].ContainerBases[i] = v
-					}
-				}
-			case typdefs.StrDevice:
-				for i, base := range tmgr.cache[v.ClientID].DeviceBases {
-					if base.Uuid == v.Uuid {
-						tmgr.cache[v.ClientID].DeviceBases[i] = v
-						break
-					}
-				}
-			}
+			tmgr.cache[v.ClientID].Bases = append(tmgr.cache[v.ClientID].Bases, v)
 		}
 	}
 }

@@ -721,11 +721,11 @@ func SetIsAllUpdate(b bool) {
 }
 
 // SetIsAllUpdate sets the ras isallupdate configuration.
-func GetIsAllUpdate() bool {
+func GetIsAllUpdate() *bool {
 	if rasCfg == nil {
-		return false
+		return nil
 	}
-	return rasCfg.isallupdate
+	return &rasCfg.isallupdate
 }
 
 // GetHttpsSwitch returns the ras restful api interface protocol(http or https) configuration.
@@ -957,11 +957,11 @@ func SetLoggerMode(testMode bool) {
 	rasCfg.logFile = logF
 }
 
-func GetLoggerMode() bool {
+func GetLoggerMode() *bool {
 	if rasCfg == nil {
-		return false
+		return nil
 	}
-	return *verboseFlag
+	return verboseFlag
 }
 
 func SetExtractRules(val string) {

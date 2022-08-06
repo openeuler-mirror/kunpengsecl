@@ -360,43 +360,6 @@ paths:
       security:
         - servermgt_oauth2:
           - write:servers
-  /{uuid}/basevalue:
-    get:
-      summary: Return the base value of a given container/device
-      parameters:
-      - name: uuid
-        in: path
-        required: true
-        schema:
-          type: string
-      response:
-        '200':
-          description: the base value info
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BaseValueInfo'
-    post:
-      summary: create/update the base value of the given container/device
-      parameters:
-      - name: uuid
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: the base value info to be set for given container/device
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BaseValueInfo'
-      responses:
-        '200':
-          description: the base value of given container updated
-          content: {}
-      security:
-        - servermgt_oauth2:
-          - write:servers
   /{id}/container/status:
     get:
       summary: Return a list of trust status for all containers of a given client
@@ -410,27 +373,6 @@ paths:
       response:
         '200':
           description: A JSON array of container trust status
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TrustStatus'
-      security:
-        - servermgt_oauth2:
-          - write:servers
-  /{uuid}/status:
-    get:
-      summary: Return a trust status for given container/device
-      parameters:
-      - name: uuid
-        in: path
-        required: true
-        schema:
-          type: string
-      response:
-        '200':
-          description: trust status of the given container/device
           content:
             application/json:
               schema:
@@ -565,7 +507,6 @@ components:
       type: string
       default: unknown
       enum:
-      - not found
       - unknown
       - untrusted
       - trusted
