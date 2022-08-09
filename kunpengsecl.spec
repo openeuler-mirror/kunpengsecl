@@ -3,10 +3,10 @@
 
 Name:            %{name}
 Version:         %{version}
-Release:         1%{?dist}
+Release:         2%{?dist}
 Summary:         A remote attestation security software components running on Kunpeng processors.
 Summary(zh_CN):  一款运行于鲲鹏处理器上的远程证明安全软件组件
-License:         Mulan PSL v2
+License:         MulanPSL-2.0
 URL:             https://gitee.com/openeuler/kunpengsecl
 Source0:         %{name}-v%{version}.tar.gz
 BuildRequires:   gettext make golang
@@ -143,6 +143,9 @@ rm -rf %{_builddir}
 rm -rf %{buildroot}
 
 %changelog
+* Wed Aug 03 2022 fushanqing <fushanqing@kylinos.cn> - 1.1.0-2
+- Unified license name specification
+
 * Sun Jul 24 2022 aaron-liwang <3214053332@qq.com> - 1.1.0-1
 -   add some test files
 -   prepare corresponding script for ras\rac\rahub to deploy config file respectively
