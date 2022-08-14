@@ -748,46 +748,51 @@ func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bo
 func HandleBaseValue(report *typdefs.TrustReport) error {
 	// if this client's AutoUpdate is true, save base value of rac which in the update list
 	if tmgr.cache[report.ClientID].GetIsAutoUpdate() {
-		{
-			tmgr.cache[report.ClientID].SetIsAutoUpdate(false)
-			DisableBaseByClientID(report.ClientID)
-			err := recordAutoUpdateReport(report)
-			if err != nil {
-				return err
-			}
+		tmgr.cache[report.ClientID].SetIsAutoUpdate(false)
+		DisableBaseByClientID(report.ClientID)
+		err := recordAutoUpdateReport(report)
+		if err != nil {
+			return err
 		}
 	} else {
 		switch config.GetMgrStrategy() {
 		case config.AutoStrategy:
 			// if this client's AutoUpdate is false, and if this is the first report of this RAC, extract base value
-			isFirstReport, err := isFirstReport(report.ClientID)
+			err := handleFirstReport(report)
 			if err != nil {
 				return err
-			}
-			if isFirstReport {
-				// this is first report, so oldBase is nil
-				baseValue := typdefs.BaseRow{
-					ClientID: report.ClientID,
-					Enabled:  false,
-					Verified: false,
-					Trusted:  false,
-				}
-				err = extract(report, nil, &baseValue)
-				if err != nil {
-					return err
-				}
-				tmgr.cache[report.ClientID].SetTrusted(cache.StrTrusted)
-				baseValue.CreateTime = time.Now()
-				baseValue.BaseType = typdefs.StrHost
-				SaveBaseValue(&baseValue)
-			} else {
-				verifyReport(report)
 			}
 		case config.ManualStrategy:
 			verifyReport(report)
 		}
 	}
+	return nil
+}
 
+func handleFirstReport(report *typdefs.TrustReport) error {
+	isFirstReport, err := isFirstReport(report.ClientID)
+	if err != nil {
+		return err
+	}
+	if isFirstReport {
+		// this is first report, so oldBase is nil
+		baseValue := typdefs.BaseRow{
+			ClientID: report.ClientID,
+			Enabled:  false,
+			Verified: false,
+			Trusted:  false,
+		}
+		err = extract(report, nil, &baseValue)
+		if err != nil {
+			return err
+		}
+		tmgr.cache[report.ClientID].SetTrusted(cache.StrTrusted)
+		baseValue.CreateTime = time.Now()
+		baseValue.BaseType = typdefs.StrHost
+		SaveBaseValue(&baseValue)
+	} else {
+		verifyReport(report)
+	}
 	return nil
 }
 
@@ -981,31 +986,35 @@ func extractBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	btLog, _ := typdefs.TransformBIOSBinLogToTxt(bLog)
 	lines := bytes.Split(btLog, typdefs.NewLine)
 	for _, ln := range lines {
-		words := bytes.Split(ln, typdefs.Space)
-		for i, bn := range biosNames {
-			if used[i] {
-				continue
-			}
-			if bn == string(words[2]) {
-				used[i] = true
-				buf.WriteString(bn) //name sha1Hash sha256:sha256Hash sm3:sm3Hash
-				buf.WriteString(" " + string(words[3]))
-				if len(words) >= 5 {
-					buf.WriteString(" " + string(words[4]))
-				} else {
-					buf.WriteString(" N/A")
-				}
-				if len(words) >= 6 {
-					buf.WriteString(" " + string(words[5]))
-				} else {
-					buf.WriteString(" N/A")
-				}
-				buf.WriteString("\n")
-				break
-			}
-		}
+		parseBiosName(ln, biosNames, used, &buf)
 	}
 	return buf.String()
+}
+
+func parseBiosName(ln []byte, biosNames []string, used []bool, buf *bytes.Buffer) {
+	words := bytes.Split(ln, typdefs.Space)
+	for i, bn := range biosNames {
+		if used[i] {
+			continue
+		}
+		if bn == string(words[2]) {
+			used[i] = true
+			buf.WriteString(bn) //name sha1Hash sha256:sha256Hash sm3:sm3Hash
+			buf.WriteString(" " + string(words[3]))
+			if len(words) >= 5 {
+				buf.WriteString(" " + string(words[4]))
+			} else {
+				buf.WriteString(" N/A")
+			}
+			if len(words) >= 6 {
+				buf.WriteString(" " + string(words[5]))
+			} else {
+				buf.WriteString(" N/A")
+			}
+			buf.WriteString("\n")
+			break
+		}
+	}
 }
 
 // There are multiple situations
@@ -1062,27 +1071,35 @@ func verifyBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 	}
 	used := make([]bool, len(lines2))
 	for _, ln1 := range lines1 {
-		words1 := bytes.Split(ln1, typdefs.Space)
-		for i, ln2 := range lines2 {
-			if used[i] {
+		err := getBiosErrorText(ln1, lines2, used)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getBiosErrorText(ln []byte, lines [][]byte, used []bool) error {
+	words1 := bytes.Split(ln, typdefs.Space)
+	for i, ln2 := range lines {
+		if used[i] {
+			continue
+		}
+		words2 := bytes.Split(ln2, typdefs.Space)
+		if bytes.Equal(words1[2], words2[0]) {
+			used[i] = true
+			res := compareBiosHash(words1, words2)
+			switch res {
+			case 0:
 				continue
-			}
-			words2 := bytes.Split(ln2, typdefs.Space)
-			if bytes.Equal(words1[2], words2[0]) {
-				used[i] = true
-				res := compareBiosHash(words1, words2)
-				switch res {
-				case 0:
-					continue
-				case 1:
-					return fmt.Errorf("%s sha1 hash not equal", string(words1[2]))
-				case 2:
-					return fmt.Errorf("%s sha256 hash not equal", string(words1[2]))
-				case 3:
-					return fmt.Errorf("%s sm3 hash not equal", string(words1[2]))
-				case -1:
-					return fmt.Errorf("there are no the same type of hash")
-				}
+			case 1:
+				return fmt.Errorf("%s sha1 hash not equal", string(words1[2]))
+			case 2:
+				return fmt.Errorf("%s sha256 hash not equal", string(words1[2]))
+			case 3:
+				return fmt.Errorf("%s sm3 hash not equal", string(words1[2]))
+			case -1:
+				return fmt.Errorf("there are no the same type of hash")
 			}
 		}
 	}
@@ -1193,17 +1210,25 @@ func verifyIMA(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 	}
 	used := make([]bool, len(lines2))
 	for _, ln1 := range lines1 {
-		words1 := bytes.Split(ln1, typdefs.Space)
-		for i, ln2 := range lines2 {
-			if used[i] {
-				continue
-			}
-			words2 := bytes.Split(ln2, typdefs.Space)
-			if bytes.Equal(words1[4], words2[2]) {
-				used[i] = true
-				if !bytes.Equal(words1[3], words2[1]) {
-					return fmt.Errorf("%s hash not equal", string(words1[4]))
-				}
+		err := getImaErrorText(ln1, lines2, used)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getImaErrorText(ln []byte, lines [][]byte, used []bool) error {
+	words1 := bytes.Split(ln, typdefs.Space)
+	for i, ln2 := range lines {
+		if used[i] {
+			continue
+		}
+		words2 := bytes.Split(ln2, typdefs.Space)
+		if bytes.Equal(words1[4], words2[2]) {
+			used[i] = true
+			if !bytes.Equal(words1[3], words2[1]) {
+				return fmt.Errorf("%s hash not equal", string(words1[4]))
 			}
 		}
 	}
@@ -1274,25 +1299,30 @@ func handleStorePipe(i int) {
 		}
 		switch v := em.(type) {
 		case *typdefs.ReportRow:
-			res, err := storeDb.Exec(sqlInsertTrustReport,
-				v.ClientID, v.CreateTime, v.Validated, v.Trusted,
-				v.Quoted, v.Signature, v.PcrLog, v.BiosLog, v.ImaLog)
-			if err != nil {
-				logger.L.Sugar().Errorf("insert trust report error, result %v, %v", res, err)
-			}
+			handleReportStore(v)
 		case *typdefs.BaseRow:
-			// 这里之前只是把新增加的基准值保存到数据库中，我觉得还要把它更新到cache中
-			// 根据clientID查询该client是否已经注册，如果未注册直接返回，
-			// 已注册则把其添加到对应的cache节点中，再存储到数据库中。
-			res, err := storeDb.Exec(sqlInsertBase, v.ClientID, v.BaseType, v.Uuid, v.CreateTime,
-				v.Enabled, v.Name, v.Pcr, v.Bios, v.Ima)
-			if err != nil {
-				logger.L.Sugar().Errorf("insert base error, result %v, %v", res, err)
-			}
-			if tmgr.cache[v.ClientID] == nil {
-				continue
-			}
-			tmgr.cache[v.ClientID].Bases = append(tmgr.cache[v.ClientID].Bases, v)
+			handleBaseStore(v)
 		}
 	}
+}
+
+func handleReportStore(v *typdefs.ReportRow) {
+	res, err := storeDb.Exec(sqlInsertTrustReport,
+		v.ClientID, v.CreateTime, v.Validated, v.Trusted,
+		v.Quoted, v.Signature, v.PcrLog, v.BiosLog, v.ImaLog)
+	if err != nil {
+		logger.L.Sugar().Errorf("insert trust report error, result %v, %v", res, err)
+	}
+}
+
+func handleBaseStore(v *typdefs.BaseRow) {
+	res, err := storeDb.Exec(sqlInsertBase, v.ClientID, v.BaseType, v.Uuid, v.CreateTime,
+		v.Enabled, v.Name, v.Pcr, v.Bios, v.Ima)
+	if err != nil {
+		logger.L.Sugar().Errorf("insert base error, result %v, %v", res, err)
+	}
+	if tmgr.cache[v.ClientID] == nil {
+		return
+	}
+	tmgr.cache[v.ClientID].Bases = append(tmgr.cache[v.ClientID].Bases, v)
 }

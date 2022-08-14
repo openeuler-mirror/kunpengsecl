@@ -759,6 +759,7 @@ func SetHttpsSwitch(p string) {
 }
 
 func EqualFold(s1, s2 string) {
+	_, _ = s1, s2 // ignore unused warning
 	panic("unimplemented")
 }
 

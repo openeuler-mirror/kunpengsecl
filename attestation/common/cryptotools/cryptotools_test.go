@@ -592,6 +592,7 @@ func Tpm2MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]b
 	return encKeyBlob, encSecret, nil
 }
 func Tpm2ActivateCredential(ekPubKey crypto.PublicKey, credential, name, credBlob, secret []byte) ([]byte, []byte, error) {
+	_, _ = credBlob, secret // ignore unused warning
 	simulatorMutex.Lock()
 	defer simulatorMutex.Unlock()
 
