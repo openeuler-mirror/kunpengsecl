@@ -54,7 +54,7 @@ var (
 		result string
 	}{
 		{nullString, nullString},
-		{"127.0.0.1:40001", "127.0.0.1:40001"},
+		{GetServer(), GetServer()},
 	}
 	testCases4 = []struct {
 		input  time.Duration

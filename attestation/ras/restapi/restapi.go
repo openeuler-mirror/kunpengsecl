@@ -465,7 +465,7 @@ type cfgRecord struct {
 	HBDuration      time.Duration `json:"hbduration" form:"hbduration"`
 	TrustDuration   time.Duration `json:"trustduration" form:"trustduration"`
 	IsAllupdate     *bool         `json:"isallupdate" form:"isallupdate"`
-	LogTeseMode     *bool         `json:"logtestmode" form:"logtestmode"`
+	LogTestMode     *bool         `json:"logtestmode" form:"logtestmode"`
 	DBHost          string
 	DBName          string
 	DBPassword      string
@@ -481,7 +481,7 @@ func genConfigJson() *cfgRecord {
 		HBDuration:      config.GetHBDuration() / time.Second,
 		TrustDuration:   config.GetTrustDuration() / time.Second,
 		IsAllupdate:     config.GetIsAllUpdate(),
-		LogTeseMode:     config.GetLoggerMode(),
+		LogTestMode:     config.GetLoggerMode(),
 		DBHost:          config.GetDBHost(),
 		DBName:          config.GetDBName(),
 		DBPassword:      config.GetDBPassword(),
@@ -536,12 +536,22 @@ func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	cfg := new(cfgRecord)
 	cfg.IsAllupdate = config.GetIsAllUpdate()
-	cfg.LogTeseMode = config.GetLoggerMode()
+	cfg.LogTestMode = config.GetLoggerMode()
 	err := ctx.Bind(cfg)
 	if err != nil {
 		logger.L.Sugar().Debugf(errNoClient, err)
 		return err
 	}
+	configSet(cfg)
+	configDBSet(cfg)
+	trustmgr.UpdateAllNodes()
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusOK, genConfigJson())
+	}
+	return ctx.HTML(http.StatusOK, genConfigHtml())
+}
+
+func configSet(cfg *cfgRecord) {
 	if cfg.HBDuration != 0 {
 		config.SetHBDuration(cfg.HBDuration * time.Second)
 	}
@@ -551,9 +561,21 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	if cfg.IsAllupdate != nil && *cfg.IsAllupdate {
 		trustmgr.UpdateCaches()
 	}
-	if cfg.LogTeseMode != nil && *cfg.LogTeseMode != *config.GetLoggerMode() {
-		config.SetLoggerMode(*cfg.LogTeseMode)
+	if cfg.LogTestMode != nil && *cfg.LogTestMode != *config.GetLoggerMode() {
+		config.SetLoggerMode(*cfg.LogTestMode)
 	}
+	if cfg.DigestAlgorithm == typdefs.Sha1AlgStr || cfg.DigestAlgorithm == typdefs.Sha256AlgStr || cfg.DigestAlgorithm == typdefs.Sm3AlgStr {
+		config.SetDigestAlgorithm(cfg.DigestAlgorithm)
+	}
+	if cfg.MgrStrategy == config.AutoStrategy || cfg.MgrStrategy == config.ManualStrategy {
+		config.SetMgrStrategy(cfg.MgrStrategy)
+	}
+	if cfg.ExtractRules != strNull {
+		config.SetExtractRules(cfg.ExtractRules)
+	}
+}
+
+func configDBSet(cfg *cfgRecord) {
 	if cfg.DBHost != strNull {
 		config.SetDBHost(cfg.DBHost)
 	}
@@ -569,21 +591,6 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	if cfg.DBUser != strNull {
 		config.SetDBUser(cfg.DBUser)
 	}
-	if cfg.DigestAlgorithm == typdefs.Sha1AlgStr || cfg.DigestAlgorithm == typdefs.Sha256AlgStr || cfg.DigestAlgorithm == typdefs.Sm3AlgStr {
-		config.SetDigestAlgorithm(cfg.DigestAlgorithm)
-	}
-	if cfg.MgrStrategy == config.AutoStrategy || cfg.MgrStrategy == config.ManualStrategy {
-		config.SetMgrStrategy(cfg.MgrStrategy)
-	}
-	if cfg.ExtractRules != strNull {
-		config.SetExtractRules(cfg.ExtractRules)
-	}
-
-	trustmgr.UpdateAllNodes()
-	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusOK, genConfigJson())
-	}
-	return ctx.HTML(http.StatusOK, genConfigHtml())
 }
 
 // (GET /login)

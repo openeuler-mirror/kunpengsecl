@@ -68,19 +68,9 @@ func main() {
 	loop()
 }
 
-func prepare() {
-	ras, err := clientapi.CreateConn(GetServer())
-	if err != nil {
-		logger.L.Sugar().Fatalf("connect ras server fail, %s", err)
-		os.Exit(1)
-	}
-	defer clientapi.ReleaseConn(ras)
-	// set digest algorithm
-
-	// assume tpm chip has an Ek from tpm2.CreatePrimary and its EC is stored in
-	// NVRAM. So in test mode, create EK and sign it from PCA, save it to NVRAM
+func prepareEK(ras *clientapi.RasConn) {
 	logger.L.Debug("generate EK...")
-	err = ractools.GenerateEKey()
+	err := ractools.GenerateEKey()
 	if err != nil {
 		logger.L.Sugar().Errorf("generate EK failed, %s", err)
 	}
@@ -98,9 +88,11 @@ func prepare() {
 	if GetEKeyCert() == nil || len(GetEKeyCert()) == 0 {
 		generateEKeyCert(ras)
 	}
+}
 
+func prepareIK(ras *clientapi.RasConn) {
 	logger.L.Debug("load IK certificate...")
-	err = ractools.GenerateIKey()
+	err := ractools.GenerateIKey()
 	if err != nil {
 		logger.L.Sugar().Errorf("generate IK  failed, %s", err)
 	}
@@ -108,6 +100,21 @@ func prepare() {
 		generateIKeyCert(ras)
 	}
 	logger.L.Debug("load IK certificate success")
+}
+
+func prepare() {
+	ras, err := clientapi.CreateConn(GetServer())
+	if err != nil {
+		logger.L.Sugar().Fatalf("connect ras server fail, %s", err)
+		os.Exit(1)
+	}
+	defer clientapi.ReleaseConn(ras)
+	// set digest algorithm
+
+	// assume tpm chip has an Ek from tpm2.CreatePrimary and its EC is stored in
+	// NVRAM. So in test mode, create EK and sign it from PCA, save it to NVRAM
+	prepareEK(ras)
+	prepareIK(ras)
 
 	// step 2. if rac doesn't have clientId, uses EC and ikPub to sign
 	// a IC and do the register process.

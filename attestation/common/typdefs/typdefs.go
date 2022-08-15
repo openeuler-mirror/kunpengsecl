@@ -699,7 +699,7 @@ func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	_, err := readSHA1BIOSEventLog(bin, &point)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 	SpecID := getSpecID(bin)
 	// if SpecID is "Spec ID Event03", this is a event2 log bytes stream
@@ -712,35 +712,37 @@ func TransformBIOSBinLogToTxt(bin []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		for i := 0; ; i++ {
-			event2Log, err := ReadBIOSEvent2Log(bin, &point, algAndLenMap)
-			if err != nil {
-				break
-			}
-			buf.WriteString(fmt.Sprintf("%02d %02d ", i,
-				event2Log.Pcr))
-			buf.WriteString(fmt.Sprint(fmt.Sprintf("%x", event2Log.BType), "-", i, " "))
-			buf.WriteString(GetHashValue(Sha1AlgStr, event2Log))
-			strNext := GetHashValue(Sha256AlgStr, event2Log)
-			if strNext == naStr {
-				buf.WriteString(" " + naStr)
-			} else {
-				buf.WriteString(" " + Sha256AlgStr + ":")
-				buf.WriteString(strNext)
-			}
-			strNext = GetHashValue(Sm3AlgStr, event2Log)
-			if strNext == naStr {
-				buf.WriteString(" " + naStr)
-			} else {
-				buf.WriteString(" " + Sm3AlgStr + ":")
-				buf.WriteString(strNext)
-			}
-
-			buf.WriteString(fmt.Sprintf(" %s\n", event2Log.DataHex))
-		}
+		writeBuf(&buf, bin, &point, algAndLenMap)
 	}
 	return buf.Bytes(), nil
+}
+
+func writeBuf(buf *bytes.Buffer, bin []byte, point *int64, algAndLenMap map[string]int) {
+	for i := 0; ; i++ {
+		event2Log, err := ReadBIOSEvent2Log(bin, point, algAndLenMap)
+		if err != nil {
+			break
+		}
+		buf.WriteString(fmt.Sprintf("%02d %02d ", i,
+			event2Log.Pcr))
+		buf.WriteString(fmt.Sprint(fmt.Sprintf("%x", event2Log.BType), "-", i, " "))
+		buf.WriteString(GetHashValue(Sha1AlgStr, event2Log))
+		strNext := GetHashValue(Sha256AlgStr, event2Log)
+		if strNext == naStr {
+			buf.WriteString(" " + naStr)
+		} else {
+			buf.WriteString(" " + Sha256AlgStr + ":")
+			buf.WriteString(strNext)
+		}
+		strNext = GetHashValue(Sm3AlgStr, event2Log)
+		if strNext == naStr {
+			buf.WriteString(" " + naStr)
+		} else {
+			buf.WriteString(" " + Sm3AlgStr + ":")
+			buf.WriteString(strNext)
+		}
+		buf.WriteString(fmt.Sprintf(" %s\n", event2Log.DataHex))
+	}
 }
 
 // ExtendPCRWithBIOSTxtLog extends the bios log into pcrs.
