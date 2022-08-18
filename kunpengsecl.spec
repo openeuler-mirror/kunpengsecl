@@ -1,5 +1,6 @@
 %global name kunpengsecl
 %global version 1.1.0
+%undefine _missing_build_ids_terminate_build
 
 Name:            %{name}
 Version:         %{version}
