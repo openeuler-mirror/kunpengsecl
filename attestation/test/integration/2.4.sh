@@ -22,6 +22,7 @@ popd
 strUUID="9b954212d796863e9f2c04372d4ab7e39fe0b62870c82a9e83c3ec326e5fb9b9"
 strCONTAINER="container"
 strNAME="testContainer"
+strUNKNOWN="unknown"
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
@@ -53,24 +54,21 @@ echo "get client id" | tee -a ${DST}/control.txt
 cid=$(awk '{ if ($1 == "clientid:") { print $2 } }' ${DST}/rac-1/config.yaml)
 echo ${cid} | tee -a ${DST}/control.txt
 
-# get the container information for the first time
-RESPONSE1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
-CONTAINERINFO1=$(echo ${RESPONSE1} | jq -r '.' | grep ${strUUID})
-if [ -z "$CONTAINERINFO1" ]
+# query specific client's container trust status
+echo "query trust status of specific client:${cid} container:${strUUID}..." | tee -a ${DST}/control.txt
+STATUSLIST1=$(curl -k -H "Authorization: $AUTHTOKEN" https://localhost:40003/${cid}/container/status)
+STATUS1=$(echo ${STATUSLIST1} | grep ${strUUID} | awk '{gsub(/\\n"/,"",$3);print $3}')
+if [ -z "${STATUS1}" ]
 then
-    echo "first query..." | tee -a ${DST}/control.txt
-    echo "the container named ${strNAME} does not exist." | tee -a ${DST}/control.txt
+    echo "query container:${strUUID} trust status in database is empty." | tee -a ${DST}/control.txt
     echo "take the next step..." | tee -a ${DST}/control.txt
 else
-    echo "the container named ${strNAME} does exist." | tee -a ${DST}/control.txt
+    echo "container:${strUUID} already exists." | tee -a ${DST}/control.txt
     pkill -u ${USER} ras
     pkill -u ${USER} raagent
     echo "test DONE!!!" | tee -a ${DST}/control.txt
     exit 1
 fi
-
-echo "wait for 5s" | tee -a ${DST}/control.txt
-sleep 5
 
 # add container basevalue
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
@@ -79,47 +77,16 @@ curl -X POST -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/jso
 echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 
-
-# get the container information for the second time
-RESPONSE2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
-CONTAINERINFO2=$(echo ${RESPONSE2} | jq -r '.' | grep ${strUUID})
-if [ -n "$CONTAINERINFO2" ]
+# re-query specific client's container trust status
+echo "re-query trust status of specific client:${cid} container:${strUUID}..." | tee -a ${DST}/control.txt
+STATUSLIST2=$(curl -k -H "Authorization: $AUTHTOKEN" https://localhost:40003/${cid}/container/status)
+STATUS2=$(echo ${STATUSLIST2} | grep ${strUUID} | awk '{gsub(/\\n"/,"",$3);print $3}')
+if [ "${STATUS2}" == "${strUNKNOWN}" ]
 then
-    echo "second query..." | tee -a ${DST}/control.txt
-    echo "the container named ${strNAME} does exist." | tee -a ${DST}/control.txt
+    echo "query container:${strUUID} trust status in database is ${strUNKNOWN}." | tee -a ${DST}/control.txt
     echo "take the next step..." | tee -a ${DST}/control.txt
 else
-    echo "the container named ${strNAME} does not exist." | tee -a ${DST}/control.txt
-    pkill -u ${USER} ras
-    pkill -u ${USER} raagent
-    echo "test DONE!!!" | tee -a ${DST}/control.txt
-    exit 1
-fi
-
-echo "wait for 5s" | tee -a ${DST}/control.txt
-sleep 5
-
-# get bid
-echo "get basevalue id" | tee -a ${DST}/control.txt
-bid=$(echo ${RESPONSE2} | jq -r '.' | grep -B 3 ${strUUID} | awk '/"ID"/ {gsub(",","",$2);print $2}')
-echo ${bid} | tee -a ${DST}/control.txt
-
-# delete the container
-echo "start deleting container basevalue which uuid is ${strUUID}..." | tee -a ${DST}/control.txt
-curl -X DELETE -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues/${bid}
-echo "wait for 5s" | tee -a ${DST}/control.txt
-sleep 5
-
-# get the container information for the third time
-RESPONSE3=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
-CONTAINERINFO3=$(echo ${RESPONSE3} | jq -r '.' | grep ${strUUID})
-if [ -z "$CONTAINERINFO3" ]
-then
-    echo "third query..." | tee -a ${DST}/control.txt
-    echo "the container named ${strNAME} does not exist." | tee -a ${DST}/control.txt
-    echo "take the next step..." | tee -a ${DST}/control.txt
-else
-    echo "the container named ${strNAME} does exist." | tee -a ${DST}/control.txt
+    echo "unexpected trust status!" | tee -a ${DST}/control.txt
     pkill -u ${USER} ras
     pkill -u ${USER} raagent
     echo "test DONE!!!" | tee -a ${DST}/control.txt

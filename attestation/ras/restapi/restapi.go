@@ -217,6 +217,7 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 	strIMA            = "ima"
 	strBaseValueID    = `BaseValue ID`
 	errNoClient       = `rest api error: %v`
+	errParseWrong     = "parse parameters failed!"
 
 	strDeleteClientSuccess    = `delete client %d success`
 	strDeleteReportSuccess    = `delete client %d report %d success`
@@ -709,7 +710,7 @@ func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
 	cinfo := new(clientInfo)
 	err := ctx.Bind(cinfo)
 	if err != nil {
-		return ctx.JSON(http.StatusNotAcceptable, "parse parameters failed!")
+		return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
 	}
 
 	cr, err1 := trustmgr.FindClientByID(id)
@@ -819,9 +820,27 @@ func (s *MyRestAPIServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64,
 // modify node {id} one base value {basevalueid}
 //    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=XX"  -F "BaseType=XX" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/{uuid}/device/basevalue
 //  save node {id} a new base value by json
-//    curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=1234;type=application/json" -F "BaseType=container;type=application/json" -F "Name=test;type=application/json" -F "Enabled=true;type=application/json" -F "Pcr=@./cmd_history;type=application/json" -F "Bios=@./cmd_history;type=application/json" -F "Ima=@./cmd_history;type=application/json" http://localhost:40002/{uuid}/device/basevalue
+//    curl -X POST -k -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" https://localhost:40003/{id}/basevalues/{basevalueid} --data '{"enabled":true}'
 // 因为这里只需要传enabled一个参数，所以不需要检查其是否为空,默认为false
 func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, cid, bid int64) error {
+	if checkJSON(ctx) {
+		bv := new(baseValueJson)
+		err := ctx.Bind(bv)
+		if err != nil {
+			return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
+		}
+		c, err := trustmgr.GetCache(cid)
+		if err != nil {
+			return err
+		}
+		for _, base := range c.Bases {
+			if base.ID == bid {
+				base.Enabled = bv.Enabled
+			}
+		}
+		trustmgr.ModifyEnabledByID(bid, bv.Enabled)
+		return ctx.JSON(http.StatusFound, fmt.Sprintf("server id:%d, basevalueid:%d, modify enabled=%t", cid, bid, bv.Enabled))
+	}
 	sEnv := ctx.FormValue(strEnabled)
 	enabled, _ := strconv.ParseBool(sEnv)
 	c, err := trustmgr.GetCache(cid)
@@ -834,10 +853,6 @@ func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, cid, bid
 		}
 	}
 	trustmgr.ModifyEnabledByID(bid, enabled)
-	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusFound, fmt.Sprintf("server id:%d, basevalueid:%d, modify enabled=%t", cid, bid, enabled))
-	}
-
 	return ctx.HTML(http.StatusFound, "") //这里应该需要鑫淼更新网页端修改，网页端显示基准值的页面应该有一个按钮，点击就会把该基准值的enabled字段修改一次.
 }
 
@@ -898,7 +913,7 @@ func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 	bv := new(baseValueJson)
 	err := ctx.Bind(bv)
 	if err != nil {
-		return ctx.JSON(http.StatusNotAcceptable, "parse parameters failed!")
+		return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
 	}
 	row := &typdefs.BaseRow{
 		ClientID:   id,
@@ -1074,10 +1089,12 @@ func (s *MyRestAPIServer) GetIdContainerStatus(ctx echo.Context, cid int64) erro
 		if !rows[i].Verified {
 			status = strUnknown
 		} else {
-			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) { //验证过并且未超时
+			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) { //Verified and not timed out
 				status = strTrusted
-			} else {
+			} else if !rows[i].Trusted {
 				status = strUntrusted
+			} else {
+				status = strUnknown
 			}
 		}
 		buf.WriteString(fmt.Sprintf("%s : %s\n", rows[i].Uuid, status))
