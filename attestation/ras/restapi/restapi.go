@@ -78,15 +78,30 @@ const (
 	// (GET /)
 	htmlAllList = `<html><head><title>All Nodes Information</title>
 	<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
-	</head><body><script>$(document).ready(function(){$("button").click(function(){
+	</head><body><script>
+	$(document).ready(function(){
+	$("button").click(function(){
+	var postList;
+	if(this.innerText=="Register"){postList={
+	  "registered": true
+	};}
+	if(this.innerText=="Unregister"){postList={
+	  "registered": false
+	};}
+	$.ajaxSettings.beforeSend = function(request){
+		request.setRequestHeader("Authorization",localStorage.getItem("token"));
+		};
 	$.ajax({
 		url:this.value,
 		type:"POST",
 		contentType: "application/json",
-		/*this need to change true or false by registerd*/
-		data: {"registered":true} 
-		success:function(result,status,xhr)
-	{if(status=="success"){location.reload(true);}},});});});</script>
+		data:JSON.stringify(postList),
+		success:function(result,status,xhr){if(status=="success"){location.reload(true);}},
+		error:function(XMLHttpRequest, textStatus, errorThrown){
+				alert("请求对象XMLHttpRequest: "+XMLHttpRequest);
+				alert("错误类型textStatus: "+textStatus);
+				alert("异常对象errorThrown: "+errorThrown);}
+	});});});</script>
 	<script>function logout(){localStorage.setItem("token", null);alert("logout successfully");}</script>
 	<a href="/login">login</a>&emsp;
 	<a href="javascript:void(0)" onclick="logout()">logout</a>&emsp;
@@ -102,11 +117,16 @@ const (
 
 	// login
 	htmlLogin = `<html><head><title>login</title>
-<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
-<body><script>$(document).ready(function(){$("#login").click(function(){var token = $("#token").val();
-localStorage.setItem("token", token);alert("save token successful");})})</script>
-<div><input type="token" name="token" id ="token" placeholder="please enter the token here"></div>
-<div><input type="button" id="login" value="login" ></div></body></html>`
+	<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+	<body>
+	<script>
+	$(document).ready(function(){$("#login").click(function(){var token = $("#token").val();
+		localStorage.setItem("token", token);
+		alert("save token successful");})})
+		//xhr.setRequestHeader("Authorization", localStorage.getItem("token"));
+	</script>
+	<div><input type="token" name="token" id ="token" placeholder="please enter the token here"></div>
+	<div><input type="button" id="login" value="login" ></div></body></html>`
 
 	// (GET /config)
 	htmlConfig = `<html><head><title>Config Setting</title></head><body>
@@ -129,18 +149,44 @@ localStorage.setItem("token", token);alert("save token successful");})})</script
 
 	// (GET /{id}/basevalues)
 	htmlListBaseValues = `<html><head><title>Base Values List</title>
-<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script></head><body>
-<style type="text/css">td{white-space: pre-line;}</style>
-<script>$(document).ready(function(){$("button").click(function(){$.ajax({url:this.value,
-type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
-}},});});});</script><a href="/">Back</a>&emsp;<a href="/%d/newbasevalue">Add</a><br/>
-<table border="1"><tr align="center" bgcolor="#00FF00">
-<th>Index</th><th>Create Time</th><th>Name</th><th>Enabled</th><th>Verified</th>
-<th>Trusted</th><th>Pcr</th><th>Bios</th><th>Ima</th><th>Action</th></tr>`
-	htmlBaseValueInfo = `<tr><td>%d</td><td>%s</td><td>%s</td><td>%v</td>
-<td>%v</td><td>%v</td><td><a href="/%d/basevalues/%d">Link</a></td>
-<td><a href="/%d/basevalues/%d">Link</a></td><td><a href="/%d/basevalues/%d">Link</a></td>
-<td><button type="button" value="/%d/basevalues/%d">Delete</button></td></tr>`
+	<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script></head><body>
+	<style type="text/css">td{white-space: pre-line;}</style>
+	<script>$(document).ready(function(){
+	$("#change").click(function(){
+	var postList;
+	if(this.innerText=="Enable"){postList={
+	  "Enabled": true
+	};}
+	if(this.innerText=="Disable"){postList={
+	  "Enabled": false
+	};}
+	$.ajaxSettings.beforeSend = function(request){
+		request.setRequestHeader("Authorization",localStorage.getItem("token"));
+		};
+	$.ajax({
+		url:this.value,
+		type:"POST",
+		contentType: "application/json",
+		data:JSON.stringify(postList),
+		success:function(result,status,xhr){if(status=="success"){location.reload(true);}},
+		error:function(XMLHttpRequest, textStatus, errorThrown){
+				alert("请求对象XMLHttpRequest: "+XMLHttpRequest);
+				alert("错误类型textStatus: "+textStatus);
+				alert("异常对象errorThrown: "+errorThrown);}
+	});});
+	$("#delete").click(function(){
+	$.ajaxSettings.beforeSend = function(request){
+	request.setRequestHeader("Authorization",localStorage.getItem("token"));};
+	$.ajax({url:this.value,
+	type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
+	}},});});});</script><a href="/">Back</a>&emsp;<a href="/%d/newbasevalue">Add</a><br/>
+	<table border="1"><tr align="center" bgcolor="#00FF00">
+	<th>Index</th><th>Create Time</th><th>Name</th><th>Enabled</th><th>Verified</th>
+	<th>Trusted</th><th>Pcr</th><th>Bios</th><th>Ima</th><th>Action</th></tr>`
+	htmlBaseValueInfo = `<tr><td>%d</td><td>%s</td><td>%s</td><td>%v<button type="button" value="/%d/basevalues/%d" id="change">%s</button></td>
+	<td>%v</td><td>%v</td><td><a href="/%d/basevalues/%d">Link</a></td>
+	<td><a href="/%d/basevalues/%d">Link</a></td><td><a href="/%d/basevalues/%d">Link</a></td>
+	<td><button type="button" value="/%d/basevalues/%d" id="delete">Delete</button></td></tr>`
 
 	// (GET /{id}/basevalues/{basevalueid})
 	htmlOneBaseValue = `<html><head><title>Base Value Detail</title></head><body>
@@ -150,25 +196,44 @@ type:"DELETE",success:function(result,status,xhr){if(status=="success"){location
 	htmlBaseValue = `<tr><td align="center">%s</td><td>%v</td></tr>`
 
 	// (GET /{id}/newbasevalue)
-	htmlNewBaseValue = `<html><head><title>New Base Value</title></head><body>
-<a href="/%d/basevalues">Back</a><br/>
-<form action="/%d/newbasevalue" method="post" enctype="multipart/form-data">
-<table border="1"><tr align="center" bgcolor="#00FF00">
-<th>Parameter</th><th>Value</th></tr>
-<tr><td>Name</td><td><input type="text" name="Name" /></td></tr>
-<tr><td>Enabled</td><td><select name="Enabled"><option value ="true">True</option>
-<option value ="false">False</option></select></td></tr>
-<tr><td>PCR Base Value File</td><td><input type="file" name="Pcr" /></td></tr>
-<tr><td>BIOS Base Value File</td><td><input type="file" name="Bios" /></td></tr>
-<tr><td>IMA Base Value File</td><td><input type="file" name="Ima" /></td></tr>
-</table><br/><input type="submit" value="Save" /></form></body></html>`
+	htmlNewBaseValue = `<!DOCTYPE html>
+	<html><head><title>New Base Value</title></head>
+	<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+	<body>
+	<script>
+	$(document).ready(function(){$("#submit").click(function(){$.ajaxSettings.beforeSend = function(request){
+		request.setRequestHeader("Authorization",localStorage.getItem("token"));
+		};
+	$.ajax({
+		type: $("#form").attr("method"),
+		url: $("#form").attr("action"),
+		data: $('#form').serialize(),
+		success: function () {
+			alert("save successfully！");
+		},
+		error : function() {
+			alert("save failed！");
+		}
+	});})})</script>
+	<a href="/%d/basevalues">Back</a><br/>
+	<form action="/%d/newbasevalue" method="post" enctype="multipart/form-data">
+	<table border="1"><tr align="center" bgcolor="#00FF00">
+	<th>Parameter</th><th>Value</th></tr>
+	<tr><td>Name</td><td><input type="text" name="Name" /></td></tr>
+	<tr><td>Enabled</td><td><select name="Enabled"><option value ="true">True</option>
+	<option value ="false">False</option></select></td></tr>
+	<tr><td>PCR Base Value File</td><td><input type="file" name="Pcr" /></td></tr>
+	<tr><td>BIOS Base Value File</td><td><input type="file" name="Bios" /></td></tr>
+	<tr><td>IMA Base Value File</td><td><input type="file" name="Ima" /></td></tr>
+	</table><br/><input type="button" value="Save" id="submit"></form></body></html>`
 
 	// (GET /{id}/reports)
 	htmlListReports = `<html><head><title>Trust Reports List</title>
 <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script></head><body>
 <style type="text/css">td{white-space: pre-line;}</style>
-<script>$(document).ready(function(){$("button").click(function(){$.ajax({url:this.value,
-type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
+<script>$(document).ready(function(){$("button").click(function(){
+$.ajaxSettings.beforeSend = function(request){request.setRequestHeader("Authorization",localStorage.getItem("token"));};
+$.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr){if(status=="success"){location.reload(true);
 }},});});});</script><a href="/">Back</a><br/><b>Client %d Trust Reports List</b><br/>
 <table border="1"><tr align="center" bgcolor="#00FF00"><th>Index</th><th>Create Time</th>
 <th>Validated</th><th>Trusted</th><th>Details</th><th>Action</th></tr>`
@@ -737,11 +802,17 @@ func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
 }
 
 func genBaseValuesHtml(id int64, rows []*typdefs.BaseRow) string {
+	var changeButton string
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf(htmlListBaseValues, id))
 	for _, n := range rows {
+		if n.Enabled {
+			changeButton = "Disable"
+		} else {
+			changeButton = "Enable"
+		}
 		buf.WriteString(fmt.Sprintf(htmlBaseValueInfo, n.ID,
-			n.CreateTime.Format(typdefs.StrTimeFormat), n.Name, n.Enabled,
+			n.CreateTime.Format(typdefs.StrTimeFormat), n.Name, n.Enabled, id, n.ID, changeButton,
 			n.Verified, n.Trusted, id, n.ID, id, n.ID, id, n.ID, id, n.ID))
 	}
 	buf.WriteString(htmlTableEnd)
