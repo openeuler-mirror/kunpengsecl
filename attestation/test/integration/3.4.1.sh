@@ -16,12 +16,17 @@ cd ${PROJROOT}/attestation/quick-scripts
 echo "clean database" | tee -a ${DST}/control.txt
 sh clear-database.sh | tee -a ${DST}/control.txt
 popd
-sed -i --follow-symlinks "s/trustduration: 2m0s/trustduration: 20s/g" ${DST}/ras/config.yaml
 ### End Preparation
+
+### define some constant
+strUUID="9b954212d796863e9f2c04372d4ab7e39fe0b62870c82a9e83c3ec326e5fb9b9"
+strDEVICE="device"
+strNAME="testDevice"
+strUNKNOWN="unknown"
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v &>>${DST}/ras/echo.txt ;)&
 echo "sleep 5s" | tee -a ${DST}/control.txt
 sleep 5
 
@@ -30,7 +35,7 @@ echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t -v &>>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -43,61 +48,55 @@ done
 echo "start to perform test ..." | tee -a ${DST}/control.txt
 echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
-# stop rac
-echo "kill all raagent processes..." | tee -a ${DST}/control.txt
-pkill -u ${USER} raagent
 
-# modify ima file
-NEWLINE1="10 db4049d7fe6443ceeedd2d2eda1f35c41d7b100a ima e24ab5cc872cecc94dbc8baf9d33246bf22af042 /usr/lib64/NetworkManager/1.18.8-1.el7/libnm-device-plugin-wifi.so"
-echo "${NEWLINE1}" >> ${RACDIR}/${IMAFILE}
+# get cid
+echo "get client id" | tee -a ${DST}/control.txt
+cid=$(awk '{ if ($1 == "clientid:") { print $2 } }' ${DST}/rac-1/config.yaml)
+echo ${cid} | tee -a ${DST}/control.txt
 
-# restart number of rac 
-echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
-(( count=0 ))
-for (( i=1; i<=${NUM}; i++ ))
-do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>>${DST}/rac-${i}/echo.txt ; )&
-    (( count++ ))
-    if (( count >= 1 ))
-    then
-        (( count=0 ))
-        echo "start ${i} rac clients at $(date)..." | tee -a ${DST}/control.txt
-    fi
-done
+# first time query specific client's device trust status
+echo "first time query trust status of specific client:${cid} device:${strUUID}..." | tee -a ${DST}/control.txt
+STATUSLIST1=$(curl -k -H "Authorization: $AUTHTOKEN" https://localhost:40003/${cid}/device/status)
+STATUS1=$(echo ${STATUSLIST1} | grep ${strUUID} | awk '{gsub(/\\n"/,"",$3);print $3}')
+if [ -z "${STATUS1}" ]
+then
+    echo "query device:${strUUID} trust status in database is empty." | tee -a ${DST}/control.txt
+    echo "take the next step..." | tee -a ${DST}/control.txt
+else
+    echo "device:${strUUID} already exists." | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
+fi
 
-# register device
+# add device basevalue
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/device/1234567 --data '{"id":1234567,"registered":true,"serverid":1}'
+echo "start adding new device basevalue which uuid is ${strUUID}..." | tee -a ${DST}/control.txt
+curl -X POST -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/${cid}/newbasevalue --data "{\"uuid\":\"${strUUID}\", \"basetype\":\"${strDEVICE}\", \"name\":\"${strNAME}\", \"enabled\":true}"
+echo "wait for 5s" | tee -a ${DST}/control.txt
+sleep 5
 
-# post basevalue
-echo "post basevalue ing..." | tee -a ${DST}/control.txt
-curl -X PUT -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/device/basevalue/1234567 --data '{"measurements":[{"name":"/usr/lib64/NetworkManager/1.18.8-1.el7/libnm-device-plugin-wifi.so","type":"ima","value":"e24ab5cc872cecc94dbc8baf9d33246bf22af042"}]}'
-
-echo "wait for 15s" | tee -a ${DST}/control.txt
-sleep 15
-
-# get-response
-RESPONSE=$(curl http://localhost:40002/device/status)
-echo ${RESPONSE} | tee -a ${DST}/control.txt
+# second time query specific client's device trust status
+echo "second time query trust status of specific client:${cid} device:${strUUID}..." | tee -a ${DST}/control.txt
+STATUSLIST2=$(curl -k -H "Authorization: $AUTHTOKEN" https://localhost:40003/${cid}/device/status)
+STATUS2=$(echo ${STATUSLIST2} | grep ${strUUID} | awk '{gsub(/\\n"/,"",$3);print $3}')
+if [ "${STATUS2}" == "${strUNKNOWN}" ]
+then
+    echo "query device:${strUUID} trust status in database is empty." | tee -a ${DST}/control.txt
+    echo "take the next step..." | tee -a ${DST}/control.txt
+else
+    echo "unexpected trust status!" | tee -a ${DST}/control.txt
+    pkill -u ${USER} ras
+    pkill -u ${USER} raagent
+    echo "test DONE!!!" | tee -a ${DST}/control.txt
+    exit 1
+fi
 
 ### stop testing
 echo "kill all test processes..." | tee -a ${DST}/control.txt
 pkill -u ${USER} ras
 pkill -u ${USER} raagent
 
-echo "test DONE!!!" | tee -a ${DST}/control.txt
-
-### analyse the testing data
-CLIENTID=$(echo $RESPONSE | jq -r '.' | awk '/ClientID/ {gsub(",","",$2);print $2}')
-STATUS=$(echo $RESPONSE | jq -r '.' | awk '/Status/ {gsub(",","",$2);gsub("\"","",$2);print $2}')
-
-### generate the test report
-echo "ClientID:${CLIENTID}, Status:${STATUS}" | tee -a ${DST}/control.txt
-if [ "${STATUS}" == "trusted" ]
-then
-    echo "test succeeded!" | tee -a ${DST}/control.txt
-    exit 0
-else
-    echo "test failed!" | tee -a ${DST}/control.txt
-    exit 1
-fi
+echo "test SUCCEEDED!!!" | tee -a ${DST}/control.txt
+exit 0
