@@ -20,14 +20,14 @@ popd
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v &>>${DST}/ras/echo.txt ;)&
 
 # start number of rac clients
 echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true -v &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -43,13 +43,13 @@ sleep 5
 
 # read the running logs of ras and rac to determine whether the registration is successful
 # get cid
-clientID1=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/clientID=/ {gsub("clientID=","",$7);print $7}')
+clientID1=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/clientID=/ {gsub("clientID=","",$4);print $4}')
 # get ras/rac's config of HBDuration and TrustDuration, check if the configuration of rac has been updated
 rasHBD=$(awk '{ if ($1 == "hbduration:") { print $2 } }' ${DST}/ras/config.yaml)
 racHBD=$(awk '{ if ($1 == "hbduration:") { print $2 } }' ${DST}/rac-1/config.yaml)
 rasTD=$(awk '{ if ($1 == "trustduration:") { print $2 } }' ${DST}/ras/config.yaml)
 racTD=$(awk '{ if ($1 == "trustduration:") { print $2 } }' ${DST}/rac-1/config.yaml)
-if [ ${clientID1} != "" ] && [ ${rasHBD} == ${racHBD} ] && [ ${rasTD} == ${racTD} ]
+if [ "${clientID1}" != "" ] && [ "${rasHBD}" == "${racHBD}" ] && [ "${rasTD}" == "${racTD}" ]
 then
     echo "RegisterClient succeeded! clientID=${clientID1}" | tee -a ${DST}/control.txt
     echo "rac's hbduration has been set as ${racHBD}" | tee -a ${DST}/control.txt
@@ -66,7 +66,7 @@ echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -78,14 +78,13 @@ done
 # Read the running log of ras and rac to see if it will re-register
 echo "wait for 5s"
 sleep 5
-clientID2=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/clientID=/ {gsub("clientID=","",$7);print $7}')
+clientID2=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/clientID=/ {gsub("clientID=","",$4);print $4}')
 if [ "${clientID2}" != "" ]
 then
     echo "register again!" | tee -a ${DST}/control.txt
 else
     echo "No re-registration!" | tee -a ${DST}/control.txt
 fi
-
 ### stop testing
 echo "kill all test processes..." | tee -a ${DST}/control.txt
 pkill -u ${USER} ras

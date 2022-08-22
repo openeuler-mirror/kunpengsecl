@@ -81,20 +81,19 @@ func prepareEK(ras *clientapi.RasConn) {
 		err = LoadEKeyCert()
 		if err != nil {
 			logger.L.Sugar().Errorf("load EK certificate failed, %s", err)
-		} else {
-			logger.L.Debug("load EK certificate success")
 		}
 	}
 	if GetEKeyCert() == nil || len(GetEKeyCert()) == 0 {
 		generateEKeyCert(ras)
 	}
+	logger.L.Debug("load EK certificate success")
 }
 
 func prepareIK(ras *clientapi.RasConn) {
 	logger.L.Debug("load IK certificate...")
 	err := ractools.GenerateIKey()
 	if err != nil {
-		logger.L.Sugar().Errorf("generate IK  failed, %s", err)
+		logger.L.Sugar().Errorf("generate IK failed, %s", err)
 	}
 	if GetIKeyCert() == nil || len(GetIKeyCert()) == 0 {
 		generateIKeyCert(ras)
@@ -129,6 +128,7 @@ func prepare() {
 			time.Sleep(2 * time.Second)
 		}
 	}
+	logger.L.Sugar().Debugf("register client success, clientID=%d ", id)
 	saveConfigs()
 	err = ractools.SetDigestAlg(GetDigestAlgorithm())
 	if err != nil {

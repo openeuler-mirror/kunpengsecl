@@ -19,14 +19,14 @@ popd
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v &>>${DST}/ras/echo.txt ;)&
 
 # start number of rac clients
 echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true -v &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -44,7 +44,7 @@ echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true -v &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -52,8 +52,8 @@ do
         echo "start ${i} rac clients at $(date)..." | tee -a ${DST}/control.txt
     fi
 done
- echo "wait for 5s"
- sleep 5
+echo "wait for 5s"
+sleep 5
 
 ### stop testing
 echo "kill all test processes..." | tee -a ${DST}/control.txt
@@ -63,7 +63,7 @@ echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### check the ek cert's log is only one
 ### cat ${DST}/rac-1/echo.txt|grep 'ok' |wc -l
-ECCOUNT=$(grep 'invoke GenerateEKCert ok' ${DST}/rac-1/echo.txt |wc -l)
+ECCOUNT=$(grep 'load EK certificate success' ${DST}/rac-1/echo.txt |wc -l)
 echo "generateEKCert count: ${ECCOUNT}" | tee -a ${DST}/control.txt
 ### list the log
 ### tail -f ${DST}/rac-1/echo.txt
@@ -76,7 +76,7 @@ else
     echo "ectest is empty" | tee -a ${DST}/control.txt
 fi
 ### check the ik cert's log is only one
-ICCOUNT=$(grep 'invoke GenerateIKCert ok' ${DST}/rac-1/echo.txt |wc -l)
+ICCOUNT=$(grep 'load IK certificate success' ${DST}/rac-1/echo.txt |wc -l)
 echo "generateIKCert count: ${ICCOUNT}" | tee -a ${DST}/control.txt
 ### check the ekCert's file is not null
 

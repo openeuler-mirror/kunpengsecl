@@ -29,7 +29,7 @@ install: build
 	sudo mkdir -p $(DESTDIR)$(ETCTAR)/rac $(DESTDIR)$(ETCTAR)/rahub $(DESTDIR)$(ETCTAR)/auth_file $(DESTDIR)$(SHARETAR)/rac $(DESTDIR)$(DOCTAR)/rac $(DESTDIR)$(DOCTAR)/rahub $(DESTDIR)$(BINTAR)
 	sudo install -m 555 pkg/raagent $(DESTDIR)$(BINTAR)
 	sudo install -m 555 pkg/rahub $(DESTDIR)$(BINTAR)
-	sudo install -m 555 pkg/tbprovisioner $(DESTDIR)$(BINTAR)
+###	sudo install -m 555 pkg/tbprovisioner $(DESTDIR)$(BINTAR)
 	sudo install -m 644 $(RACPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rac
 	sudo install -m 644 $(HUBPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rahub
 	sudo install -m 644 $(RACPATH)/ascii_runtime_measurements $(DESTDIR)$(ETCTAR)/auth_file

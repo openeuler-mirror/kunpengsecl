@@ -20,7 +20,7 @@ popd
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v &>>${DST}/ras/echo.txt ;)&
 echo "wait for 3s"
 sleep 3
 
@@ -29,7 +29,7 @@ echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true -v &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -51,7 +51,7 @@ pkill -u ${USER} raagent
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 # Read the running log of rac
-ans=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/create a new trust report, succeeded/')
+ans=$(cat ${DST}/rac-$((i-1))/echo.txt | awk '/send trust report ok/')
 echo ${ans} | tee -a ${DST}/control.txt
 ### analyse the testing data
 ### generate the test report

@@ -1,5 +1,12 @@
 
 PKGPATH=pkg
+TOPPATH = ../..
+RASPATH = ./cmd
+SCRPATH = ../quick-scripts
+ETCTAR = /etc/attestation
+SHARETAR = /usr/share/attestation
+DOCTAR = /usr/share/doc/attestation
+BINTAR = /usr/bin
 TESTEES=./cache ./clientapi ./config ./trustmgr
 
 all: build

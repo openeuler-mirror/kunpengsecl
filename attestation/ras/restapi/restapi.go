@@ -133,7 +133,7 @@ const (
 <a href="/">Back</a><br/><table border="1"><form action="/config" method="post">
 <tr align="center" bgcolor="#00FF00"><th>Parameter</th><th>Value</th></tr>`
 	htmlConfigEdit = `<tr><td>%s</td><td align="center">
-<input type="text" name="%s" value="%d"/></td></tr>`
+<input type="text" name="%s" value="%s"/></td></tr>`
 	htmlConfigEnd = `</table><input type="submit" value="Save"/></form></body></html>`
 
 	// (GET /version)
@@ -528,10 +528,10 @@ func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 
 // TODO: add more parameters in this struct to export to outside control.
 type cfgRecord struct {
-	HBDuration      time.Duration `json:"hbduration" form:"hbduration"`
-	TrustDuration   time.Duration `json:"trustduration" form:"trustduration"`
-	IsAllupdate     *bool         `json:"isallupdate" form:"isallupdate"`
-	LogTestMode     *bool         `json:"logtestmode" form:"logtestmode"`
+	HBDuration      string `json:"hbduration" form:"hbduration"`
+	TrustDuration   string `json:"trustduration" form:"trustduration"`
+	IsAllupdate     *bool  `json:"isallupdate" form:"isallupdate"`
+	LogTestMode     *bool  `json:"logtestmode" form:"logtestmode"`
 	DBHost          string
 	DBName          string
 	DBPassword      string
@@ -544,8 +544,8 @@ type cfgRecord struct {
 
 func genConfigJson() *cfgRecord {
 	return &cfgRecord{
-		HBDuration:      config.GetHBDuration() / time.Second,
-		TrustDuration:   config.GetTrustDuration() / time.Second,
+		HBDuration:      config.GetHBDuration().String(),
+		TrustDuration:   config.GetTrustDuration().String(),
 		IsAllupdate:     config.GetIsAllUpdate(),
 		LogTestMode:     config.GetLoggerMode(),
 		DBHost:          config.GetDBHost(),
@@ -572,9 +572,9 @@ func genConfigHtml() string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlConfig)
 	buf.WriteString(fmt.Sprintf(htmlConfigEdit, strHBDuration,
-		nameHBDuration, config.GetHBDuration()/time.Second))
+		nameHBDuration, config.GetHBDuration().String()))
 	buf.WriteString(fmt.Sprintf(htmlConfigEdit, strTrustDuration,
-		nameTrustDuration, config.GetTrustDuration()/time.Second))
+		nameTrustDuration, config.GetTrustDuration().String()))
 	buf.WriteString(htmlConfigEnd)
 	return buf.String()
 }
@@ -595,9 +595,9 @@ func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 // (POST /config)
 // modify ras server configuration
 //  write config as html/form
-//    curl -X POST -d "hbduration=20" -d "trustduration=30"  -d"isallupdate=true" http://localhost:40002/config
+//    curl -X POST -d "hbduration=10s" -d "trustduration=2m0s"  -d"isallupdate=true" http://localhost:40002/config
 //  write config as json
-//    curl -X POST -H "Content-type: application/json" -d '{"hbduration": 100, "trustduration": 200, "isallupdate": true}' http://localhost:40002/config
+//    curl -X POST -H "Content-type: application/json" -d '{"hbduration":"10s", "trustduration":"2m0s", "isallupdate": true}' http://localhost:40002/config
 // Notice: key name must be enclosed by "" in json format!!!
 func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	cfg := new(cfgRecord)
@@ -618,11 +618,13 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 }
 
 func configSet(cfg *cfgRecord) {
-	if cfg.HBDuration != 0 {
-		config.SetHBDuration(cfg.HBDuration * time.Second)
+	hbd, _ := time.ParseDuration(cfg.HBDuration)
+	td, _ := time.ParseDuration(cfg.TrustDuration)
+	if cfg.HBDuration != strNull {
+		config.SetHBDuration(hbd)
 	}
-	if cfg.TrustDuration != 0 {
-		config.SetTrustDuration(cfg.TrustDuration * time.Second)
+	if cfg.TrustDuration != strNull {
+		config.SetTrustDuration(td)
 	}
 	if cfg.IsAllupdate != nil && *cfg.IsAllupdate {
 		trustmgr.UpdateCaches()
