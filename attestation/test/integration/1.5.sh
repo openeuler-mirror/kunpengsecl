@@ -20,19 +20,19 @@ popd
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v -H false &>>${DST}/ras/echo.txt ;)&
 echo "wait for 3s" | tee -a ${DST}/control.txt
 sleep 3
 # change config
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"trustDuration","value":"20s"}]'
+curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '{"trustDuration":"15s"}'
 
 # start number of rac clients
 echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true -v &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -52,14 +52,14 @@ echo ${cid} | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
 # CONFIGRESPONSE=$(curl http://localhost:40002/config)
 # echo $CONFIGRESPONSE
-reporturl="http://localhost:40002/report/${cid}"
+reporturl="http://localhost:40002/${cid}/reports"
 # repeat test for 3 times
 TESTTIMES=3
 export OLDREPORTID=0
 for (( i=1; i<=${TESTTIMES}; i++ ))
 do
     # do not use REPORTRESPONSE=$(curl -X GET ${reporturl}), it cost too many memory and may cause mistake
-    REPORTID=$(curl -X GET ${reporturl} | jq -r '.' | awk '/ReportId/ {gsub(",","",$2);print $2}')
+    REPORTID=$(curl -H "Content-Type: application/json" ${reporturl} | jq -r '.' | grep -A 0 "ID" | grep -v "ClientID\|--"  | awk '{gsub(",","",$2);print $2}' | tail -n 1)
     echo "the newest report id is ${REPORTID}" | tee -a ${DST}/control.txt
     echo "the old report id is ${OLDREPORTID}" | tee -a ${DST}/control.txt
     if [ "${REPORTID}" -gt "${OLDREPORTID}" ]
@@ -73,10 +73,10 @@ do
         exit 1
     fi
     OLDREPORTID=${REPORTID}
-    # wait 10s for recording new report
+    # wait 20s for recording new report
     if [ "${i}" -lt "${TESTTIMES}" ] 
     then
-        sleep 10
+        sleep 20
     fi
 done
 ### stop testing

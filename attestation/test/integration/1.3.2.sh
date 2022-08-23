@@ -20,7 +20,7 @@ popd
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v -H false &>>${DST}/ras/echo.txt ;)&
 echo "wait for 5s" | tee -a ${DST}/control.txt
 sleep 5
 
@@ -29,7 +29,7 @@ echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true -v &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -45,11 +45,11 @@ sleep 20
 # set the heartbeat cycle to 3s
 echo "set the heartbeat cycle to 3s" | tee -a ${DST}/control.txt
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"3s"}]'
+curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '{"hbDuration":"3s"}'
 echo "wait for 20s" | tee -a ${DST}/control.txt
 sleep 20
 # Query the heartbeat cycle of ras according to restapi, and read the log of ras
-RESPONSE=$(curl http://localhost:40002/config)
+RESPONSE=$(curl -H "Content-Type: application/json" http://localhost:40002/config)
 echo ${RESPONSE} | tee -a ${DST}/control.txt
 
 ### stop testing
@@ -60,8 +60,8 @@ pkill -u ${USER} raagent
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### analyse the testing data
-rasHBDuration=$(echo $RESPONSE | jq -r '.' | grep -A 1 "hbDuration" | awk '/value/ {gsub("\"","",$2);print $2}')
-if [ "$rasHBDuration" == "3s" ]
+rasHBDuration=$(echo $RESPONSE | jq -r '.' | grep -A 0 "hbduration" |  awk -F '"' '{print $4}')
+if [ $rasHBDuration == "3s" ]
 then
     echo "modify ras HBDuration succeeded!" | tee -a ${DST}/control.txt
 else 
@@ -69,15 +69,15 @@ else
 fi
 
 # compute true HBDuration
-latestHBTime=$(cat ${DST}/ras/echo.txt | awk '/receive SendHeartbeat/ {gsub("^.*:","",$2);print $2}' | tail -n 3)
+latestHBTime=$(cat ${DST}/rac-$((i-1))/echo.txt | awk -F '"' '/send heart beat ok/ {print $8}' | tail -n 3)
 echo "Latest 3 HB time: ${latestHBTime}" | tee -a ${DST}/control.txt
-time1=$(echo ${latestHBTime} | awk '{print $1}')
-time2=$(echo ${latestHBTime} | awk '{print $2}')
-time3=$(echo ${latestHBTime} | awk '{print $3}')
+time1=$(echo ${latestHBTime} | awk '{print $1}' | awk -F ':' '{print $3}' | cut -c 1,2)
+time2=$(echo ${latestHBTime} | awk '{print $2}' | awk -F ':' '{print $3}' | cut -c 1,2)
+time3=$(echo ${latestHBTime} | awk '{print $3}' | awk -F ':' '{print $3}' | cut -c 1,2)
 
 ### generate the test report
 # Because time may be rounded up, one success is correct
-if  [ $((${time2} - ${time1})) -eq 3 ] || [ $((${time3} - ${time2})) -eq 3 ]
+if  [ $((10#${time2} - 10#${time1})) -eq 3 ] || [ $((10#${time3} - 10#${time2})) -eq 3 ]
 then
     echo "modify HBDuration succeeded!" | tee -a ${DST}/control.txt
     echo "test succeeded!" | tee -a ${DST}/control.txt
