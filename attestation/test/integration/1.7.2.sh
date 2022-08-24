@@ -20,14 +20,23 @@ popd
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v &>>${DST}/ras/echo.txt ;)&
+echo "wait for 5s" | tee -a ${DST}/control.txt
+sleep 5
+
+### start monitoring and control the testing
+echo "start to perform test ..." | tee -a ${DST}/control.txt
+# set heartbeat cycle to 3s and trust cycle to 10s
+echo "set heartbeat cycle to 3s and trust cycle to 10s" | tee -a ${DST}/control.txt
+AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
+curl -X POST -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data '{"hbDuration":"3s","trustduration":"10s"}'
 
 # start number of rac clients
 echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true -v &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -35,17 +44,20 @@ do
         echo "start ${i} rac clients at $(date)..." | tee -a ${DST}/control.txt
     fi
 done
+echo "wait for 10s"  | tee -a ${DST}/control.txt
+sleep 10  | tee -a ${DST}/control.txt
 
-### start monitoring and control the testing
-echo "start to perform test ..." | tee -a ${DST}/control.txt
-echo "wait for 5s" | tee -a ${DST}/control.txt
-sleep 5 | tee -a ${DST}/control.txt
-echo "check server trust status via restapi request" | tee -a ${DST}/control.txt
+# get cid
+echo "get client id" | tee -a ${DST}/control.txt
+cid=$(awk '{ if ($1 == "clientid:") { print $2 } }' ${DST}/rac-1/config.yaml)
+echo ${cid} | tee -a ${DST}/control.txt
+echo "check server trust status via restapi request"  | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
 # AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-# curl -X POST -H "Authorization: $TOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
-RESPONSE1=$(curl http://localhost:40002/status)
+# curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data '[{"name":"hbDuration","value":"10s"}]'
+RESPONSE1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
 echo ${RESPONSE1} | tee -a ${DST}/control.txt
+
 # stop rac
 echo "kill all raagent processes..." | tee -a ${DST}/control.txt
 pkill -u ${USER} raagent
@@ -69,13 +81,13 @@ do
     fi
 done
 
-echo "wait for 90s" | tee -a ${DST}/control.txt
-sleep 90 | tee -a ${DST}/control.txt
+echo "wait for 20s" | tee -a ${DST}/control.txt
+sleep 20 | tee -a ${DST}/control.txt
 echo "check server trust status via restapi request" | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
 # AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
 # curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
-RESPONSE2=$(curl http://localhost:40002/status)
+RESPONSE2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
 echo ${RESPONSE2} | tee -a ${DST}/control.txt
 
 ### stop testing
@@ -86,15 +98,13 @@ pkill -u ${USER} raagent
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### analyse the testing data
-CLIENTID1=$(echo ${RESPONSE1} | jq -r '.' | awk '/ClientID/ {gsub(",","",$2);print $2}')
-STATUS1=$(echo ${RESPONSE1} | jq -r '.' | awk '/Status/ {gsub(",","",$2);gsub("\"","",$2);print $2}')
-CLIENTID2=$(echo ${RESPONSE2} | jq -r '.' | awk '/ClientID/ {gsub(",","",$2);print $2}')
-STATUS2=$(echo ${RESPONSE2} | jq -r '.' | awk '/Status/ {gsub(",","",$2);gsub("\"","",$2);print $2}')
+STATUS1=$(echo ${RESPONSE1} | jq -r '.' | grep -A 0 "trusted" |  awk -F '"' '{print $4}')
+STATUS2=$(echo ${RESPONSE2} | jq -r '.' | grep -A 0 "trusted" |  awk -F '"' '{print $4}')
 
 ### generate the test report
-echo "First time: ClientID:${CLIENTID1}, Status:${STATUS1}" | tee -a ${DST}/control.txt
-echo "Second time: ClientID:${CLIENTID2}, Status:${STATUS2}" | tee -a ${DST}/control.txt
-if [[ ${STATUS1} == "trusted"  && ${STATUS2} == "untrusted" ]]
+echo "First time: Status:${STATUS1}" | tee -a ${DST}/control.txt
+echo "Second time: Status:${STATUS2}" | tee -a ${DST}/control.txt
+if [[ ${STATUS1} == "trusted"  && ${STATUS2} == "unknown" ]]
 then
     echo "test succeeded!" | tee -a ${DST}/control.txt
     exit 0

@@ -20,14 +20,14 @@ popd
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v &>>${DST}/ras/echo.txt ;)&
 
 # start number of rac clients
 echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true -v &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -38,13 +38,17 @@ done
 
 ### start monitoring and control the testing
 echo "start to perform test ..." | tee -a ${DST}/control.txt
-echo "wait for 5s"  | tee -a ${DST}/control.txt
-sleep 5  | tee -a ${DST}/control.txt
+echo "wait for 20s"  | tee -a ${DST}/control.txt
+sleep 20  | tee -a ${DST}/control.txt
+# get cid
+echo "get client id" | tee -a ${DST}/control.txt
+cid=$(awk '{ if ($1 == "clientid:") { print $2 } }' ${DST}/rac-1/config.yaml)
+echo ${cid} | tee -a ${DST}/control.txt
 echo "check server trust status via restapi request"  | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
-# AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-# curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config --data '[{"name":"hbDuration","value":"10s"}]'
-RESPONSE=$(curl http://localhost:40002/status)
+AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
+# curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data '[{"name":"hbDuration","value":"10s"}]'
+RESPONSE=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
 echo ${RESPONSE} | tee -a ${DST}/control.txt
 
 ### stop testing
@@ -55,12 +59,11 @@ pkill -u ${USER} raagent
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### analyse the testing data
-CLIENTID=$(echo $RESPONSE | jq -r '.' | awk '/ClientID/ {gsub(",","",$2);print $2}')
-STATUS=$(echo $RESPONSE | jq -r '.' | awk '/Status/ {gsub(",","",$2);gsub("\"","",$2);print $2}')
+STATUS=$(echo $RESPONSE | jq -r '.' | grep -A 0 "trusted" |  awk -F '"' '{print $4}')
 
 ### generate the test report
-echo "ClientID:${CLIENTID}, Status:${STATUS}"  | tee -a ${DST}/control.txt
-if [ ${STATUS} == "trusted" ]
+echo "ClientID:${cid}, Status:${STATUS}"  | tee -a ${DST}/control.txt
+if [ "${STATUS}" == "trusted" ]
 then
     echo "test succeeded!" | tee -a ${DST}/control.txt
     exit 0
