@@ -126,6 +126,127 @@ sudo rpm -e xxx
   -V, --version         show version number and quit
 ```
 
+#### 接口定义
+为了便于管理员对目标服务器以及RAS进行管理，本程序设计了以下接口可供调用：
+```
+/: GET
+/{id}: GET、POST、DELETE
+/{from}/{to}: GET
+/{id}/reports: GET
+/{id}/reports/{reportid}: GET、DELETE
+/{id}/basevalues: GET
+/{id}/newbasevalue: POST
+/{id}/basevalues/{basevalueid}: GET、POST、DELETE
+/version: GET
+/login: GET
+/config: GET、POST
+/{id}/container/status: GET
+/{id}/device/status: GET
+```
+接下来分别介绍上述接口的具体用法。
+
+若您想要查询所有服务器的信息，那么您可以使用`"/"`接口。
+```shell
+curl -X GET -H "Content-Type: application/json" http://localhost:40002/
+```
+若您想要查询目标服务器的详细信息，那么您可以使用`"/{id}"`接口的`GET`方法，其中{id}是RAS为目标服务器分配的唯一标识号。
+```shell
+curl -X GET -H "Content-Type: application/json" http://localhost:40002/1
+```
+若您想要修改目标服务器的信息，那么您可以使用`"/{id}"`接口的`POST`方法，其中$AUTHTOKEN是您事先使用`ras -T`自动生成的身份验证码。
+```go
+type clientInfo struct {
+	Registered   *bool `json:"registered"`  // 目标服务器注册状态
+	IsAutoUpdate *bool `json:"isautoupdate"`// 目标服务器基准值更新策略
+}
+```
+```shell
+curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/1 -d '{"registered":false, "isautoupdate":false}'
+```
+若您想要删除目标服务器，那么您可以使用`"/{id}"`接口的`DELETE`方法，注意：使用该方法并非删除目标服务器的所有信息，而是把目标服务器的注册状态置为`false`！
+```shell
+curl -X DELETE -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/1
+```
+若您想要查询指定范围内的所有服务器信息，那么您可以使用`"/{from}/{to}"`接口的`GET`方法。
+```shell
+curl -X GET -H "Content-Type: application/json" http://localhost:40002/1/9
+```
+若您想要查询目标服务器的所有可信报告，那么您可以使用`"/{id}/reports"`接口的`GET`方法。
+```shell
+curl -X GET -H "Content-Type: application/json" http://localhost:40002/1/reports
+```
+若您想要查询目标服务器指定可信报告的详细信息，那么您可以使用`"/{id}/reports/{reportid}"`接口的`GET`方法，其中{reportid}是RAS为目标服务器指定可信报告分配的唯一标识号。
+```shell
+curl -X GET -H "Content-Type: application/json" http://localhost:40002/1/reports/1
+```
+若您想要删除目标服务器指定可信报告，那么您可以使用`"/{id}/reports/{reportid}"`接口的`DELETE`方法，注意，使用该方法将删除指定可信报告的所有信息，您将无法再通过接口对该报告进行查询！
+```shell
+curl -X DELETE -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/1/reports/1
+```
+若您想要查询目标服务器的所有基准值，那么您可以使用`"/{id}/basevalues"`接口的`GET`方法。
+```shell
+curl -X GET -H "Content-Type: application/json" http://localhost:40002/1/basevalues
+```
+若您想要给目标服务器新增一条基准值信息，那么您可以使用`"/{id}/newbasevalue"`接口的`POST`方法。
+```go
+type baseValueJson struct {
+	BaseType   string `json:"basetype"`   // 基准值类型
+	Uuid       string `json:"uuid"`       // 容器或设备的标识号
+	Name       string `json:"name"`       // 基准值名称
+	Enabled    bool   `json:"enabled"`    // 基准值是否可用
+	Pcr        string `json:"pcr"`        // PCR值
+	Bios       string `json:"bios"`       // BIOS值
+	Ima        string `json:"ima"`        // IMA值
+	IsNewGroup bool   `json:"isnewgroup"` // 是否为一组新的基准值
+}
+```
+```shell
+curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/1/newbasevalue -d '{"name":"test", "basetype":"host", "enabled":true, "pcr":"testpcr", "bios":"testbios", "ima":"testima", "isnewgroup":true}'
+```
+若您想要查询目标服务器指定基准值的详细信息，那么您可以使用`"/{id}/basevalues/{basevalueid}"`接口的`GET`方法，其中{basevalueid}是RAS为目标服务器指定基准值分配的唯一标识号。
+```shell
+curl -X GET -H "Content-Type: application/json" http://localhost:40002/1/basevalues/1
+```
+若您想要修改目标服务器指定基准值的可用状态，那么您可以使用`"/{id}/basevalues/{basevalueid}"`接口的`POST`方法。
+```shell
+curl -X POST -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" http://localhost:40002/1/basevalues/1 -d '{"enabled":true}'
+```
+若您想要删除目标服务器指定基准值，那么您可以使用`"/{id}/basevalues/{basevalueid}"`接口的`DELETE`方法，注意，使用该方法将删除指定基准值的所有信息，您将无法再通过接口对该基准值进行查询！
+```shell
+curl -X DELETE -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/1/basevalues/1
+```
+若您想要获取本程序的版本信息，那么您可以使用`"/version"`接口的`GET`方法。
+```shell
+curl -X GET -H "Content-Type: application/json" http://localhost:40002/version
+```
+若您想要查询目标服务器/RAS/数据库的配置信息，那么您可以使用`"/config"`接口的`GET`方法。
+```shell
+curl -X GET -H "Content-Type: application/json" http://localhost:40002/config
+```
+若您想要修改目标服务器/RAS/数据库的配置信息，那么您可以使用`"/config"`接口的`POST`方法。
+```go
+type cfgRecord struct {
+  // 目标服务器配置
+	HBDuration      string `json:"hbduration" form:"hbduration"`
+	TrustDuration   string `json:"trustduration" form:"trustduration"`
+  DigestAlgorithm string `json:"digestalgorithm" form:"digestalgorithm"`
+  // 数据库配置
+	DBHost          string `json:"dbhost" form:"dbhost"`
+	DBName          string `json:"dbname" form:"dbname"`
+	DBPassword      string `json:"dbpassword" form:"dbpassword"`
+	DBPort          int    `json:"dbport" form:"dbport"`
+	DBUser          string `json:"dbuser" form:"dbuser"`
+  // RAS配置
+	MgrStrategy     string `json:"mgrstrategy" form:"mgrstrategy"`
+	ExtractRules    string `json:"extractrules" form:"extractrules"`
+  IsAllupdate     *bool  `json:"isallupdate" form:"isallupdate"`
+	LogTestMode     *bool  `json:"logtestmode" form:"logtestmode"`
+}
+```
+```shell
+curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/config -d '{"hbduration":"5s","trustduration":"20s","DigestAlgorithm":"sha256"}'
+```
+
 #### 参与贡献
 
 1.  Fork 本仓库

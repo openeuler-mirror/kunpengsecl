@@ -22,8 +22,5 @@ tar -czf ./rpmbuild/SOURCES/$Name-$Version.tar.gz \
             attestation doc \
             LICENSE Makefile README.md README.en.md
 
-# get patch files.
-cp ./rpmbuild/SPECS/*.patch ./rpmbuild/SOURCES/
-
 go env -w GO111MODULE="on"
 rpmbuild -ba ./rpmbuild/SPECS/kunpengsecl.spec
