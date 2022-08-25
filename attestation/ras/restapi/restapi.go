@@ -532,14 +532,14 @@ type cfgRecord struct {
 	TrustDuration   string `json:"trustduration" form:"trustduration"`
 	IsAllupdate     *bool  `json:"isallupdate" form:"isallupdate"`
 	LogTestMode     *bool  `json:"logtestmode" form:"logtestmode"`
-	DBHost          string
-	DBName          string
-	DBPassword      string
-	DBPort          int
-	DBUser          string
-	DigestAlgorithm string
-	MgrStrategy     string
-	ExtractRules    string
+	DBHost          string `json:"dbhost" form:"dbhost"`
+	DBName          string `json:"dbname" form:"dbname"`
+	DBPassword      string `json:"dbpassword" form:"dbpassword"`
+	DBPort          int    `json:"dbport" form:"dbport"`
+	DBUser          string `json:"dbuser" form:"dbuser"`
+	DigestAlgorithm string `json:"digestalgorithm" form:"digestalgorithm"`
+	MgrStrategy     string `json:"mgrstrategy" form:"mgrstrategy"`
+	ExtractRules    string `json:"extractrules" form:"extractrules"`
 }
 
 func genConfigJson() *cfgRecord {
