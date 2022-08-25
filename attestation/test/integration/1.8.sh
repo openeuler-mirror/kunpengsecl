@@ -6,7 +6,7 @@ PROJROOT=.
 NUM=1
 # include common part
 . ${PROJROOT}/attestation/test/integration/common.sh
-. ${PROJROOT}/attestation/test/integration/1.8-9-common.sh
+. ${PROJROOT}/attestation/test/integration/1.x.common.sh
 
 # above are common preparation steps, below are specific preparation step, scope includs:
 # configure files, input files, environment variables, cmdline paramenters, flow control paramenters, etc.

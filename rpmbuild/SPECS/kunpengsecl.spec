@@ -1,15 +1,16 @@
 %global name kunpengsecl
 %global version 1.1.0
+%undefine _missing_build_ids_terminate_build
 
 Name:            %{name}
 Version:         %{version}
-Release:         1%{?dist}
+Release:         3%{?dist}
 Summary:         A remote attestation security software components running on Kunpeng processors.
 Summary(zh_CN):  一款运行于鲲鹏处理器上的远程证明安全软件组件
-License:         Mulan PSL v2
+License:         MulanPSL-2.0
 URL:             https://gitee.com/openeuler/kunpengsecl
 Source0:         %{name}-v%{version}.tar.gz
-Patch0000:       update-test-file-path.patch
+Source1:         vendor.tar.gz
 BuildRequires:   gettext make golang
 BuildRequires:   protobuf-compiler openssl-devel
 
@@ -38,8 +39,7 @@ Summary:       the rahub package.
 This is the rahub rpm package, which is used to cascade clients.
 
 %prep
-%setup -q -c
-%patch0000 -p1
+%setup -q -c -a 1
 
 %build
 make build
@@ -145,15 +145,20 @@ rm -rf %{_builddir}
 rm -rf %{buildroot}
 
 %changelog
-* Sun Jul 24 2022 aaron-liwang <3214053332@qq.com> - 1.1.0-1
+* Tue Aug 09 2022 wangli <3214053332@qq.com> - 1.1.0-3
+-   process vendor directory
+* Wed Aug 03 2022 fushanqing <fushanqing@kylinos.cn> - 1.1.0-2
+-   Unified license name specification
+* Sun Jul 24 2022 wangli <3214053332@qq.com> - 1.1.0-1
 -   add some test files
+-   prepare corresponding script for ras\rac\rahub to deploy config file respectively
 -   update part of file paths
 -   update to 1.1.0
-* Fri Jan 21 2022 aaron-liwang <3214053332@qq.com> - 1.0.0-5
+* Fri Jan 21 2022 wangli <3214053332@qq.com> - 1.0.0-5
 -   install some test files to support the running of program.
 * Mon Dec 27 2021 gwei3 <11015100@qq.com> - 1.0.0-4
 -   update the source tar to remove intermediate files.
-* Wed Dec 08 2021 aaron-liwang <3214053332@qq.com> - 1.0.0-3
+* Wed Dec 08 2021 wangli <3214053332@qq.com> - 1.0.0-3
 -   add the rahub package.
 -   reorganize the directory structure of all packages.
 -   add BuildRequires protobuf-compiler and Requires openssl.
@@ -161,5 +166,5 @@ rm -rf %{buildroot}
 -   create the rpmbuild directory.
 -   modify the kunpengsecl.spec and buildrpm.sh files.
 -   add root Makefile to build/clean rpm package.
-* Thu Nov 11 2021 aaron-liwang <3214053332@qq.com> - 1.0.0-1
+* Thu Nov 11 2021 wangli <3214053332@qq.com> - 1.0.0-1
 -   update to 1.0.0
