@@ -770,17 +770,17 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 }
 
 func handleFirstReport(report *typdefs.TrustReport) error {
-	isFirstReport, err := isFirstReport(report.ClientID)
+	isFR, err := isFirstReport(report.ClientID)
 	if err != nil {
 		return err
 	}
-	if isFirstReport {
+	if isFR {
 		// this is first report, so oldBase is nil
 		baseValue := typdefs.BaseRow{
 			ClientID: report.ClientID,
-			Enabled:  false,
-			Verified: false,
-			Trusted:  false,
+			Enabled:  true,
+			Verified: true,
+			Trusted:  true,
 		}
 		err = extract(report, nil, &baseValue)
 		if err != nil {
