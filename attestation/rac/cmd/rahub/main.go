@@ -48,9 +48,9 @@ func handleFlags() {
 	}
 	// init logger
 	if verboseFlag != nil && *verboseFlag {
-		logger.NewDebugLogger(GetLogPath())
+		logger.L = logger.NewDebugLogger(GetLogPath())
 	} else {
-		logger.NewInfoLogger(GetLogPath())
+		logger.L = logger.NewInfoLogger(GetLogPath())
 	}
 	// set command line input
 	if server != nil && *server != "" {

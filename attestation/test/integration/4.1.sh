@@ -20,13 +20,13 @@ popd
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ./ras -T &>${DST}/ras/echo.txt ; ./ras -v &>>${DST}/ras/echo.txt ;)&
 echo "wait for 3s"
 sleep 3
-
+AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
 # start rahub
 echo "start rahub..." | tee -a ${DST}/control.txt
-( cd ${DST}/hub ; ./rahub &>>${DST}/hub/echo.txt ;)&
+( cd ${DST}/hub ; ./rahub -v &>>${DST}/hub/echo.txt ;)&
 echo "wait for 3s"
 sleep 3
 
@@ -35,7 +35,7 @@ echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t -s 127.0.0.1:40003 &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -v -t -s 127.0.0.1:40004 &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -45,14 +45,16 @@ do
 done
 
 ### start monitoring and control the testing
-echo "start to perform test ${TEST_ID}..." | tee -a ${DST}/control.txt
+echo "start to perform test ..." | tee -a ${DST}/control.txt
 echo "wait for 20s"
 sleep 20
 echo "check how many clients are registered via restapi request"
-RESPONSE=$(curl http://localhost:40002/status)
-echo ${RESPONSE} | tee -a ${DST}/control.txt
-CLIENTNUM=$(echo $RESPONSE | jq -r '.' | awk '/ClientID/ {gsub(",","",$2);print $2}' | wc -l | awk '{print $1}')
 
+RESPONSE=$(curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/)
+echo ${RESPONSE} | tee -a ${DST}/control.txt
+CLIENTNUM=$(echo $RESPONSE | jq -r '.' | awk '/id/ {gsub(",","",$2);print $2}' | wc -l | awk '{print $1}')
+echo ${CLIENTNUM}
+REPORT=$(curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/1/reports)
 ### stop testing
 echo "kill all test processes..." | tee -a ${DST}/control.txt
 pkill -u ${USER} ras
@@ -61,12 +63,12 @@ pkill -u ${USER} rahub
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### analyse the testing data
-hubmessage=$(cat ${DST}/hub/echo.txt | awk '/rahub: receive SendReport/ {print $1}')
-rasmessage=$(cat ${DST}/ras/echo.txt | awk '/Server: receive SendReport/ {print $1}')
-racmessage=$(cat ${DST}/rac-$((i-1))/echo.txt  | awk '/Client: invoke SendReport ok/ {print $1}')
+# hubmessage=$(cat ${DST}/hub/echo.txt | awk '/rahub: receive SendReport/ {print $1}')
+# rasmessage=$(cat ${DST}/ras/echo.txt | awk '/Server: receive SendReport/ {print $1}')
+racmessage=$(cat ${DST}/rac-$((i-1))/echo.txt  | awk '/send trust report ok/ {print $1}')
 
 ### generate the test report
-if [ ${CLIENTNUM} -eq 5 ] && [ "${hubmessage}" != "" ] && [ "${rasmessage}" != "" ] && [ "${racmessage}" != "" ]
+if [ "${CLIENTNUM}" -eq 5 ] && [ "${racmessage}" != "" ] && [ "${REPORT}" != "[]" ]
 then
     echo "all clients are registered!" | tee -a ${DST}/control.txt
     echo "rahub is functioning normally!" | tee -a ${DST}/control.txt
