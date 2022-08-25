@@ -117,16 +117,20 @@ jlMEWewO6KXvftd94RDRirE=
 echo "default the key and cert..." | tee -a ${DST}/ras/echo.txt
 ### End Preparation  
 cp ${DST}/ras/pca-ek.key ${DST}/ras/test-ek.key
+sed -i 's/pcakeycertfile: ""/pcakeycertfile: .\/pca-ek.crt/g' ${DST}/ras/config.yaml
+sed -i 's/pcaprivkeyfile: ""/pcaprivkeyfile: .\/pca-ek.key/g' ${DST}/ras/config.yaml
+sed -i 's/rootkeycertfile: ""/rootkeycertfile: .\/pca-root.crt/g' ${DST}/ras/config.yaml
+sed -i 's/rootprivkeyfile: ""/rootprivkeyfile: .\/pca-root.key/g' ${DST}/ras/config.yaml
+
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ./ras -T &>>${DST}/ras/echo.txt ; ./ras &>>${DST}/ras/echo.txt ;)&
-
+( cd ${DST}/ras ; ./ras -T &>>${DST}/ras/echo.txt ; ./ras -v &>>${DST}/ras/echo.txt ;)&
 # start number of rac clients
 echo "start ${NUM} rac clients..." | tee -a ${DST}/control.txt
 (( count=0 ))
 for (( i=1; i<=${NUM}; i++ ))
 do
-    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t &>${DST}/rac-${i}/echo.txt ; )&
+    ( cd ${DST}/rac-${i} ; ${DST}/rac/raagent -t true -v &>${DST}/rac-${i}/echo.txt ; )&
     (( count++ ))
     if (( count >= 1 ))
     then
@@ -145,7 +149,7 @@ echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### check the ek cert's log is only one
 ### cat ${DST}/rac-1/echo.txt|grep 'ok' |wc -l
-ECCOUNT=$(grep 'invoke GenerateEKCert ok' ${DST}/rac-1/echo.txt |wc -l)
+ECCOUNT=$(grep 'load EK certificate success' ${DST}/rac-1/echo.txt |wc -l)
 echo "generateEKCert count: ${ECCOUNT}" | tee -a ${DST}/control.txt
 
 #cat two file
@@ -153,8 +157,10 @@ diff ${DST}/ras/pca-ek.key ${DST}/ras/test-ek.key
 if (( $? == 0 ))
 then
     echo "Both file are same"
+    KEYSAME=1
 else 
     echo "not same"
+    KEYSAME=0
 fi
 ### list the log
 ### tail -f ${DST}/rac-1/echo.txt
@@ -167,7 +173,7 @@ else
     echo "ectest is empty" | tee -a ${DST}/control.txt
 fi
 ### check the ik cert's log is only one
-ICCOUNT=$(grep 'invoke GenerateIKCert ok' ${DST}/rac-1/echo.txt |wc -l)
+ICCOUNT=$(grep 'load IK certificate success' ${DST}/rac-1/echo.txt |wc -l)
 echo "generateIKCert count: ${ICCOUNT}" | tee -a ${DST}/control.txt
 ### check the ekCert's file is not null
 
@@ -179,7 +185,7 @@ else
     echo "ictest is empty" | tee -a ${DST}/control.txt
 fi
 
-if (( ${ECCOUNT} == 1 )) && (( ${ICCOUNT} == 1 )) && (( ${ECEMPTY} == 0 )) && (( ${ICEMPTY} == 0 ))
+if (( ${ECCOUNT} == 1 )) && (( ${ICCOUNT} == 1 )) && (( ${ECEMPTY} == 0 )) && (( ${ICEMPTY} == 0 )) && (( ${KEYSAME} == 1 ))
 then
     echo "test succeeded!"
     exit 0

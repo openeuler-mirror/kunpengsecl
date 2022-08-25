@@ -152,10 +152,11 @@ fi
 curl -X POST -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data '{"isallupdate":false}'
 echo "test 5: modified ima file, wait 20s to see if the basevale will update" | tee -a ${DST}/control.txt
 # modify ima file
-sed -i --follow-symlinks "s/${NEWLINE}/${OLDLINE}/g" ${RACDIR}/${IMAFILE}
+sed -i --follow-symlinks "s/${OLDLINE}/${NEWLINE}/g" ${RACDIR}/${IMAFILE}
 # set client 1 as not auto update
 curl -X POST -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/${cid} --data '{"isautoupdate":false}'
 # wait for 20s
+echo "test 5: modified ima file, wait 20s to see if the base value will be updated" | tee -a ${DST}/control.txt
 sleep 20
 basevalueid4=$(curl -k -H "Content-Type: application/json" ${basevalueurl} | jq -r '.' | grep -A 0 "ID" | grep -v "ClientID\|--"  | awk '{gsub(",","",$2);print $2}' | tail -n 1)
 basevalueurl4="https://localhost:40003/${cid}/basevalues/${basevalueid4}"
