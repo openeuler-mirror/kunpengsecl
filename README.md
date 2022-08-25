@@ -42,7 +42,7 @@ make DESTDIR=/xxx/xxx install(或make install DESTDIR=/xxx/xxx)
 ```
 的指令将很有效
 
-如果出现编译错误，请在kunpengsecl/attestation/目录下运行
+如果出现编译错误，请在kunpengsecl/attestation/目录下执行
 ```
 make vendor
 ```
@@ -63,15 +63,21 @@ make DESTDIR=/xxx/xxx uninstall(或make uninstall DESTDIR=/xxx/xxx)
 
 ##### 基于openEuler系统的安装
 
-openEuler系统可采用rpm的安装方式，首先，您可使用以下命令获取项目最新源代码
+openEuler系统同样可采用Ubuntu系统的安装方式，除此之外，openEuler系统支持采用rpm的安装方式，首先，您可使用以下命令获取项目最新源代码
 ```
 git clone https://gitee.com/openeuler/kunpengsecl.git
+```
+或通过以下命令获取项目软件包
+```
+git clone https://gitee.com/src-openeuler/kunpengsecl.git
 ```
 若您尚未安装git工具，可通过
 ```
 sudo yum install git
 ```
 进行安装
+
+若您安装的是软件包，需要先解压软件包中的**kunpengsecl-vx.x.x.tar.gz**和**vendor.tar.gz**两个压缩文件再进行以下操作
 
 软件安装前，请执行kunpengsecl/attestation/quick-scripts/目录下的
 **prepare-build-env.sh**
@@ -85,7 +91,7 @@ make rpm
 ```
 即可生成程序的rpm包
 
-之后，您可根据实际需求，选择安装rac、ras或rahub对应的rpm包，安装命令如下：
+之后，您可根据实际需求，选择安装rac、ras或rahub对应的rpm包，进入kunpengsecl/rpmbuild/RPMS/x86_64目录执行如下安装命令：
 ```
 sudo rpm -ivh xxx.rpm
 ```
@@ -93,6 +99,7 @@ sudo rpm -ivh xxx.rpm
 ```
 sudo rpm -e xxx
 ```
+
 #### 使用说明
 在运行本软件前，请进入kunpengsecl/attestation/quick-scripts/目录执行
 **prepare-database-env.sh**
@@ -103,11 +110,14 @@ sudo rpm -e xxx
 
 为了创建您的家目录配置文件，您可在安装好rpm包后，于kunpengsecl根目录执行位于/usr/share/attestation/ras(rac)(rahub)下的脚本**prepare-ras(rac)(hub)conf-env.sh**，从而自动完成家目录配置文件的部署
 
-##### 服务器方面
-于kunpengsecl/attestation/ras/cmd/ras/目录下命令行输入
+##### 服务器配置
+于命令行输入
 ``ras``
-即可开启服务器。相关参数如下：
+即可开启服务器。在服务器目录下需要提供``ECDSA``公钥并命名为``ecdsakey.pub``
+相关参数如下：
 ```
+  -H  --https         the https switch, use https[true/default] or http[false]
+  -h  --hport         the https rest interface listens at [IP]:PORT
   -p, --port string   this app service listen at [IP]:PORT
   -r, --rest string   this app rest interface listen at [IP]:PORT
   -T, --token         generate test token and quit
@@ -115,8 +125,8 @@ sudo rpm -e xxx
   -V, --version       show version number and quit
 ```
 
-##### 客户端方面
-于kunpengsecl/attestation/rac/cmd/raagent/目录下命令行输入
+##### 客户端配置
+于命令行输入
 ``sudo raagent``
 即可开启客户端（请注意，物理TPM模块的开启需要sudo权限）。相关参数如下：
 ```
@@ -124,6 +134,8 @@ sudo rpm -e xxx
   -t, --test            run in test mode[true] or not[false/default]
   -v, --verbose         show more detail running information
   -V, --version         show version number and quit
+  -i, --imalog          input ima log path
+  -b, --bioslog         input bios log path
 ```
 
 #### 接口定义
