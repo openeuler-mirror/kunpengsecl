@@ -29,7 +29,7 @@ echo "start to perform test ..." | tee -a ${DST}/control.txt
 # set the heartbeat cycle to 3s
 echo "set the heartbeat cycle to 3s" | tee -a ${DST}/control.txt
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-curl -X POST -k -H "Authorization: $AUTHTOKEN" -d "hbduration=2m0s" https://localhost:40003/config
+curl -X POST -k -H "Authorization: $AUTHTOKEN" -d "hbduration=3s" https://localhost:40003/config
 # Query the heartbeat cycle of ras according to restapi, and read the log of ras
 RESPONSE=$(curl -k -H "Content-Type: application/json" https://localhost:40003/config)
 echo ${RESPONSE} | tee -a ${DST}/control.txt
@@ -59,7 +59,7 @@ pkill -u ${USER} raagent
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
 ### analyse the testing data
-rasHBDuration=$(echo $RESPONSE | jq -r '.' | grep -A 0 "hbduration" |  awk -F '"' '{print $4}')
+rasHBDuration=$(echo $RESPONSE | jq -r '.' | grep -A 0 "hbduration" | awk -F '"' '{print $4}')
 if [ $rasHBDuration == "3s" ]
 then
     echo "modify ras HBDuration succeeded!" | tee -a ${DST}/control.txt
