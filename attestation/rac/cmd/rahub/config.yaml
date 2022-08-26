@@ -1,5 +1,5 @@
 log:
   path: "./rahub-log.txt"
 hubconfig:
+  port: 127.0.0.1:40004
   server: 127.0.0.1:40001
-  port: 127.0.0.1:40003

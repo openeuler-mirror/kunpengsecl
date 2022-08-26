@@ -83,6 +83,7 @@ echo "add a new base value to client:${cid}..." | tee -a ${DST}/control.txt
 curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" -d "{\"name\":\"mytestBValue\", \"enabled\":true, \
         \"pcr\":\"${strPCR}\", \"bios\":\"${strBIOS}\", \"ima\":\"${strIMA}\", \"isnewgroup\":true}" \
             https://localhost:40003/${cid}/newbasevalue
+sleep 2
 BASEVALUES=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues)
 bid=$(echo ${BASEVALUES} | jq -r '.' | grep -B 6 "mytestBValue" | awk '/"ID"/ {gsub(",","");print $2}')
 BVALUEDETAILS1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid}/basevalues/${bid})

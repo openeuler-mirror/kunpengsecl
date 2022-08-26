@@ -86,6 +86,7 @@ func getConfigs() {
 	}
 	hubCfg.server = viper.GetString(confServer)
 	hubCfg.port = viper.GetString(confPort)
+	hubCfg.logPath = viper.GetString(logPath)
 }
 
 // loadConfigs searches and loads config from config.yaml file.
