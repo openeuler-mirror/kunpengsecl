@@ -104,7 +104,7 @@ STATUS2=$(echo ${RESPONSE2} | jq -r '.' | grep -A 0 "trusted" |  awk -F '"' '{pr
 ### generate the test report
 echo "First time: Status:${STATUS1}" | tee -a ${DST}/control.txt
 echo "Second time: Status:${STATUS2}" | tee -a ${DST}/control.txt
-if [[ ${STATUS1} == "trusted"  && ${STATUS2} == "unknown" ]]
+if [[ ${STATUS1} == "trusted"  && ${STATUS2} == "untrusted" ]]
 then
     echo "test succeeded!" | tee -a ${DST}/control.txt
     exit 0
