@@ -101,7 +101,7 @@ func GenerateAKCert(oldAKCert []byte) ([]byte, error) {
 	up_old_cert := C.CBytes(oldAKCert)
 	defer C.free(up_old_cert)
 	c_cert.buf = (*C.uchar)(up_old_cert)
-	C.getNOASdata(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akpub)
+	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akpub)
 	drkcertbyte := []byte(C.GoBytes(unsafe.Pointer(c_certdrk.buf), C.int(c_certdrk.size)))
 	// STEP2: get data used for re-sign
 	signdrkbyte := []byte(C.GoBytes(unsafe.Pointer(c_signdrk.buf), C.int(c_signdrk.size)))

@@ -1,7 +1,8 @@
 #include "teeverifier.c"
 void TestgetData(buffer_data *report){
     buffer_data akcert,signak,signdata;
-    bool rt = getDataFromReport(report,&akcert,&signak,&signdata);
+    uint32_t scenario;
+    bool rt = getDataFromReport(report,&akcert,&signak,&signdata,&scenario);
     if(!rt){
         printf("test get data from report is failed\n");
         return;
