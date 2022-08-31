@@ -163,13 +163,13 @@ static bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size);
 static void test_print(uint8_t *printed, int printed_size, char *printed_name);
 static void save_basevalue(const base_value *bv);
 //verifysig
-bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, int scenario);
+bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, uint32_t scenario);
 static bool translateBuf(buffer_data report, TA_report *tareport);
-bool getNOASdata(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
+bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
 static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
 static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
 static bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key);
 static EVP_PKEY *getPubKeyFromCert(buffer_data *cert);
 static void dumpDrkCert(buffer_data *certdrk);
 static void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk);
-static bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *signak,buffer_data *signdata);
+static bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *signak,buffer_data *signdata,uint32_t *scenario);
