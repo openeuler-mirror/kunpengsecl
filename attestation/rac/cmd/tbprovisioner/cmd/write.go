@@ -67,7 +67,7 @@ The data comes from input or from a file. Default input data is PEM format.
 				tpmConf.BIOSLogPath = ractools.BiosLogPath
 				tpmConf.ReportHashAlg = ""
 			}
-			err = ractools.OpenTPM(!wSim, &tpmConf)
+			err = ractools.OpenTPM(!wSim, &tpmConf, 0)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)

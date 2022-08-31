@@ -3,6 +3,7 @@ module gitee.com/openeuler/kunpengsecl/attestation
 go 1.15
 
 require (
+	github.com/beevik/etree v1.1.0
 	github.com/deepmap/oapi-codegen v1.8.1
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/getkin/kin-openapi v0.89.0
@@ -20,6 +21,7 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
+	github.com/russellhaering/goxmldsig v1.2.0
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1

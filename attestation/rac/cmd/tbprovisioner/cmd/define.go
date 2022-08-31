@@ -57,7 +57,7 @@ var (
 				tpmConf.BIOSLogPath = ractools.BiosLogPath
 				tpmConf.ReportHashAlg = ""
 			}
-			err := ractools.OpenTPM(!dSim, &tpmConf)
+			err := ractools.OpenTPM(!dSim, &tpmConf, 0)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)
