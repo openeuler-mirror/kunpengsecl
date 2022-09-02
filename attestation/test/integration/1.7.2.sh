@@ -52,9 +52,6 @@ echo "get client id" | tee -a ${DST}/control.txt
 cid=$(awk '{ if ($1 == "clientid:") { print $2 } }' ${DST}/rac-1/config.yaml)
 echo ${cid} | tee -a ${DST}/control.txt
 echo "check server trust status via restapi request"  | tee -a ${DST}/control.txt
-# get restapi auth token from echo.txt
-# AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-# curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data '[{"name":"hbDuration","value":"10s"}]'
 RESPONSE1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
 echo ${RESPONSE1} | tee -a ${DST}/control.txt
 

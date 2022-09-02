@@ -541,11 +541,6 @@ type cfgRecord struct {
 	TrustDuration   string `json:"trustduration" form:"trustduration"`
 	IsAllupdate     *bool  `json:"isallupdate" form:"isallupdate"`
 	LogTestMode     *bool  `json:"logtestmode" form:"logtestmode"`
-	DBHost          string `json:"dbhost" form:"dbhost"`
-	DBName          string `json:"dbname" form:"dbname"`
-	DBPassword      string `json:"dbpassword" form:"dbpassword"`
-	DBPort          int    `json:"dbport" form:"dbport"`
-	DBUser          string `json:"dbuser" form:"dbuser"`
 	DigestAlgorithm string `json:"digestalgorithm" form:"digestalgorithm"`
 	MgrStrategy     string `json:"mgrstrategy" form:"mgrstrategy"`
 	ExtractRules    string `json:"extractrules" form:"extractrules"`
@@ -557,11 +552,6 @@ func genConfigJson() *cfgRecord {
 		TrustDuration:   config.GetTrustDuration().String(),
 		IsAllupdate:     config.GetIsAllUpdate(),
 		LogTestMode:     config.GetLoggerMode(),
-		DBHost:          config.GetDBHost(),
-		DBName:          config.GetDBName(),
-		DBPassword:      config.GetDBPassword(),
-		DBPort:          config.GetDBPort(),
-		DBUser:          config.GetDBUser(),
 		DigestAlgorithm: config.GetDigestAlgorithm(),
 		MgrStrategy:     config.GetMgrStrategy(),
 		ExtractRules:    getExtractRules(),
@@ -577,6 +567,7 @@ func getExtractRules() string {
 	}
 	return string(res)
 }
+
 func genConfigHtml() string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlConfig)
@@ -618,7 +609,6 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 		return err
 	}
 	configSet(cfg)
-	configDBSet(cfg)
 	trustmgr.UpdateAllNodes()
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson())
@@ -649,24 +639,6 @@ func configSet(cfg *cfgRecord) {
 	}
 	if cfg.ExtractRules != strNull {
 		config.SetExtractRules(cfg.ExtractRules)
-	}
-}
-
-func configDBSet(cfg *cfgRecord) {
-	if cfg.DBHost != strNull {
-		config.SetDBHost(cfg.DBHost)
-	}
-	if cfg.DBName != strNull {
-		config.SetDBName(cfg.DBName)
-	}
-	if cfg.DBPassword != strNull {
-		config.SetDBPassword(cfg.DBPassword)
-	}
-	if cfg.DBPort != 0 {
-		config.SetDBPort(cfg.DBPort)
-	}
-	if cfg.DBUser != strNull {
-		config.SetDBUser(cfg.DBUser)
 	}
 }
 
