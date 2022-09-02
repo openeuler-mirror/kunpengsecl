@@ -55,6 +55,7 @@ import (
 const (
 	constTimeOut time.Duration = 20 * time.Second
 
+	strDbConfig  = "user=%s password=%s dbname=%s host=%s port=%d sslmode=disable"
 	strSpaceLine = " \n\r"
 	strGetName   = "./get.sh"
 	strGetSh     = `#!/bin/bash
@@ -106,8 +107,9 @@ func StartServer(addr string) {
 		logger.L.Sugar().Errorf("fail to listen at %s, %v", addr, err)
 		return
 	}
-	trustmgr.CreateTrustManager("postgres",
-		"user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable")
+	dbConfig := fmt.Sprintf(strDbConfig, config.GetDBUser(), config.GetDBPassword(),
+		config.GetDBName(), config.GetDBHost(), config.GetDBPort())
+	trustmgr.CreateTrustManager("postgres", dbConfig)
 	srv := grpc.NewServer()
 	RegisterRasServer(srv, newRasService())
 	//logger.L.Sugar().Debugf("listen at %s", addr)
