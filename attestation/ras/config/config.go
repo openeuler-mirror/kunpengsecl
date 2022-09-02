@@ -68,6 +68,7 @@ const (
 	confHttpsKeyCertFile = "rasconfig.httpskeycertfile"
 	confRootPrivKeyFile  = "rasconfig.rootprivkeyfile"
 	confRootKeyCertFile  = "rasconfig.rootkeycertfile"
+	confRimRootCertFile  = "rasconfig.rimrootcertfile"
 	confPcaPrivKeyFile   = "rasconfig.pcaprivkeyfile"
 	confPcaKeyCertFile   = "rasconfig.pcakeycertfile"
 	confServerPort       = "rasconfig.serverport"
@@ -158,6 +159,8 @@ type (
 		pcaKeyCertFile   string
 		pcaPrivKey       crypto.PrivateKey
 		pcaKeyCert       *x509.Certificate
+		rimRootCertFile  string
+		rimRootCert      *x509.Certificate
 		servPort         string
 		httpsSwitch      string
 		restPort         string
@@ -376,6 +379,24 @@ func getRootKeyCert() {
 	createRootCertKey()
 }
 
+// getRimRootCert loads rim root certificate from file
+func getRimRootCert() {
+	var err error
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.rimRootCertFile = viper.GetString(confRimRootCertFile)
+	if rasCfg.rimRootCertFile != nullString {
+		rasCfg.rimRootCert, _, err = cryptotools.DecodeKeyCertFromFile(rasCfg.rimRootCertFile)
+		if err != nil {
+			rasCfg.rimRootCert = nil
+			rasCfg.rootPrivKey = nil
+		}
+	} else {
+		rasCfg.rimRootCert = nil
+	}
+}
+
 // if no loading pca key/cert, create and root-signing one
 func createPcaCertKey() {
 	if rasCfg.pcaPrivKey == nil {
@@ -542,6 +563,7 @@ func LoadConfigs() {
 	}
 	getConfigs()
 	getRootKeyCert()
+	getRimRootCert()
 	getPcaKeyCert()
 	getHttpsKeyCert()
 }
@@ -559,6 +581,7 @@ func SaveConfigs() {
 	viper.Set(dbPassword, rasCfg.dbPassword)
 	viper.Set(confRootPrivKeyFile, rasCfg.rootPrivKeyFile)
 	viper.Set(confRootKeyCertFile, rasCfg.rootKeyCertFile)
+	viper.Set(confRimRootCertFile, rasCfg.rimRootCertFile)
 	viper.Set(confPcaPrivKeyFile, rasCfg.pcaPrivKeyFile)
 	viper.Set(confPcaKeyCertFile, rasCfg.pcaKeyCertFile)
 	viper.Set(confHttpsPrivKeyFile, rasCfg.httpsPrivKeyFile)
@@ -809,6 +832,14 @@ func GetRootKeyCert() *x509.Certificate {
 		return nil
 	}
 	return rasCfg.rootKeyCert
+}
+
+// GetRimRootCert returns the root key certificate configuration for RIM signature check.
+func GetRimRootCert() *x509.Certificate {
+	if rasCfg == nil {
+		return nil
+	}
+	return rasCfg.rimRootCert
 }
 
 // GetPcaPrivateKey returns the pca private key configuration.

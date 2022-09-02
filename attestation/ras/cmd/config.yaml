@@ -21,6 +21,7 @@ rasconfig:
   httpsport: 127.0.0.1:40003
   rootkeycertfile: ""
   rootprivkeyfile: ""
+  rimrootcertfile: ""
   serialnumber: 0
   serverport: 127.0.0.1:40001
   onlineduration: 30s

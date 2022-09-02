@@ -64,9 +64,9 @@ const (
 	sqlFindReportsByClientID             = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
 	sqlFindReportByID                    = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
 	sqlFindBaseValuesByClientID          = `SELECT id, basetype, uuid, createtime, name, enabled FROM base WHERE clientid=$1 ORDER BY createtime ASC`
-	sqlFindHostBaseValuesByClientID      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype="host" ORDER BY createtime ASC`
-	sqlFindContainerBaseValuesByClientID = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype="container" ORDER BY createtime ASC`
-	sqlFindDeviceBaseValuesByClientID    = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype="device" ORDER BY createtime ASC`
+	sqlFindHostBaseValuesByClientID      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='host' ORDER BY createtime ASC`
+	sqlFindContainerBaseValuesByClientID = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='container' ORDER BY createtime ASC`
+	sqlFindDeviceBaseValuesByClientID    = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='device' ORDER BY createtime ASC`
 	sqlFindBaseValueByID                 = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE id=$1 ORDER BY createtime ASC`
 	sqlFindBaseValueByUuid               = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
 	sqlDeleteReportByID                  = `DELETE FROM report WHERE id=$1`
@@ -77,7 +77,7 @@ const (
 	sqlUpdateClientByID                  = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport                 = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlDisableBaseValuesByClientID       = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype="host"`
+	sqlDisableBaseValuesByClientID       = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype='host'`
 	sqlEnableBaseValueByid               = `UPDATE base set enabled=true WHERE id=$1`
 	sqlDisableBaseValueByid              = `UPDATE base set enabled=false WHERE id=$1`
 )

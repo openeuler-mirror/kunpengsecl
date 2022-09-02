@@ -22,8 +22,8 @@ CREATE TABLE report (
 CREATE TABLE base (
     id BIGSERIAL PRIMARY KEY NOT NULL,
     clientid BIGINT,
-    basetype CHAR(10), 
-    uuid CHAR(64),
+    basetype TEXT, 
+    uuid TEXT,
     createtime TIMESTAMPTZ,
     enabled BOOLEAN,  
     name TEXT,

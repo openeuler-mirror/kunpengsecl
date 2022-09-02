@@ -7,7 +7,7 @@ ETCTAR = /etc/attestation
 SHARETAR = /usr/share/attestation
 DOCTAR = /usr/share/doc/attestation
 BINTAR = /usr/bin
-TESTEES=./cache ./clientapi ./config ./trustmgr
+TESTEES=./cache ./clientapi ./config ./trustmgr ./restapi/rim
 
 all: build
 

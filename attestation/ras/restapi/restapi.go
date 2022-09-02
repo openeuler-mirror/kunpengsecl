@@ -70,6 +70,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/internal"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/rim"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi/test"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
@@ -456,6 +457,14 @@ func CreateAuthValidator(v JWSValidator) (echo.MiddlewareFunc, error) {
 func checkJSON(ctx echo.Context) bool {
 	cty := ctx.Request().Header.Get(echo.HeaderContentType)
 	if cty == echo.MIMEApplicationJSON || cty == echo.MIMEApplicationJSONCharsetUTF8 {
+		return true
+	}
+	return false
+}
+
+func checkXML(ctx echo.Context) bool {
+	cty := ctx.Request().Header.Get(echo.HeaderContentType)
+	if cty == echo.MIMETextXML || cty == echo.MIMETextXMLCharsetUTF8 {
 		return true
 	}
 	return false
@@ -975,11 +984,54 @@ type baseValueJson struct {
 //    curl -X POST -H "Content-type: multipart/form-data" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/1/newbasevalue
 //  save node {id} a new base value by json
 //    curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/newbasevalue -d '{"name":"test", "enabled":true, "pcr":"pcr value", "bios":"bios value", "ima":"ima value", "isnewgroup":false}'
+//  save node {id} a new base value by xml (a simple base RIM file according to TCG Reference Integrity Manifest (RIM) Information Model https://trustedcomputinggroup.org/wp-content/uploads/TCG_RIM_Model_v1p01_r0p16_pub.pdf)
+//    curl -X POST -H "Content-Type: text/xml" -k https://localhost:40003/{id}/newbasevalue -d [Signed base RIM according to TCG RIM spec]
 func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
 	if checkJSON(ctx) {
 		return s.postBValueByJson(ctx, id)
 	}
+	if checkXML(ctx) {
+		return s.postBValueByXml(ctx, id)
+	}
 	return s.postBValueByMultiForm(ctx, id)
+}
+
+func (s *MyRestAPIServer) postBValueByXml(ctx echo.Context, id int64) error {
+	bvXml := make([]byte, ctx.Request().ContentLength)
+	_, err := ctx.Request().Body.Read(bvXml)
+	if err != nil {
+		return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
+	}
+
+	ima, err := rim.ParseRIM(bvXml, config.GetRimRootCert(), config.GetDigestAlgorithm())
+	if err != nil {
+		return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
+	}
+
+	row := &typdefs.BaseRow{
+		ClientID:   id,
+		CreateTime: time.Now(),
+		Enabled:    true,
+		Ima:        ima,
+		BaseType:   typdefs.StrHost,
+	}
+
+	// set other base value records' enabled field to false.
+	c, err := trustmgr.GetCache(id)
+	if err == nil {
+		for _, base := range c.Bases {
+			base.Enabled = false
+		}
+	}
+	err = trustmgr.DisableBaseByClientID(id)
+	if err != nil {
+		logger.L.Debug("disable base by id failed. " + err.Error())
+	}
+
+	logger.L.Debug("set other base value records' enabled field to false...")
+
+	trustmgr.SaveBaseValue(row)
+	return ctx.JSON(http.StatusOK, "add a new base value by RIM OK!")
 }
 
 func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {

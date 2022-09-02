@@ -125,7 +125,7 @@ file(Default: StdOut) with the define format(Default: PEM).
 				tpmConf.BIOSLogPath = ractools.BiosLogPath
 				tpmConf.ReportHashAlg = ""
 			}
-			err := ractools.OpenTPM(!rSim, &tpmConf)
+			err := ractools.OpenTPM(!rSim, &tpmConf, 0)
 			if err != nil {
 				fmt.Printf(errOpenTPM, err)
 				os.Exit(1)
