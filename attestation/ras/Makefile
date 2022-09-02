@@ -28,18 +28,18 @@ clean:
 #	make -C example $@ || exit $$?
 
 install: build
-	sudo mkdir -p $(DESTDIR)$(ETCTAR)/ras $(DESTDIR)$(ETCTAR)/auth_file $(DESTDIR)$(SHARETAR)/ras $(DESTDIR)$(DOCTAR)/ras $(DESTDIR)$(BINTAR)
-	sudo install -m 555 $(PKGPATH)/ras $(DESTDIR)$(BINTAR)
-	sudo install -m 644 $(RASPATH)/config.yaml $(DESTDIR)$(ETCTAR)/ras
-	sudo install -m 644 $(RASPATH)/ecdsakey.pub $(DESTDIR)$(ETCTAR)/auth_file
-	sudo install -m 555 $(SCRPATH)/prepare-database-env.sh $(DESTDIR)$(SHARETAR)/ras
-	sudo install -m 555 $(SCRPATH)/clear-database.sh $(DESTDIR)$(SHARETAR)/ras
-	sudo install -m 555 $(SCRPATH)/createTable.sql $(DESTDIR)$(SHARETAR)/ras
-	sudo install -m 555 $(SCRPATH)/dropTable.sql $(DESTDIR)$(SHARETAR)/ras
-	sudo install -m 555 $(SCRPATH)/clearTable.sql $(DESTDIR)$(SHARETAR)/ras
-	sudo install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/ras
-	sudo install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/ras
-	sudo install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/ras
+	mkdir -p $(DESTDIR)$(ETCTAR)/ras $(DESTDIR)$(SHARETAR)/ras $(DESTDIR)$(DOCTAR)/ras $(DESTDIR)$(BINTAR)
+	install -m 555 $(PKGPATH)/ras $(DESTDIR)$(BINTAR)
+	install -m 644 $(RASPATH)/config.yaml $(DESTDIR)$(ETCTAR)/ras
+	install -m 555 $(SCRPATH)/prepare-database-env.sh $(DESTDIR)$(SHARETAR)/ras
+	install -m 555 $(SCRPATH)/clear-database.sh $(DESTDIR)$(SHARETAR)/ras
+	install -m 555 $(SCRPATH)/createTable.sql $(DESTDIR)$(SHARETAR)/ras
+	install -m 555 $(SCRPATH)/dropTable.sql $(DESTDIR)$(SHARETAR)/ras
+	install -m 555 $(SCRPATH)/clearTable.sql $(DESTDIR)$(SHARETAR)/ras
+	install -m 555 $(SCRPATH)/prepare-rasconf-env.sh $(DESTDIR)$(SHARETAR)/ras
+	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/ras
+	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/ras
+	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/ras
 
 uninstall:
 ifeq ($(DESTDIR),)

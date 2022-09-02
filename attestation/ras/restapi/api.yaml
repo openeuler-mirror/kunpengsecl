@@ -5,7 +5,7 @@ info:
   license:
     name: MulanPSL-2.0
     url: http://license.coscl.org.cn/MulanPSL2
-  version: 1.1.0
+  version: 1.1.1
 servers:
   - description: KunpengSecL Remote Attestation REST API server
 paths:
