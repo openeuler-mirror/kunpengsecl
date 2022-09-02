@@ -48,39 +48,6 @@ echo "start to perform test ..." | tee -a ${DST}/control.txt
 echo "check config items via restapi request"
 RESPONSE1=$(curl -k -H "Content-Type: application/json" https://localhost:40003/config)
 
-# modify the database config items
-echo "start modifying database config..." | tee -a ${DST}/control.txt
-curl -X POST -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data "{\"dbname\":\"${newDBNAME}\",\"dbhost\":\"${newDBHOST}\",\"dbport\":${newDBPORT},\"dbuser\":\"${newDBUSER}\",\"dbpassword\":\"${newDBPASSWORD}\"}"
-RESPONSE2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/config)
-### analyse the database testing data
-DBNAME1=$(echo $RESPONSE1 | jq -r '.' | awk '/dbname/ {gsub(",","",$2);print $2}')
-DBNAME2=$(echo $RESPONSE2 | jq -r '.' | awk '/dbname/ {gsub(",","",$2);print $2}')
-DBHOST1=$(echo $RESPONSE1 | jq -r '.' | awk '/dbhost/ {gsub(",","",$2);print $2}')
-DBHOST2=$(echo $RESPONSE2 | jq -r '.' | awk '/dbhost/ {gsub(",","",$2);print $2}')
-DBPORT1=$(echo $RESPONSE1 | jq -r '.' | awk '/dbport/ {gsub(",","",$2);print $2}')
-DBPORT2=$(echo $RESPONSE2 | jq -r '.' | awk '/dbport/ {gsub(",","",$2);print $2}')
-DBUSER1=$(echo $RESPONSE1 | jq -r '.' | awk '/dbuser/ {gsub(",","",$2);print $2}')
-DBUSER2=$(echo $RESPONSE2 | jq -r '.' | awk '/dbuser/ {gsub(",","",$2);print $2}')
-DBPASS1=$(echo $RESPONSE1 | jq -r '.' | awk '/dbpassword/ {gsub(",","",$2);print $2}')
-DBPASS2=$(echo $RESPONSE2 | jq -r '.' | awk '/dbpassword/ {gsub(",","",$2);print $2}')
-echo "First time: DBName:${DBNAME1}, DBHost:${DBHOST1}, DBPort:${DBPORT1}, DBUser:${DBUSER1}, DBPassword:${DBPASS1}"
-echo "Second time: DBName:${DBNAME2}, DBHost:${DBHOST2}, DBPort:${DBPORT2}, DBUser:${DBUSER2}, DBPassword:${DBPASS2}"
-if [[ "${DBNAME2}" == "\"${newDBNAME}\"" && "${DBHOST2}" == "\"${newDBHOST}\"" && "${DBPORT2}" == "${newDBPORT}" && "${DBUSER2}" == "\"${newDBUSER}\"" && "${DBPASS2}" == "\"${newDBPASSWORD}\"" ]]
-then
-    echo "database test succeeded!" | tee -a ${DST}/control.txt
-    echo "start recovering database config..." | tee -a ${DST}/control.txt
-    curl -X POST -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data "{\"dbname\":\"${oriDBNAME}\",\"dbhost\":\"${oriDBHOST}\",\"dbport\":${oriDBPORT},\"dbuser\":\"${oriDBUSER}\",\"dbpassword\":\"${oriDBPASSWORD}\"}"
-    sleep 5
-    echo "database config recover succeeded!" | tee -a ${DST}/control.txt
-else
-    echo "database test failed!" | tee -a ${DST}/control.txt
-    echo "kill all test processes..." | tee -a ${DST}/control.txt
-    pkill -u ${USER} ras
-    pkill -u ${USER} raagent
-    echo "test DONE!!!" | tee -a ${DST}/control.txt
-    exit 1
-fi
-
 # modify the ras config items
 echo "start modifying ras config..." | tee -a ${DST}/control.txt
 curl -X POST -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data "{\"isallupdate\":${newALLUPDATE},\"logtestmode\":${newLOGTESTMODE},\"mgrstrategy\":\"${newMGRSTRATEGY}\",\"extractrules\":\"${newEXTRACTRULES}\"}"

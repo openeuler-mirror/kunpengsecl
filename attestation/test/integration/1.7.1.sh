@@ -47,7 +47,6 @@ echo ${cid} | tee -a ${DST}/control.txt
 echo "check server trust status via restapi request"  | tee -a ${DST}/control.txt
 # get restapi auth token from echo.txt
 AUTHTOKEN=$(grep "Bearer " ${DST}/ras/echo.txt)
-# curl -X POST -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data '[{"name":"hbDuration","value":"10s"}]'
 RESPONSE=$(curl -k -H "Content-Type: application/json" https://localhost:40003/${cid})
 echo ${RESPONSE} | tee -a ${DST}/control.txt
 

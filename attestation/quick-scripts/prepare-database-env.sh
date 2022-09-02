@@ -23,11 +23,20 @@ EOF
         ;;
 esac
 
+DB_USER=${DB_USER:-postgres}
+DB_PASS=${DB_PASS:-postgres}
+
+if (($# == 2)) 
+then
+    DB_USER=$1
+    DB_PASS=$2
+fi
+
 sql=$(cat ./createTable.sql)
 sudo su - postgres <<EOF
-psql -U postgres -c "alter user postgres with password 'postgres';";
-psql -U postgres -c "create database kunpengsecl owner postgres;";
-psql -U postgres -c "grant all privileges on database kunpengsecl to postgres;";
-psql -d kunpengsecl -U postgres -c "$sql";
+psql -U $DB_USER -c "alter user $DB_USER with password '$DB_PASS';";
+psql -U $DB_USER -c "create database kunpengsecl owner $DB_USER;";
+psql -U $DB_USER -c "grant all privileges on database kunpengsecl to $DB_USER;";
+psql -d kunpengsecl -U $DB_USER -c "$sql";
 EOF
 
