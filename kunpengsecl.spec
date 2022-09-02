@@ -1,10 +1,10 @@
 %global name kunpengsecl
-%global version 1.1.0
+%global version 1.1.1
 %undefine _missing_build_ids_terminate_build
 
 Name:            %{name}
 Version:         %{version}
-Release:         3%{?dist}
+Release:         1%{?dist}
 Summary:         A remote attestation security software components running on Kunpeng processors.
 Summary(zh_CN):  一款运行于鲲鹏处理器上的远程证明安全软件组件
 License:         MulanPSL-2.0
@@ -45,52 +45,7 @@ This is the rahub rpm package, which is used to cascade clients.
 make build
 
 %install
-rm -rf %{buildroot}/usr/bin/
-mkdir -p %{buildroot}/usr/bin/
-rm -rf %{buildroot}/etc/
-mkdir -p %{buildroot}/etc/attestation/rac/
-mkdir -p %{buildroot}/etc/attestation/rahub/
-mkdir -p %{buildroot}/etc/attestation/ras/
-mkdir -p -m 777 %{buildroot}/etc/attestation/default_test
-rm -rf %{buildroot}/usr/share/
-mkdir -p %{buildroot}/usr/share/attestation/rac/
-mkdir -p %{buildroot}/usr/share/attestation/ras/
-mkdir -p %{buildroot}/usr/share/attestation/rahub/
-mkdir -p %{buildroot}/usr/share/doc/attestation/ras/
-mkdir -p %{buildroot}/usr/share/doc/attestation/rac/
-mkdir -p %{buildroot}/usr/share/doc/attestation/rahub/
-
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/rac/pkg/raagent %{buildroot}/usr/bin/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/rac/pkg/rahub %{buildroot}/usr/bin/
-#install -m 555 %{_builddir}/%{name}-%{version}/attestation/rac/pkg/tbprovisioner %{buildroot}/usr/bin/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/ras/pkg/ras %{buildroot}/usr/bin/
-
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/config.yaml %{buildroot}/etc/attestation/rac/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/rahub/config.yaml %{buildroot}/etc/attestation/rahub/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/config.yaml %{buildroot}/etc/attestation/ras/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/ascii_runtime_measurements* %{buildroot}/etc/attestation/default_test/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/rac/cmd/raagent/binary_bios_measurements* %{buildroot}/etc/attestation/default_test/
-install -m 644 %{_builddir}/%{name}-%{version}/attestation/ras/cmd/ecdsakey.pub %{buildroot}/etc/attestation/default_test/
-
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-database-env.sh %{buildroot}/usr/share/attestation/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clear-database.sh %{buildroot}/usr/share/attestation/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/createTable.sql %{buildroot}/usr/share/attestation/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/clearTable.sql %{buildroot}/usr/share/attestation/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/dropTable.sql %{buildroot}/usr/share/attestation/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/integritytools/*.sh %{buildroot}/usr/share/attestation/rac/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-rasconf-env.sh %{buildroot}/usr/share/attestation/ras/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-racconf-env.sh %{buildroot}/usr/share/attestation/rac/
-install -m 555 %{_builddir}/%{name}-%{version}/attestation/quick-scripts/prepare-hubconf-env.sh %{buildroot}/usr/share/attestation/rahub/
-
-install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}/usr/share/doc/attestation/ras/
-install -m 644 %{_builddir}/%{name}-%{version}/README.en.md %{buildroot}/usr/share/doc/attestation/ras/
-install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/doc/attestation/ras/
-install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}/usr/share/doc/attestation/rac/
-install -m 644 %{_builddir}/%{name}-%{version}/README.en.md %{buildroot}/usr/share/doc/attestation/rac/
-install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/doc/attestation/rac/
-install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}/usr/share/doc/attestation/rahub/
-install -m 644 %{_builddir}/%{name}-%{version}/README.en.md %{buildroot}/usr/share/doc/attestation/rahub/
-install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/doc/attestation/rahub/
+make install DESTDIR=%{buildroot}
 
 # %check
 # make check
@@ -98,11 +53,6 @@ install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/do
 %post
 
 %preun
-
-%files
-%defattr(-,root,root,-)
-%license LICENSE
-%doc     README.md README.en.md
 
 %files   rac
 %{_bindir}/raagent
@@ -121,7 +71,6 @@ install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}/usr/share/do
 %files   ras
 %{_bindir}/ras
 %{_sysconfdir}/attestation/ras/config.yaml
-%{_sysconfdir}/attestation/default_test/ecdsakey.pub
 %{_datadir}/attestation/ras/prepare-database-env.sh
 %{_datadir}/attestation/ras/clear-database.sh
 %{_datadir}/attestation/ras/createTable.sql
@@ -145,6 +94,10 @@ rm -rf %{_builddir}
 rm -rf %{buildroot}
 
 %changelog
+* Fri Sep 02 2022 gwei3 <11015100@qq.com> - 1.1.1-1
+-   update to 1.1.1
+-   reuse makefile to do install
+-   remove the empty kunpengsecl binary rpm
 * Tue Aug 09 2022 wangli <3214053332@qq.com> - 1.1.0-3
 -   process vendor directory
 * Wed Aug 03 2022 fushanqing <fushanqing@kylinos.cn> - 1.1.0-2
