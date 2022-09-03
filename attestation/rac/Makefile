@@ -3,7 +3,7 @@ PKGPATH=pkg
 TESTEES=./ractools
 RACPATH = ./cmd/raagent
 HUBPATH = ./cmd/rahub
-SCRPATH = ../quick-scripts/integritytools
+SCRPATH = ../quick-scripts
 TOPPATH = ../..
 ETCTAR = /etc/attestation
 SHARETAR = /usr/share/attestation
@@ -26,21 +26,24 @@ clean:
 	@rm -rf $(PKGPATH)
 
 install: build
-	sudo mkdir -p $(DESTDIR)$(ETCTAR)/rac $(DESTDIR)$(ETCTAR)/rahub $(DESTDIR)$(ETCTAR)/auth_file $(DESTDIR)$(SHARETAR)/rac $(DESTDIR)$(DOCTAR)/rac $(DESTDIR)$(DOCTAR)/rahub $(DESTDIR)$(BINTAR)
-	sudo install -m 555 pkg/raagent $(DESTDIR)$(BINTAR)
-	sudo install -m 555 pkg/rahub $(DESTDIR)$(BINTAR)
-###	sudo install -m 555 pkg/tbprovisioner $(DESTDIR)$(BINTAR)
-	sudo install -m 644 $(RACPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rac
-	sudo install -m 644 $(HUBPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rahub
-	sudo install -m 644 $(RACPATH)/ascii_runtime_measurements $(DESTDIR)$(ETCTAR)/auth_file
-	sudo install -m 644 $(RACPATH)/binary_bios_measurements $(DESTDIR)$(ETCTAR)/auth_file
-	sudo install -m 555 $(SCRPATH)/*.sh $(DESTDIR)$(SHARETAR)/rac
-	sudo install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rac
-	sudo install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rac
-	sudo install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/rac
-	sudo install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rahub
-	sudo install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rahub
-	sudo install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/rahub
+	mkdir -p $(DESTDIR)$(ETCTAR)/rac $(DESTDIR)$(ETCTAR)/rahub $(DESTDIR)$(ETCTAR)/default_test $(DESTDIR)$(SHARETAR)/rac $(DESTDIR)$(SHARETAR)/rahub $(DESTDIR)$(DOCTAR)/rac $(DESTDIR)$(DOCTAR)/rahub $(DESTDIR)$(BINTAR)
+	install -m 555 pkg/raagent $(DESTDIR)$(BINTAR)
+	install -m 555 pkg/rahub $(DESTDIR)$(BINTAR)
+###	install -m 555 pkg/tbprovisioner $(DESTDIR)$(BINTAR)
+	install -m 644 $(RACPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rac
+	install -m 644 $(HUBPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rahub
+	install -m 644 $(RACPATH)/ascii_runtime_measurements* $(DESTDIR)$(ETCTAR)/default_test
+	install -m 644 $(RACPATH)/binary_bios_measurements* $(DESTDIR)$(ETCTAR)/default_test
+	install -m 555 $(SCRPATH)/integritytools/*.sh $(DESTDIR)$(SHARETAR)/rac
+	install -m 555 $(SCRPATH)/prepare-racconf-env.sh $(DESTDIR)$(SHARETAR)/rac/
+	install -m 555 $(SCRPATH)/prepare-hubconf-env.sh $(DESTDIR)$(SHARETAR)/rahub/
+
+	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rac
+	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rac
+	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/rac
+	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rahub
+	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rahub
+	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/rahub
 
 uninstall:
 ifeq ($(DESTDIR),)

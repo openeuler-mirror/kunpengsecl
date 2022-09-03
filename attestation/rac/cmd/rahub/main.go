@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	rahubVersion = "version 1.1.0"
+	rahubVersion = "1.1.1"
 )
 
 // signalHandler handles the singal and save configurations.
