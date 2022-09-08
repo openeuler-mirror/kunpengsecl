@@ -27,11 +27,13 @@ enum ra_alg_types {
     RA_ALG_ED25519      = 0x20006,
     RA_ALG_SM2_DSA_SM3  = 0x20007,
     RA_ALG_SM3          = 0x20008,
+    RA_ALG_DAA_GRP_FP256BN = 0x20009,
 };
 
 enum ra_tags {
     RA_TAG_SIGN_TYPE     = RA_INTEGER | 0,
     RA_TAG_HASH_TYPE     = RA_INTEGER | 1,
+    RA_TAG_CURVE_TYPE    = RA_INTEGER | 2,
     RA_TAG_QTA_IMG_HASH  = RA_BYTES   | 0,
     RA_TAG_TA_IMG_HASH   = RA_BYTES   | 1,
     RA_TAG_QTA_MEM_HASH  = RA_BYTES   | 2,

@@ -35,6 +35,7 @@ const (
 	RA_BYTES               = (2 << KEY_TAG_TYPE_MOVE_BITS)
 	RA_TAG_SIGN_TYPE       = RA_INTEGER
 	RA_TAG_HASH_TYPE       = RA_INTEGER | 1
+	RA_TAG_CURVE_TYPE      = RA_INTEGER | 2
 	RA_TAG_QTA_IMG_HASH    = RA_BYTES
 	RA_TAG_TA_IMG_HASH     = RA_BYTES | 1
 	RA_TAG_QTA_MEM_HASH    = RA_BYTES | 2
@@ -46,19 +47,23 @@ const (
 	RA_TAG_CERT_DRK        = RA_BYTES | 8
 	RA_TAG_CERT_AK         = RA_BYTES | 9
 	// alg type
-	RA_ALG_RSA_3072    = 0x20000
-	RA_ALG_RSA_4096    = 0x20001 // PSS padding
-	RA_ALG_SHA_256     = 0x20002
-	RA_ALG_SHA_384     = 0x20003
-	RA_ALG_SHA_512     = 0x20004
-	RA_ALG_ECDSA       = 0x20005
-	RA_ALG_ED25519     = 0x20006
-	RA_ALG_SM2_DSA_SM3 = 0x20007
-	RA_ALG_SM3         = 0x20008
+	RA_ALG_RSA_3072        = 0x20000
+	RA_ALG_RSA_4096        = 0x20001 // PSS padding
+	RA_ALG_SHA_256         = 0x20002
+	RA_ALG_SHA_384         = 0x20003
+	RA_ALG_SHA_512         = 0x20004
+	RA_ALG_ECDSA           = 0x20005
+	RA_ALG_ED25519         = 0x20006
+	RA_ALG_SM2_DSA_SM3     = 0x20007
+	RA_ALG_SM3             = 0x20008
+	RA_ALG_DAA_GRP_FP256BN = 0x20009
 	// x509 cert template default value
-	strChina      = "China"
-	strCompany    = "Company"
-	strCommonName = "AK Server"
+	strChina                = "China"
+	strCompany              = "Company"
+	strCommonName           = "AK Server"
+	RA_SCENARIO_NO_AS       = 0
+	RA_SCENARIO_AS_NO_DAA   = 1
+	RA_SCENARIO_AS_WITH_DAA = 2
 )
 
 type (
@@ -94,7 +99,7 @@ var (
 // If the AK certificate passes the check, the AK certificate is trusted
 // Re-sign the AK certificate using the AS private key
 // Return the re-signed AK certificate
-func GenerateAKCert(oldAKCert []byte) ([]byte, error) {
+func GenerateNoDAAAKCert(oldAKCert []byte) ([]byte, error) {
 	// STEP1: get data used for verify
 	var c_cert, c_signdata, c_signdrk, c_certdrk, c_akpub C.buffer_data
 	c_cert.size = C.uint(len(oldAKCert))
@@ -334,4 +339,46 @@ func extractSignAlg(c *certificate) uint64 {
 		}
 	}
 	return 0
+}
+
+func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
+	//TODO: verify DRKcert
+
+	//TODO: verify signature
+
+	//TODO: verify QCA & TCB
+
+	//TODO: generate cert[A, B, C, D]
+
+	//TODO: 零知识证明
+
+	//TODO: choose a K to encrypt cert -> SECRET(cert)
+
+	//TODO: use DRK to encrypt K -> SECRET(K)
+
+	//return SECRET(K), SECRET(cert)
+	return nil, nil
+
+}
+
+func GenerateAKCert(oldAKCert []byte, scenario int32) ([]byte, error) {
+	switch scenario {
+	case RA_SCENARIO_AS_NO_DAA:
+		newCert, err := GenerateNoDAAAKCert(oldAKCert)
+		if err != nil {
+			log.Print("NoDAA scenario: Generate AK Cert failed!")
+			return nil, err
+		}
+		log.Print("NoDAA scenario: Generate AK Cert succeeded!")
+		return newCert, nil
+	case RA_SCENARIO_AS_WITH_DAA:
+		newCert, err := GenerateDAAAKCert(oldAKCert)
+		if err != nil {
+			log.Print("DAA scenario: Generate AK Cert failed!")
+			return nil, err
+		}
+		log.Print("DAA scenario: Generate AK Cert succeeded!")
+		return newCert, nil
+	}
+	return nil, errors.New("do not need to access as")
 }
