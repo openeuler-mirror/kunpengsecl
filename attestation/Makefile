@@ -2,9 +2,7 @@
 subdir=common ras rac
 
 .PHONY: all build test clean install check
-build: vendor
-
-all build test clean install check:
+all build test clean install check: vendor
 	for name in $(subdir); do\
 		make -C $$name $@ || exit $$?;\
 	done
