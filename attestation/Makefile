@@ -2,9 +2,12 @@
 subdir = ras rac tee
 
 .PHONY: all build test clean install check
-build: vendor
+all build test install check: vendor
+	for name in $(subdir); do\
+		make -C $$name $@ || exit $$?;\
+	done
 
-all build test clean install check:
+clean:
 	for name in $(subdir); do\
 		make -C $$name $@ || exit $$?;\
 	done

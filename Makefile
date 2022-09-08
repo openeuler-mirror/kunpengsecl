@@ -1,17 +1,26 @@
 
-subdir = attestation
+subdir=attestation
 delfile=pca-root.crt pca-root.key pca-ek.crt pca-ek.key ikpri.key ikpub.key ic.crt ectest.crt ectest.key ikpritest.key ikpubtest.key ictest.crt rac-log.txt ras-log.txt rahub-log.txt
 
 .PHONY: all build test clean install check vendor ci-check bat prepare sim-test sim-clean rpm rpm-clean
-all build test install: vendor
-clean: clean-keycert
-all build test clean install check vendor:
+all build test install check: vendor
 	for name in $(subdir); do\
 		make -C $$name $@ || exit $$?;\
 	done
 
-clean-keycert:
-	for name in $(delfile); do find . -name $$name -exec rm -f {} \; ; done
+vendor:
+	make -C attestation vendor || exit $$?;
+
+clean:
+	for name in $(delfile); do\
+		find . -name $$name -exec rm -f {} \; ;\
+	done
+	rm -rf  attestation/vendor
+	for name in $(subdir); do\
+		make -C $$name $@ || exit $$?;\
+	done
+
+test: build
 
 bat: build test
 
@@ -23,7 +32,6 @@ prepare:
 	done
 
 ci-check: prepare bat
-
 
 # run one ras and some racs to do the simulation test.
 sim-test: build
@@ -41,5 +49,3 @@ rpm:
 
 rpm-clean:
 	rm -rf ./rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SRPMS}
-
-
