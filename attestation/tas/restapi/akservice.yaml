@@ -1,0 +1,8 @@
+openapi: 3.0.1
+info:
+  title: TEE Independent Attestation REST server
+  description: tee independent attestation server provides Restful APIs to maintain the as-related info
+  version: 1.0.0
+Servers:
+-url: http://localhost:40009
+paths:
