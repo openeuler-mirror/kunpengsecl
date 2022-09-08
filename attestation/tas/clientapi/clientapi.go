@@ -26,7 +26,7 @@ type (
 )
 
 func (s *service) GetAKCert(ctx context.Context, in *GetAKCertRequest) (*GetAKCertReply, error) {
-	akcert, err := akissuer.GenerateAKCert(in.Akcert)
+	akcert, err := akissuer.GenerateAKCert(in.Akcert, in.Scenario)
 	if err != nil {
 		return nil, err
 	}

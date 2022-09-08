@@ -8,6 +8,7 @@ service Tas {
 
 message GetAKCertRequest {
     bytes akcert = 1;
+    int32 scenario = 2; 
 }
 
 message GetAKCertReply {
