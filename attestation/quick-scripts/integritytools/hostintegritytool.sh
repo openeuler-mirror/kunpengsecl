@@ -27,14 +27,20 @@ measure func=BPRM_CHECK
 measure func=MODULE_CHECK uid=0
 measure func=PATH_CHECK mask=MAY_READ uid=0
 EOF
-sed -i '$a GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX ima ima_template=ima-ng ima_hash=sha256"' /etc/default/grub
+
+existed_cmdline=`grep -i 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX ima ima_template=ima-ng ima_hash=sha256"' /etc/default/grub`
+if [ -z "$existed_cmdline" ]
+then
+  sed -i '$a GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX ima ima_template=ima-ng ima_hash=sha256"' /etc/default/grub
+fi
+
 if [ -z "$check_results" ]
 then
   path=/etc/selinux/config
   selinux=`sed -rn "/^(SELINUX=).*\$/p" $path`
   sed -ri "s@^(SELINUX=).*\$@\1enforcing@g" $path
   touch /.autorelabel
-  cat>/etc/ima/ima-policy<<EOF
+  cat>>/etc/ima/ima-policy<<EOF
 dont_measure obj_type=fsadm_log_t
 dont_measure obj_type=rsync_log_t
 dont_measure obj_type=wtmp_t
