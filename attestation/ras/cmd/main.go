@@ -36,6 +36,7 @@ func signalHandler() {
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-ch
+		restapi.StopServer()
 		clientapi.StopServer()
 		config.SaveConfigs()
 		os.Exit(0)
