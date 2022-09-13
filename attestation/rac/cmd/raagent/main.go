@@ -22,7 +22,6 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/json"
-	"log"
 	"math"
 	"math/big"
 	"os"
@@ -50,7 +49,8 @@ func main() {
 	if GetTestMode() && GetSeed() == -1 {
 		random, err0 := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 		if err0 != nil {
-			log.Fatalf("Client: generate seed failed, error: %s", err0)
+			logger.L.Sugar().Errorf("Client: generate seed failed, error: %s", err0)
+			os.Exit(2)
 		}
 		SetSeed(random.Int64())
 	}
@@ -104,8 +104,8 @@ func prepareIK(ras *clientapi.RasConn) {
 func prepare() {
 	ras, err := clientapi.CreateConn(GetServer())
 	if err != nil {
-		logger.L.Sugar().Fatalf("connect ras server fail, %s", err)
-		os.Exit(1)
+		logger.L.Sugar().Errorf("connect ras server fail, %s", err)
+		os.Exit(3)
 	}
 	defer clientapi.ReleaseConn(ras)
 	// set digest algorithm
