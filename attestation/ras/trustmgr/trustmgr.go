@@ -1225,6 +1225,10 @@ func getImaErrorText(ln []byte, lines [][]byte, used []bool) error {
 			continue
 		}
 		words2 := bytes.Split(ln2, typdefs.Space)
+		if len(words2) != 3 {
+			used[i] = true
+			continue
+		}
 		if bytes.Equal(words1[4], words2[2]) {
 			used[i] = true
 			if !bytes.Equal(words1[3], words2[1]) {
