@@ -56,6 +56,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -1024,12 +1025,23 @@ func (s *MyRestAPIServer) postBValueByXml(ctx echo.Context, id int64) error {
 	return ctx.JSON(http.StatusOK, "add a new base value by RIM OK!")
 }
 
+var (
+	reBvPcr  = regexp.MustCompile(`(?m)\A\z|\A(^[0-9]{1,2} [[:xdigit:]]{40,128}\n)+\z`)
+	reBvIma  = regexp.MustCompile(`(?m)\A\z|\A(^(ima-ng (sha1|sha256|sm3):[[:xdigit:]]{40,64}|ima [[:xdigit:]]{40}) [[:print:]]+\n)+\z`)
+	reBvBios = regexp.MustCompile(`(?m)\A\z|\A(^[[:xdigit:]]{1,8}-[0-9]+ [[:xdigit:]]{40} sha256:[[:xdigit:]]{64} (N/A|sm3:[[:xdigit:]]{64})\n)+\z`)
+)
+
 func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 	bv := new(baseValueJson)
 	err := ctx.Bind(bv)
 	if err != nil {
 		return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
 	}
+
+	if !reBvPcr.MatchString(bv.Pcr) || !reBvBios.MatchString(bv.Bios) || !reBvIma.MatchString(bv.Ima) {
+		return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
+	}
+
 	row := &typdefs.BaseRow{
 		ClientID:   id,
 		BaseType:   bv.BaseType,
