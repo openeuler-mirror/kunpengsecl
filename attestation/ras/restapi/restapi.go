@@ -300,6 +300,10 @@ type JsonResult struct {
 	Result string
 }
 
+var (
+	srv *echo.Echo = nil
+)
+
 func StartServer(https bool) {
 	if !https {
 		//https off ,use http protocol
@@ -311,7 +315,10 @@ func StartServer(https bool) {
 }
 
 func StartServerHttp(port string) {
-	e := echo.New()
+	if srv != nil {
+		return
+	}
+	srv = echo.New()
 	// TODO: need to be replaced with a formal authenticator implementation
 	v, err := internal.NewFakeAuthenticator(config.GetAuthKeyFile())
 	if err != nil {
@@ -323,13 +330,16 @@ func StartServerHttp(port string) {
 		fmt.Println(err)
 		return
 	}
-	e.Use(av)
-	RegisterHandlers(e, &MyRestAPIServer{})
-	logger.L.Sugar().Debug(e.Start(port))
+	srv.Use(av)
+	RegisterHandlers(srv, &MyRestAPIServer{})
+	logger.L.Sugar().Debug(srv.Start(port))
 }
 
 func StartServerHttps(httpsPort string) {
-	e := echo.New()
+	if srv != nil {
+		return
+	}
+	srv = echo.New()
 	// TODO: need to be replaced with a formal authenticator implementation
 	v, err := internal.NewFakeAuthenticator(config.GetAuthKeyFile())
 	if err != nil {
@@ -341,9 +351,17 @@ func StartServerHttps(httpsPort string) {
 		fmt.Println(err)
 		return
 	}
-	e.Use(av)
-	RegisterHandlers(e, &MyRestAPIServer{})
-	e.Logger.Fatal(e.StartTLS(httpsPort, config.GetHttpsKeyCertFile(), config.GetHttpsPrivateKeyFile()))
+	srv.Use(av)
+	RegisterHandlers(srv, &MyRestAPIServer{})
+	logger.L.Sugar().Debug(srv.StartTLS(httpsPort, config.GetHttpsKeyCertFile(), config.GetHttpsPrivateKeyFile()))
+}
+
+func StopServer() {
+	if srv == nil {
+		return
+	}
+	srv.Close()
+	srv = nil
 }
 
 // getJWS fetch the JWS string from an Authorization header
