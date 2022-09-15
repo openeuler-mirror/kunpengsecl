@@ -22,8 +22,8 @@ popd
 strUUID="9b954212d796863e9f2c04372d4ab7e39fe0b62870c82a9e83c3ec326e5fb9b9"
 strDEVICE="device"
 strNAME="testDevice"
-strPREIMA="db4049d7fe6443ceeedd2d2eda1f35c41d7b100a"
-strNEWIMA="0000000000000000000000000000000000000000"
+strPREIMA="ima db4049d7fe6443ceeedd2d2eda1f35c41d7b100a /usr/sbin/test/abc\n"
+strNEWIMA="ima 0000000000000000000000000000000000000000 /usr/sbin/test/abc\n"
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
