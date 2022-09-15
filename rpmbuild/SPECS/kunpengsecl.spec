@@ -1,5 +1,5 @@
 %global name kunpengsecl
-%global version 1.1.1
+%global version 1.1.2
 %undefine _missing_build_ids_terminate_build
 
 Name:            %{name}
@@ -15,7 +15,7 @@ BuildRequires:   gettext make golang
 BuildRequires:   protobuf-compiler openssl-devel
 
 Requires:        openssl
-Packager:        WangLi, Wucaijun
+Packager:        WangLi, Wucaijun, gwei3
 
 %description
 This is %{name} project, including rac, ras and rahub packages.
@@ -94,6 +94,19 @@ rm -rf %{_builddir}
 rm -rf %{buildroot}
 
 %changelog
+* Thu Sep 15 2022 gwei3 <11015100@qq.com> - 1.1.2-1
+-   update to 1.1.2
+-   add slice length checks to avoid buffer overflow while extracting and verifying
+-   update integration test data to meet restapi parameter check requirement
+-   modify raagent/main.go file, change log to logger, os.Exit returns different values based on diff errors
+-   close RAS restapi server in signal handler
+-   Add parameter format checking for pcr/bios/ima in POST {id}/newbasevalue API
+-   Fix bugs in v1.1.1
+    bug 1: hostintegritytool.sh can only add the 2nd part of ima policy into /etc/ima/ima-policy.
+    bug 2: running hostintegritytool.sh multiple times will add duplicated linux cmdlines in /etc/default/grub.
+    bug 3: rahub config path was assigned wrong values, which is caused by copy/paste
+-   fix the issue that Makefile not sync vendor
+-   modify readme file
 * Fri Sep 02 2022 gwei3 <11015100@qq.com> - 1.1.1-1
 -   update to 1.1.1
 -   reuse makefile to do install

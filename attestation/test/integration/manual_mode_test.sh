@@ -42,7 +42,7 @@ MGRSTRATEGY1=$(echo $CONFIGS1 | jq -r '.' | awk '/MgrStrategy/ {gsub("\"","",$2)
 if [ "$MGRSTRATEGY1" != "$strMANUAL" ]
 then
     echo "config mgrstrategy is not equal to manual, start to set it to manual..." | tee -a ${DST}/control.txt
-    curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data "{\"trustduration\":20, \"MgrStrategy\":\"${strMANUAL}\"}"
+    curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" https://localhost:40003/config --data "{\"trustduration\":\"20s\", \"MgrStrategy\":\"${strMANUAL}\"}"
 fi
 CONFIGS2=$(curl -k -H "Content-Type: application/json" https://localhost:40003/config)
 MGRSTRATEGY2=$(echo $CONFIGS2 | jq -r '.' | awk '/MgrStrategy/ {gsub("\"","",$2);gsub(",","",$2);print $2}')
@@ -88,6 +88,7 @@ then
     echo "test1 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test1 failed!" | tee -a ${DST}/control.txt
+    echo "$NODEINFO1, $RSTATUS1, $BASEVALUES, $TSTATUS1, $REPORTS1." | tee -a ${DST}/control.txt
     echo "kill all test processes..." | tee -a ${DST}/control.txt
     pkill -u ${USER} ras
     pkill -u ${USER} raagent
@@ -124,7 +125,7 @@ fi
 
 # set correct base value to test
 curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" -d "{\"name\":\"test\", \"enabled\":true, \
-        \"pcr\":\"${strPCR}\", \"bios\":\"${strBIOS}\", \"ima\":\"${strIMA}\", \"isnewgroup\":true}" \
+        \"BaseType\":\"host\", \"pcr\":\"${strPCR}\", \"bios\":\"${strBIOS}\", \"ima\":\"${strIMA}\", \"isnewgroup\":true}" \
             https://localhost:40003/${cid}/newbasevalue
 echo "wait for 20s..." | tee -a ${DST}/control.txt
 sleep 20
@@ -147,6 +148,7 @@ then
     echo "test3 succeeded!" | tee -a ${DST}/control.txt
 else
     echo "test3 failed." | tee -a ${DST}/control.txt
+    echo "$NODEINFO3, $bid, $PCRTARGET, $BIOSTARGET, $IMATARGET, $TSTATUS3." | tee -a ${DST}/control.txt
     echo "kill all test processes..." | tee -a ${DST}/control.txt
     pkill -u ${USER} ras
     pkill -u ${USER} raagent
@@ -156,7 +158,7 @@ fi
 
 # set wrong base value to test
 curl -k -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" -d "{\"name\":\"test\", \"enabled\":true, \
-        \"pcr\":\"${strPCR}\", \"bios\":\"${strBIOS}\", \"ima\":\"${strNEWIMA}\", \"isnewgroup\":true}" \
+        \"BaseType\": \"host\", \"pcr\":\"${strPCR}\", \"bios\":\"${strBIOS}\", \"ima\":\"${strNEWIMA}\", \"isnewgroup\":true}" \
             https://localhost:40003/${cid}/newbasevalue
 echo "wait for 20s..." | tee -a ${DST}/control.txt
 sleep 20

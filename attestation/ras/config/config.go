@@ -41,7 +41,7 @@ import (
 
 const (
 	// golbal definition
-	RasVersion = "1.1.1"
+	RasVersion = "1.1.2"
 
 	// path
 	defaultMode  = 0755
