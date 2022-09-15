@@ -985,6 +985,9 @@ func extractBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	bLog := findManifest(report, typdefs.StrBios)
 	btLog, _ := typdefs.TransformBIOSBinLogToTxt(bLog)
 	lines := bytes.Split(btLog, typdefs.NewLine)
+	if l := len(lines); l > 0 && len(lines[l-1]) == 0 {
+		lines = lines[:l-1]
+	}
 	for _, ln := range lines {
 		parseBiosName(ln, biosNames, used, &buf)
 	}
@@ -993,6 +996,9 @@ func extractBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 
 func parseBiosName(ln []byte, biosNames []string, used []bool, buf *bytes.Buffer) {
 	words := bytes.Split(ln, typdefs.Space)
+	if len(words) < 4 {
+		return
+	}
 	for i, bn := range biosNames {
 		if used[i] {
 			continue
@@ -1081,11 +1087,18 @@ func verifyBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 
 func getBiosErrorText(ln []byte, lines [][]byte, used []bool) error {
 	words1 := bytes.Split(ln, typdefs.Space)
+	if len(words1) != 6 {
+		return nil
+	}
 	for i, ln2 := range lines {
 		if used[i] {
 			continue
 		}
 		words2 := bytes.Split(ln2, typdefs.Space)
+		if len(words2) != 4 {
+			used[i] = true
+			continue
+		}
 		if bytes.Equal(words1[2], words2[0]) {
 			used[i] = true
 			res := compareBiosHash(words1, words2)
@@ -1178,8 +1191,14 @@ func extractIMA(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	// reset manifest to append extract result
 	imaLog := findManifest(report, typdefs.StrIma)
 	lines := bytes.Split(imaLog, typdefs.NewLine)
+	if l := len(lines); l > 0 && len(lines[l-1]) == 0 {
+		lines = lines[:l-1]
+	}
 	for _, ln := range lines {
 		words := bytes.Split(ln, typdefs.Space)
+		if len(words) != 5 {
+			continue
+		}
 		for i, in := range imaNames {
 			if used[i] {
 				continue

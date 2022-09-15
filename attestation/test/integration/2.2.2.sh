@@ -22,8 +22,8 @@ popd
 strUUID="9b954212d796863e9f2c04372d4ab7e39fe0b62870c82a9e83c3ec326e5fb9b9"
 strCONTAINER="container"
 strNAME="testContainer"
-strOLDIMA="5a2842c1767f26defc2e96a01e46062524333501"
-strNEWIMA="0000000000000000000000000000000000000000"
+strOLDIMA="ima 5a2842c1767f26defc2e96a01e46062524333501 /home/test/abc\n"
+strNEWIMA="ima 0000000000000000000000000000000000000000 /home/test/abc\n"
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt
