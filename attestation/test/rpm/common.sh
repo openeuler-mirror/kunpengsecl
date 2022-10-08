@@ -15,15 +15,17 @@ HOMERASCONF=${HOME}/.config/attestation/ras
 HOMERACCONF=${HOME}/.config/attestation/rac
 HOMEHUBCONF=${HOME}/.config/attestation/rahub
 SHARETAR=/usr/share/attestation
+IMAFILE=/sys/kernel/security/ima/ascii_runtime_measurements
 
 ### prepare program running environment
 echo "=========="
 echo "start test ${CASENAME} at: $(date)" | tee -a ${DST}/control.txt
 echo "prepare the test environments..." | tee -a ${DST}/control.txt
-yum remove ${PRORAS} ${PRORAC} ${PROHUB}
+yum remove -y ${PRORAS} ${PRORAC} ${PROHUB}
 rm -rf ${HOMERASCONF}/config.yaml ${HOMERACCONF}/config.yaml ${HOMEHUBCONF}/config.yaml
 yum install -y ${PRORAS} ${PRORAC} ${PROHUB}
 cd ${SHARETAR}/ras
+bash prepare-database-env.sh | tee -a ${DST}/control.txt
 bash prepare-rasconf-env.sh | tee -a ${DST}/control.txt
 bash clear-database.sh | tee -a ${DST}/control.txt
 cd ${SHARETAR}/rac

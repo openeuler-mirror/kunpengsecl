@@ -6,13 +6,16 @@ PROJROOT=.
 
 ### start ras
 echo "start ras..." | tee -a ${DST}/control.txt
-( cd ${DST}/ras ; ras -T &>${DST}/ras/echo.txt ; ras -v &>>${DST}/ras/echo.txt ;)&
+( cd ${DST}/ras ; ras -T &>${DST}/ras/echo.txt ; ras -v -H false &>>${DST}/ras/echo.txt ;)&
 
-### start rac
+### start rac to get all the certs and keys
 echo "start rac at $(date)..." | tee -a ${DST}/control.txt
 ( cd ${DST}/rac ; sudo raagent -v &>${DST}/rac/echo.txt ; )&
 echo "wait for 5s"
 sleep 5
+
+### save the test key
+cp ${HOMERASCONF}/pca-ek.key ${HOMERASCONF}/test-ek.key
 
 ### restart rac
 echo "kill all test processes of rac..." | tee -a ${DST}/control.txt
@@ -27,6 +30,16 @@ echo "kill all test processes..." | tee -a ${DST}/control.txt
 pkill -u ${USER} ras
 pkill -u ${USER} raagent
 
+#cat two file
+diff ${HOMERASCONF}/pca-ek.key ${HOMERASCONF}/test-ek.key
+if (( $? == 0 ))
+then
+    echo "Both file are same"
+    KEYSAME=1
+else 
+    echo "not same"
+    KEYSAME=0
+fi
 ### log analyse
 ### check the ekCert's log is only one
 ECCOUNT=$(grep 'load EK certificate success' ${DST}/rac/echo.txt | wc -l)
@@ -51,7 +64,7 @@ else
     echo "ic is empty" | tee -a ${DST}/control.txt
 fi
 
-if (( ${ECCOUNT} == 1 )) && (( ${ICCOUNT} == 1 )) && (( ${ECEMPTY} == 0 )) && (( ${ICEMPTY} == 0 ))
+if (( ${ECCOUNT} == 1 )) && (( ${ICCOUNT} == 1 )) && (( ${ECEMPTY} == 0 )) && (( ${ICEMPTY} == 0 )) && (( ${KEYSAME} == 1 ))
 then
     echo "test succeeded!"
     exit 0
