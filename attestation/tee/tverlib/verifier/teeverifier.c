@@ -75,7 +75,7 @@ getPubKeyFromDrkIssuedCert(buffer_data *cert)
    bool rt;
    EVP_PKEY *key = NULL;
 
-   rt = getDataFromAkCert(cert, &datadrk, &signdrk, &certdrk, &akpub);
+   rt = getDataFromAkCert(cert, &datadrk, &signdrk, &certdrk, &akpub, NULL);
    if (!rt)
    {
       printf("get NOAS data is failed!\n");

@@ -18,11 +18,13 @@ import (
 	"errors"
 	"log"
 	"math/big"
+	"strconv"
 	"sync"
 	"time"
 	"unsafe"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/tas/miracl/core"
 )
 
 const (
@@ -106,7 +108,7 @@ func GenerateNoDAAAKCert(oldAKCert []byte) ([]byte, error) {
 	up_old_cert := C.CBytes(oldAKCert)
 	defer C.free(up_old_cert)
 	c_cert.buf = (*C.uchar)(up_old_cert)
-	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akpub)
+	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akpub, nil)
 	drkcertbyte := []byte(C.GoBytes(unsafe.Pointer(c_certdrk.buf), C.int(c_certdrk.size)))
 	// STEP2: get data used for re-sign
 	signdrkbyte := []byte(C.GoBytes(unsafe.Pointer(c_signdrk.buf), C.int(c_signdrk.size)))
@@ -342,15 +344,88 @@ func extractSignAlg(c *certificate) uint64 {
 }
 
 func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
-	//TODO: verify DRKcert
-
-	//TODO: verify signature
+	// STEP1: get data used for verify
+	var c_cert, c_signdata, c_signdrk, c_certdrk, c_akprip1 C.buffer_data
+	c_cert.size = C.uint(len(oldAKCert))
+	up_old_cert := C.CBytes(oldAKCert)
+	defer C.free(up_old_cert)
+	c_cert.buf = (*C.uchar)(up_old_cert)
+	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, nil, &c_akprip1)
+	drkcertbyte := []byte(C.GoBytes(unsafe.Pointer(c_certdrk.buf), C.int(c_certdrk.size)))
+	// STEP2: get data used for re-sign 要看后面签名需要用到什么东西，在这里获取
+	akprip1byte := []byte(C.GoBytes(unsafe.Pointer(c_akprip1.buf), C.int(c_akprip1.size)))
+	// STEP3: parse device cert
+	drkcertBlock, _ := pem.Decode(drkcertbyte)
+	drkcert, err := x509.ParseCertificate(drkcertBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	log.Print("Server: Parse drk cert succeeded.")
+	// STEP4: verify device cert signature
+	err = verifyDRKSig(drkcert)
+	if err != nil {
+		return nil, errors.New("verify drk signature failed")
+	}
+	log.Print("Server: Verify drk signature ok.")
+	// [AKpri]P1是哈希过的吗？没有。
+	// STEP5: verify ak cert signature
+	rs := C.verifysig(&c_signdata, &c_signdrk, &c_certdrk, 1)
+	if !bool(rs) {
+		return nil, errors.New("verify ak signature failed")
+	}
+	log.Print("Server: Verify ak signature ok.")
 
 	//TODO: verify QCA & TCB
 
 	//TODO: generate cert[A, B, C, D]
+	sig, err := MakeDAACredential(akprip1byte)
+	if err != nil {
+		return nil, errors.New("make daa credential failed")
+	}
 
-	//TODO: 零知识证明
+	return sig, nil
+
+}
+
+//var CURVE_Order = [...]Chunk{0x2D536CD10B500D, 0x65FB1299921AF6, 0x5EEE71A49E0CDC, 0xFFFCF0CD46E5F2, 0xFFFFFFFF}
+
+func MakeDAACredential(akprip1 []byte) ([]byte, error) {
+	// random r l
+	r := core.Random(core.NewRAND())
+	l := core.Random(core.NewRAND())
+	// check if public key is on the curve
+	if core.ECDH_PUBLIC_KEY_VALIDATE(akprip1) != 0 {
+		return errors.New("DAA key is not on the curve")
+	}
+	P1 := core.ECP_generator()
+	// A=[r]P_1
+	A := core.P1.Mul(r)
+	// B=[y]A 要先把y从string转化成big类型 string->int64->chunk[5]->big
+	yint, err := strconv.ParseInt(DAA_GRP_KEY_SK_Y, 10, 64)
+	if err != nil {
+		return errors.New("daa private key string to int failed")
+	}
+	y := core.NewBIGints(yint)
+	B := core.A.Mul(y)
+	// D=[ry]Q_s
+	n := NewBIGints(CURVE_Order)
+	ry := core.Modmul(r, y, n) //n = bnp256_order
+	D := core.akprip1.Mul(ry)
+	// tmp=A+D
+	A.Add(D)
+	tmp := A
+	// C=[x]tmp 要先把x从string转化成big类型 string->int64->chunk[5]->big
+	C := core.tmp.Mul(x)
+	// R_B=[l]P1
+	R_B := core.P1.Mul(l)
+	// R_D=[l]Qs
+	R_D := core.akprip1.Mul(l)
+	// u=sha256(P1,Qs,AKCert,R_B,R_D) 拼起来
+	// u := sha256
+	// j=l+yru, sigma=(u,j)
+	yru := core.Modmul(ry, u, n)
+	yru.Add(l)
+	j := yru
 
 	//TODO: choose a K to encrypt cert -> SECRET(cert)
 
@@ -358,7 +433,6 @@ func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
 
 	//return SECRET(K), SECRET(cert)
 	return nil, nil
-
 }
 
 func GenerateAKCert(oldAKCert []byte, scenario int32) ([]byte, error) {
