@@ -444,7 +444,7 @@ func (dcre *daacre) combineu(P1 *FP256BN.ECP, Qs *FP256BN.ECP, R_B *FP256BN.ECP,
 func int2bytes(n int) []byte {
 	x := int32(n)
 	bytesBuffer := bytes.NewBuffer([]byte{})
-	binary.Write(bytesBuffer, binary.BigEndian, x)
+	binary.Write(bytesBuffer, binary.LittleEndian, x)
 	return bytesBuffer.Bytes()
 }
 
@@ -491,6 +491,9 @@ func (dcre *daacre) cipher2(K []byte, Qs *FP256BN.ECP) ([]byte, error) {
 	// size||AKCert.A||size||AKCert.B||size||AKCert.C||size||AKCert.D||size||u||size||j
 	var buffer bytes.Buffer
 	var Abytes, Bbytes, Cbytes, Dbytes, ubytes, jbytes []byte
+	//tagstr := "619cc5aefffe0bfa462af43c1699d050"
+	//tag, err := hex.DecodeString(tagstr)
+	//iv
 
 	dcre.akcre.A.ToBytes(Abytes, false)
 	dcre.akcre.B.ToBytes(Bbytes, false)
