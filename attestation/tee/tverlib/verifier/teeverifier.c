@@ -1,11 +1,21 @@
 #include "teeverifier.h"
 #include "common.h"
+#include "pair_FP256BN.h"
+
+#define _SHA256(d, n, md)        \
+   {                             \
+      SHA256_CTX ctx;            \
+      SHA256_Init(&ctx);         \
+      SHA256_Update(&ctx, d, n); \
+      SHA256_Final(md, &ctx);    \
+   }
 
 static void error(const char *msg);
 static void file_error(const char *s);
 static TA_report *Convert(buffer_data *buf_data);
 // static void parse_uuid(uint8_t *uuid, TEE_UUID buf_uuid);
-static void read_bytes(void *input, size_t size, size_t nmemb, uint8_t *output, size_t *offset);
+static void read_bytes(void *input, size_t size, size_t nmemb,
+                       uint8_t *output, size_t *offset);
 static base_value *LoadBaseValue(const TA_report *report, char *filename);
 static void str_to_uuid(const char *str, uint8_t *uuid);
 static void uuid_to_str(const uint8_t *uuid, char *str);
@@ -17,22 +27,30 @@ static char *file_to_buffer(char *file, size_t *file_length);
 static bool Compare(int type, TA_report *report, base_value *basevalue);
 static bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size);
 static void free_report(TA_report *report);
-static void test_print(uint8_t *printed, int printed_size, char *printed_name);
+static void test_print(uint8_t *printed, int printed_size,
+                       char *printed_name);
 static void save_basevalue(const base_value *bv);
 
 // signature part
-bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert, uint32_t scenario);
+bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert,
+               uint32_t scenario);
 static bool translateBuf(buffer_data report, TA_report *tareport);
 static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
 static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
-static bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key);
+static bool verifySigByKey(buffer_data *mhash, buffer_data *sign,
+                           EVP_PKEY *key);
 static EVP_PKEY *getPubKeyFromCert(buffer_data *cert);
 static void dumpDrkCert(buffer_data *certdrk);
 static void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk);
-static bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *signak, buffer_data *signdata, uint32_t *scenario);
-bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
+static bool getDataFromReport(buffer_data *report, buffer_data *akcert,
+                              buffer_data *signak, buffer_data *signdata,
+                              uint32_t *scenario);
+bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
+                       buffer_data *signdrk, buffer_data *certdrk,
+                       buffer_data *akpub);
 
-EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub)
+EVP_PKEY *
+buildPubKeyFromModulus(buffer_data *pub)
 {
    EVP_PKEY *key = NULL;
    key = EVP_PKEY_new();
@@ -50,7 +68,8 @@ EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub)
    return key;
 }
 
-EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert)
+EVP_PKEY *
+getPubKeyFromDrkIssuedCert(buffer_data *cert)
 {
    buffer_data datadrk, signdrk, certdrk, akpub;
    bool rt;
@@ -85,26 +104,33 @@ bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key)
    }
 
    uint8_t buf[512];
-   int rt = RSA_public_decrypt(sign->size, sign->buf, buf, EVP_PKEY_get1_RSA(key), RSA_NO_PADDING);
+   int rt = RSA_public_decrypt(sign->size, sign->buf, buf,
+                               EVP_PKEY_get1_RSA(key), RSA_NO_PADDING);
    if (rt == -1)
    {
-      printf("RSA public decrypt is failed with error %s\n", ERR_error_string(ERR_get_error(), NULL));
+      printf("RSA public decrypt is failed with error %s\n",
+             ERR_error_string(ERR_get_error(), NULL));
       return false;
    }
 
-   // rt = RSA_verify_PKCS1_PSS_mgf1(EVP_PKEY_get1_RSA(key), mhash->buf, EVP_sha256(), EVP_sha256(), buf, -2);
-   rt = RSA_verify_PKCS1_PSS(EVP_PKEY_get1_RSA(key), mhash->buf, EVP_sha256(), buf, -2);
-   // rt = RSA_verify(EVP_PKEY_RSA_PSS, mhash->buf, SHA256_DIGEST_LENGTH, signdrk.buf, signdrk.size, EVP_PKEY_get1_RSA(key));
+   // rt = RSA_verify_PKCS1_PSS_mgf1(EVP_PKEY_get1_RSA(key), mhash->buf,
+   // EVP_sha256(), EVP_sha256(), buf, -2);
+   rt = RSA_verify_PKCS1_PSS(EVP_PKEY_get1_RSA(key), mhash->buf,
+                             EVP_sha256(), buf, -2);
+   // rt = RSA_verify(EVP_PKEY_RSA_PSS, mhash->buf, SHA256_DIGEST_LENGTH,
+   // signdrk.buf, signdrk.size, EVP_PKEY_get1_RSA(key));
    if (rt != 1)
    {
-      printf("verify sign is failed with error %s\n", ERR_error_string(ERR_get_error(), NULL));
+      printf("verify sign is failed with error %s\n",
+             ERR_error_string(ERR_get_error(), NULL));
       return false;
    }
 
    return true;
 }
 
-EVP_PKEY *getPubKeyFromCert(buffer_data *cert)
+EVP_PKEY *
+getPubKeyFromCert(buffer_data *cert)
 {
    EVP_PKEY *key = NULL;
    X509 *c = NULL;
@@ -125,6 +151,498 @@ EVP_PKEY *getPubKeyFromCert(buffer_data *cert)
    return key;
 }
 
+static bool
+verifydatasig_bykey(buffer_data *data, buffer_data *sign, EVP_PKEY *key)
+{
+   // caculate the digest of the data
+   uint8_t digest[SHA256_DIGEST_LENGTH];
+   _SHA256(data->buf, data->size, digest);
+
+   // perform signature verification
+   buffer_data mhash = {sizeof(digest), digest};
+   bool rt = verifySigByKey(&mhash, sign, key);
+
+   return rt;
+}
+
+static bool
+verifysig_drksignedcert(buffer_data *data, buffer_data *sign,
+                        buffer_data *cert)
+{
+   // get the key for signature verification
+   EVP_PKEY *key = getPubKeyFromDrkIssuedCert(cert);
+   if (key == NULL)
+      return false;
+
+   bool rt = verifydatasig_bykey(data, sign, key);
+   EVP_PKEY_free(key);
+
+   return rt;
+}
+
+static bool
+verifysig_x509cert(buffer_data *data, buffer_data *sign, buffer_data *cert)
+{
+   // get the key for signature verification
+   EVP_PKEY *key = getPubKeyFromCert(cert);
+   if (key == NULL)
+      return false;
+
+   bool rt = verifydatasig_bykey(data, sign, key);
+   EVP_PKEY_free(key);
+
+   return rt;
+}
+
+// file format of daa issuer pubkey, in HEX strings:
+// [X.x0]\n
+// [X.x1]\n
+// [X.y0]\n
+// [X.y1]\n
+// [Y.x0]\n
+// [Y.x1]\n
+// [Y.y0]\n
+// [Y.y1]\n
+char *DEFAULT_DAA_ISSUER_PUBKEY_FILE = "./daa-pubkey";
+
+typedef struct
+{
+   ECP_FP256BN *a;
+   ECP_FP256BN *b;
+   ECP_FP256BN *c;
+   ECP_FP256BN *d;
+} daa_ak_cert;
+
+typedef struct
+{
+   BIG_256_56 h2;
+   BIG_256_56 s;
+   BIG_256_56 nm;
+   ECP_FP256BN *j;
+   ECP_FP256BN *k;
+} daa_signature;
+
+typedef struct
+{
+   ECP2_FP256BN *x;
+   ECP2_FP256BN *y;
+} daa_pub;
+
+static int
+hex2bin_append(const char *hexbuf, size_t *offset, size_t buflen, octet *oct)
+{
+   char *p = strchr(hexbuf + *offset, '\n');
+   if (p == NULL)
+      return 0;
+
+   if (p - hexbuf - *offset != 64)
+      return 0;
+
+   if (oct->len + 32 > oct->max)
+      return 0;
+
+   str2hex(hexbuf + *offset, 64, oct->val + oct->len);
+
+   *offset += 64 + 1;
+   oct->len += 32;
+   return 32;
+}
+
+static ECP2_FP256BN *
+get_p2_from_fbuf(char *buf, size_t *offset, size_t buflen)
+{
+   ECP2_FP256BN *pt = malloc(sizeof(ECP2_FP256BN));
+   if (pt == NULL)
+      goto err1;
+   uint8_t val[32 * 4 + 1];
+   octet oct = {0, sizeof(val), val};
+
+   val[0] = 0x03;
+   oct.len = 1;
+   for (int i = 0; i < 4; i++)
+   {
+      if (32 != hex2bin_append(buf, offset, buflen, &oct))
+         goto err2;
+   }
+
+   ECP2_FP256BN_fromOctet(pt, &oct);
+
+   return pt;
+
+err2:
+   free(pt);
+err1:
+   return NULL;
+}
+
+static void
+free_daa_pub(daa_pub *pub)
+{
+   if (pub == NULL)
+      return;
+
+   if (pub->x != NULL)
+      free(pub->x);
+   if (pub->y != NULL)
+      free(pub->y);
+   free(pub);
+}
+
+static daa_pub *
+daa_get_issuer_pub()
+{
+   daa_pub *pub = malloc(sizeof(daa_pub));
+   if (pub == NULL)
+      goto err1;
+   pub->x = NULL;
+   pub->y = NULL;
+
+   size_t buflen = 0;
+   char *buf = file_to_buffer(DEFAULT_DAA_ISSUER_PUBKEY_FILE, &buflen);
+   if (buf == NULL)
+      goto err2;
+
+   size_t offset = 0;
+   pub->x = get_p2_from_fbuf(buf, &offset, buflen);
+   if (pub->x == NULL)
+      goto err3;
+   pub->y = get_p2_from_fbuf(buf, &offset, buflen);
+   if (pub->y == NULL)
+      goto err3;
+
+   free(buf);
+   return pub;
+
+err3:
+   free(buf);
+err2:
+   free_daa_pub(pub);
+err1:
+   return NULL;
+}
+
+static void
+free_p1(ECP_FP256BN *p1)
+{
+   if (p1 == NULL)
+      return;
+
+   free(p1);
+}
+
+static int
+unmarshal_bn_from_bd(BIG_256_56 bn, buffer_data *bd, uint32_t *offset)
+{
+   if (*offset >= bd->size || *offset + 0x24 > bd->size)
+      goto err1;
+
+   uint32_t size = 0;
+   memcpy((void *)&size, bd->buf + *offset, sizeof(uint32_t));
+   if (size != 0x20)
+      goto err1;
+   *offset += sizeof(uint32_t);
+   BIG_256_56_fromBytes(bn, bd->buf + *offset);
+   *offset += size;
+
+   return 1;
+
+err1:
+   return 0;
+}
+
+static ECP_FP256BN *
+unmarshal_p1_from_bd(buffer_data *bd, uint32_t *offset)
+{
+   if (*offset >= bd->size || *offset + 0x4c > bd->size)
+      goto err1;
+
+   ECP_FP256BN *p1 = malloc(sizeof(ECP_FP256BN));
+   if (p1 == NULL)
+      goto err1;
+
+   uint32_t size = 0;
+   memcpy((void *)&size, bd->buf + *offset, sizeof(uint32_t));
+   if (size != 0x48)
+      goto err2;
+   *offset += sizeof(uint32_t);
+   BIG_256_56 x, y;
+   if (unmarshal_bn_from_bd(x, bd, offset) == 0)
+      goto err2;
+   if (unmarshal_bn_from_bd(y, bd, offset) == 0)
+      goto err2;
+
+   if (0 == ECP_FP256BN_set(p1, x, y))
+      goto err2;
+
+   return p1;
+
+err2:
+   free_p1(p1);
+err1:
+   return NULL;
+}
+
+static void
+free_daa_ak_cert(daa_ak_cert *cert)
+{
+   if (cert == NULL)
+      return;
+
+   if (cert->a != NULL)
+      free(cert->a);
+   if (cert->b != NULL)
+      free(cert->b);
+   if (cert->c != NULL)
+      free(cert->c);
+   if (cert->d != NULL)
+      free(cert->d);
+   free(cert);
+}
+
+static daa_ak_cert *
+unmarshal_daa_ak_cert(buffer_data *cert)
+{
+   daa_ak_cert *akcert = malloc(sizeof(daa_ak_cert));
+   if (akcert == NULL)
+      goto err1;
+
+   akcert->a = NULL;
+   akcert->b = NULL;
+   akcert->c = NULL;
+   akcert->d = NULL;
+
+   uint32_t offset = 0;
+   akcert->a = unmarshal_p1_from_bd(cert, &offset);
+   if (akcert->a == NULL)
+      goto err2;
+   akcert->b = unmarshal_p1_from_bd(cert, &offset);
+   if (akcert->b == NULL)
+      goto err2;
+   akcert->c = unmarshal_p1_from_bd(cert, &offset);
+   if (akcert->c == NULL)
+      goto err2;
+   akcert->d = unmarshal_p1_from_bd(cert, &offset);
+   if (akcert->d == NULL)
+      goto err2;
+
+   return akcert;
+err2:
+   free_daa_ak_cert(akcert);
+err1:
+   return NULL;
+}
+
+static void
+free_daa_signature(daa_signature *sign)
+{
+   if (sign == NULL)
+      return;
+
+   if (sign->j != NULL)
+      free(sign->j);
+   if (sign->k != NULL)
+      free(sign->k);
+   free(sign);
+}
+
+static daa_signature *
+unmarshal_daa_signature(buffer_data *sign)
+{
+   daa_signature *sig = malloc(sizeof(daa_signature));
+   if (sig == NULL)
+      goto err1;
+
+   sig->j = NULL;
+   sig->k = NULL;
+
+   uint32_t offset = 0;
+   sig->j = unmarshal_p1_from_bd(sign, &offset);
+   sig->k = unmarshal_p1_from_bd(sign, &offset);
+   if (unmarshal_bn_from_bd(sig->h2, sign, &offset) == 0)
+      goto err2;
+   if (unmarshal_bn_from_bd(sig->s, sign, &offset) == 0)
+      goto err2;
+   if (unmarshal_bn_from_bd(sig->nm, sign, &offset) == 0)
+      goto err2;
+
+   return sig;
+
+err2:
+   free_daa_signature(sig);
+err1:
+   return NULL;
+}
+
+static bool
+verify_daacert(daa_ak_cert *cert)
+{
+   bool rt = false;
+   daa_pub *ispubkey = daa_get_issuer_pub();
+   if (ispubkey == NULL)
+      goto err1;
+
+   ECP2_FP256BN p2;
+   ECP2_FP256BN_generator(&p2);
+
+   FP12_FP256BN lhs, rhs;
+
+   PAIR_FP256BN_ate(&lhs, ispubkey->y, cert->a);
+   PAIR_FP256BN_fexp(&lhs);
+
+   PAIR_FP256BN_ate(&rhs, &p2, cert->b);
+   PAIR_FP256BN_fexp(&rhs);
+
+   if (!FP12_FP256BN_equals(&lhs, &rhs))
+      goto err2;
+
+   ECP_FP256BN ptemp;
+
+   ECP_FP256BN_copy(&ptemp, cert->d);
+   ECP_FP256BN_add(&ptemp, cert->a);
+   PAIR_FP256BN_ate(&lhs, ispubkey->x, &ptemp);
+   PAIR_FP256BN_fexp(&lhs);
+
+   PAIR_FP256BN_ate(&rhs, &p2, cert->c);
+   PAIR_FP256BN_fexp(&rhs);
+
+   if (!FP12_FP256BN_equals(&lhs, &rhs))
+      goto err2;
+
+   rt = true;
+
+err2:
+   free_daa_pub(ispubkey);
+err1:
+   return rt;
+}
+
+static bool
+verify_daasig(buffer_data *mhash, daa_signature *sig, daa_ak_cert *cert)
+{
+   ECP_FP256BN l, e, s_j, h2_k, s_b, h2_d;
+
+   // may need additional step to verify J while bsn is available
+   // s1,y1=Hs(bsn); verify J=(Hp(s1),y1)
+
+   // skip J, K, L caculation while J is null.
+   if (sig->j != NULL)
+   {
+      ECP_FP256BN_copy(&s_j, sig->j);
+      ECP_FP256BN_mul(&s_j, sig->s);
+      ECP_FP256BN_copy(&h2_k, sig->k);
+      ECP_FP256BN_mul(&h2_k, sig->h2);
+      ECP_FP256BN_copy(&l, &s_j);
+      ECP_FP256BN_sub(&l, &h2_k);
+   }
+
+   ECP_FP256BN_copy(&s_b, cert->b);
+   ECP_FP256BN_mul(&s_b, sig->s);
+   ECP_FP256BN_copy(&h2_d, cert->d);
+   ECP_FP256BN_mul(&h2_d, sig->h2);
+   ECP_FP256BN_copy(&e, &s_b);
+   ECP_FP256BN_sub(&e, &h2_d);
+
+   // calculate c=H(H(m),A,B,C,D,J,K,L,E))
+   char v_tmp[2 * SHA256_DIGEST_LENGTH + 1];
+   octet o_tmp = {0, sizeof(v_tmp), v_tmp};
+
+   SHA256_CTX ctx;
+   SHA256_Init(&ctx);
+   // H(m)
+   SHA256_Update(&ctx, mhash->buf, mhash->size);
+   // A
+   ECP_FP256BN_toOctet(&o_tmp, cert->a, false);
+   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   // B
+   ECP_FP256BN_toOctet(&o_tmp, cert->b, false);
+   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   // C
+   ECP_FP256BN_toOctet(&o_tmp, cert->c, false);
+   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   // D
+   ECP_FP256BN_toOctet(&o_tmp, cert->d, false);
+   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   if (sig->j != NULL)
+   {
+      // J
+      ECP_FP256BN_toOctet(&o_tmp, sig->j, false);
+      SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+      // K
+      ECP_FP256BN_toOctet(&o_tmp, sig->k, false);
+      SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+      // L
+      ECP_FP256BN_toOctet(&o_tmp, &l, false);
+      SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   }
+   // E
+   ECP_FP256BN_toOctet(&o_tmp, &e, false);
+   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+
+   uint8_t c[SHA256_DIGEST_LENGTH];
+   SHA256_Final(c, &ctx);
+
+   // caclulate h1=H(c); h2=Hn(nm || h1)
+   uint8_t h1[SHA256_DIGEST_LENGTH];
+   _SHA256(c, sizeof(c), h1);
+
+   SHA256_Init(&ctx);
+   uint8_t nm[SHA256_DIGEST_LENGTH];
+   BIG_256_56_toBytes(nm, sig->nm);
+   SHA256_Update(&ctx, nm, sizeof(nm));
+   SHA256_Update(&ctx, h1, sizeof(h1));
+
+   uint8_t h2[SHA256_DIGEST_LENGTH];
+   SHA256_Final(h2, &ctx);
+
+   BIG_256_56 b_h2;
+   BIG_256_56_fromBytes(b_h2, h2);
+   BIG_256_56 n;
+   BIG_256_56_rcopy(n, CURVE_Order_FP256BN);
+   BIG_256_56_mod(b_h2, n);
+
+   // ??? may need normalizing first ???
+   if (BIG_256_56_comp(b_h2, sig->h2) != 0)
+      return false;
+
+   return true;
+}
+
+static bool
+verifysig_daacert(buffer_data *data, buffer_data *sign, buffer_data *cert)
+{
+   bool rt = false;
+
+   // parse daa ak cert
+   daa_ak_cert *akcert = unmarshal_daa_ak_cert(cert);
+   if (akcert == NULL)
+      goto err1;
+
+   // parse daa signature
+   daa_signature *sig = unmarshal_daa_signature(sign);
+   if (sig == NULL)
+      goto err2;
+
+   // verify daa ak cert
+   rt = verify_daacert(akcert);
+   if (!rt)
+      goto err3;
+
+   // caculate the digest of the data
+   uint8_t digest[SHA256_DIGEST_LENGTH];
+   _SHA256(data->buf, data->size, digest);
+
+   // perform signature verification
+   buffer_data mhash = {sizeof(digest), digest};
+   rt = verify_daasig(&mhash, sig, akcert);
+
+err3:
+   free_daa_signature(sig);
+err2:
+   free_daa_ak_cert(akcert);
+err1:
+   return rt;
+}
+
 /*
 verifysig will verify the signature in report
    data: data protected by signature, a byte array
@@ -132,48 +650,29 @@ verifysig will verify the signature in report
    cert: a byte array.
       A drk signed cert in self-defined format for scenario 0;
       A X509 PEM cert for scenario 1.
-   scenario: 0 or 1. refer to the description above.
+      A DAA cert scenario 2.
+   scenario: 0, 1 or 2. refer to the description above.
    return value: true if the sigature verification succeeded, else false.
 */
-bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert, uint32_t scenario)
+bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert,
+               uint32_t scenario)
 {
-   if (data->size <= 0 || sign->size <= 0 || cert->size <= 0 || scenario < 0 || scenario > 1)
+   if (data->size <= 0 || sign->size <= 0 || cert->size <= 0 || scenario > 2)
    {
       return false;
    }
 
-   // step 1: handle the cert per scenario to get the key for signature verification
-   EVP_PKEY *key = NULL;
    switch (scenario)
    {
    case 0:
-      // handle drk issued cert, with customized format
-      key = getPubKeyFromDrkIssuedCert(cert);
-      break;
+      return verifysig_drksignedcert(data, sign, cert);
    case 1:
-      // handle normal PEM cert
-      key = getPubKeyFromCert(cert);
-      break;
-   default:
-      return false;
-   }
-   if (key == NULL)
-   {
-      return false;
+      return verifysig_x509cert(data, sign, cert);
+   case 2:
+      return verifysig_daacert(data, sign, cert);
    }
 
-   // step 2: caculate the digest of the data
-   uint8_t digest[SHA256_DIGEST_LENGTH];
-   SHA256(data->buf, data->size, digest);
-
-   // step 3 : perform signature verification
-   buffer_data mhash = {sizeof(digest), digest};
-   bool rt = verifySigByKey(&mhash, sign, key);
-
-   EVP_PKEY_free(key);
-   return rt;
-
-   return true;
+   return false;
 }
 
 void dumpDrkCert(buffer_data *certdrk)
@@ -219,8 +718,11 @@ void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
 
    // dumpDrkCert(certdrk);
 }
-// getDataFromReport get some data which have akcert & signak & signdata & scenario from report
-bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *signak, buffer_data *signdata,uint32_t *scenario)
+// getDataFromReport get some data which have akcert & signak & signdata &
+// scenario from report
+bool getDataFromReport(buffer_data *report, buffer_data *akcert,
+                       buffer_data *signak, buffer_data *signdata,
+                       uint32_t *scenario)
 {
    if (report->buf == NULL)
    {
@@ -233,17 +735,20 @@ bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *si
    uint32_t data_offset;
    uint32_t data_len;
    uint32_t param_count = re->param_count;
-   if(param_count <= 0){
-         return false;
-      }
+   if (param_count <= 0)
+   {
+      return false;
+   }
    for (int i = 0; i < param_count; i++)
    {
       uint32_t param_info = re->params[i].tags;
       uint32_t param_type = (re->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
-      if(param_type == 2){
+      if (param_type == 2)
+      {
          data_offset = re->params[i].data.blob.data_offset;
          data_len = re->params[i].data.blob.data_len;
-         if(data_offset + data_len > report->size){
+         if (data_offset + data_len > report->size)
+         {
             return false;
          }
          switch (param_info)
@@ -262,12 +767,14 @@ bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *si
          default:
             break;
          }
-      } 
+      }
    }
    return true;
 }
 // get some data which have signdata signdrk certdrk and akpub from akcert
-bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub)
+bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
+                       buffer_data *signdrk, buffer_data *certdrk,
+                       buffer_data *akpub)
 {
    if (akcert->buf == NULL)
    {
@@ -279,18 +786,21 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *
    uint32_t data_offset;
    uint32_t data_len;
    uint32_t param_count = ak->param_count;
-   
-   if(param_count <= 0){
+
+   if (param_count <= 0)
+   {
       return false;
    }
    for (int i = 0; i < param_count; i++)
    {
       uint32_t param_info = ak->params[i].tags;
       uint32_t param_type = (ak->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
-      if(param_type==2){
+      if (param_type == 2)
+      {
          data_offset = ak->params[i].data.blob.data_offset;
          data_len = ak->params[i].data.blob.data_len;
-         if(data_offset + data_len > akcert->size){
+         if (data_offset + data_len > akcert->size)
+         {
             return false;
          }
          switch (param_info)
@@ -319,16 +829,16 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *
 
 bool tee_verify_signature(buffer_data *report)
 {
-   //get akcert signak signdata from report
+   // get akcert signak signdata from report
    buffer_data akcert, signak, signdata;
    uint32_t scenario;
-   bool rt = getDataFromReport(report, &akcert, &signak, &signdata,&scenario);
+   bool rt = getDataFromReport(report, &akcert, &signak, &signdata, &scenario);
    if (!rt)
    {
       printf("get Data From Report is failed\n");
       return false;
    }
-   rt = verifysig(&signdata, &signak, &akcert,scenario);
+   rt = verifysig(&signdata, &signak, &akcert, scenario);
    if (!rt)
    {
       printf("verify signature is failed\n");
@@ -390,7 +900,8 @@ bool tee_verify(buffer_data *bufdata, int type, char *filename)
       verified = false;
    }
    else
-      verified = Compare(type, report, baseval); // compare the report with the basevalue
+      verified = Compare(type, report,
+                         baseval); // compare the report with the basevalue
 
    free_report(report);
    free(report);
@@ -398,7 +909,8 @@ bool tee_verify(buffer_data *bufdata, int type, char *filename)
    return verified;
 }
 
-TA_report *Convert(buffer_data *data)
+TA_report *
+Convert(buffer_data *data)
 {
    TA_report *report = NULL;
 
@@ -443,7 +955,7 @@ TA_report *Convert(buffer_data *data)
          uint32_t data_offset = bufreport->params[i].data.blob.data_offset;
          uint32_t data_len = bufreport->params[i].data.blob.data_len;
 
-         if ((data_offset + data_len)> data->size || data_offset == 0)
+         if ((data_offset + data_len) > data->size || data_offset == 0)
          {
             char *error_msg = NULL;
             sprintf(error_msg, "2-%u offset error", param_info);
@@ -465,9 +977,11 @@ TA_report *Convert(buffer_data *data)
             report->signature = (buffer_data *)malloc(sizeof(buffer_data));
             report->signature->buf = (uint8_t *)malloc(sizeof(uint8_t) * data_len);
             report->signature->size = data_len;
-            memcpy(report->signature->buf, data->buf + data_offset, data_len);
-            // uint32_t cert_offset = data_offset + data_len + sizeof(uint32_t);
-            // memcpy(report->cert, data->buf+cert_offset, data_len);
+            memcpy(report->signature->buf, data->buf + data_offset,
+                   data_len);
+            // uint32_t cert_offset = data_offset + data_len +
+            // sizeof(uint32_t); memcpy(report->cert, data->buf+cert_offset,
+            // data_len);
             break;
          case RA_TAG_CERT_AK:
             report->cert = (buffer_data *)malloc(sizeof(buffer_data));
@@ -491,17 +1005,20 @@ TA_report *Convert(buffer_data *data)
 
 //     read_bytes(&(bufuuid.timeLow), sizeof(uint32_t), 1, uuid, &offset);
 //     read_bytes(&(bufuuid.timeMid), sizeof(uint16_t), 1, uuid, &offset);
-//     read_bytes(&(bufuuid.timeHiAndVersion), sizeof(uint16_t), 1, uuid, &offset);
-//     read_bytes(&(bufuuid.clockSeqAndNode), sizeof(uint8_t), NODE_LEN, uuid, &offset);
+//     read_bytes(&(bufuuid.timeHiAndVersion), sizeof(uint16_t), 1, uuid,
+//     &offset); read_bytes(&(bufuuid.clockSeqAndNode), sizeof(uint8_t),
+//     NODE_LEN, uuid, &offset);
 // }
 
-void read_bytes(void *input, size_t size, size_t nmemb, uint8_t *output, size_t *offset)
+void read_bytes(void *input, size_t size, size_t nmemb, uint8_t *output,
+                size_t *offset)
 {
    memcpy(output + *offset, input, size * nmemb);
    *offset += size * nmemb;
 }
 
-base_value *LoadBaseValue(const TA_report *report, char *filename)
+base_value *
+LoadBaseValue(const TA_report *report, char *filename)
 {
    base_value *baseval = NULL;
    size_t fbuf_len = 0; // if needed
@@ -521,8 +1038,9 @@ base_value *LoadBaseValue(const TA_report *report, char *filename)
 
       baseval = (base_value *)calloc(1, sizeof(base_value));
       memcpy(baseval->uuid, baseval_tmp->uuid, UUID_SIZE*sizeof(uint8_t));
-      memcpy(baseval->valueinfo[0], baseval_tmp->valueinfo[0], HASH_SIZE*sizeof(uint8_t));
-      memcpy(baseval->valueinfo[1], baseval_tmp->valueinfo[1], HASH_SIZE*sizeof(uint8_t));
+      memcpy(baseval->valueinfo[0], baseval_tmp->valueinfo[0],
+   HASH_SIZE*sizeof(uint8_t)); memcpy(baseval->valueinfo[1],
+   baseval_tmp->valueinfo[1], HASH_SIZE*sizeof(uint8_t));
 
       baseval_tmp = NULL;
    **/
@@ -573,7 +1091,8 @@ void str_to_uuid(const char *str, uint8_t *uuid)
    char substr4[5];
    char substr5[13];
    // 8-4-4-4-12
-   sscanf(str, "%8[^-]-%4[^-]-%4[^-]-%4[^-]-%12[^-]", substr1, substr2, substr3, substr4, substr5);
+   sscanf(str, "%8[^-]-%4[^-]-%4[^-]-%4[^-]-%12[^-]", substr1, substr2,
+          substr3, substr4, substr5);
    str2hex(substr1, 8, uuid);
    reverse(uuid, 4);
    str2hex(substr2, 4, uuid + 4);
@@ -636,7 +1155,8 @@ void hex2str(const uint8_t *source, int source_len, char *dest)
       HighByte = source[i] >> 4;  // get high 4bit from a byte
       LowByte = source[i] & 0x0f; // get low 4bit
 
-      HighByte += 0x30;     // Get the corresponding char, and skip 7 symbols if it's a letter
+      HighByte += 0x30;     // Get the corresponding char, and skip 7 symbols if
+                            // it's a letter
       if (HighByte <= 0x39) // number
          dest[i * 2] = HighByte;
       else                              // letter
@@ -658,10 +1178,12 @@ void str2hex(const char *source, int source_len, uint8_t *dest)
 
    for (i = 0; i < source_len; i++)
    {
-      HighByte = toupper(source[i * 2]); // If lower case is encountered, uppercase processing is performed
+      HighByte = toupper(source[i * 2]); // If lower case is encountered,
+                                         // uppercase processing is performed
       LowByte = toupper(source[i * 2 + 1]);
 
-      if (HighByte <= 0x39) // 0x39 corresponds to the character '9', where it is a number
+      if (HighByte <= 0x39) // 0x39 corresponds to the character '9', where it
+                            // is a number
          HighByte -= 0x30;
 
       else // Otherwise, it is a letter, and 7 symbols need to be skipped
@@ -693,7 +1215,8 @@ void str2hex(const char *source, int source_len, uint8_t *dest)
    }
 }
 
-char *file_to_buffer(char *file, size_t *file_length)
+char *
+file_to_buffer(char *file, size_t *file_length)
 {
    FILE *f = NULL;
    char *buffer = NULL;
@@ -791,31 +1314,35 @@ void save_basevalue(const base_value *bv)
    fclose(fp_output);
 }
 
-bool tee_verify_nonce(buffer_data *buf_data,buffer_data *nonce)
+bool tee_verify_nonce(buffer_data *buf_data, buffer_data *nonce)
 {
-   if (nonce == NULL || nonce->size > USER_DATA_SIZE) {
-      printf("%s\n","the nonce-value is invalid");
+   if (nonce == NULL || nonce->size > USER_DATA_SIZE)
+   {
+      printf("%s\n", "the nonce-value is invalid");
       return false;
    }
    TA_report *report;
    report = Convert(buf_data);
-   bool vn = cmp_bytes(report->nonce,nonce->buf,nonce->size);
+   bool vn = cmp_bytes(report->nonce, nonce->buf, nonce->size);
    return vn;
 }
-  
 
-int tee_verify_report(buffer_data *buf_data,buffer_data *nonce,int type, char *filename)
+int tee_verify_report(buffer_data *buf_data, buffer_data *nonce, int type,
+                      char *filename)
 {
-   bool vn = tee_verify_nonce(buf_data,nonce);
-   if (vn == false) {
+   bool vn = tee_verify_nonce(buf_data, nonce);
+   if (vn == false)
+   {
       return TVS_VERIFIED_NONCE_FAILED;
    }
    bool vs = tee_verify_signature(buf_data);
-   if (vs == false) {
+   if (vs == false)
+   {
       return TVS_VERIFIED_SIGNATURE_FAILED;
    }
    bool v = tee_verify(buf_data, type, filename);
-   if (v == false) {
+   if (v == false)
+   {
       return TVS_VERIFIED_HASH_FAILED;
    }
    return TVS_ALL_SUCCESSED;

@@ -33,7 +33,6 @@ enum ra_alg_types {
 enum ra_tags {
     RA_TAG_SIGN_TYPE     = RA_INTEGER | 0,
     RA_TAG_HASH_TYPE     = RA_INTEGER | 1,
-    RA_TAG_CURVE_TYPE    = RA_INTEGER | 2,
     RA_TAG_QTA_IMG_HASH  = RA_BYTES   | 0,
     RA_TAG_TA_IMG_HASH   = RA_BYTES   | 1,
     RA_TAG_QTA_MEM_HASH  = RA_BYTES   | 2,
@@ -44,6 +43,9 @@ enum ra_tags {
     RA_TAG_SIGN_AK       = RA_BYTES   | 7,
     RA_TAG_CERT_DRK      = RA_BYTES   | 8,
     RA_TAG_CERT_AK       = RA_BYTES   | 9,
+    RA_TAG_CURVE_TYPE    = RA_BYTES   | 10,
+    RA_TAG_WITH_TCB      = RA_INTEGER | 11,
+    RA_TAG_BASE_NAME     = RA_BYTES   | 12,
 };
 
 struct ra_buffer_data {
@@ -80,7 +82,7 @@ typedef struct
 
 TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *param_set, struct ra_buffer_data *out_data);
 
-TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report, bool with_tcb);
+TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report);
 
 TEEC_Result RemoteAttestSaveAKCert(struct ra_buffer_data *akcert);
 
