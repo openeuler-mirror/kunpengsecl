@@ -224,7 +224,7 @@ void TestNoDAA(buffer_data *report){
     printf("test verify drk cert succeeded\n");
     //verify the akcert
     uint8_t digest[SHA256_DIGEST_LENGTH];
-    SHA256(signdata.buf, signdata.size, digest);
+    _SHA256(signdata.buf, signdata.size, digest);
 
     // step 3 : perform signature verification
     buffer_data mhash = {sizeof(digest), digest};

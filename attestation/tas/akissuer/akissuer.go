@@ -448,23 +448,27 @@ func int2bytes(n int) []byte {
 	return bytesBuffer.Bytes()
 }
 
-func encryptAESGCM(plaintext []byte, key []byte) ([]byte, error) {
+func encryptAESGCM(plaintext []byte, key []byte) ([]byte, []byte, []byte, error) {
 	c, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	gcm, err := cipher.NewGCM(c)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	return gcm.Seal(nonce, nonce, plaintext, nil), nil
+	arr := make([]byte, gcm.Overhead()+len(plaintext))
+
+	cipher := gcm.Seal(arr, nonce, plaintext, nil)
+
+	return cipher[:len(plaintext)], cipher[len(plaintext):], nonce, nil
 }
 
 func cipher1(K []byte, Qs *FP256BN.ECP, drkpubk *rsa.PublicKey) ([]byte, error) {
@@ -487,7 +491,7 @@ func cipher1(K []byte, Qs *FP256BN.ECP, drkpubk *rsa.PublicKey) ([]byte, error) 
 	return c1, nil
 }
 
-func (dcre *daacre) cipher2(K []byte, Qs *FP256BN.ECP) ([]byte, error) {
+func (dcre *daacre) cipher2(K []byte, Qs *FP256BN.ECP) ([]byte, []byte, []byte, error) {
 	// size||AKCert.A||size||AKCert.B||size||AKCert.C||size||AKCert.D||size||u||size||j
 	var buffer bytes.Buffer
 	var Abytes, Bbytes, Cbytes, Dbytes, ubytes, jbytes []byte
@@ -516,11 +520,11 @@ func (dcre *daacre) cipher2(K []byte, Qs *FP256BN.ECP) ([]byte, error) {
 	buffer.Write(jbytes)
 	cleartext2 := buffer.Bytes()
 	// AES-GCM key256bit
-	c2, err := encryptAESGCM(cleartext2, K)
+	c2, tag, iv, err := encryptAESGCM(cleartext2, K)
 	if err != nil {
-		return nil, errors.New("daa cipher2 failed")
+		return nil, nil, nil, errors.New("daa cipher2 failed")
 	}
-	return c2, nil
+	return c2, tag, iv, nil
 }
 
 func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rsa.PublicKey) ([]byte, error) {
@@ -572,13 +576,15 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 		return nil, errors.New("daa cipher1 generation failed")
 	}
 	// choose a K to encrypt cert -> SECRET(certAK||sigma)
-	cip2, err := dcre.cipher2(Kbytes, Qs)
+	cip2, tag, iv, err := dcre.cipher2(Kbytes, Qs)
 	if err != nil {
 		return nil, errors.New("daa cipher2 generation failed")
 	}
 	var buffer bytes.Buffer
 	buffer.Write(int2bytes(len(cip1)))
 	buffer.Write(cip1)
+	buffer.Write(tag)
+	buffer.Write(iv)
 	buffer.Write(int2bytes(len(cip2)))
 	buffer.Write(cip2)
 	cip := buffer.Bytes()
