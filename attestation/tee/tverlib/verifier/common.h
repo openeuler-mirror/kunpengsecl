@@ -50,6 +50,7 @@ enum ra_tags
     /*Integer Type*/
     RA_TAG_SIGN_TYPE = RA_INTEGER | 0,
     RA_TAG_HASH_TYPE = RA_INTEGER | 1,
+    RA_TAG_CURVE_TYPE = RA_INTEGER | 2,
     /*Bytes Type*/
     RA_TAG_QTA_IMG_HASH = RA_BYTES | 0,
     RA_TAG_TA_IMG_HASH = RA_BYTES | 1,

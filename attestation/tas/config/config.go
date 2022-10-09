@@ -24,6 +24,8 @@ const (
 	confTASKeyCertFile = "tasconfig.akskeycertfile"
 	confTASPrivKeyFile = "tasconfig.aksprivkeyfile"
 	confHWITCACertFile = "tasconfig.huaweiitcafile"
+	confDAAGrpPrivKeyX = "tasconfig.DAA_GRP_KEY_SK_X"
+	confDAAGrpPrivKeyY = "tasconfig.DAA_GRP_KEY_SK_Y"
 )
 
 type (
@@ -33,6 +35,8 @@ type (
 		tasKeyCertFile string
 		tasPrivKeyFile string
 		hwItCACertFile string
+		DAAGrpPrivKeyX string
+		DAAGrpPrivKeyY string
 	}
 )
 
@@ -67,6 +71,8 @@ func LoadConfigs() {
 	tasCfg.tasKeyCertFile = viper.GetString(confTASKeyCertFile)
 	tasCfg.tasPrivKeyFile = viper.GetString(confTASPrivKeyFile)
 	tasCfg.hwItCACertFile = viper.GetString(confHWITCACertFile)
+	tasCfg.DAAGrpPrivKeyX = viper.GetString(confDAAGrpPrivKeyX)
+	tasCfg.DAAGrpPrivKeyY = viper.GetString(confDAAGrpPrivKeyY)
 }
 
 func InitializeAS() error {
@@ -148,4 +154,8 @@ func GetASPrivKey() *rsa.PrivateKey {
 
 func GetHWCert() *x509.Certificate {
 	return hwcert
+}
+
+func GetDAAGrpPrivKey() (string, string) {
+	return tasCfg.DAAGrpPrivKeyX, tasCfg.DAAGrpPrivKeyY
 }
