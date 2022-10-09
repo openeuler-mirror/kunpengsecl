@@ -18,13 +18,13 @@ import (
 	"errors"
 	"log"
 	"math/big"
-	"strconv"
+	"miracl/core"
+	"miracl/core/FP256BN"
 	"sync"
 	"time"
 	"unsafe"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/tas/miracl/core"
 )
 
 const (
@@ -367,7 +367,6 @@ func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
 		return nil, errors.New("verify drk signature failed")
 	}
 	log.Print("Server: Verify drk signature ok.")
-	// [AKpri]P1是哈希过的吗？没有。
 	// STEP5: verify ak cert signature
 	rs := C.verifysig(&c_signdata, &c_signdrk, &c_certdrk, 1)
 	if !bool(rs) {
@@ -377,8 +376,9 @@ func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
 
 	//TODO: verify QCA & TCB
 
+	skxstr, skystr := config.GetDAAGrpPrivKey()
 	//TODO: generate cert[A, B, C, D]
-	sig, err := MakeDAACredential(akprip1byte)
+	sig, err := MakeDAACredential(akprip1byte, skxstr, skystr)
 	if err != nil {
 		return nil, errors.New("make daa credential failed")
 	}
@@ -387,43 +387,68 @@ func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
 
 }
 
-//var CURVE_Order = [...]Chunk{0x2D536CD10B500D, 0x65FB1299921AF6, 0x5EEE71A49E0CDC, 0xFFFCF0CD46E5F2, 0xFFFFFFFF}
+func str2chunk(str string) *FP256BN.BIG {
+	s := []byte(str) //len(s) = 64
+	res := FP256BN.NewBIG()
+	for i := 0; i < FP256BN.NLEN; i++ {
+		var tmp []byte
+		h := 0
+		if len(s)-(i+1)*14 < 0 {
+			for j := 0; j < 8; j++ {
+				tmp[j] = s[j]
+				h++
+			}
+			res.w[i] = FP256BN.FromBytes(tmp) //8
+			return res
+		}
+		for j := len(s) - (i+1)*14; h < 14; j++ {
+			tmp[h] = s[j]
+			h++
+		}
+		res.w[i] = FP256BN.FromBytes(tmp) //14
 
-func MakeDAACredential(akprip1 []byte) ([]byte, error) {
+	}
+	return res
+}
+
+//var CURVE_Order = [...]Chunk{0x2D536CD10B500D, 0x65FB1299921AF6, 0x5EEE71A49E0CDC, 0xFFFCF0CD46E5F2, 0xFFFFFFFF}
+//var sk_x = [...]FP256BN.Chunk{0xE97881A776543C, 0x6BE244F6E19274, 0xD2C6DEF16D48A5, 0xAC8832379FF04D, 0x65A9BF91}
+//                                      14              14                 14               14              8
+//var sk_y = [...]FP256BN.Chunk{0xD17E38F1773B56, 0xEC1EF24F81D189, 0x2C51825F980549, 0x8BB0CECA2AE752, 0x126F7425}
+//x = "65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274 E97881A776543C"
+func MakeDAACredential(akprip1 []byte, skxstr string, skystr string) ([]byte, error) {
 	// random r l
-	r := core.Random(core.NewRAND())
-	l := core.Random(core.NewRAND())
-	// check if public key is on the curve
-	if core.ECDH_PUBLIC_KEY_VALIDATE(akprip1) != 0 {
-		return errors.New("DAA key is not on the curve")
-	}
-	P1 := core.ECP_generator()
+	r := FP256BN.Random(core.NewRAND())
+	l := FP256BN.Random(core.NewRAND())
+	// daa private key
+	skx := str2chunk(skxstr)
+	sky := str2chunk(skystr)
+	// TODO: check if public key is on the curve
+
 	// A=[r]P_1
-	A := core.P1.Mul(r)
-	// B=[y]A 要先把y从string转化成big类型 string->int64->chunk[5]->big
-	yint, err := strconv.ParseInt(DAA_GRP_KEY_SK_Y, 10, 64)
-	if err != nil {
-		return errors.New("daa private key string to int failed")
-	}
-	y := core.NewBIGints(yint)
-	B := core.A.Mul(y)
+	P1 := FP256BN.ECP_generator()
+	A := P1.Mul(r)
+	// B=[y]A
+	B := A.Mul(sky)
 	// D=[ry]Q_s
-	n := NewBIGints(CURVE_Order)
-	ry := core.Modmul(r, y, n) //n = bnp256_order
-	D := core.akprip1.Mul(ry)
+	n := FP256BN.NewBIGints(FP256BN.CURVE_Order)
+	ry := FP256BN.Modmul(r, sky, n) //n = bnp256_order
+	var Qs FP256BN.ECP
+	//获取Qs，将akprip1从byte[]转化成FP256BN.ECP
+	D := Qs.Mul(ry)
 	// tmp=A+D
 	A.Add(D)
 	tmp := A
-	// C=[x]tmp 要先把x从string转化成big类型 string->int64->chunk[5]->big
-	C := core.tmp.Mul(x)
+	// C=[x]tmp
+	C := tmp.Mul(skx)
 	// R_B=[l]P1
-	R_B := core.P1.Mul(l)
+	R_B := P1.Mul(l)
 	// R_D=[l]Qs
-	R_D := core.akprip1.Mul(l)
+	R_D := Qs.Mul(l)
 	// u=sha256(P1,Qs,AKCert,R_B,R_D) 拼起来
 	// u := sha256
 	// j=l+yru, sigma=(u,j)
-	yru := core.Modmul(ry, u, n)
+	yru := FP256BN.Modmul(ry, u, n)
 	yru.Add(l)
 	j := yru
 
