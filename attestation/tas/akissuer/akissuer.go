@@ -125,7 +125,7 @@ func GenerateNoDAAAKCert(oldAKCert []byte) ([]byte, error) {
 	up_old_cert := C.CBytes(oldAKCert)
 	defer C.free(up_old_cert)
 	c_cert.buf = (*C.uchar)(up_old_cert)
-	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akpub, nil)
+	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akpub)
 	drkcertbyte := []byte(C.GoBytes(unsafe.Pointer(c_certdrk.buf), C.int(c_certdrk.size)))
 	// STEP2: get data used for re-sign
 	signdrkbyte := []byte(C.GoBytes(unsafe.Pointer(c_signdrk.buf), C.int(c_signdrk.size)))
@@ -367,7 +367,7 @@ func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
 	up_old_cert := C.CBytes(oldAKCert)
 	defer C.free(up_old_cert)
 	c_cert.buf = (*C.uchar)(up_old_cert)
-	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, nil, &c_akprip1)
+	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akprip1)
 	drkcertbyte := []byte(C.GoBytes(unsafe.Pointer(c_certdrk.buf), C.int(c_certdrk.size)))
 	// STEP2: get data used for re-sign 要看后面签名需要用到什么东西，在这里获取
 	akprip1byte := []byte(C.GoBytes(unsafe.Pointer(c_akprip1.buf), C.int(c_akprip1.size)))
@@ -480,7 +480,7 @@ func cipher1(K []byte, Qs *FP256BN.ECP, drkpubk *rsa.PublicKey) ([]byte, error) 
 	buffer.Write(K)
 	cleartext1 := buffer.Bytes()
 	// RSA4096, padding: TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256
-	c1, err := rsa.EncryptPKCS1v15(rand.Reader, drkpubk, cleartext1)
+	c1, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, drkpubk, cleartext1, nil)
 	if err != nil {
 		return nil, errors.New("daa cipher1 failed")
 	}
