@@ -12,8 +12,10 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"log"
@@ -83,6 +85,18 @@ type (
 		tag         string
 		param_count uint32
 		params      []ra_params
+	}
+	daacre struct {
+		akcre struct {
+			A *FP256BN.ECP
+			B *FP256BN.ECP
+			C *FP256BN.ECP
+			D *FP256BN.ECP
+		}
+		sigma struct {
+			u *FP256BN.BIG
+			j *FP256BN.BIG
+		}
 	}
 )
 
@@ -387,71 +401,84 @@ func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
 
 }
 
-func str2chunk(str string) *FP256BN.BIG {
-	s := []byte(str) //len(s) = 64
-	res := FP256BN.NewBIG()
-	for i := 0; i < FP256BN.NLEN; i++ {
-		var tmp []byte
-		h := 0
-		if len(s)-(i+1)*14 < 0 {
-			for j := 0; j < 8; j++ {
-				tmp[j] = s[j]
-				h++
-			}
-			res.w[i] = FP256BN.FromBytes(tmp) //8
-			return res
-		}
-		for j := len(s) - (i+1)*14; h < 14; j++ {
-			tmp[h] = s[j]
-			h++
-		}
-		res.w[i] = FP256BN.FromBytes(tmp) //14
-
+func str2chunk(str string) (*FP256BN.BIG, error) {
+	bytes, err := hex.DecodeString(str)
+	if err != nil {
+		return nil, errors.New("string to hex failed")
 	}
-	return res
+	res := FP256BN.FromBytes(bytes)
+	return res, nil
 }
 
-//var CURVE_Order = [...]Chunk{0x2D536CD10B500D, 0x65FB1299921AF6, 0x5EEE71A49E0CDC, 0xFFFCF0CD46E5F2, 0xFFFFFFFF}
-//var sk_x = [...]FP256BN.Chunk{0xE97881A776543C, 0x6BE244F6E19274, 0xD2C6DEF16D48A5, 0xAC8832379FF04D, 0x65A9BF91}
-//                                      14              14                 14               14              8
-//var sk_y = [...]FP256BN.Chunk{0xD17E38F1773B56, 0xEC1EF24F81D189, 0x2C51825F980549, 0x8BB0CECA2AE752, 0x126F7425}
-//x = "65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274 E97881A776543C"
+func (dcre *daacre) combineu(P1 *FP256BN.ECP, Qs *FP256BN.ECP, R_B *FP256BN.ECP, R_D *FP256BN.ECP) {
+	var buffer bytes.Buffer
+	var P1bytes, Qsbytes, Abytes, Bbytes, Cbytes, Dbytes, RBbytes, RDbytes []byte
+
+	P1.ToBytes(P1bytes, false)
+	Qs.ToBytes(Qsbytes, false)
+	dcre.akcre.A.ToBytes(Abytes, false)
+	dcre.akcre.B.ToBytes(Bbytes, false)
+	dcre.akcre.C.ToBytes(Cbytes, false)
+	dcre.akcre.D.ToBytes(Dbytes, false)
+	R_B.ToBytes(RBbytes, false)
+	R_D.ToBytes(RDbytes, false)
+
+	buffer.Write(P1bytes)
+	buffer.Write(Qsbytes)
+	buffer.Write(Abytes)
+	buffer.Write(Bbytes)
+	buffer.Write(Cbytes)
+	buffer.Write(Dbytes)
+	buffer.Write(RBbytes)
+	buffer.Write(RDbytes)
+	comb := buffer.Bytes()
+
+	hash := sha256.New()
+	hash.Write(comb)
+	u := hash.Sum(nil)
+	dcre.sigma.u = FP256BN.FromBytes(u)
+}
+
 func MakeDAACredential(akprip1 []byte, skxstr string, skystr string) ([]byte, error) {
 	// random r l
 	r := FP256BN.Random(core.NewRAND())
 	l := FP256BN.Random(core.NewRAND())
 	// daa private key
-	skx := str2chunk(skxstr)
-	sky := str2chunk(skystr)
+	skx, err := str2chunk(skxstr)
+	if err != nil {
+		return nil, errors.New("daa private key data conversion failed")
+	}
+	sky, err := str2chunk(skystr)
+	if err != nil {
+		return nil, errors.New("daa private key data conversion failed")
+	}
 	// TODO: check if public key is on the curve
 
+	dcre := new(daacre)
 	// A=[r]P_1
 	P1 := FP256BN.ECP_generator()
-	A := P1.Mul(r)
+	dcre.akcre.A = P1.Mul(r)
 	// B=[y]A
-	B := A.Mul(sky)
+	dcre.akcre.B = dcre.akcre.A.Mul(sky)
 	// D=[ry]Q_s
 	n := FP256BN.NewBIGints(FP256BN.CURVE_Order)
 	ry := FP256BN.Modmul(r, sky, n) //n = bnp256_order
-	var Qs FP256BN.ECP
-	//获取Qs，将akprip1从byte[]转化成FP256BN.ECP
-	D := Qs.Mul(ry)
+	Qs := FP256BN.ECP_fromBytes(akprip1)
+	dcre.akcre.D = Qs.Mul(ry)
 	// tmp=A+D
-	A.Add(D)
-	tmp := A
+	tmp := dcre.akcre.A
+	tmp.Add(dcre.akcre.D)
 	// C=[x]tmp
-	C := tmp.Mul(skx)
+	dcre.akcre.C = tmp.Mul(skx)
 	// R_B=[l]P1
 	R_B := P1.Mul(l)
 	// R_D=[l]Qs
 	R_D := Qs.Mul(l)
-	// u=sha256(P1,Qs,AKCert,R_B,R_D) 拼起来
-	// u := sha256
+	// u=sha256(P1,Qs,AKCert,R_B,R_D)
+	dcre.combineu(P1, Qs, R_B, R_D)
 	// j=l+yru, sigma=(u,j)
-	yru := FP256BN.Modmul(ry, u, n)
-	yru.Add(l)
-	j := yru
-
+	dcre.sigma.j = FP256BN.Modmul(ry, dcre.sigma.u, n)
+	dcre.sigma.j.Plus(l)
 	//TODO: choose a K to encrypt cert -> SECRET(cert)
 
 	//TODO: use DRK to encrypt K -> SECRET(K)
