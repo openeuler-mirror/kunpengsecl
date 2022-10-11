@@ -414,16 +414,15 @@ func str2chunk(str string) (*FP256BN.BIG, error) {
 
 func (dcre *daacre) combineu(P1 *FP256BN.ECP, Qs *FP256BN.ECP, R_B *FP256BN.ECP, R_D *FP256BN.ECP) {
 	var buffer bytes.Buffer
-	var P1bytes, Qsbytes, Abytes, Bbytes, Cbytes, Dbytes, RBbytes, RDbytes []byte
 
-	P1.ToBytes(P1bytes, false)
-	Qs.ToBytes(Qsbytes, false)
-	dcre.akcre.A.ToBytes(Abytes, false)
-	dcre.akcre.B.ToBytes(Bbytes, false)
-	dcre.akcre.C.ToBytes(Cbytes, false)
-	dcre.akcre.D.ToBytes(Dbytes, false)
-	R_B.ToBytes(RBbytes, false)
-	R_D.ToBytes(RDbytes, false)
+	P1bytes := ecp2bytespadding(P1)
+	Qsbytes := ecp2bytespadding(Qs)
+	Abytes := ecp2bytespadding(dcre.akcre.A)
+	Bbytes := ecp2bytespadding(dcre.akcre.B)
+	Cbytes := ecp2bytespadding(dcre.akcre.C)
+	Dbytes := ecp2bytespadding(dcre.akcre.D)
+	RBbytes := ecp2bytespadding(R_B)
+	RDbytes := ecp2bytespadding(R_D)
 
 	buffer.Write(P1bytes)
 	buffer.Write(Qsbytes)
@@ -446,6 +445,50 @@ func int2bytes(n int) []byte {
 	bytesBuffer := bytes.NewBuffer([]byte{})
 	binary.Write(bytesBuffer, binary.LittleEndian, x)
 	return bytesBuffer.Bytes()
+}
+
+func ecp2bytes(E *FP256BN.ECP) []byte {
+	MB := int(FP256BN.MODBYTES)
+	var xbytes, ybytes []byte
+	var b [2*FP256BN.MODBYTES + 2*4]byte
+	x := E.GetX()
+	y := E.GetY()
+	x.ToBytes(xbytes)
+	y.ToBytes(ybytes)
+
+	b[0] = int2bytes(len(xbytes))[0]
+	b[1] = int2bytes(len(xbytes))[1]
+	b[2] = int2bytes(len(xbytes))[2]
+	b[3] = int2bytes(len(xbytes))[3]
+	for i := 0; i < MB; i++ {
+		b[i+4] = xbytes[i]
+	}
+	b[MB+4] = int2bytes(len(ybytes))[0]
+	b[MB+5] = int2bytes(len(ybytes))[1]
+	b[MB+6] = int2bytes(len(ybytes))[2]
+	b[MB+7] = int2bytes(len(ybytes))[3]
+	for i := 0; i < MB; i++ {
+		b[i+MB+8] = ybytes[i]
+	}
+	return b[:]
+}
+
+func ecp2bytespadding(E *FP256BN.ECP) []byte {
+	MB := int(FP256BN.MODBYTES)
+	var xbytes, ybytes []byte
+	var b [2 * FP256BN.MODBYTES]byte
+	x := E.GetX()
+	y := E.GetY()
+	x.ToBytes(xbytes)
+	y.ToBytes(ybytes)
+
+	for i := 0; i < MB; i++ {
+		b[i] = xbytes[i]
+	}
+	for i := 0; i < MB; i++ {
+		b[i+MB] = ybytes[i]
+	}
+	return b[:]
 }
 
 func encryptAESGCM(plaintext []byte, key []byte) ([]byte, []byte, []byte, error) {
@@ -474,9 +517,7 @@ func encryptAESGCM(plaintext []byte, key []byte) ([]byte, []byte, []byte, error)
 func cipher1(K []byte, Qs *FP256BN.ECP, drkpubk *rsa.PublicKey) ([]byte, error) {
 	// size||Qs||size||K
 	var buffer bytes.Buffer
-	var Qsbytes []byte
-
-	Qs.ToBytes(Qsbytes, false)
+	Qsbytes := ecp2bytes(Qs)
 
 	buffer.Write(int2bytes(len(Qsbytes)))
 	buffer.Write(Qsbytes)
@@ -494,15 +535,12 @@ func cipher1(K []byte, Qs *FP256BN.ECP, drkpubk *rsa.PublicKey) ([]byte, error) 
 func (dcre *daacre) cipher2(K []byte, Qs *FP256BN.ECP) ([]byte, []byte, []byte, error) {
 	// size||AKCert.A||size||AKCert.B||size||AKCert.C||size||AKCert.D||size||u||size||j
 	var buffer bytes.Buffer
-	var Abytes, Bbytes, Cbytes, Dbytes, ubytes, jbytes []byte
-	//tagstr := "619cc5aefffe0bfa462af43c1699d050"
-	//tag, err := hex.DecodeString(tagstr)
-	//iv
+	var ubytes, jbytes []byte
 
-	dcre.akcre.A.ToBytes(Abytes, false)
-	dcre.akcre.B.ToBytes(Bbytes, false)
-	dcre.akcre.C.ToBytes(Cbytes, false)
-	dcre.akcre.D.ToBytes(Dbytes, false)
+	Abytes := ecp2bytes(dcre.akcre.A)
+	Bbytes := ecp2bytes(dcre.akcre.B)
+	Cbytes := ecp2bytes(dcre.akcre.C)
+	Dbytes := ecp2bytes(dcre.akcre.D)
 	dcre.sigma.u.ToBytes(ubytes)
 	dcre.sigma.j.ToBytes(jbytes)
 
@@ -564,10 +602,10 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	R_D := Qs.Mul(l)
 	// u=sha256(P1,Qs,AKCert,R_B,R_D)
 	dcre.combineu(P1, Qs, R_B, R_D)
-	// j=l+yru, sigma=(u,j)
+	// j=l+yru (mod n), sigma=(u,j)
 	dcre.sigma.j = FP256BN.Modmul(ry, dcre.sigma.u, n)
 	dcre.sigma.j.Plus(l)
-	// use DRK to encrypt K -> SECRETdrk(Qs||K)
+	// use DRK to encrypt K -> ENCdrk(Qs||K)
 	K := FP256BN.Random(core.NewRAND())
 	var Kbytes []byte
 	K.ToBytes(Kbytes)
@@ -575,7 +613,7 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	if err != nil {
 		return nil, errors.New("daa cipher1 generation failed")
 	}
-	// choose a K to encrypt cert -> SECRET(certAK||sigma)
+	// choose a K to encrypt cert -> ENC(certAK||sigma)
 	cip2, tag, iv, err := dcre.cipher2(Kbytes, Qs)
 	if err != nil {
 		return nil, errors.New("daa cipher2 generation failed")
