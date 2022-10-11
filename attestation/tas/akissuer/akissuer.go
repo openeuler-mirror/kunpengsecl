@@ -442,52 +442,29 @@ func (dcre *daacre) combineu(P1 *FP256BN.ECP, Qs *FP256BN.ECP, R_B *FP256BN.ECP,
 
 func int2bytes(n int) []byte {
 	x := int32(n)
-	bytesBuffer := bytes.NewBuffer([]byte{})
+	bytesBuffer := new(bytes.Buffer)
 	binary.Write(bytesBuffer, binary.LittleEndian, x)
 	return bytesBuffer.Bytes()
 }
 
 func ecp2bytes(E *FP256BN.ECP) []byte {
 	MB := int(FP256BN.MODBYTES)
-	var xbytes, ybytes []byte
 	var b [2*FP256BN.MODBYTES + 2*4]byte
-	x := E.GetX()
-	y := E.GetY()
-	x.ToBytes(xbytes)
-	y.ToBytes(ybytes)
+	xbytes, ybytes := b[4:4+MB], b[8+MB:]
+	E.GetX().ToBytes(xbytes)
+	E.GetY().ToBytes(ybytes)
 
-	b[0] = int2bytes(len(xbytes))[0]
-	b[1] = int2bytes(len(xbytes))[1]
-	b[2] = int2bytes(len(xbytes))[2]
-	b[3] = int2bytes(len(xbytes))[3]
-	for i := 0; i < MB; i++ {
-		b[i+4] = xbytes[i]
-	}
-	b[MB+4] = int2bytes(len(ybytes))[0]
-	b[MB+5] = int2bytes(len(ybytes))[1]
-	b[MB+6] = int2bytes(len(ybytes))[2]
-	b[MB+7] = int2bytes(len(ybytes))[3]
-	for i := 0; i < MB; i++ {
-		b[i+MB+8] = ybytes[i]
-	}
+	copy(b[:], int2bytes(len(xbytes)))
+	copy(b[4+MB:], int2bytes(len(ybytes)))
 	return b[:]
 }
 
 func ecp2bytespadding(E *FP256BN.ECP) []byte {
 	MB := int(FP256BN.MODBYTES)
-	var xbytes, ybytes []byte
-	var b [2 * FP256BN.MODBYTES]byte
-	x := E.GetX()
-	y := E.GetY()
-	x.ToBytes(xbytes)
-	y.ToBytes(ybytes)
-
-	for i := 0; i < MB; i++ {
-		b[i] = xbytes[i]
-	}
-	for i := 0; i < MB; i++ {
-		b[i+MB] = ybytes[i]
-	}
+	var b [2*FP256BN.MODBYTES + 2*4]byte
+	xbytes, ybytes := b[:MB], b[MB:]
+	E.GetX().ToBytes(xbytes)
+	E.GetY().ToBytes(ybytes)
 	return b[:]
 }
 
@@ -535,14 +512,14 @@ func cipher1(K []byte, Qs *FP256BN.ECP, drkpubk *rsa.PublicKey) ([]byte, error) 
 func (dcre *daacre) cipher2(K []byte, Qs *FP256BN.ECP) ([]byte, []byte, []byte, error) {
 	// size||AKCert.A||size||AKCert.B||size||AKCert.C||size||AKCert.D||size||u||size||j
 	var buffer bytes.Buffer
-	var ubytes, jbytes []byte
+	var ubytes, jbytes [FP256BN.MODBYTES]byte
 
 	Abytes := ecp2bytes(dcre.akcre.A)
 	Bbytes := ecp2bytes(dcre.akcre.B)
 	Cbytes := ecp2bytes(dcre.akcre.C)
 	Dbytes := ecp2bytes(dcre.akcre.D)
-	dcre.sigma.u.ToBytes(ubytes)
-	dcre.sigma.j.ToBytes(jbytes)
+	dcre.sigma.u.ToBytes(ubytes[:])
+	dcre.sigma.j.ToBytes(jbytes[:])
 
 	buffer.Write(int2bytes(len(Abytes)))
 	buffer.Write(Abytes)
@@ -553,9 +530,9 @@ func (dcre *daacre) cipher2(K []byte, Qs *FP256BN.ECP) ([]byte, []byte, []byte, 
 	buffer.Write(int2bytes(len(Dbytes)))
 	buffer.Write(Dbytes)
 	buffer.Write(int2bytes(len(ubytes)))
-	buffer.Write(ubytes)
+	buffer.Write(ubytes[:])
 	buffer.Write(int2bytes(len(jbytes)))
-	buffer.Write(jbytes)
+	buffer.Write(jbytes[:])
 	cleartext2 := buffer.Bytes()
 	// AES-GCM key256bit
 	c2, tag, iv, err := encryptAESGCM(cleartext2, K)
@@ -592,7 +569,8 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	Qs := FP256BN.ECP_fromBytes(akprip1)
 	dcre.akcre.D = Qs.Mul(ry)
 	// tmp=A+D
-	tmp := dcre.akcre.A
+	tmp := FP256BN.NewECP()
+	tmp.Copy(dcre.akcre.A)
 	tmp.Add(dcre.akcre.D)
 	// C=[x]tmp
 	dcre.akcre.C = tmp.Mul(skx)
@@ -607,14 +585,14 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	dcre.sigma.j.Plus(l)
 	// use DRK to encrypt K -> ENCdrk(Qs||K)
 	K := FP256BN.Random(core.NewRAND())
-	var Kbytes []byte
-	K.ToBytes(Kbytes)
-	cip1, err := cipher1(Kbytes, Qs, drkpubk)
+	var Kbytes [FP256BN.MODBYTES]byte
+	K.ToBytes(Kbytes[:])
+	cip1, err := cipher1(Kbytes[:], Qs, drkpubk)
 	if err != nil {
 		return nil, errors.New("daa cipher1 generation failed")
 	}
 	// choose a K to encrypt cert -> ENC(certAK||sigma)
-	cip2, tag, iv, err := dcre.cipher2(Kbytes, Qs)
+	cip2, tag, iv, err := dcre.cipher2(Kbytes[:], Qs)
 	if err != nil {
 		return nil, errors.New("daa cipher2 generation failed")
 	}
