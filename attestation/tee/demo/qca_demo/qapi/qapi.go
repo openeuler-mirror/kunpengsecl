@@ -28,6 +28,13 @@ type (
 	}
 )
 
+const (
+	// app scenario
+	RA_SCENARIO_NO_AS = iota
+	RA_SCENARIO_AS_NO_DAA
+	RA_SCENARIO_AS_WITH_DAA
+)
+
 var (
 	count int = 0
 	l     sync.Mutex
@@ -55,9 +62,9 @@ func StartServer() {
 	s := grpc.NewServer()
 	RegisterQcaServer(s, &service{})
 
-	result := hasAKCert(qcatools.Qcacfg.Scenario, qcatools.Qcacfg.AKCertFile)
+	result := hasAKCert(qcatools.Qcacfg.Scenario)
 	if !result {
-		createAKCert()
+		createAKCert(qcatools.Qcacfg.Scenario)
 	}
 
 	if err = s.Serve(listen); err != nil {
@@ -67,44 +74,74 @@ func StartServer() {
 	log.Print("Stop Server......")
 }
 
-func hasAKCert(s int, path string) bool {
+func hasAKCert(s int) bool {
 	switch s {
-	case 0:
+	case RA_SCENARIO_NO_AS:
 		return false
-	case 1:
-		akcert, err := ioutil.ReadFile(path)
+	case RA_SCENARIO_AS_NO_DAA:
+		err := readFile(qcatools.Qcacfg.NoDaaACFile)
 		if err != nil {
-			log.Print("AKCert File does not exist!")
 			return false
 		}
-		if len(akcert) == 0 {
-			log.Print("Empty AKCert file!")
+	case RA_SCENARIO_AS_WITH_DAA:
+		err := readFile(qcatools.Qcacfg.DaaACFile)
+		if err != nil {
 			return false
 		}
 	}
 	return true
 }
 
-func createAKCert() {
-	akcert, err := qcatools.GenerateAKCert()
+func readFile(path string) error {
+	ac, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Print("AKCert File does not exist!")
+		return err
+	}
+	if len(ac) == 0 {
+		log.Print("Empty AKCert file!")
+		return err
+	}
+	return nil
+}
+
+func createAKCert(s int) {
+	ac, err := qcatools.GenerateAKCert()
 	if err != nil {
 		return
 	}
-	newCert, err := aslib.GetAKCert(akcert)
+	newCert, err := aslib.GetAKCert(ac)
 	if err != nil {
 		return
 	}
 	log.Print("Get new cert signed by as succeeded.")
-	f, err := os.Create(qcatools.Qcacfg.AKCertFile)
+	switch s {
+	case RA_SCENARIO_AS_NO_DAA:
+		err := createFile(qcatools.Qcacfg.NoDaaACFile, newCert)
+		if err != nil {
+			return
+		}
+	case RA_SCENARIO_AS_WITH_DAA:
+		err := createFile(qcatools.Qcacfg.DaaACFile, newCert)
+		if err != nil {
+			return
+		}
+	}
+}
+
+func createFile(path string, con []byte) error {
+	f, err := os.Create(path)
 	if err != nil {
 		log.Print("Create AKCert file failed!")
-		return
+		return err
 	}
-	_, err = f.Write(newCert)
+	_, err = f.Write(con)
 	if err != nil {
 		log.Print("Write AKCert to file failed!")
+		return err
 	}
 	f.Close()
+	return nil
 }
 
 func countConnections() {
