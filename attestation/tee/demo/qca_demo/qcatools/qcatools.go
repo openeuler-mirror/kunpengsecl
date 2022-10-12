@@ -48,14 +48,15 @@ import (
 
 const (
 	// config info
-	ConfName   = "config"
-	ConfExt    = "yaml"
-	strPath    = "."
-	Server     = "qcaconfig.server"
-	AKServer   = "qcaconfig.akserver"
-	Scenario   = "qcaconfig.scenario"
-	AKCertFile = "qcaconfig.akcertfile"
-	ClientId   = "qcaconfig.clientid"
+	ConfName    = "config"
+	ConfExt     = "yaml"
+	strPath     = "."
+	Server      = "qcaconfig.server"
+	AKServer    = "qcaconfig.akserver"
+	Scenario    = "qcaconfig.scenario"
+	NoDaaACFile = "qcaconfig.nodaaacfile"
+	DaaACFile   = "qcaconfig.daaacfile"
+	ClientId    = "qcaconfig.clientid"
 	/*** cmd flags ***/
 	// server open ip:port
 	lflagServer = "server"
@@ -65,10 +66,13 @@ const (
 	lflagScenario = "scenario"
 	sflagScenario = "C"
 	helpScenario  = "set the app usage scenario"
+)
+
+const (
 	// app scenario
-	RA_SCENARIO_NO_AS       = 0
-	RA_SCENARIO_AS_NO_DAA   = 1
-	RA_SCENARIO_AS_WITH_DAA = 2
+	RA_SCENARIO_NO_AS = iota
+	RA_SCENARIO_AS_NO_DAA
+	RA_SCENARIO_AS_WITH_DAA
 )
 
 type (
@@ -77,11 +81,12 @@ type (
 		Buf  []uint8
 	}
 	qcaConfig struct {
-		Server     string
-		AKServer   string
-		Scenario   int
-		AKCertFile string
-		ClientId   int64
+		Server      string
+		AKServer    string
+		Scenario    int
+		NoDaaACFile string
+		DaaACFile   string
+		ClientId    int64
 	}
 )
 
@@ -121,7 +126,8 @@ func LoadConfigs() {
 	Qcacfg.Server = viper.GetString(Server)
 	Qcacfg.AKServer = viper.GetString(AKServer)
 	Qcacfg.Scenario = viper.GetInt(Scenario)
-	Qcacfg.AKCertFile = viper.GetString(AKCertFile)
+	Qcacfg.NoDaaACFile = viper.GetString(NoDaaACFile)
+	Qcacfg.DaaACFile = viper.GetString(DaaACFile)
 	Qcacfg.ClientId = viper.GetInt64(ClientId)
 }
 
