@@ -241,7 +241,7 @@ hex2bin_append(const char *hexbuf, size_t *offset, size_t buflen, octet *oct)
    if (oct->len + 32 > oct->max)
       return 0;
 
-   str2hex(hexbuf + *offset, 64, oct->val + oct->len);
+   str2hex(hexbuf + *offset, 32, oct->val + oct->len);
 
    *offset += 64 + 1;
    oct->len += 32;
@@ -257,15 +257,25 @@ get_p2_from_fbuf(char *buf, size_t *offset, size_t buflen)
    uint8_t val[32 * 4 + 1];
    octet oct = {0, sizeof(val), val};
 
-   val[0] = 0x03;
+   val[0] = 0x04;
    oct.len = 1;
-   for (int i = 0; i < 4; i++)
+   int i;
+   for (i = 0; i < 4; i++)
    {
       if (32 != hex2bin_append(buf, offset, buflen, &oct))
          goto err2;
    }
 
-   ECP2_FP256BN_fromOctet(pt, &oct);
+   FP2_FP256BN x, y;
+   BIG_256_56 x0, x1, y0, y1;
+   BIG_256_56_fromBytes(x0, oct.val+1);
+   BIG_256_56_fromBytes(x1, oct.val+1+32);
+   BIG_256_56_fromBytes(y0, oct.val+1+64);
+   BIG_256_56_fromBytes(y1, oct.val+1+96);
+   FP2_FP256BN_from_BIGs(&x, x0, x1);
+   FP2_FP256BN_from_BIGs(&y, y0, y1);
+   ECP2_FP256BN_set(pt, &x, &y);
+   //ECP2_FP256BN_fromOctet(pt, &oct);
 
    return pt;
 
@@ -362,9 +372,9 @@ unmarshal_p1_from_bd(buffer_data *bd, uint32_t *offset)
 
    uint32_t size = 0;
    memcpy((void *)&size, bd->buf + *offset, sizeof(uint32_t));
+   *offset += sizeof(uint32_t);
    if (size != 0x48)
       goto err2;
-   *offset += sizeof(uint32_t);
    BIG_256_56 x, y;
    if (unmarshal_bn_from_bd(x, bd, offset) == 0)
       goto err2;
@@ -516,6 +526,28 @@ err1:
    return rt;
 }
 
+static void hash_update_buf(SHA256_CTX *ctx, char *buf, int size)
+{
+   SHA256_Update(ctx, (char *)&size, sizeof(int));
+   if (size > 0)
+      SHA256_Update(ctx, buf, size);
+}
+
+static void hash_update_p1(SHA256_CTX *ctx, ECP_FP256BN *p1)
+{
+   BIG_256_56 x, y;
+   char v_tmp[SHA256_DIGEST_LENGTH];
+   int p1_size = 2 * (sizeof(v_tmp) + sizeof(int));
+
+   ECP_FP256BN_get(x, y, p1);
+
+   SHA256_Update(ctx, (char *)&p1_size, sizeof(int));
+   BIG_256_56_toBytes(v_tmp, x);
+   hash_update_buf(ctx, v_tmp, sizeof(v_tmp));
+   BIG_256_56_toBytes(v_tmp, y);
+   hash_update_buf(ctx, v_tmp, sizeof(v_tmp));
+}
+
 static bool
 verify_daasig(buffer_data *mhash, daa_signature *sig, daa_ak_cert *cert)
 {
@@ -543,64 +575,59 @@ verify_daasig(buffer_data *mhash, daa_signature *sig, daa_ak_cert *cert)
    ECP_FP256BN_sub(&e, &h2_d);
 
    // calculate c=H(H(m),A,B,C,D,J,K,L,E))
-   char v_tmp[2 * SHA256_DIGEST_LENGTH + 1];
-   octet o_tmp = {0, sizeof(v_tmp), v_tmp};
-
    SHA256_CTX ctx;
    SHA256_Init(&ctx);
    // H(m)
-   SHA256_Update(&ctx, mhash->buf, mhash->size);
+   hash_update_buf(&ctx, mhash->buf, mhash->size);
    // A
-   ECP_FP256BN_toOctet(&o_tmp, cert->a, false);
-   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   hash_update_p1(&ctx, cert->a);
    // B
-   ECP_FP256BN_toOctet(&o_tmp, cert->b, false);
-   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   hash_update_p1(&ctx, cert->b);
    // C
-   ECP_FP256BN_toOctet(&o_tmp, cert->c, false);
-   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   hash_update_p1(&ctx, cert->c);
    // D
-   ECP_FP256BN_toOctet(&o_tmp, cert->d, false);
-   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   hash_update_p1(&ctx, cert->d);
    if (sig->j != NULL)
    {
       // J
-      ECP_FP256BN_toOctet(&o_tmp, sig->j, false);
-      SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+      hash_update_p1(&ctx, sig->j);
       // K
-      ECP_FP256BN_toOctet(&o_tmp, sig->k, false);
-      SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+      hash_update_p1(&ctx, sig->k);
       // L
-      ECP_FP256BN_toOctet(&o_tmp, &l, false);
-      SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+      hash_update_p1(&ctx, &l);
+   } else {
+      hash_update_buf(&ctx, NULL, 0);
+      hash_update_buf(&ctx, NULL, 0);
+      hash_update_buf(&ctx, NULL, 0);
    }
    // E
-   ECP_FP256BN_toOctet(&o_tmp, &e, false);
-   SHA256_Update(&ctx, o_tmp.val + 1, o_tmp.len - 1);
+   hash_update_p1(&ctx, &e);
 
    uint8_t c[SHA256_DIGEST_LENGTH];
    SHA256_Final(c, &ctx);
 
+   octet tmp = {SHA256_DIGEST_LENGTH, SHA256_DIGEST_LENGTH, mhash->buf};
+
    // caclulate h1=H(c); h2=Hn(nm || h1)
-   uint8_t h1[SHA256_DIGEST_LENGTH];
-   _SHA256(c, sizeof(c), h1);
+   // uint8_t h1[SHA256_DIGEST_LENGTH];
+   // _SHA256(c, sizeof(c), h1);
 
    SHA256_Init(&ctx);
+
    uint8_t nm[SHA256_DIGEST_LENGTH];
    BIG_256_56_toBytes(nm, sig->nm);
-   SHA256_Update(&ctx, nm, sizeof(nm));
-   SHA256_Update(&ctx, h1, sizeof(h1));
+   hash_update_buf(&ctx, nm, sizeof(nm));
+   // currently h1=c, so use c directly
+   hash_update_buf(&ctx, c, sizeof(c));
 
    uint8_t h2[SHA256_DIGEST_LENGTH];
    SHA256_Final(h2, &ctx);
 
-   BIG_256_56 b_h2;
+   BIG_256_56 b_h2, n;
    BIG_256_56_fromBytes(b_h2, h2);
-   BIG_256_56 n;
    BIG_256_56_rcopy(n, CURVE_Order_FP256BN);
    BIG_256_56_mod(b_h2, n);
 
-   // ??? may need normalizing first ???
    if (BIG_256_56_comp(b_h2, sig->h2) != 0)
       return false;
 
@@ -1093,14 +1120,14 @@ void str_to_uuid(const char *str, uint8_t *uuid)
    // 8-4-4-4-12
    sscanf(str, "%8[^-]-%4[^-]-%4[^-]-%4[^-]-%12[^-]", substr1, substr2,
           substr3, substr4, substr5);
-   str2hex(substr1, 8, uuid);
+   str2hex(substr1, 4, uuid);
    reverse(uuid, 4);
-   str2hex(substr2, 4, uuid + 4);
+   str2hex(substr2, 2, uuid + 4);
    reverse(uuid + 4, 2);
-   str2hex(substr3, 4, uuid + 4 + 2);
+   str2hex(substr3, 2, uuid + 4 + 2);
    reverse(uuid + 4 + 2, 2);
-   str2hex(substr4, 4, uuid + 4 + 2 + 2);
-   str2hex(substr5, 12, uuid + 4 + 2 + 2 + 2);
+   str2hex(substr4, 2, uuid + 4 + 2 + 2);
+   str2hex(substr5, 6, uuid + 4 + 2 + 2 + 2);
 }
 
 void uuid_to_str(const uint8_t *uuid, char *str)
@@ -1135,7 +1162,7 @@ void uuid_to_str(const uint8_t *uuid, char *str)
 void str_to_hash(const char *str, uint8_t *hash)
 {
    // 64 bit -> 32 bit
-   str2hex(str, HASH_SIZE * 2, hash);
+   str2hex(str, HASH_SIZE, hash);
 }
 
 void hash_to_str(const uint8_t *hash, char *str)
