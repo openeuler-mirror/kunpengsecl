@@ -9,9 +9,10 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 )
 
-func GetAKCert(oldAKCert []byte) ([]byte, error) {
+func GetAKCert(oldAKCert []byte, scenario int32) ([]byte, error) {
 	req := clientapi.GetAKCertRequest{
-		Akcert: oldAKCert,
+		Akcert:   oldAKCert,
+		Scenario: scenario,
 	}
 	rpy, err := clientapi.DoGetAKCert(qcatools.Qcacfg.AKServer, &req)
 	if err != nil {

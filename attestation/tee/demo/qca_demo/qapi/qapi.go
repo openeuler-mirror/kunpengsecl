@@ -30,7 +30,7 @@ type (
 
 const (
 	// app scenario
-	RA_SCENARIO_NO_AS = iota
+	RA_SCENARIO_NO_AS = int32(iota)
 	RA_SCENARIO_AS_NO_DAA
 	RA_SCENARIO_AS_WITH_DAA
 )
@@ -74,16 +74,19 @@ func StartServer() {
 	log.Print("Stop Server......")
 }
 
-func hasAKCert(s int) bool {
+func hasAKCert(s int32) bool {
 	switch s {
 	case RA_SCENARIO_NO_AS:
+		log.Print("Serve in scenario: RA_SCENARIO_NO_AS")
 		return false
 	case RA_SCENARIO_AS_NO_DAA:
+		log.Print("Serve in scenario: RA_SCENARIO_AS_NO_DAA")
 		err := readFile(qcatools.Qcacfg.NoDaaACFile)
 		if err != nil {
 			return false
 		}
 	case RA_SCENARIO_AS_WITH_DAA:
+		log.Print("Serve in scenario: RA_SCENARIO_AS_WITH_DAA")
 		err := readFile(qcatools.Qcacfg.DaaACFile)
 		if err != nil {
 			return false
@@ -105,12 +108,12 @@ func readFile(path string) error {
 	return nil
 }
 
-func createAKCert(s int) {
+func createAKCert(s int32) {
 	ac, err := qcatools.GenerateAKCert()
 	if err != nil {
 		return
 	}
-	newCert, err := aslib.GetAKCert(ac)
+	newCert, err := aslib.GetAKCert(ac, s)
 	if err != nil {
 		return
 	}
