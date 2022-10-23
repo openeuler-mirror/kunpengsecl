@@ -376,8 +376,13 @@ TEE远程证明独立实现的安装部署同<a href="#安装部署">最小实�
 #### <a id="程序启动-1"></a>程序启动
 
 **对于证明密钥服务端AK_Service的启用**
+
+要启用AKS服务，需要先为AKS配置好私钥和证书。
+
 ```bash
 $ cd kunpengsecl/attestation/tas/cmd
+$ openssl genrsa -out aspriv.key 4096
+$ openssl req -new -x509 -days 365 -key aspriv.key -out ascert.crt
 $ go run main.go
 ```
 读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书，配置DAA密钥等。

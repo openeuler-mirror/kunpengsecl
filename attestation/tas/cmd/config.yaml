@@ -2,7 +2,7 @@ tasconfig:
   port: 127.0.0.1:40008
   rest: 127.0.0.1:40009
   akskeycertfile: ./ascert.crt
-  aksprivkeyfile: ""
+  aksprivkeyfile: ./aspriv.key
   huaweiitcafile: ./Huawei IT Product CA.pem
   DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
   DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56

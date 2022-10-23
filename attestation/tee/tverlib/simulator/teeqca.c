@@ -1088,15 +1088,16 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
         return 0xFFFF0006; // bad parameters
     }
 
-    if (param_set->size != sizeof(uint32_t) + 1 * sizeof(struct ra_params) &&
-        param_set->size != sizeof(uint32_t) + 2 * sizeof(struct ra_params))
+    if (param_set->size < sizeof(uint32_t) + 1 * sizeof(struct ra_params) ||
+        param_set->size > sizeof(uint32_t) + 3 * sizeof(struct ra_params))
     {
         printf("bad param_set!\n");
         return 0xFFFF0006; // bad parameters
     }
 
     struct ra_params_set_t *pset = (struct ra_params_set_t *)param_set->buf;
-    if (pset->param_count != 1 || pset->params[0].tags != RA_TAG_HASH_TYPE || pset->params[0].data.integer != RA_ALG_SHA_256)
+    if (pset->param_count < 1 || pset->param_count > 3 || pset->params[0].tags != RA_TAG_HASH_TYPE || pset->params[0].data.integer != RA_ALG_SHA_256
+        || pset->params[1].tags != RA_TAG_CURVE_TYPE || pset->params[1].data.integer != RA_ALG_DAA_GRP_FP256BN)
     {
         printf("bad param_set!\n");
         return 0xFFFF0006; // bad parameters

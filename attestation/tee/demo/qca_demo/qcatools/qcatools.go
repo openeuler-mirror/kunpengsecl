@@ -25,7 +25,7 @@ static uint8_t *fillParamSetInteger(uint8_t *ps, uint32_t idx, uint32_t hvalue, 
 }
 
 static uint8_t *generateParamSetBuffer() {
-	uint8_t *buf = createParamSet(2);
+	uint8_t *buf = createParamSet(3);
 	fillParamSetInteger(buf, 0, RA_ALG_SHA_256, RA_ALG_DAA_GRP_FP256BN);
 	return buf;
 }
@@ -70,7 +70,7 @@ const (
 
 const (
 	// app scenario
-	RA_SCENARIO_NO_AS = iota
+	RA_SCENARIO_NO_AS = int32(iota)
 	RA_SCENARIO_AS_NO_DAA
 	RA_SCENARIO_AS_WITH_DAA
 )
@@ -83,7 +83,7 @@ type (
 	qcaConfig struct {
 		Server      string
 		AKServer    string
-		Scenario    int
+		Scenario    int32
 		NoDaaACFile string
 		DaaACFile   string
 		ClientId    int64
@@ -97,13 +97,13 @@ var (
 		strPath,
 	}
 	ServerFlag   *string = nil
-	ScenarioFlag *int    = nil
+	ScenarioFlag *int32  = nil
 )
 
 func InitFlags() {
 	log.Print("Init qca flags......")
 	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
-	ScenarioFlag = pflag.IntP(lflagScenario, sflagScenario, 0, helpScenario)
+	ScenarioFlag = pflag.Int32P(lflagScenario, sflagScenario, 0, helpScenario)
 	pflag.Parse()
 }
 
@@ -125,7 +125,7 @@ func LoadConfigs() {
 	}
 	Qcacfg.Server = viper.GetString(Server)
 	Qcacfg.AKServer = viper.GetString(AKServer)
-	Qcacfg.Scenario = viper.GetInt(Scenario)
+	Qcacfg.Scenario = viper.GetInt32(Scenario)
 	Qcacfg.NoDaaACFile = viper.GetString(NoDaaACFile)
 	Qcacfg.DaaACFile = viper.GetString(DaaACFile)
 	Qcacfg.ClientId = viper.GetInt64(ClientId)
