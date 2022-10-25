@@ -180,9 +180,17 @@ verifysig_drksignedcert(buffer_data *data, buffer_data *sign,
    return rt;
 }
 
+static void trim_ending_0(buffer_data *buf)
+{
+   for (; buf->size > 0 && buf->buf[buf->size - 1] == 0; buf->size-- );
+}
+
 static bool
 verifysig_x509cert(buffer_data *data, buffer_data *sign, buffer_data *cert)
 {
+   // trim ending 0's in cert buf
+   trim_ending_0(cert);
+
    // get the key for signature verification
    EVP_PKEY *key = getPubKeyFromCert(cert);
    if (key == NULL)

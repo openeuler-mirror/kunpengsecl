@@ -375,6 +375,7 @@ TEE远程证明独立实现的安装部署同<a href="#安装部署">最小实�
 
 #### <a id="程序启动-1"></a>程序启动
 
+**1. No-DAA 场景**
 **对于证明密钥服务端AK_Service的启用**
 
 要启用AKS服务，需要先为AKS配置好私钥和证书。
@@ -390,5 +391,34 @@ $ go run main.go
 **对于QCA和ATTESTER的启用**
 
 同<a href="#程序启动">最小实现</a>。
+
+>注：在有AK_Service环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问AK_Service以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有AK_Service签发的证书保存于本地，若成功读取证书，则无需访问AK_Service，若读取证书失败，则需要访问AK_Service，并将AK_Service返回的证书保存于本地。
+
+**2. DAA 场景**
+**对于证明密钥服务端AK_Service的启用**
+
+要启用AKS服务，需要先为AKS配置好私钥。
+
+```bash
+$ cd kunpengsecl/attestation/tas/cmd
+$ vim config.yaml
+ # 如下DAA_GRP_KEY_SK_X和DAA_GRP_KEY_SK_Y的值仅用于测试，正常使用前请务必更新其内容以保证安全。
+tasconfig:
+  port: 127.0.0.1:40008
+  rest: 127.0.0.1:40009
+  akskeycertfile: ./ascert.crt
+  aksprivkeyfile: ./aspriv.key
+  huaweiitcafile: ./Huawei IT Product CA.pem
+  DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
+  DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56
+$ go run main.go
+```
+读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书，配置DAA密钥等。
+
+**对于QCA和ATTESTER的启用**
+
+同<a href="#程序启动">最小实现</a>。测试模式下可运行如下命令行来执行attester：
+$ cd kunpengsecl/attestation/tee/demo/attester_demo/cmd
+$ go run main.go -T -B ./basevalue2.txt
 
 >注：在有AK_Service环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问AK_Service以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有AK_Service签发的证书保存于本地，若成功读取证书，则无需访问AK_Service，若读取证书失败，则需要访问AK_Service，并将AK_Service返回的证书保存于本地。
