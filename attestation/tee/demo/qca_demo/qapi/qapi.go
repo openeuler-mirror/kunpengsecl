@@ -130,6 +130,9 @@ func createAKCert(s int32) {
 			return
 		}
 	}
+
+	qcatools.SaveAKCert(newCert)
+	log.Print("Save ak cert into tee.")
 }
 
 func createFile(path string, con []byte) error {

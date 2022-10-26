@@ -1140,5 +1140,11 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
 
 TEEC_Result RemoteAttestSaveAKCert(struct ra_buffer_data *akcert)
 {
+    if (akcert->size > 0x1000) {
+        printf("akcert is too large!\n");
+	return 0xFFFF0006; // bad parameters
+    }
+
+    memcpy(&report2[0x318], akcert->buf, akcert->size);
     return 0;
 }

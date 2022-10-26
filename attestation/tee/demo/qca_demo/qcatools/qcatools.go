@@ -285,3 +285,17 @@ func GenerateAKCert() ([]byte, error) {
 	}
 	return nil, errors.New("do not need to access as")
 }
+
+func SaveAKCert(cert []byte) error {
+	cert_buf := C.CBytes(cert)
+	cert_data := C.struct_ra_buffer_data{0, (*C.uchar)(cert_buf)}
+	cert_data.size = C.__uint32_t(len(cert))
+	defer C.free(cert_buf)
+
+	result := C.RemoteAttestSaveAKCert(&cert_data)
+	if result != 0 {
+		log.Print("Save AK Cert failed!")
+		return errors.New("invoke RemoteAttestSaveAkCert failed")
+	}
+	return nil
+}
