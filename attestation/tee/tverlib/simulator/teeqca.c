@@ -1023,30 +1023,49 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_dat
         return 0xFFFF0006; // bad parameters
     }
 
-    if (param_set->size < sizeof(uint32_t) + 3 * sizeof(struct ra_params))
+    if (param_set->size < sizeof(uint32_t) + 2 * sizeof(struct ra_params))
     {
-        printf("bad param_set!\n");
+        printf("bad param_set 1!\n");
         return 0xFFFF0006; // bad parameters
     }
 
     struct ra_params_set_t *pset = (struct ra_params_set_t *)param_set->buf;
-    if (pset->param_count < 2 || pset->params[0].tags != RA_TAG_HASH_TYPE || pset->params[0].data.integer != RA_ALG_SHA_256)
+    if (pset->param_count < 2 || pset->params[0].tags != RA_TAG_HASH_TYPE
+        || pset->params[0].data.integer != RA_ALG_SHA_256
+        || pset->params[1].tags != RA_TAG_WITH_TCB
+        || pset->params[1].data.integer != false)
     {
-        printf("bad param_set!\n");
+        printf("bad param_set 2!\n");
         return 0xFFFF0006; // bad parameters
     }
 
     switch (g_scenario)
     {
     case RA_SCENARIO_NO_AS:
+        if (pset->param_count != 2)
+        {
+            printf("bad param_set 3!\n");
+            return 0xFFFF0006; // bad parameters
+        }
         printf("Get RA_SCENARIO_NO_AS report......\n");
         break;
 
     case RA_SCENARIO_AS_NO_DAA:
+        if (pset->param_count != 2)
+        {
+            printf("bad param_set 4!\n");
+            return 0xFFFF0006; // bad parameters
+        }
         printf("Get RA_SCENARIO_AS_NO_DAA report......\n");
         break;
 
     case RA_SCENARIO_AS_WITH_DAA:
+        if (pset->param_count != 3 || pset->params[2].tags != RA_TAG_BASE_NAME
+            || pset->params[2].data.blob.data_len != 0)
+        {
+            printf("bad param_set 5!\n");
+            return 0xFFFF0006; // bad parameters
+        }
         printf("Get RA_SCENARIO_AS_WITH_DAA report......\n");
         break;
 
@@ -1088,27 +1107,33 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
         return 0xFFFF0006; // bad parameters
     }
 
-    if (param_set->size < sizeof(uint32_t) + 1 * sizeof(struct ra_params) ||
-        param_set->size > sizeof(uint32_t) + 3 * sizeof(struct ra_params))
+    if (param_set->size < sizeof(uint32_t) + 1 * sizeof(struct ra_params)) 
     {
-        printf("bad param_set!\n");
+        printf("bad param_set 1, size = %d!\n", param_set->size);
         return 0xFFFF0006; // bad parameters
     }
 
     struct ra_params_set_t *pset = (struct ra_params_set_t *)param_set->buf;
-    if (pset->param_count < 1 || pset->param_count > 3 || pset->params[0].tags != RA_TAG_HASH_TYPE || pset->params[0].data.integer != RA_ALG_SHA_256
-        || pset->params[1].tags != RA_TAG_CURVE_TYPE || pset->params[1].data.integer != RA_ALG_DAA_GRP_FP256BN)
-    {
-        printf("bad param_set!\n");
-        return 0xFFFF0006; // bad parameters
-    }
+    uint8_t name[] = "daa_grp_fp256bn";
 
     switch (scenario)
     {
     case RA_SCENARIO_NO_AS:
+        if (pset->param_count != 1 || pset->params[0].tags != RA_TAG_HASH_TYPE
+            || pset->params[0].data.integer != RA_ALG_SHA_256)
+        {
+            printf("bad param_set 2!\n");
+            return 0xFFFF0006; // bad parameters
+        }
         out_data->size = 0;
         break;
     case RA_SCENARIO_AS_NO_DAA:
+        if (pset->param_count != 1 || pset->params[0].tags != RA_TAG_HASH_TYPE
+            || pset->params[0].data.integer != RA_ALG_SHA_256)
+        {
+            printf("bad param_set 3!\n");
+            return 0xFFFF0006; // bad parameters
+        }
         if (out_data->buf == NULL)
         {
             printf("insurficient output buffer! suggest 4K at least.\n");
@@ -1119,6 +1144,15 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
         memcpy(out_data->buf, cert1, out_data->size);
         break;
     case RA_SCENARIO_AS_WITH_DAA:
+        if (pset->param_count != 2 || pset->params[0].tags != RA_TAG_HASH_TYPE
+            || pset->params[0].data.integer != RA_ALG_SHA_256
+            || pset->params[1].tags != RA_TAG_CURVE_TYPE
+            || pset->params[1].data.blob.data_len != sizeof(name)
+            || memcmp(name, param_set->buf + pset->params[1].data.blob.data_offset, sizeof(name) != 0))
+        {
+            printf("bad param_set 4!\n");
+            return 0xFFFF0006; // bad parameters
+        }
         if (out_data->buf == NULL)
         {
             printf("insurficient output buffer! suggest 4K at least.\n");

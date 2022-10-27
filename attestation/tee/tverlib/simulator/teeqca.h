@@ -27,7 +27,6 @@ enum ra_alg_types {
     RA_ALG_ED25519      = 0x20006,
     RA_ALG_SM2_DSA_SM3  = 0x20007,
     RA_ALG_SM3          = 0x20008,
-    RA_ALG_DAA_GRP_FP256BN = 0x20009,
 };
 
 enum ra_tags {
