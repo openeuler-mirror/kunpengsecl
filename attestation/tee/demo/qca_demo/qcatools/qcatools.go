@@ -5,9 +5,10 @@ package qcatools
 #cgo CFLAGS: -I../../../tverlib/simulator
 #cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lqca -Wl,-rpath=${SRCDIR}/../../../tverlib/simulator -lteec
 #include "teeqca.h"
+#include <string.h>
 
-static uint8_t *createParamSet(uint32_t count) {
-	uint8_t *buf = malloc(sizeof(uint32_t) + count * sizeof(struct ra_params));
+static uint8_t *createParamSet(uint32_t count, uint32_t data_size) {
+	uint8_t *buf = malloc(sizeof(uint32_t) + count * sizeof(struct ra_params) + data_size);
 	if (buf == NULL)
 		return NULL;
 	struct ra_params_set_t *pset = (struct ra_params_set_t *)buf;
@@ -15,24 +16,62 @@ static uint8_t *createParamSet(uint32_t count) {
     return buf;
 }
 
-static uint8_t *fillParamSetInteger(uint8_t *ps, uint32_t idx, uint32_t hvalue, uint32_t cvalue) {
-	struct ra_params_set_t *pset = (struct ra_params_set_t *)ps;
-	pset->params[idx].tags = RA_TAG_HASH_TYPE;
-	pset->params[idx].data.integer = hvalue;
-	pset->params[idx + 1].tags = RA_TAG_CURVE_TYPE;
-	pset->params[idx + 1].data.integer = cvalue;
-	return ps;
+static uint8_t *generateParamSetBufferProvisionNoAS() {
+	uint8_t *buf = createParamSet(1, 0);
+	struct ra_params_set_t *pset = (struct ra_params_set_t *)buf;
+	pset->params[0].tags = RA_TAG_HASH_TYPE;
+	pset->params[0].data.integer = RA_ALG_SHA_256;
+	return buf;
 }
 
-static uint8_t *generateParamSetBuffer() {
-	uint8_t *buf = createParamSet(3);
-	fillParamSetInteger(buf, 0, RA_ALG_SHA_256, RA_ALG_DAA_GRP_FP256BN);
+static uint8_t *generateParamSetBufferProvisionNoDAA() {
+	return generateParamSetBufferProvisionNoAS();
+}
+
+static uint8_t *generateParamSetBufferProvisionDAA() {
+	uint8_t name[] = "daa_grp_fp256bn";
+	uint8_t *buf = createParamSet(2, sizeof(name));
+	struct ra_params_set_t *pset = (struct ra_params_set_t *)buf;
+	pset->params[0].tags = RA_TAG_HASH_TYPE;
+	pset->params[0].data.integer = RA_ALG_SHA_256;
+	pset->params[1].tags = RA_TAG_CURVE_TYPE;
+	pset->params[1].data.blob.data_len = sizeof(name);
+	pset->params[1].data.blob.data_offset =
+		sizeof(uint32_t) + pset->param_count * sizeof(struct ra_params);
+	memcpy(buf+pset->params[1].data.blob.data_offset, name, sizeof(name));
+	return buf;
+}
+
+static uint8_t *generateParamSetBufferGetReport(uint32_t scenario) {
+	uint8_t *buf = NULL;
+	if (scenario == RA_SCENARIO_AS_WITH_DAA)
+		buf = createParamSet(3, 0);
+	else
+		buf = createParamSet(2, 0);
+
+	struct ra_params_set_t *pset = (struct ra_params_set_t *)buf;
+	pset->params[0].tags = RA_TAG_HASH_TYPE;
+	pset->params[0].data.integer = RA_ALG_SHA_256;
+	pset->params[1].tags = RA_TAG_WITH_TCB;
+	pset->params[1].data.integer = false;
+	if (scenario == RA_SCENARIO_AS_WITH_DAA) {
+		pset->params[2].tags = RA_TAG_BASE_NAME;
+		pset->params[2].data.blob.data_len = 0; // only support basename = NULL now
+		pset->params[2].data.blob.data_offset =
+			sizeof(uint32_t) + pset->param_count * sizeof(struct ra_params);
+	}
 	return buf;
 }
 
 static uint32_t getParamSetBufferSize(uint8_t *buf) {
 	struct ra_params_set_t *pset = (struct ra_params_set_t *)buf;
-	return sizeof(uint32_t) + pset->param_count * sizeof(struct ra_params);
+	uint32_t size = sizeof(uint32_t) + pset->param_count * sizeof(struct ra_params);
+	for (int i = 0; i < pset->param_count; i++) {
+		if ((pset->params[i].tags & RA_BYTES) != 0) {
+			size += pset->params[i].data.blob.data_len;
+		}
+	}
+	return size;
 }
 */
 import "C"
@@ -173,7 +212,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	c_usr_data.buf = (*C.uchar)(up_usr_data_buf)
 	defer C.free(up_usr_data_buf)
 	// paramset conversion
-	c_param_set.buf = C.generateParamSetBuffer()
+	c_param_set.buf = C.generateParamSetBufferGetReport(C.__uint32_t(Qcacfg.Scenario))
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
 	defer C.free(unsafe.Pointer(c_param_set.buf))
 	// report conversion
@@ -206,7 +245,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 func provisionNoAS() int {
 	c_param_set := C.struct_ra_buffer_data{}
 	c_out := C.struct_ra_buffer_data{}
-	c_param_set.buf = C.generateParamSetBuffer()
+	c_param_set.buf = C.generateParamSetBufferProvisionNoAS()
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
 	c_out.size = 0x2000
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
@@ -222,7 +261,7 @@ func provisionNoAS() int {
 func provisionNoDAA() ([]byte, error) {
 	c_param_set := C.struct_ra_buffer_data{}
 	c_out := C.struct_ra_buffer_data{}
-	c_param_set.buf = C.generateParamSetBuffer()
+	c_param_set.buf = C.generateParamSetBufferProvisionNoDAA()
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
 	c_out.size = 0x2000
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
@@ -241,7 +280,7 @@ func provisionNoDAA() ([]byte, error) {
 func provisionDAA() ([]byte, error) {
 	c_param_set := C.struct_ra_buffer_data{}
 	c_out := C.struct_ra_buffer_data{}
-	c_param_set.buf = C.generateParamSetBuffer()
+	c_param_set.buf = C.generateParamSetBufferProvisionDAA()
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
 	c_out.size = 0x2000
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
