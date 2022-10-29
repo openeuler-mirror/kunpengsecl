@@ -31,3 +31,10 @@ CREATE TABLE base (
     bios TEXT,
     ima TEXT
 );
+
+CREATE TABLE keyinfo (
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    taid CHAR(16),
+    keyid CHAR(36),
+    ciphertext TEXT
+);

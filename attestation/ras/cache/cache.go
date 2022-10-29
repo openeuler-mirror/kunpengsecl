@@ -54,6 +54,9 @@ type (
 		// for remote attestation
 		nonce  uint64
 		ikCert *x509.Certificate
+		// for key caching management service
+		teeCert    *x509.Certificate //TEE设备公钥证书
+		signedCert *x509.Certificate //签了名的随机生成的公钥
 		// for verify process
 		Bases []*typdefs.BaseRow
 	}

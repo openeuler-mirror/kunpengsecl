@@ -146,6 +146,15 @@ type (
 		Verified   bool
 		Trusted    bool
 	}
+
+	// KeyinfoRow stores one record of the key information in database
+	// table `keyinfo`.
+	KeyinfoRow struct {
+		ID         int64
+		TaID       string
+		KeyID      string
+		Ciphertext string
+	}
 )
 
 type (
