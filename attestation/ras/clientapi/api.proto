@@ -101,23 +101,28 @@ message InitializeKTAReply {
 message GenerateNewKeyRequest {
   bytes taId = 1;
   string account = 2;
-  string passwd = 3;
+  string password = 3;
 }
 
 message GenerateNewKeyReply {
-  bytes keyId = 1;
-  string ciphertext = 2;
+  bool result = 1;
+  bytes keyId = 2;
+  bytes keyText = 3;
+  bytes encBlob = 4;
 }
 
 message GetCurrentKeyRequest {
   bytes taId = 1;
   string account = 2;
-  string passwd = 3;
+  string password = 3;
   bytes keyId = 4;
 }
 
 message GetCurrentKeyReply {
-  string plaintext = 1;
+  bool result = 1;
+  bytes keyId = 2;
+  bytes keyText = 3;
+  bytes encBlob = 4;
 }
 
 message DeleteCurrentKeyRequest {
