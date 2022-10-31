@@ -9,6 +9,10 @@ service Ras {
   rpc UnregisterClient (UnregisterClientRequest) returns (UnregisterClientReply) {}
   rpc SendHeartbeat (SendHeartbeatRequest) returns (SendHeartbeatReply) {}
   rpc SendReport (SendReportRequest) returns (SendReportReply) {}
+  rpc InitializeKTA (InitializeKTARequest) returns (InitializeKTAReply) {}
+  rpc GenerateNewKey (GenerateNewKeyRequest) returns (GenerateNewKeyReply) {}
+  rpc GetCurrentKey (GetCurrentKeyRequest) returns (GetCurrentKeyReply) {}
+  rpc DeleteCurrentKey (DeleteCurrentKeyRequest) returns (DeleteCurrentKeyReply) {}
 }
 
 message GenerateEKCertRequest {
@@ -85,3 +89,42 @@ message SendReportReply {
   bool result = 1;
 }
 
+message InitializeKTARequest {
+  bytes teeCert = 1;
+	bytes signedCert = 2;
+}
+
+message InitializeKTAReply {
+  bool result = 1;
+}
+
+message GenerateNewKeyRequest {
+  bytes taId = 1;
+  string account = 2;
+  string passwd = 3;
+}
+
+message GenerateNewKeyReply {
+  bytes keyId = 1;
+  string ciphertext = 2;
+}
+
+message GetCurrentKeyRequest {
+  bytes taId = 1;
+  string account = 2;
+  string passwd = 3;
+  bytes keyId = 4;
+}
+
+message GetCurrentKeyReply {
+  string plaintext = 1;
+}
+
+message DeleteCurrentKeyRequest {
+  bytes taId = 1;
+  bytes keyId = 2;
+}
+
+message DeleteCurrentKeyReply {
+  bool result = 1;
+}
