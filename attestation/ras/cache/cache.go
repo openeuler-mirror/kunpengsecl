@@ -73,6 +73,8 @@ func NewCache() *Cache {
 		trustExpiration: time.Now(),
 		nonce:           0,
 		ikCert:          nil,
+		teeCert:         nil,
+		signedCert:      nil,
 		Bases:           make([]*typdefs.BaseRow, 0, defaultBaseRows),
 	}
 	return c
@@ -196,4 +198,26 @@ func (c *Cache) SetIsAutoUpdate(v bool) {
 
 func (c *Cache) GetTrustExpiration() time.Time {
 	return c.trustExpiration
+}
+
+// GetTeeCert returns the TEE device publickey certificate
+// for key caching management service.
+func (c *Cache) GetTeeCert() *x509.Certificate {
+	return c.teeCert
+}
+
+// SetTeeCert saves the TEE device publickey certificate in cache
+// to enhance performance.
+func (c *Cache) SetTeeCert(pemCert string) {
+	c.teeCert, _, _ = cryptotools.DecodeKeyCertFromPEM([]byte(pemCert))
+}
+
+// GetIKeyCert returns the signed publickey for key caching management service.
+func (c *Cache) GetSignedCert() *x509.Certificate {
+	return c.signedCert
+}
+
+// SetIKeyCert saves the signed publickey in cache to enhance performance.
+func (c *Cache) SetSignedCert(pemCert string) {
+	c.signedCert, _, _ = cryptotools.DecodeKeyCertFromPEM([]byte(pemCert))
 }
