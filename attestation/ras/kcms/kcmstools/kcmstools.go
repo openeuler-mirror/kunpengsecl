@@ -15,9 +15,11 @@ func GenerateNewKey(taid string, account string, password string) (string, []byt
 	// TODO: get the trusted status of TA (from cache)(trustmgr.GetCache)
 
 	// TODO: ask KMS to generate a new key for the specific TA,
-	// getting (keyid, plaintext, ciphertext)
+	// getting (hostkeyid, plaintext, ciphertext)
 
-	// TODO: save information(taid, keyid, ciphertext) of the
+	// TODO: generate a random keyid
+
+	// TODO: save information(taid, keyid, hostkeyid, ciphertext) of the
 	// new key to database
 
 	// TODO: generate a session key K (symmetric, and can only
@@ -34,7 +36,7 @@ func GenerateNewKey(taid string, account string, password string) (string, []byt
 func GetKey(taid string, account string, passwd string, keyid string) ([]byte, []byte, error) {
 	// TODO: get the trusted status of TA (from cache)
 
-	// TODO: find ciphertext of the specific key
+	// TODO: find (ciphertext, hostkeyid) of the specific key
 	// in database by (taid, keyid)
 
 	// TODO: ask KMS to decrypt ciphertext, getting plaintext
