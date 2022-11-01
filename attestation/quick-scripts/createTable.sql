@@ -34,7 +34,7 @@ CREATE TABLE base (
 
 CREATE TABLE keyinfo (
     id BIGSERIAL PRIMARY KEY NOT NULL,
-    taid CHAR(16),
+    taid CHAR(36),
     keyid CHAR(36),
     ciphertext TEXT
 );
