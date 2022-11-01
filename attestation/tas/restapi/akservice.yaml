@@ -27,3 +27,15 @@ paths:
       security:
         - servermgt_oauth2:
           - write:servers
+components:
+  securitySchemes:
+    servermgt_oauth2:
+      description: oauth2 authentication to remote attestation server
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: http://localhost:5096/authorization
+          tokenUrl: http://localhost:5096/token
+          scopes:
+            write:servers: modify target server configurations
+            read:servers: read server informations
