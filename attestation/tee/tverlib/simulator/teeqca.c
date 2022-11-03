@@ -1010,7 +1010,7 @@ struct ra_buffer_data report_array[] = {
 
 static int g_scenario = RA_SCENARIO_NO_AS; // default noas mode
 
-TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report)
+TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report, bool with_tcb)
 {
     if (usr_data == NULL || param_set == NULL || report == NULL)
     {
@@ -1024,17 +1024,18 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_dat
         return 0xFFFF0006; // bad parameters
     }
 
-    if (param_set->size < sizeof(uint32_t) + 2 * sizeof(struct ra_params))
+    if (param_set->size < sizeof(uint32_t) + 1 * sizeof(struct ra_params))
     {
         printf("bad param_set 1!\n");
         return 0xFFFF0006; // bad parameters
     }
 
     struct ra_params_set_t *pset = (struct ra_params_set_t *)param_set->buf;
-    if (pset->param_count < 2 || pset->params[0].tags != RA_TAG_HASH_TYPE
+    if (pset->param_count < 1 || pset->params[0].tags != RA_TAG_HASH_TYPE
         || pset->params[0].data.integer != RA_ALG_SHA_256
-        || pset->params[1].tags != RA_TAG_WITH_TCB
-        || pset->params[1].data.integer != false)
+        //|| pset->params[1].tags != RA_TAG_WITH_TCB
+        //|| pset->params[1].data.integer != false
+	|| with_tcb)
     {
         printf("bad param_set 2!\n");
         return 0xFFFF0006; // bad parameters
@@ -1043,7 +1044,7 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_dat
     switch (g_scenario)
     {
     case RA_SCENARIO_NO_AS:
-        if (pset->param_count != 2)
+        if (pset->param_count != 1)
         {
             printf("bad param_set 3!\n");
             return 0xFFFF0006; // bad parameters
@@ -1052,7 +1053,7 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_dat
         break;
 
     case RA_SCENARIO_AS_NO_DAA:
-        if (pset->param_count != 2)
+        if (pset->param_count != 1)
         {
             printf("bad param_set 4!\n");
             return 0xFFFF0006; // bad parameters
@@ -1097,7 +1098,7 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
         return 0xFFFF0006; // bad parameters
     }
 
-    if (scenario > 2)
+    if (scenario > 1)
     {
         printf("Unsupported scenario %d!\n", scenario);
         return 0xFFFF0006; // bad parameters

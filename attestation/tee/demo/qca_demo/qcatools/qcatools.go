@@ -47,14 +47,14 @@ static uint8_t *generateParamSetBufferGetReport(uint32_t scenario, bool with_tcb
 	if (scenario == RA_SCENARIO_AS_WITH_DAA)
 		buf = createParamSet(3, 0);
 	else
-		buf = createParamSet(2, 0);
+		buf = createParamSet(1, 0);
 
 	struct ra_params_set_t *pset = (struct ra_params_set_t *)buf;
 	pset->params[0].tags = RA_TAG_HASH_TYPE;
 	pset->params[0].data.integer = RA_ALG_SHA_256;
-	pset->params[1].tags = RA_TAG_WITH_TCB;
-	pset->params[1].data.integer = with_tcb;
 	if (scenario == RA_SCENARIO_AS_WITH_DAA) {
+		pset->params[1].tags = RA_TAG_WITH_TCB;
+		pset->params[1].data.integer = with_tcb;
 		pset->params[2].tags = RA_TAG_BASE_NAME;
 		pset->params[2].data.blob.data_len = 0; // only support basename = NULL now
 		pset->params[2].data.blob.data_offset =
@@ -219,9 +219,9 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	c_report.buf = (*C.uchar)(up_report_buf)
 	defer C.free(up_report_buf)
 	// tcb conversion
-	// c_with_tcb = C.bool(with_tcb)
+	c_with_tcb := C.bool(with_tcb)
 	// result of function call
-	teec_result := C.RemoteAttestReport(*(*C.TEEC_UUID)(c_ta_uuid), &c_usr_data, &c_param_set, &c_report) // can not put Go pointer as parameter in C function!!!
+	teec_result := C.RemoteAttestReport(*(*C.TEEC_UUID)(c_ta_uuid), &c_usr_data, &c_param_set, &c_report, c_with_tcb) // can not put Go pointer as parameter in C function!!!
 	if int(teec_result) != 0 {
 		log.Print("Get TA report failed!")
 		return nil

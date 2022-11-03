@@ -81,7 +81,7 @@ typedef struct
 
 TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *param_set, struct ra_buffer_data *out_data);
 
-TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report);
+TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report, bool with_tcb);
 
 TEEC_Result RemoteAttestSaveAKCert(struct ra_buffer_data *akcert);
 

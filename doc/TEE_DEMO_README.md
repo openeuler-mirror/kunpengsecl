@@ -82,7 +82,8 @@ scenario=RA_SCENARIO_AS_WITH_DAA有出参，出参结果为CertAK：ts||TAG||([A
 TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid,
                                struct ra_buffer_data *usr_data,
                                struct ra_buffer_data *param_set,
-                               struct ra_buffer_data *report);
+                               struct ra_buffer_data *report,
+                               bool with_tcb);
 ```
 接口描述：获取证明报告  
 参数1【传入】：待证明的TA uuid。  
@@ -96,6 +97,7 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid,
 原report的明文数据 || DAA签名 || AK证书  
 DAA签名：size || J || size || K || size || h2 || size || s || size || nm  
 AK证书：size || AKCert.A || size || AKCert.B || size || AKCert.C || size || AKCert.D  
+参数5【传入】：是否关联软件可信基度量值，目前只能是false。  
 ***
 ```c
 TEEC_Result RemoteAttestSaveAKCert(struct ra_buffer_data *akcert);
