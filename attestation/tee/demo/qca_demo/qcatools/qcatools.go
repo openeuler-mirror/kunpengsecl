@@ -42,7 +42,7 @@ static uint8_t *generateParamSetBufferProvisionDAA() {
 	return buf;
 }
 
-static uint8_t *generateParamSetBufferGetReport(uint32_t scenario) {
+static uint8_t *generateParamSetBufferGetReport(uint32_t scenario, bool with_tcb) {
 	uint8_t *buf = NULL;
 	if (scenario == RA_SCENARIO_AS_WITH_DAA)
 		buf = createParamSet(3, 0);
@@ -53,7 +53,7 @@ static uint8_t *generateParamSetBufferGetReport(uint32_t scenario) {
 	pset->params[0].tags = RA_TAG_HASH_TYPE;
 	pset->params[0].data.integer = RA_ALG_SHA_256;
 	pset->params[1].tags = RA_TAG_WITH_TCB;
-	pset->params[1].data.integer = false;
+	pset->params[1].data.integer = with_tcb;
 	if (scenario == RA_SCENARIO_AS_WITH_DAA) {
 		pset->params[2].tags = RA_TAG_BASE_NAME;
 		pset->params[2].data.blob.data_len = 0; // only support basename = NULL now
@@ -198,8 +198,6 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	c_usr_data := C.struct_ra_buffer_data{}
 	c_param_set := C.struct_ra_buffer_data{}
 	c_report := C.struct_ra_buffer_data{}
-	c_with_tcb := C.bool(false)
-	_ = c_with_tcb
 
 	/*** format conversion: Go -> C ***/
 	// uuid conversion
@@ -212,7 +210,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	c_usr_data.buf = (*C.uchar)(up_usr_data_buf)
 	defer C.free(up_usr_data_buf)
 	// paramset conversion
-	c_param_set.buf = C.generateParamSetBufferGetReport(C.__uint32_t(Qcacfg.Scenario))
+	c_param_set.buf = C.generateParamSetBufferGetReport(C.__uint32_t(Qcacfg.Scenario), C.bool(with_tcb))
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
 	defer C.free(unsafe.Pointer(c_param_set.buf))
 	// report conversion
@@ -234,10 +232,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	// format conversion: C -> Go
 	Report := []uint8(C.GoBytes(unsafe.Pointer(c_report.buf), C.int(c_report.size)))
 
-	// log.Print("Get TA report success:\n")
-	// for i := 0; i < int(report.Size); i++ {
-	// 	fmt.Printf("index%d is 0x%x; ", i, report.Buf[i])
-	// }
+	//ioutil.WriteFile("report.orig", Report, 0644)
 
 	return Report
 }
@@ -312,6 +307,7 @@ func GenerateAKCert() ([]byte, error) {
 			return nil, err
 		}
 		log.Print("NoDAA scenario: Generate RSA AK and AK Cert succeeded!")
+		//ioutil.WriteFile("akcert-nodaa.orig", akcert, 0644)
 		return akcert, nil
 	case RA_SCENARIO_AS_WITH_DAA:
 		akcert, err := provisionDAA()
@@ -320,6 +316,7 @@ func GenerateAKCert() ([]byte, error) {
 			return nil, err
 		}
 		log.Print("DAA scenario: Generate AK and AK Cert succeeded!")
+		//ioutil.WriteFile("akcert-daa.orig", akcert, 0644)
 		return akcert, nil
 	}
 	return nil, errors.New("do not need to access as")

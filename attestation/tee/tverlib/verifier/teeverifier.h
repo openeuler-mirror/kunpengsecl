@@ -23,7 +23,7 @@ enum error_status_code {
 };
 
 int tee_verify_report(buffer_data *data_buf,buffer_data *nonce,int type, char *filename);
-bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
-bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert, uint32_t scenario);
+bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval);
+bool tee_get_akcert_data(buffer_data *akcert, buffer_data *akpub, buffer_data *drkcrt);
 
 #endif

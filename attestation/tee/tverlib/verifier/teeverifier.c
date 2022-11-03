@@ -10,44 +10,8 @@
       SHA256_Final(md, &ctx);    \
    }
 
-static void error(const char *msg);
-static void file_error(const char *s);
-static TA_report *Convert(buffer_data *buf_data);
-// static void parse_uuid(uint8_t *uuid, TEE_UUID buf_uuid);
-static void read_bytes(void *input, size_t size, size_t nmemb,
-                       uint8_t *output, size_t *offset);
-static base_value *LoadBaseValue(const TA_report *report, char *filename);
-static void str_to_uuid(const char *str, uint8_t *uuid);
-static void uuid_to_str(const uint8_t *uuid, char *str);
-static void str_to_hash(const char *str, uint8_t *hash);
-static void hash_to_str(const uint8_t *hash, char *str);
-static void hex2str(const uint8_t *source, int source_len, char *dest);
-static void str2hex(const char *source, int source_len, uint8_t *dest);
-static char *file_to_buffer(char *file, size_t *file_length);
-static bool Compare(int type, TA_report *report, base_value *basevalue);
-static bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size);
-static void free_report(TA_report *report);
-static void test_print(uint8_t *printed, int printed_size,
-                       char *printed_name);
-static void save_basevalue(const base_value *bv);
+//static void free_report(TA_report *report);
 
-// signature part
-bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert,
-               uint32_t scenario);
-static bool translateBuf(buffer_data report, TA_report *tareport);
-static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
-static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
-static bool verifySigByKey(buffer_data *mhash, buffer_data *sign,
-                           EVP_PKEY *key);
-static EVP_PKEY *getPubKeyFromCert(buffer_data *cert);
-static void dumpDrkCert(buffer_data *certdrk);
-static void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk);
-static bool getDataFromReport(buffer_data *report, buffer_data *akcert,
-                              buffer_data *signak, buffer_data *signdata,
-                              uint32_t *scenario);
-bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
-                       buffer_data *signdrk, buffer_data *certdrk,
-                       buffer_data *akpub);
 
 EVP_PKEY *
 buildPubKeyFromModulus(buffer_data *pub)
@@ -1381,4 +1345,156 @@ int tee_verify_report(buffer_data *buf_data, buffer_data *nonce, int type,
       return TVS_VERIFIED_HASH_FAILED;
    }
    return TVS_ALL_SUCCESSED;
+}
+
+static base_value *LoadQTABaseValue(const char *refval)
+{
+   base_value *baseval = (base_value *)calloc(1, sizeof(base_value));
+   if (baseval == NULL)
+      return NULL;
+
+   char image_hash_str[65];
+   char hash_str[65];
+   if (EOF == sscanf(refval,"%64s %64s", image_hash_str, hash_str))
+   {
+       free(baseval);
+       return NULL;
+   }
+   str_to_hash(image_hash_str, baseval->valueinfo[0]);
+   str_to_hash(hash_str, baseval->valueinfo[1]);
+   return baseval;
+}
+
+static base_value *get_qta(buffer_data *akcert)
+{
+   if (akcert->buf == NULL)
+   {
+      printf("akcert is null");
+      return NULL;
+   }
+
+   struct ak_cert *ak = (struct ak_cert *)akcert->buf;
+   uint32_t data_offset;
+   uint32_t data_len;
+   uint32_t param_count = ak->param_count;
+
+   if (param_count <= 0)
+   {
+      return NULL;
+   }
+   base_value *qta = (base_value *)calloc(1, sizeof(base_value));
+   if (qta == NULL)
+      return NULL;
+
+   for (int i = 0; i < param_count; i++)
+   {
+      uint32_t param_info = ak->params[i].tags;
+      uint32_t param_type = (ak->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
+      if (param_type != 2)
+          continue;
+
+      data_offset = ak->params[i].data.blob.data_offset;
+      data_len = ak->params[i].data.blob.data_len;
+      if (data_offset + data_len > akcert->size)
+         goto err;
+      switch (param_info)
+      {
+      case RA_TAG_QTA_IMG_HASH:
+         memcpy(qta->valueinfo[0], akcert->buf + data_offset, data_len);
+         break;
+      case RA_TAG_QTA_MEM_HASH:
+         memcpy(qta->valueinfo[1], akcert->buf + data_offset, data_len);
+         break;
+      default:
+         break;
+      }
+   }
+
+   return qta;
+err:
+   free(qta);
+   return NULL;
+}
+
+static bool CompareBV(int type, base_value *value, base_value *basevalue)
+{
+   bool compared;
+   switch (type)
+   {
+   case 1:
+      printf("%s\n", "Compare image measurement..");
+      compared = cmp_bytes(value->valueinfo[0], basevalue->valueinfo[0], HASH_SIZE);
+      break;
+   case 2:
+      printf("%s\n", "Compare hash measurement..");
+      compared = cmp_bytes(value->valueinfo[1], basevalue->valueinfo[1], HASH_SIZE);
+      break;
+   case 3:
+      printf("%s\n", "Compare image & hash measurement..");
+      compared = cmp_bytes(value->valueinfo[0], basevalue->valueinfo[0], HASH_SIZE) && cmp_bytes(value->valueinfo[1], basevalue->valueinfo[1], HASH_SIZE);
+      break;
+   default:
+      printf("%s\n", "Type is incorrect.");
+      compared = false;
+   }
+
+   printf("%s\n", "Finish Comparation");
+   return compared;
+}
+
+static bool verify_qta(buffer_data *akcert, int type, const char *refval)
+{
+   base_value *qta_val = get_qta(akcert);
+   base_value *baseval = LoadQTABaseValue(refval);
+
+   bool verified = false;
+   if ((qta_val == NULL) || (baseval == NULL))
+      printf("%s\n", "Pointer Error!");
+   else
+      verified = CompareBV(type, qta_val, baseval);
+
+   free(qta_val);
+   free(baseval);
+   return verified;
+}
+
+bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval)
+{
+   buffer_data datadrk, signdrk, certdrk, akpub;
+   bool rt;
+
+   rt = getDataFromAkCert(akcert, &datadrk, &signdrk, &certdrk, &akpub);
+   if (!rt)
+   {
+      printf("failed to get data from ak cert!\n");
+      return false;
+   }
+
+   // verify the integrity of data in drk issued cert
+   rt = verifysig(&datadrk, &signdrk, &certdrk, 1);
+   if (!rt)
+   {
+      printf("validate ak cert failed!\n");
+      return false;
+   }
+   
+   rt = verify_qta(akcert, type, refval);
+   if (!rt)
+   {
+      printf("validate ak cert failed!\n");
+      return false;
+   }
+   return true;
+}
+
+bool tee_get_akcert_data(buffer_data *akcert, buffer_data *akpub, buffer_data *drkcrt)
+{
+   buffer_data datadrk, signdrk;
+   bool rt = getDataFromAkCert(akcert, &datadrk, &signdrk, drkcrt, akpub);
+   if (!rt)
+   {
+      printf("failed to get data from ak cert!\n");
+      return false;
+   }
+   return true;
 }

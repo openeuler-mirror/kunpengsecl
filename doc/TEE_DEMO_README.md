@@ -388,7 +388,14 @@ $ go run main.go
 ```
 读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书，配置DAA密钥等。
 
-**对于QCA和ATTESTER的启用**
+**对于服务端QCA的启用**
+```bash
+$ cd kunpengsecl/attestation/tee/demo/qca_demo/cmd
+$ go run main.go -C 1
+```
+读取 `config.yaml` 中保存的缺省配置开放服务端口。
+
+**对于ATTESTER的启用**
 
 同<a href="#程序启动">最小实现</a>。
 
@@ -415,10 +422,15 @@ $ go run main.go
 ```
 读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书，配置DAA密钥等。
 
-**对于QCA和ATTESTER的启用**
+**对于服务端QCA的启用**
+```bash
+$ cd kunpengsecl/attestation/tee/demo/qca_demo/cmd
+$ go run main.go -C 2
+```
+读取 `config.yaml` 中保存的缺省配置开放服务端口。
 
-同<a href="#程序启动">最小实现</a>。测试模式下可运行如下命令行来执行attester：
-$ cd kunpengsecl/attestation/tee/demo/attester_demo/cmd
-$ go run main.go -T -B ./basevalue2.txt
+**对于ATTESTER的启用**
+
+同<a href="#程序启动">最小实现</a>。
 
 >注：在有AK_Service环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问AK_Service以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有AK_Service签发的证书保存于本地，若成功读取证书，则无需访问AK_Service，若读取证书失败，则需要访问AK_Service，并将AK_Service返回的证书保存于本地。
