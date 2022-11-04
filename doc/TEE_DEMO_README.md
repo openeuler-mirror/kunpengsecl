@@ -380,22 +380,29 @@ TEE远程证明独立实现的安装部署同<a href="#安装部署">最小实�
 **1. No-DAA 场景**
 **对于证明密钥服务端AK_Service的启用**
 
-要启用AKS服务，需要先为AKS配置好私钥和证书。
+要启用AKS服务，需要先为AKS配置好私钥和证书，并根据需要刷新配置中qta的basevalue。
 
 ```bash
 $ cd kunpengsecl/attestation/tas/cmd
 $ openssl genrsa -out aspriv.key 4096
 $ openssl req -new -x509 -days 365 -key aspriv.key -out ascert.crt
-$ go run main.go
+$ vim config.yaml
+ # 按需修改config.yaml中的basevalue:"image-hash mem-hash"
+tasconfig:
+  ...
+  basevalue: "f4b103116b820611c70e9eed10c568f1eb10fe1120e2151e76c01674a5740c15 3e02ae1a7eed1079bf519d3affb671fb26917c153ac7a23fa7afc7c713e78239"
+  ...
+
+$ go run main.go -T && go run main.go
 ```
-读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书，配置DAA密钥等。
+程序读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书等。
 
 **对于服务端QCA的启用**
 ```bash
 $ cd kunpengsecl/attestation/tee/demo/qca_demo/cmd
 $ go run main.go -C 1
 ```
-读取 `config.yaml` 中保存的缺省配置开放服务端口。
+程序读取 `config.yaml` 中保存的缺省配置开放服务端口。
 
 **对于ATTESTER的启用**
 
@@ -406,30 +413,28 @@ $ go run main.go -C 1
 **2. DAA 场景**
 **对于证明密钥服务端AK_Service的启用**
 
-要启用AKS服务，需要先为AKS配置好私钥。
+要启用AKS服务，需要先为AKS配置好私钥，并根据需要刷新配置中qta的basevalue。
 
 ```bash
 $ cd kunpengsecl/attestation/tas/cmd
 $ vim config.yaml
  # 如下DAA_GRP_KEY_SK_X和DAA_GRP_KEY_SK_Y的值仅用于测试，正常使用前请务必更新其内容以保证安全。
 tasconfig:
-  port: 127.0.0.1:40008
-  rest: 127.0.0.1:40009
-  akskeycertfile: ./ascert.crt
-  aksprivkeyfile: ./aspriv.key
-  huaweiitcafile: ./Huawei IT Product CA.pem
+  ...
   DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
   DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56
-$ go run main.go
+  basevalue: "f4b103116b820611c70e9eed10c568f1eb10fe1120e2151e76c01674a5740c15 3e02ae1a7eed1079bf519d3affb671fb26917c153ac7a23fa7afc7c713e78239"
+  ...
+$ go run main.go -T && go run main.go
 ```
-读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书，配置DAA密钥等。
+程序读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书，配置DAA密钥等。
 
 **对于服务端QCA的启用**
 ```bash
 $ cd kunpengsecl/attestation/tee/demo/qca_demo/cmd
 $ go run main.go -C 2
 ```
-读取 `config.yaml` 中保存的缺省配置开放服务端口。
+程序读取 `config.yaml` 中保存的缺省配置开放服务端口。
 
 **对于ATTESTER的启用**
 
