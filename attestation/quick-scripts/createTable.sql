@@ -36,6 +36,5 @@ CREATE TABLE keyinfo (
     id BIGSERIAL PRIMARY KEY NOT NULL,
     taid CHAR(36),
     keyid CHAR(36),
-    hostkeyid CHAR(36),
     ciphertext TEXT
 );

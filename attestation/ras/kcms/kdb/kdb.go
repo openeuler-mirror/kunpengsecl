@@ -15,7 +15,7 @@ func DeleteKey(taid string, keyid string) (*typdefs.KeyinfoRow, error) {
 	return nil, nil
 }
 
-func SaveKey(taid string, keyid string, cipherkey []byte, hostkeyid string) error {
+func SaveKey(taid string, keyid string, cipherkey []byte) error {
 	// TODO
 	// cipherkey是pem格式，需要把加密后的blob转成可读可见的pem格式
 	return nil
