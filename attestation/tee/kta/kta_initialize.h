@@ -10,16 +10,15 @@ See the Mulan PSL v2 for more details.
 
 Author: waterh2o/wucaijun
 Create: 2022-11-02
-Description: kta manages the TA's key cache in the TEE.
+Description: initialize module in kta.
 	1. 2022-11-02	waterh2o/wucaijun
-		define the core structures for key caching.
+		define the structures.
 */
 
 #ifndef __KTA_H__
 #define __KTA_H__
 
-#include <stdint.h>
-
+#include <tee_defines.h>
 
 #define MAX_TA_NUM          16
 #define MAX_KEY_NUM         16
@@ -28,22 +27,19 @@ Description: kta manages the TA's key cache in the TEE.
 #define MAX_CMD_SIZE        16
 #define NODE_LEN            8
 
-typedef struct _tagUuid
-{
-    uint32_t timeLow;
-    uint16_t timeMid;
-    uint16_t timeHiAndVersion;
-    uint8_t  clockSeqAndNode[NODE_LEN];
-} UUID;
+
+static const char *signed_pubkey_path = ""; //to be set
+static const char *kcm_encodekey_path = ""; //to be set
+static const char *kms_pubkey_path = ""; //to be set
 
 typedef struct _tagKeyInfo{
-    UUID    id;
+    TEE_UUID    id;
     uint8_t value[KEY_SIZE];
     int32_t next;   // -1: empty; 0~MAX_TA_NUM: next key for search operation.
 } KeyInfo;
 
 typedef struct _tagTaInfo{
-    UUID    id;
+    TEE_UUID    id;
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
     int32_t next;   // -1: empty; 0~MAX_TA_NUM: next ta for search operation.
@@ -63,8 +59,8 @@ typedef struct _tagCache{
 /* command queue to store the commands */
 typedef struct _tagCmdNode{
     int32_t cmd;
-    UUID    taId;
-    UUID    keyId;
+    TEE_UUID    taId;
+    TEE_UUID    keyId;
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
     int32_t next;  // -1: empty; 0~MAX_TA_NUM: next cmd for search operation.
@@ -75,5 +71,9 @@ typedef struct _tagCmdQueue{
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first cmd for dequeue operation.
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last cmd for enqueue operation.
 } CmdQueue;
+
+TEE_Result KTAInitialize(void *teepubkey, void *signedpubkey, Cache *cache, CmdQueue *cmdqueue);
+
+TEE_Result SaveLocalKey(void *keyname, void *keyvalue, uint32_t keytype);
 
 #endif /* __KTA_H__ */
