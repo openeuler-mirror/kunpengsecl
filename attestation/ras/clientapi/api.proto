@@ -102,6 +102,7 @@ message GenerateNewKeyRequest {
   bytes taId = 1;
   string account = 2;
   string password = 3;
+  bytes hostkeyId = 4;
 }
 
 message GenerateNewKeyReply {
@@ -116,6 +117,7 @@ message GetCurrentKeyRequest {
   string account = 2;
   string password = 3;
   bytes keyId = 4;
+  bytes hostkeyId = 5;
 }
 
 message GetCurrentKeyReply {

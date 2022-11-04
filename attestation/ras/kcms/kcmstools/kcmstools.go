@@ -11,15 +11,15 @@ func Initialize(deviceId []byte, signCert string, teeCert string) error {
 	return nil
 }
 
-func GenerateNewKey(taid string, account string, password string) (string, []byte, []byte, error) {
+func GenerateNewKey(taid string, account string, password string, hostkeyid string) (string, []byte, []byte, error) {
 	// TODO: get the trusted status of TA (from cache)(trustmgr.GetCache)
 
 	// TODO: ask KMS to generate a new key for the specific TA,
-	// getting (hostkeyid, plaintext, ciphertext)
+	// getting (plaintext, ciphertext)
 
 	// TODO: generate a random keyid
 
-	// TODO: save information(taid, keyid, hostkeyid, ciphertext) of the
+	// TODO: save information(taid, keyid, ciphertext) of the
 	// new key to database
 
 	// TODO: generate a session key K (symmetric, and can only
@@ -33,10 +33,10 @@ func GenerateNewKey(taid string, account string, password string) (string, []byt
 	return "", nil, nil, nil
 }
 
-func GetKey(taid string, account string, passwd string, keyid string) ([]byte, []byte, error) {
+func GetKey(taid string, account string, passwd string, keyid string, hostkeyid string) ([]byte, []byte, error) {
 	// TODO: get the trusted status of TA (from cache)
 
-	// TODO: find (ciphertext, hostkeyid) of the specific key
+	// TODO: find ciphertext of the specific key
 	// in database by (taid, keyid)
 
 	// TODO: ask KMS to decrypt ciphertext, getting plaintext
