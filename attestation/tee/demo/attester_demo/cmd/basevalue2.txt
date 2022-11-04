@@ -1,1 +1,0 @@
-../../../tverlib/verifier/basevalue2.txt

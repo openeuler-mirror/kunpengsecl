@@ -143,9 +143,9 @@ typedef struct
     uint8_t valueinfo[2][HASH_SIZE]; // valueinfo[0]=img measurement and valueinfo[1]=mem measurement
 } base_value;
 
-bool tee_verify_nonce(buffer_data *buf_data,buffer_data *nonce);
-bool tee_verify_signature(buffer_data *report);
-bool tee_verify(buffer_data *buf_data, int type, char *filename);
+static bool tee_verify_nonce(buffer_data *buf_data,buffer_data *nonce);
+static bool tee_verify_signature(buffer_data *report);
+static bool tee_verify(buffer_data *buf_data, int type, char *filename);
 static void error(const char *msg);
 static void file_error(const char *s);
 static TA_report *Convert(buffer_data *buf_data);
@@ -164,9 +164,9 @@ static bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size);
 static void test_print(uint8_t *printed, int printed_size, char *printed_name);
 static void save_basevalue(const base_value *bv);
 //verifysig
-bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, uint32_t scenario);
+static bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, uint32_t scenario);
 static bool translateBuf(buffer_data report, TA_report *tareport);
-bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
+static bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
 static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
 static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
 static bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key);
