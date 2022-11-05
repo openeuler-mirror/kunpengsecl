@@ -7,7 +7,7 @@ ETCTAR = /etc/attestation
 SHARETAR = /usr/share/attestation
 DOCTAR = /usr/share/doc/attestation
 BINTAR = /usr/bin
-TESTEES=./cache ./clientapi ./config ./trustmgr ./restapi/rim
+TESTEES=./cache ./clientapi ./config ./trustmgr ./restapi/rim ./kcms/kcmstools ./kcms/kdb 
 
 all: build
 
@@ -20,6 +20,8 @@ build:
 	go build -mod=vendor -o $(PKGPATH)/clientapi clientapi/*.go
 	go build -mod=vendor -o $(PKGPATH)/config config/*.go
 	go build -mod=vendor -o $(PKGPATH)/trustmgr trustmgr/*.go
+	go build -mod=vendor -o $(PKGPATH)/kcms/kcmstools kcms/kcmstools/*.go
+	go build -mod=vendor -o $(PKGPATH)/kcms/kdb kcms/kdb/*.go
 	go build -mod=vendor -o $(PKGPATH)/ras cmd/*.go
 #	make -C example $@ || exit $$?
 
