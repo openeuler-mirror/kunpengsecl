@@ -25,6 +25,10 @@ type (
 	}
 )
 
+var (
+	akServer *grpc.Server
+)
+
 func (s *service) GetAKCert(ctx context.Context, in *GetAKCertRequest) (*GetAKCertReply, error) {
 	akcert, err := akissuer.GenerateAKCert(in.Akcert, in.Scenario)
 	if err != nil {
@@ -39,11 +43,19 @@ func StartServer(addr string) {
 	if err != nil {
 		log.Fatalf("Server: fail to listen at %s, %v", addr, err)
 	}
-	akServer := grpc.NewServer()
+	akServer = grpc.NewServer()
 	RegisterTasServer(akServer, &service{})
 	if err := akServer.Serve(listen); err != nil {
 		log.Fatalf("Server: fail to serve, %v", err)
 	}
+}
+
+func StopServer() {
+	if akServer == nil {
+		return
+	}
+	akServer.Stop()
+	akServer = nil
 }
 
 func makesock(addr string) (*tasConn, error) {
