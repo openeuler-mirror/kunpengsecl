@@ -18,7 +18,7 @@ Description: kta manages the TA's key cache in the TEE.
 #include <tee_ext_api.h>
 #include <tee_log.h>
 #include <kta_initialize.h>
-#include <kta_api.h>
+#include <kta_command.h>
 
 #define PARAM_COUNT 4
 
@@ -30,6 +30,7 @@ enum {
     CMD_KEY_SEARCH          = 0x80000001,
     CMD_KEY_DELETE          = 0x80000002,
     CMD_KEY_DESTORY         = 0x80000003,
+    CMD_KEY_REPLY           = 0x80000004,
 };
 
 Cache *cache = {0};
@@ -136,6 +137,12 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
             ret = DestoryTAKey(uuid, keyid, cache);
             if (ret != TEE_SUCCESS)
                 tloge("destory ta key failed\n");
+            return ret;
+            break;
+        case CMD_KEY_REPLY:
+            ret = SendReplytoTA();
+            if (ret != TEE_SUCCESS)
+                tloge("get kta's reply failed\n");
             return ret;
             break;
         default:

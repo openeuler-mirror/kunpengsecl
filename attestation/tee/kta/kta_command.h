@@ -24,12 +24,14 @@ Description: api module in kta.
 
 TEE_Result SendRequest(); //parameters to be set
 
-TEE_Result HandleReply(); //parameters to be set
+TEE_Result HandleKAReply(); //parameters to be set
 
 TEE_Result SearchTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache, char *keyvalue);
 
 TEE_Result DeleteTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache);
 
 TEE_Result DestoryTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache); //parameters to be set
+
+TEE_Result SendReplytoTA(); //如果异步实现，ta需要再次调用kta获取返回结果
 
 #endif

@@ -16,7 +16,7 @@ Description: api module in kta.
 */
 
 #include <tee_defines.h>
-#include <kta_api.h>
+#include <kta_command.h>
 
 TEE_Result SendRequest() {
     //todo: send request to ka when ka polls, and answer ta trusted state which ka asks
@@ -68,4 +68,8 @@ TEE_Result DestoryKey(TEE_UUID TA_uuid, char *keyid, Cache *cache) {
 
     //input: TA_uuid, keyid, cache
     //output: cache
+}
+
+TEE_Result SendReplytoTA() {
+    //todo: answer to ta when ta asks its command's reply.
 }
