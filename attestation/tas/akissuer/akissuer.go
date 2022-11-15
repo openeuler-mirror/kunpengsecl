@@ -143,7 +143,6 @@ func verifyAKCert(oldAKCert []byte) (drkpub *rsa.PublicKey, akpub []byte, err er
 	return drkpub, akpub, nil
 }
 
-
 // The input parameter is the AK certificate issued by the target platform device certificate
 // After receiving the AK certificate, parse and extract the signed data fields,
 // signature fields, and DRK certificate fields
@@ -154,7 +153,7 @@ func verifyAKCert(oldAKCert []byte) (drkpub *rsa.PublicKey, akpub []byte, err er
 // If the AK certificate passes the check, the AK certificate is trusted
 // Re-sign the AK certificate using the AS private key
 // Return the re-signed AK certificate
-func GenerateNoDAAAKCert(oldAKCert []byte) ([]byte, error) {
+func generateNoDAAAKCert(oldAKCert []byte) ([]byte, error) {
 	_, akpubbyte, err := verifyAKCert(oldAKCert)
 	if err != nil {
 		return nil, err
@@ -369,7 +368,7 @@ func extractSignAlg(c *certificate) uint64 {
 	return 0
 }
 
-func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
+func generateDAAAKCert(oldAKCert []byte) ([]byte, error) {
 	drkcertpubkey, akpubbyte, err := verifyAKCert(oldAKCert)
 	if err != nil {
 		return nil, err
@@ -602,7 +601,7 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 func GenerateAKCert(oldAKCert []byte, scenario int32) ([]byte, error) {
 	switch scenario {
 	case RA_SCENARIO_AS_NO_DAA:
-		newCert, err := GenerateNoDAAAKCert(oldAKCert)
+		newCert, err := generateNoDAAAKCert(oldAKCert)
 		if err != nil {
 			log.Print("NoDAA scenario: Generate AK Cert failed!")
 			return nil, err
@@ -610,7 +609,7 @@ func GenerateAKCert(oldAKCert []byte, scenario int32) ([]byte, error) {
 		log.Print("NoDAA scenario: Generate AK Cert succeeded!")
 		return newCert, nil
 	case RA_SCENARIO_AS_WITH_DAA:
-		newCert, err := GenerateDAAAKCert(oldAKCert)
+		newCert, err := generateDAAAKCert(oldAKCert)
 		if err != nil {
 			log.Print("DAA scenario: Generate AK Cert failed!")
 			return nil, err

@@ -4,4 +4,3 @@ qcaconfig:
   scenario: 0
   nodaaacfile: ./nodaa-ac.crt
   daaacfile: ./daa-ac.crt
-  clientid: -1
