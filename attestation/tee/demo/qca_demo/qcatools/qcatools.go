@@ -95,7 +95,6 @@ const (
 	Scenario    = "qcaconfig.scenario"
 	NoDaaACFile = "qcaconfig.nodaaacfile"
 	DaaACFile   = "qcaconfig.daaacfile"
-	ClientId    = "qcaconfig.clientid"
 	/*** cmd flags ***/
 	// server open ip:port
 	lflagServer = "server"
@@ -125,7 +124,6 @@ type (
 		Scenario    int32
 		NoDaaACFile string
 		DaaACFile   string
-		ClientId    int64
 	}
 )
 
@@ -167,7 +165,6 @@ func LoadConfigs() {
 	Qcacfg.Scenario = viper.GetInt32(Scenario)
 	Qcacfg.NoDaaACFile = viper.GetString(NoDaaACFile)
 	Qcacfg.DaaACFile = viper.GetString(DaaACFile)
-	Qcacfg.ClientId = viper.GetInt64(ClientId)
 }
 
 func HandleFlags() {
