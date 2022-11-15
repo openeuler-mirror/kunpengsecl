@@ -10,6 +10,8 @@
       SHA256_Final(md, &ctx);    \
    }
 
+#define HW_IT_PRODUCT_CA_CERT_PATH "Huawei IT Product CA.pem"
+#define TAS_ROOT_CERT_PATH "TAS Root Cert.pem"
 //static void free_report(TA_report *report);
 
 
@@ -17,19 +19,75 @@ EVP_PKEY *
 buildPubKeyFromModulus(buffer_data *pub)
 {
    EVP_PKEY *key = NULL;
-   key = EVP_PKEY_new();
-
    BIGNUM *e = BN_new();
-   BN_set_word(e, 0x10001);
    BIGNUM *n = BN_new();
+   RSA *rsapub = RSA_new();
+   if (NULL == e || NULL == n || NULL == rsapub)
+      goto err;
+
+   key = EVP_PKEY_new();
+   if (NULL == key)
+      goto err;
+
+   BN_set_word(e, 0x10001);
    BN_bin2bn(pub->buf, pub->size, n);
 
-   RSA *rsapub = RSA_new();
    RSA_set0_key(rsapub, n, e, NULL);
-
    EVP_PKEY_set1_RSA(key, rsapub);
-
+   RSA_free(rsapub);
    return key;
+err:
+   RSA_free(rsapub);
+   BN_free(n);
+   BN_free(e);
+   return NULL;
+}
+
+static bool verifyCertByCert(buffer_data *cert, uint8_t *root_cert_pathname)
+{
+   X509 *a = NULL;
+   EVP_PKEY *r = NULL;
+   BIO *bp = NULL;
+   bool res = false;
+   buffer_data root_cert = {0, NULL};
+
+   size_t size = 0;
+   if (NULL == (root_cert.buf = file_to_buffer(root_cert_pathname, &size)))
+   {
+      goto err;
+   }
+   root_cert.size = (uint32_t)size;
+
+   if (NULL == (r = getPubKeyFromCert(&root_cert, NULL)))
+   {
+      goto err;
+   }
+
+   if (NULL == (bp = BIO_new_mem_buf(cert->buf, cert->size)))
+   {
+      goto err;
+   }
+
+   if (NULL == (a = PEM_read_bio_X509(bp, NULL, NULL, NULL)))
+   {
+      printf("failed to get drkcert x509\n");
+      goto err;
+   }
+
+   if (1 != X509_verify(a, r))
+   {
+      goto err;
+   }
+
+   res = true;
+err:
+   X509_free(a);
+   BIO_vfree(bp);
+   EVP_PKEY_free(r);
+   if (root_cert.buf != NULL)
+      free(root_cert.buf);
+
+   return res;
 }
 
 EVP_PKEY *
@@ -47,10 +105,10 @@ getPubKeyFromDrkIssuedCert(buffer_data *cert)
    }
 
    // verify the integrity of data in drk issued cert
-   rt = verifysig(&datadrk, &signdrk, &certdrk, 1);
+   rt = verifysig_x509cert(&datadrk, &signdrk, &certdrk, HW_IT_PRODUCT_CA_CERT_PATH);
    if (!rt)
    {
-      printf("validate drk cert failed!\n");
+      printf("validate drk signed ak cert failed!\n");
       return NULL;
    }
 
@@ -94,19 +152,30 @@ bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key)
 }
 
 EVP_PKEY *
-getPubKeyFromCert(buffer_data *cert)
+getPubKeyFromCert(buffer_data *cert, char *root_cert_pathname)
 {
    EVP_PKEY *key = NULL;
    X509 *c = NULL;
 
-   BIO *bp = BIO_new_mem_buf(cert->buf, cert->size);
-   if ((c = PEM_read_bio_X509(bp, NULL, NULL, NULL)) == NULL)
+   if (NULL != root_cert_pathname && !verifyCertByCert(cert, root_cert_pathname))
    {
-      printf("failed to get drkcert x509\n");
+      printf("WARNING: failed to verify x509 cert\n");
+   }
+   
+   BIO *bp = BIO_new_mem_buf(cert->buf, cert->size);
+   if (NULL == bp)
+      return NULL;
+
+   c = PEM_read_bio_X509(bp, NULL, NULL, NULL);
+   BIO_vfree(bp);
+   if (c == NULL)
+   {
+      printf("failed to get x509 cert\n");
       return NULL;
    }
 
    key = X509_get_pubkey(c);
+   X509_free(c);
    if (key == NULL)
    {
       printf("Error getting public key from certificate");
@@ -150,13 +219,13 @@ static void trim_ending_0(buffer_data *buf)
 }
 
 static bool
-verifysig_x509cert(buffer_data *data, buffer_data *sign, buffer_data *cert)
+verifysig_x509cert(buffer_data *data, buffer_data *sign, buffer_data *cert, char *root_cert_pathname)
 {
    // trim ending 0's in cert buf
    trim_ending_0(cert);
 
    // get the key for signature verification
-   EVP_PKEY *key = getPubKeyFromCert(cert);
+   EVP_PKEY *key = getPubKeyFromCert(cert, root_cert_pathname);
    if (key == NULL)
       return false;
 
@@ -666,7 +735,7 @@ bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert,
    case 0:
       return verifysig_drksignedcert(data, sign, cert);
    case 1:
-      return verifysig_x509cert(data, sign, cert);
+      return verifysig_x509cert(data, sign, cert, TAS_ROOT_CERT_PATH);
    case 2:
       return verifysig_daacert(data, sign, cert);
    }
@@ -875,17 +944,25 @@ void test_print(uint8_t *printed, int printed_size, char *printed_name)
 
 void free_report(TA_report *report)
 {
-   if (report->signature != NULL)
+   if (NULL == report)
+      return;
+
+   if (NULL != report->signature)
    {
+      if (NULL != report->signature->buf)
+         free(report->signature->buf);
       free(report->signature);
-      report->signature = NULL;
    }
-   if (report->cert != NULL)
+
+   if (NULL != report->cert)
    {
+      if (NULL != report->cert->buf)
+         free(report->cert->buf);
       free(report->cert);
-      report->cert = NULL;
    }
-};
+
+   free(report);
+}
 
 bool tee_verify(buffer_data *bufdata, int type, char *filename)
 {
@@ -895,7 +972,7 @@ bool tee_verify(buffer_data *bufdata, int type, char *filename)
    bool verified;
    if ((report == NULL) || (baseval == NULL))
    {
-      printf("%s\n", "Pointer Error!");
+      printf("Pointer Error!\n");
       verified = false;
    }
    else
@@ -903,7 +980,6 @@ bool tee_verify(buffer_data *bufdata, int type, char *filename)
                          baseval); // compare the report with the basevalue
 
    free_report(report);
-   free(report);
    free(baseval);
    return verified;
 }
@@ -923,6 +999,8 @@ Convert(buffer_data *data)
    bufreport = (report_get *)data->buf; // buff to report
 
    report = (TA_report *)calloc(1, sizeof(TA_report));
+   if (report == NULL)
+      error("out of memory.");
    report->version = bufreport->version;
    report->timestamp = bufreport->ts;
    memcpy(report->nonce, bufreport->nonce, USER_DATA_SIZE * sizeof(uint8_t));
@@ -1222,16 +1300,27 @@ file_to_buffer(char *file, size_t *file_length)
 
    f = fopen(file, "rb");
    if (!f)
-      file_error(file);
+   {
+      printf("Couldn't open file: %s\n", file);
+      return NULL;
+   }
    fseek(f, 0L, SEEK_END);
    *file_length = ftell(f);
    rewind(f);
    buffer = (char *)malloc(*file_length + 1);
+   if (NULL == buffer)
+   {
+      goto err;
+   }
    size_t result = fread(buffer, 1, *file_length, f);
    if (result != *file_length)
-      file_error(file);
-   fclose(f);
+   {
+      free(buffer);
+      buffer = NULL;
+   }
 
+err:
+   fclose(f);
    return buffer;
 }
 
@@ -1317,12 +1406,20 @@ bool tee_verify_nonce(buffer_data *buf_data, buffer_data *nonce)
 {
    if (nonce == NULL || nonce->size > USER_DATA_SIZE)
    {
-      printf("%s\n", "the nonce-value is invalid");
+      printf("the nonce-value is invalid\n");
       return false;
    }
    TA_report *report;
    report = Convert(buf_data);
+   if (report == NULL)
+   {
+      printf("failed to parse the report\n");
+      return false;
+   }
+
    bool vn = cmp_bytes(report->nonce, nonce->buf, nonce->size);
+
+   free_report(report);
    return vn;
 }
 
@@ -1449,7 +1546,7 @@ static bool verify_qta(buffer_data *akcert, int type, const char *refval)
 
    bool verified = false;
    if ((qta_val == NULL) || (baseval == NULL))
-      printf("%s\n", "Pointer Error!");
+      printf("Pointer Error!\n");
    else
       verified = CompareBV(type, qta_val, baseval);
 
@@ -1471,7 +1568,7 @@ bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval)
    }
 
    // verify the integrity of data in drk issued cert
-   rt = verifysig(&datadrk, &signdrk, &certdrk, 1);
+   rt = verifysig_x509cert(&datadrk, &signdrk, &certdrk, NULL);
    if (!rt)
    {
       printf("validate ak cert failed!\n");
