@@ -170,7 +170,8 @@ static bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer
 static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
 static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
 static bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key);
-static EVP_PKEY *getPubKeyFromCert(buffer_data *cert);
+static EVP_PKEY *getPubKeyFromCert(buffer_data *cert, char *root_cert_pathname);
 static void dumpDrkCert(buffer_data *certdrk);
 static void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk);
 static bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *signak,buffer_data *signdata,uint32_t *scenario);
+static bool verifysig_x509cert(buffer_data *data, buffer_data *sign, buffer_data *cert, char *root_cert_pathname);
