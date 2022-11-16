@@ -1,7 +1,14 @@
 // kcmstools package implements the whole process of key caching management service
 package kcmstools
 
-func Initialize(deviceId []byte, signCert string, teeCert string) error {
+func Initialize(deviceId int64, signCert string, teeCert string) error {
+	if deviceId == 1 {
+		return nil
+	} else if signCert == "signCert"{
+		return nil
+	} else if teeCert =="teeCert"{
+		return nil
+	}
 	// TODO: unmarshal cert to *x509.Certificate
 
 	// TODO: verify signature and cert
@@ -11,7 +18,16 @@ func Initialize(deviceId []byte, signCert string, teeCert string) error {
 	return nil
 }
 
-func GenerateNewKey(taid string, account string, password string, hostkeyid string) (string, []byte, []byte, error) {
+func GenerateNewKey(taid []byte, account string, password string, hostkeyid []byte) ([]byte, []byte, []byte, error) {
+	if taid == nil {
+		return nil, nil, nil, nil
+	} else if account == "account" {
+		return nil, nil, nil, nil
+	} else if password == "password" {
+		return nil, nil, nil, nil
+	} else if hostkeyid == nil {
+		return nil, nil, nil, nil
+	}
 	// TODO: get the trusted status of TA (from cache)(trustmgr.GetCache)
 
 	// TODO: ask KMS to generate a new key for the specific TA,
@@ -30,10 +46,21 @@ func GenerateNewKey(taid string, account string, password string, hostkeyid stri
 	// TODO: use cache.signedCert to encrypt K (can only be decryped by KTA))
 
 	// return keyId, ENC(K), ENC(plaintext), error
-	return "", nil, nil, nil
+	return nil, nil, nil, nil
 }
 
-func GetKey(taid string, account string, passwd string, keyid string, hostkeyid string) ([]byte, []byte, error) {
+func GetKey(taid []byte, account string, password string, keyid []byte, hostkeyid []byte) ([]byte, []byte, error) {
+	if taid == nil {
+		return nil, nil, nil
+	} else if account == "account" {
+		return nil, nil, nil
+	} else if password == "password" {
+		return nil, nil, nil
+	} else if keyid == nil {
+		return nil, nil, nil
+	} else if hostkeyid == nil {
+		return nil, nil, nil
+	}
 	// TODO: get the trusted status of TA (from cache)
 
 	// TODO: find ciphertext of the specific key
@@ -53,7 +80,12 @@ func GetKey(taid string, account string, passwd string, keyid string, hostkeyid 
 	return nil, nil, nil
 }
 
-func DeleteKey(taid string, keyid string) error {
+func DeleteKey(taid []byte, keyid []byte) error {
+	if taid == nil {
+		return nil
+	} else if keyid == nil {
+		return nil
+	}
 	// TODO: get the trusted status of TA (from cache)
 
 	// TODO: delete the specific key in database

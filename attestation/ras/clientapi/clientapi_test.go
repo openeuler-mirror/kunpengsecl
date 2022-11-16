@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"math/big"
+	"math/rand"
 	"net"
 	"os"
 	"testing"
@@ -84,11 +85,30 @@ rasconfig:
       - 3
       - 4
 `
-
 const (
 	configFilePath = "./config.yaml"
 	BIOSLogPath    = "../../rac/cmd/raagent/binary_bios_measurements"
 	IMALogPath     = "../../rac/cmd/raagent/ascii_runtime_measurements"
+)
+
+const (
+	deviceId = 1
+)
+
+var (
+	byteTable = []int{
+		48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
+		80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108,
+		109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122}
+	taId = []byte{
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+	keyId = []byte{
+		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
+		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}
+	hostKeyId = []byte{
+		0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x20,
+		0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x20}
 )
 
 var (
@@ -352,6 +372,87 @@ func TestClientapi(t *testing.T) {
 	defer trustmgr.DeleteReportByID(r2.GetClientId())
 }
 
+func TestClientapiInKC(t *testing.T) {
+	server := config.GetServerPort()
+	go StartServer(server)
+	defer StopServer()
+
+	ras, err := CreateConn(server)
+	if err != nil {
+		t.Errorf("fail to Create connection %v", err)
+	}
+	defer ReleaseConn(ras)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// test empty deviceId
+	_, err = ras.c.InitializeKTA(ctx, &InitializeKTARequest{})
+	if err != nil {
+		t.Errorf("test InitializeKTA with empty deviceId failed %v", err)
+	}
+
+	_, err = ras.c.InitializeKTA(ctx, &InitializeKTARequest{
+		ClientId:		deviceId,
+		TeeCert:       	createCert(),
+		SignedCert: 	createCert(),
+	})
+	if err != nil {
+		t.Errorf("test InitializeKTA error %v", err)
+	}
+
+	// test empty taId
+	_, err = ras.c.GenerateNewKey(ctx, &GenerateNewKeyRequest{})
+	if err != nil {
+		t.Errorf("test GenerateNewKey with empty taId failed %v", err)
+	}
+
+	// generate random account and password
+	rand.Seed(time.Now().UnixNano())
+	account := randomString(randomInt(1, 50))	// random length between 1 and 50
+	password := randomString(randomInt(1, 50))
+
+	_, err = ras.c.GenerateNewKey(ctx, &GenerateNewKeyRequest{
+		TaId:		taId,
+		Account:	account,
+		Password:	password,
+		HostkeyId:	hostKeyId,
+	})
+	if err != nil {
+		t.Errorf("test InitializeKTA error %v", err)
+	}
+
+	// test empty taId
+	_, err = ras.c.GetCurrentKey(ctx, &GetCurrentKeyRequest{})
+	if err != nil {
+		t.Errorf("test GetCurrentKey with empty taId failed %v", err)
+	}
+
+	_, err = ras.c.GetCurrentKey(ctx, &GetCurrentKeyRequest{
+		TaId:		taId,
+		Account:	account,
+		Password:	password,
+		KeyId:		keyId,
+		HostkeyId:	hostKeyId,
+	})
+	if err != nil {
+		t.Errorf("test GetCurrentKey error %v", err)
+	}
+
+	// test empty taId
+	_, err = ras.c.DeleteCurrentKey(ctx, &DeleteCurrentKeyRequest{})
+	if err != nil {
+		t.Errorf("test DeleteCurrentKey with empty taId failed %v", err)
+	}
+
+	_, err = ras.c.DeleteCurrentKey(ctx, &DeleteCurrentKeyRequest{
+		TaId:		taId,
+		KeyId:		keyId,
+	})
+	if err != nil {
+		t.Errorf("test DeleteCurrentKey error %v", err)
+	}
+}
+
 func TestDoClientapi(t *testing.T) {
 	CreateServerConfigFile()
 	defer RemoveConfigFile()
@@ -475,6 +576,79 @@ func TestDoClientapi(t *testing.T) {
 	defer trustmgr.DeleteReportByID(r2.GetClientId())
 }
 
+func TestDoClientapiInKC(t *testing.T) {
+	server := config.GetServerPort()
+	go StartServer(server)
+	defer StopServer()
+
+	// test empty deviceId
+	_, err := DoInitializeKTA(server, &InitializeKTARequest{})
+	if err != nil {
+		t.Errorf("test DoInitializeKTA with empty deviceId failed %v", err)
+	}
+
+	_, err = DoInitializeKTA(server, &InitializeKTARequest{
+		ClientId:		deviceId,
+		TeeCert:       	createCert(),
+		SignedCert: 	createCert(),
+	})
+	if err != nil {
+		t.Errorf("test DoInitializeKTA error %v", err)
+	}
+
+	// test empty taId
+	_, err = DoGenerateNewKey(server, &GenerateNewKeyRequest{})
+	if err != nil {
+		t.Errorf("test DoGenerateNewKey with empty taId failed %v", err)
+	}
+
+	// generate random account and password
+	rand.Seed(time.Now().UnixNano())
+	account := randomString(randomInt(1, 50))	// random length between 1 and 50
+	password := randomString(randomInt(1, 50))
+
+	_, err = DoGenerateNewKey(server, &GenerateNewKeyRequest{
+		TaId:		taId,
+		Account:	account,
+		Password:	password,
+		HostkeyId:	hostKeyId,
+	})
+	if err != nil {
+		t.Errorf("test DoInitializeKTA error %v", err)
+	}
+
+	// test empty taId
+	_, err = DoGetCurrentKey(server, &GetCurrentKeyRequest{})
+	if err != nil {
+		t.Errorf("test DoGetCurrentKey with empty taId failed %v", err)
+	}
+
+	_, err = DoGetCurrentKey(server, &GetCurrentKeyRequest{
+		TaId:		taId,
+		Account:	account,
+		Password:	password,
+		KeyId:		keyId,
+		HostkeyId:	hostKeyId,
+	})
+	if err != nil {
+		t.Errorf("test DoGetCurrentKey error %v", err)
+	}
+
+	// test empty taId
+	_, err = DoDeleteCurrentKey(server, &DeleteCurrentKeyRequest{})
+	if err != nil {
+		t.Errorf("test DoDeleteCurrentKey with empty taId failed %v", err)
+	}
+
+	_, err = DoDeleteCurrentKey(server, &DeleteCurrentKeyRequest{
+		TaId:		taId,
+		KeyId:		keyId,
+	})
+	if err != nil {
+		t.Errorf("test DoDeleteCurrentKey error %v", err)
+	}
+}
+
 func TestClientapiWithConn(t *testing.T) {
 	CreateServerConfigFile()
 	defer RemoveConfigFile()
@@ -489,7 +663,7 @@ func TestClientapiWithConn(t *testing.T) {
 
 	ras, err := CreateConn(server)
 	if err != nil {
-		t.Errorf("fail to Create connection %v", err)
+		t.Errorf("fail to Create connection: %v", err)
 	}
 	defer ReleaseConn(ras)
 
@@ -608,6 +782,99 @@ func TestClientapiWithConn(t *testing.T) {
 	}
 	defer trustmgr.DeleteClientByID(r2.GetClientId())
 	defer trustmgr.DeleteReportByID(r2.GetClientId())
+}
+
+func TestClientapiWithConnInKC(t *testing.T) {
+	server := config.GetServerPort()
+	go StartServer(server)
+	defer StopServer()
+
+	ras, err := CreateConn(server)
+	if err != nil {
+		t.Errorf("fail to Create connection: %v", err)
+	}
+	defer ReleaseConn(ras)
+
+	// test empty deviceId
+	_, err = DoInitializeKTAWithConn(ras, &InitializeKTARequest{})
+	if err != nil {
+		t.Errorf("test DoInitializeKTAWithConn with empty deviceId failed %v", err)
+	}
+
+	_, err = DoInitializeKTAWithConn(ras, &InitializeKTARequest{
+		ClientId:		deviceId,
+		TeeCert:       	createCert(),
+		SignedCert: 	createCert(),
+	})
+	if err != nil {
+		t.Errorf("test DoInitializeKTAWithConn error %v", err)
+	}
+
+	// test empty taId
+	_, err = DoGenerateNewKeyWithConn(ras, &GenerateNewKeyRequest{})
+	if err != nil {
+		t.Errorf("test DoGenerateNewKeyWithConn with empty taId failed %v", err)
+	}
+
+	// generate random account and password
+	rand.Seed(time.Now().UnixNano())
+	account := randomString(randomInt(1, 50))	// random length between 1 and 50
+	password := randomString(randomInt(1, 50))
+	
+	_, err = DoGenerateNewKeyWithConn(ras, &GenerateNewKeyRequest{
+		TaId:		taId,
+		Account:	account,
+		Password:	password,
+		HostkeyId:	hostKeyId,
+	})
+	if err != nil {
+		t.Errorf("test DoInitializeKTAWithConn error %v", err)
+	}
+
+	// test empty taId
+	_, err = DoGetCurrentKeyWithConn(ras, &GetCurrentKeyRequest{})
+	if err != nil {
+		t.Errorf("test DoGetCurrentKeyWithConn with empty taId failed %v", err)
+	}
+
+	_, err = DoGetCurrentKeyWithConn(ras, &GetCurrentKeyRequest{
+		TaId:		taId,
+		Account:	account,
+		Password:	password,
+		KeyId:		keyId,
+		HostkeyId:	hostKeyId,
+	})
+	if err != nil {
+		t.Errorf("test DoGetCurrentKeyWithConn error %v", err)
+	}
+
+	// test empty taId
+	_, err = DoDeleteCurrentKeyWithConn(ras, &DeleteCurrentKeyRequest{})
+	if err != nil {
+		t.Errorf("test DoDeleteCurrentKeyWithConn with empty taId failed %v", err)
+	}
+
+	_, err = DoDeleteCurrentKeyWithConn(ras, &DeleteCurrentKeyRequest{
+		TaId:		taId,
+		KeyId:		keyId,
+	})
+	if err != nil {
+		t.Errorf("test DoDeleteCurrentKeyWithConn error %v", err)
+	}
+}
+
+// Returns an int >= min, < max
+func randomInt(min, max int) int {
+    return min + rand.Intn(max-min)
+}
+ 
+// Generate a random string of 0-9/A-Z/a-z chars with len = l
+func randomString(len int) string {
+    bytes := make([]byte, len)
+    for index := 0; index < len; index++ {
+        bytes[index] = byte(byteTable[randomInt(0, 61)])
+    }
+    return string(bytes)
 }
 
 func createCert() []byte {
