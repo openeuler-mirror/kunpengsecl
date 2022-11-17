@@ -223,8 +223,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 		log.Print("Get TA report failed!")
 		return nil
 	}
-
-	log.Print("Generate TA report succeeded!")
+	printGenRepLog(Qcacfg.Scenario)
 
 	// format conversion: C -> Go
 	Report := []uint8(C.GoBytes(unsafe.Pointer(c_report.buf), C.int(c_report.size)))
@@ -232,6 +231,17 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	//ioutil.WriteFile("report.orig", Report, 0644)
 
 	return Report
+}
+
+func printGenRepLog(s int32) {
+	switch s {
+	case RA_SCENARIO_NO_AS:
+		log.Print("Generate RA_SCENARIO_NO_AS TA report succeeded!")
+	case RA_SCENARIO_AS_NO_DAA:
+		log.Print("Generate RA_SCENARIO_AS_NO_DAA TA report succeeded!")
+	case RA_SCENARIO_AS_WITH_DAA:
+		log.Print("Generate RA_SCENARIO_AS_WITH_DAA TA report succeeded!")
+	}
 }
 
 func provisionNoAS() int {
