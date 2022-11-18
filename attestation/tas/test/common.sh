@@ -25,6 +25,7 @@ DAACERT=${DST}/qca/daa-ac.crt
 ATTESTER=${TEEPKG}/attester
 ATTESTERCONF=${CMDATTESTER}/config.yaml
 BASEVALUE=${CMDATTESTER}/basevalue.txt
+DAAPUBKEY=${CMDATTESTER}/daa-pubkey
 
 # prepare akservice
 mkdir -p ${DST}/tas
@@ -49,3 +50,4 @@ cp ${ATTESTER} ${DST}/attester
 cp ${ATTESTERCONF} ${DST}/attester
 cp ${BASEVALUE} ${DST}/attester
 cp ${AKSCERT} ${DST}/attester
+cp ${DAAPUBKEY} ${DST}/attester
