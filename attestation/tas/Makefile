@@ -4,8 +4,9 @@ build:
 	go build -mod=vendor -o $(PKGPATH)/akissuer akissuer/*.go
 	go build -mod=vendor -o $(PKGPATH)/clientapi clientapi/*.go
 	go build -mod=vendor -o $(PKGPATH)/config config/*.go
-	go build -mod=vendor -o $(PKGPATH)/database database/*.go
+#	go build -mod=vendor -o $(PKGPATH)/database database/*.go
 	go build -mod=vendor -o $(PKGPATH)/restapi restapi/*.go
+	go build -mod=vendor -o $(PKGPATH)/akservice cmd/*.go
 
 test:
 

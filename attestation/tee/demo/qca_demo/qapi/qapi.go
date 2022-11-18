@@ -13,6 +13,7 @@ import (
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/aslib"
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
+	"github.com/google/uuid"
 	grpc "google.golang.org/grpc"
 )
 
@@ -43,11 +44,15 @@ var (
 func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
 	countConnections()
 	_ = ctx // ignore the unused warning
+	var u uuid.UUID
+	_ = u.UnmarshalBinary(in.GetUuid())
+	strUuid := u.String()
 	Usrdata := in.GetNonce()
 	rep := qcatools.GetTAReport(in.GetUuid(), Usrdata, in.WithTcb)
 	rpy := GetReportReply{
 		TeeReport: rep,
 	}
+	log.Printf("Get Report for TA : %s", strUuid)
 	return &rpy, nil
 }
 
