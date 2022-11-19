@@ -1347,6 +1347,53 @@ int tee_verify_report(buffer_data *buf_data, buffer_data *nonce, int type,
    return TVS_ALL_SUCCESSED;
 }
 
+bool tee_verify2(buffer_data *bufdata, int type, base_value *baseval)
+{
+   TA_report *report = Convert(bufdata);
+
+   bool verified;
+   if ((report == NULL) || (baseval == NULL))
+   {
+      printf("%s\n", "Pointer Error!");
+      verified = false;
+   }
+   else
+      verified = Compare(type, report,
+                         baseval); // compare the report with the basevalue
+
+   free_report(report);
+   free(report);
+   free(baseval);
+   return verified;
+}
+
+int tee_validate_report(buffer_data *buf_data, buffer_data *nonce)
+{
+   bool vn = tee_verify_nonce(buf_data, nonce);
+   if (vn == false)
+   {
+      return TVS_VERIFIED_NONCE_FAILED;
+   }
+   bool vs = tee_verify_signature(buf_data);
+   if (vs == false)
+   {
+      return TVS_VERIFIED_SIGNATURE_FAILED;
+   }
+
+   return TVS_ALL_SUCCESSED;
+}
+
+int tee_verify_report2(buffer_data *buf_data, int type,
+                      base_value *baseval)
+{
+   bool v = tee_verify2(buf_data, type, baseval);
+   if (v == false)
+   {
+      return TVS_VERIFIED_HASH_FAILED;
+   }
+   return TVS_ALL_SUCCESSED;
+}
+
 static base_value *LoadQTABaseValue(const char *refval)
 {
    base_value *baseval = (base_value *)calloc(1, sizeof(base_value));

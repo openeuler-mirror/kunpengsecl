@@ -35,6 +35,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
+	"gitee.com/openeuler/kunpengsecl/attestation/rac/ractools"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -1005,4 +1006,9 @@ func SetExtractRules(val string) {
 		return
 	}
 	rasCfg.extractRules = extractRules
+}
+
+func GetTaInputs() map[string]ractools.TaReportInput {
+	taInputs := map[string]ractools.TaReportInput{}
+	return taInputs
 }

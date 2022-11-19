@@ -10,8 +10,6 @@
 #define USER_DATA_SIZE 64
 #define NODE_LEN 8
 
-#define UUID_SIZE 16
-#define HASH_SIZE 32
 // #define SIG_SIZE 512
 // #define CERT_SIZE 512
 
@@ -137,15 +135,10 @@ struct ak_cert
      */
 } __attribute__((__packed__));
 
-typedef struct
-{
-    uint8_t uuid[UUID_SIZE];
-    uint8_t valueinfo[2][HASH_SIZE]; // valueinfo[0]=img measurement and valueinfo[1]=mem measurement
-} base_value;
-
 static bool tee_verify_nonce(buffer_data *buf_data,buffer_data *nonce);
 static bool tee_verify_signature(buffer_data *report);
 static bool tee_verify(buffer_data *buf_data, int type, char *filename);
+static bool tee_verify2(buffer_data *bufdata, int type, base_value *baseval);
 static void error(const char *msg);
 static void file_error(const char *s);
 static TA_report *Convert(buffer_data *buf_data);

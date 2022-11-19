@@ -74,6 +74,7 @@ message SendReportRequest {
   bytes quoted = 4;
   bytes signature = 5;
   repeated Manifest manifests = 6;
+  map<string,bytes> taReports = 7;
 }
 
 message Manifest{

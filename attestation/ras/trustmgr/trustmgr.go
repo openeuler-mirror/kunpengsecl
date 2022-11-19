@@ -25,6 +25,33 @@ Description: manage the client trust status.
 // and supports rest api to show all information.
 package trustmgr
 
+/*
+#cgo CFLAGS: -I../../tee/tverlib/verifier
+#cgo LDFLAGS: -L${SRCDIR}/../../tee/tverlib/verifier -lteeverifier -Wl,-rpath=${SRCDIR}/../../tee/tverlib/verifier
+
+#include "teeverifier.h"
+#include "common.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+base_value* build_basevalue(uint8_t *data){
+	base_value *baseval = NULL;
+	baseval = (base_value *)calloc(1, sizeof(base_value));
+	for(int i=0;i<16;i++){
+		baseval->uuid[i]=*(data+i);
+	}
+	for(int i=0;i<32;i++){
+		baseval->valueinfo[0][i]=*(data+16+i);
+	}
+	for(int i=0;i<32;i++){
+		baseval->valueinfo[1][i]=*(data+48+i);
+	}
+	return baseval;
+}
+*/
+import "C"
+
 import (
 	"bytes"
 	"crypto"
@@ -76,7 +103,9 @@ const (
 	sqlUnRegisterClientByID              = `UPDATE client SET registered=false WHERE id=$1`
 	sqlUpdateClientByID                  = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport                 = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlInsertTaReport                    = `INSERT INTO report(clientid, createtime, validated, trusted, uuid,value) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6)`
+	sqlInsertTaBase                      = `INSERT INTO base(clientid, uuid, createtime, name, valueinfo) VALUES ($1, $2, $3, $4, $5)`
 	sqlDisableBaseValuesByClientID       = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype='host'`
 	sqlEnableBaseValueByid               = `UPDATE base set enabled=true WHERE id=$1`
 	sqlDisableBaseValueByid              = `UPDATE base set enabled=false WHERE id=$1`
@@ -611,9 +640,39 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 	}
 	row.Validated = true
 	row.Trusted = true
-	c.SetTrusted(cache.StrTrusted)
+	c.SetTrusted(cache.StrUnknown)
 	c.UpdateTrustReport(config.GetTrustDuration())
 	go pushToStorePipe(row)
+
+	mp := config.GetTaInputs()
+	for uuid, taReport := range report.TaReports {
+		buf_data := C.buffer_data{}
+		nonce := C.buffer_data{}
+		buf_data.size = C.__uint32_t(len(taReport))
+		up_buf_data_buf := C.CBytes(taReport)
+		buf_data.buf = (*C.uchar)(up_buf_data_buf)
+		nonce.size = C.__uint32_t(len(mp[uuid].UserData))
+		up_nonce_buf := C.CBytes(mp[uuid].UserData)
+		nonce.buf = (*C.uchar)(up_nonce_buf)
+
+		ans := C.tee_validate_report(&buf_data, &nonce)
+		if ans != 0 {
+			if ans == -1 {
+				return false, fmt.Errorf("nonce err")
+			} else if ans == -2 {
+				return false, fmt.Errorf("signature err")
+			}
+		}
+		row := typdefs.TaReportRow{
+			ClientID:   report.ClientID,
+			CreateTime: time.Now(),
+			Validated:  true,
+			Trusted:    true,
+			Uuid:       uuid,
+			Value:      taReport,
+		}
+		go pushToStorePipe(row)
+	}
 	return true, nil
 }
 
@@ -764,6 +823,7 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 			}
 		case config.ManualStrategy:
 			verifyReport(report)
+			VerifyTaReport(report)
 		}
 	}
 	return nil
@@ -775,6 +835,10 @@ func handleFirstReport(report *typdefs.TrustReport) error {
 		return err
 	}
 	if isFR {
+		c, err := GetCache(report.ClientID)
+		if err != nil {
+			return err
+		}
 		// this is first report, so oldBase is nil
 		baseValue := typdefs.BaseRow{
 			ClientID: report.ClientID,
@@ -790,8 +854,25 @@ func handleFirstReport(report *typdefs.TrustReport) error {
 		baseValue.CreateTime = time.Now()
 		baseValue.BaseType = typdefs.StrHost
 		SaveBaseValue(&baseValue)
+		c.Bases = append(c.Bases, &baseValue)
+
+		taBases := map[string]*typdefs.TaBaseRow{}
+		for uuid, taReport := range report.TaReports {
+			valueinfo := make([]byte, typdefs.TaBaseLen)
+			valueinfo = taReport[104:168] // refer to struct TaReport
+			base := typdefs.TaBaseRow{
+				ClientID:   report.ClientID,
+				Uuid:       uuid,
+				CreateTime: time.Now(),
+				Valueinfo:  valueinfo,
+			}
+			tmgr.cache[report.ClientID].SetTaTrusted(uuid, cache.StrTrusted)
+			taBases[uuid] = &base
+			SaveTaBaseValue(&base)
+		}
 	} else {
 		verifyReport(report)
+		VerifyTaReport(report)
 	}
 	return nil
 }
@@ -821,6 +902,29 @@ func verifyReport(report *typdefs.TrustReport) {
 	tmgr.cache[report.ClientID].SetTrusted(trusted)
 }
 
+func VerifyTaReport(report *typdefs.TrustReport) {
+
+	for uuid, taReport := range report.TaReports {
+		buf_data := C.buffer_data{}
+		buf_data.size = C.__uint32_t(len(taReport))
+		up_buf_data_buf := C.CBytes(taReport)
+		buf_data.buf = (*C.uchar)(up_buf_data_buf)
+
+		c, _ := GetCache(report.ClientID)
+		basevalue := C.build_basevalue((*C.uchar)(C.CBytes(c.TaBases[uuid].Valueinfo)))
+		ans := C.tee_verify_report2(&buf_data, &nonce, C.int(typdefs.TaVerifyType), basevalue)
+		var trusted string
+		if ans == 0 {
+			trusted = cache.StrTrusted
+		} else if ans == -3 {
+			trusted = cache.StrUntrusted
+		} else {
+			trusted = cache.StrUnknown
+		}
+		tmgr.cache[report.ClientID].SetTaTrusted(uuid, trusted)
+	}
+}
+
 func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 
 	c, err := GetCache(report.ClientID)
@@ -840,6 +944,20 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	// the extraction template is consistent with the old.
 	// Otherwise, read extraction template from config.
 	extractFromOldBases(bases, &newBase, report)
+	taBases := map[string]*typdefs.TaBaseRow{}
+	for uuid, taReport := range report.TaReports {
+		valueinfo := make([]byte, typdefs.TaBaseLen)
+		valueinfo = taReport[104:168] // refer to struct TaReport
+		base := typdefs.TaBaseRow{
+			ClientID:   report.ClientID,
+			Uuid:       uuid,
+			CreateTime: time.Now(),
+			Valueinfo:  valueinfo,
+		}
+		taBases[uuid] = &base
+		SaveTaBaseValue(&base)
+	}
+	c.TaBases = taBases
 	c.SetTrusted(cache.StrTrusted)
 
 	return nil
@@ -1311,6 +1429,10 @@ func SaveBaseValue(row *typdefs.BaseRow) {
 	go pushToStorePipe(row)
 }
 
+func SaveTaBaseValue(row *typdefs.TaBaseRow) {
+	go pushToStorePipe(row)
+}
+
 func handleStorePipe(i int) {
 	for {
 		if chDb == nil {
@@ -1325,6 +1447,10 @@ func handleStorePipe(i int) {
 			handleReportStore(v)
 		case *typdefs.BaseRow:
 			handleBaseStore(v)
+		case *typdefs.TaReportRow:
+			handleTaReportStore(v)
+		case *typdefs.TaBaseRow:
+			handleTaBaseStore(v)
 		}
 	}
 }
@@ -1338,6 +1464,15 @@ func handleReportStore(v *typdefs.ReportRow) {
 	}
 }
 
+func handleTaReportStore(v *typdefs.TaReportRow) {
+	res, err := storeDb.Exec(sqlInsertTaReport,
+		v.ClientID, v.CreateTime, v.Validated, v.Trusted,
+		v.Uuid, v.Value)
+	if err != nil {
+		logger.L.Sugar().Errorf("insert taReport error, result %v, %v", res, err)
+	}
+}
+
 func handleBaseStore(v *typdefs.BaseRow) {
 	res, err := storeDb.Exec(sqlInsertBase, v.ClientID, v.BaseType, v.Uuid, v.CreateTime,
 		v.Enabled, v.Name, v.Pcr, v.Bios, v.Ima)
@@ -1348,4 +1483,16 @@ func handleBaseStore(v *typdefs.BaseRow) {
 		return
 	}
 	tmgr.cache[v.ClientID].Bases = append(tmgr.cache[v.ClientID].Bases, v)
+}
+
+func handleTaBaseStore(v *typdefs.TaBaseRow) {
+	res, err := storeDb.Exec(sqlInsertTaBase, v.ClientID, v.Uuid, v.CreateTime,
+		v.Name, v.Valueinfo)
+	if err != nil {
+		logger.L.Sugar().Errorf("insert taBase error, result %v, %v", res, err)
+	}
+	if tmgr.cache[v.ClientID] == nil {
+		return
+	}
+	tmgr.cache[v.ClientID].TaBases[v.Uuid] = v
 }
