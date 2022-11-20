@@ -175,7 +175,7 @@ func StartAttester() {
 	verify_result = tee_verify(test_ta.report, test_ta.usrdata, attesterConf.mspolicy, attesterConf.basevalue)
 	switch verify_result {
 	case 0:
-		log.Print("tee verify succeeded!")
+		printMeasureLog(attesterConf.mspolicy)
 	case -1:
 		log.Print("tee verify nonce failed!")
 	case -2:
@@ -185,6 +185,17 @@ func StartAttester() {
 	}
 
 	log.Print("Stop Attester......")
+}
+
+func printMeasureLog(policy int) {
+	switch policy {
+	case 1:
+		log.Print("tee verify image value succeeded!")
+	case 2:
+		log.Print("tee verify hash value succeeded!")
+	case 3:
+		log.Print("tee verify image & hash value succeeded!")
+	}
 }
 
 // Initialize the parameters of TA

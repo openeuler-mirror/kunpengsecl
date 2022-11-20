@@ -155,3 +155,139 @@ kill all processes...
 wait for 3s...  
 DAA scenario report is generated for TA:f68fd704-6eb1-4d14-b218-722850eb3ef0  
 test succeeded!  
+
+## story2.5测试
+
+### 测试思路
+1.  在kunpengsecl根目录下进行 `make build` 编译。
+2.  创建测试目录，并加载程序启动所需文件。
+3.  启动AK Service。
+4.  等待3秒，添加-C 2参数启动QCA Demo。
+5.  等待3秒，添加-T -M 1参数启动ATTESTER Demo。
+6.  等待3秒，终止ATTESTER Demo进程，检查是否使用度量策略1，若没有，则测试失败，流程结束。
+7.  等待3秒，添加-T -M 2参数启动ATTESTER Demo。
+8.  等待3秒，终止ATTESTER Demo进程，检查是否使用度量策略2，若没有，则测试失败，流程结束。
+9.  等待3秒，添加-T -M 3参数启动ATTESTER Demo。
+10. 等待3秒，终止ATTESTER Demo进程，检查是否使用度量策略3，若没有，则测试失败，流程结束。
+11. 等待3秒，添加-T -M 0参数启动ATTESTER Demo。
+12. 等待3秒，终止AK Service、QCA Demo和ATTESTER Demo进程，检查是否使用度量策略0，若没有，则测试失败，流程结束，否则，测试成功。
+
+### 测试结果
+>~/kunpengsecl ~/kunpengsecl  
+Generating RSA private key, 4096 bit long modulus (2 primes)  
+.....++++  
+......................................................................................................................................................................++++  
+e is 65537 (0x010001)  
+writing RSA key  
+You are about to be asked to enter information that will be incorporated  
+into your certificate request.  
+What you are about to enter is what is called a Distinguished Name or a DN.  
+There are quite a few fields but you can leave some blank  
+For some fields there will be a default value,  
+If you enter '.', the field will be left blank.  
+\-----  
+Country Name (2 letter code) [AU]:  
+State or Province Name (full name) [Some-State]:  
+Locality Name (eg, city) []:  
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:  
+Organizational Unit Name (eg, section) []:  
+Common Name (e.g. server FQDN or YOUR name) []:  
+Email Address []:  
+~/kunpengsecl  
+\==========  
+start story2.5 at: 2022年 11月 18日 星期五 10:10:10 CST  
+prepare the test environments...  
+start akservice...  
+wait for 3s...  
+start qca demo...  
+wait for 3s...  
+start attester demo the first time...  
+wait for 3s...  
+kill attester demo process...  
+using measurement policy 1 succeeded  
+wait for 3s...  
+start attester demo the second time...  
+wait for 3s...  
+kill attester demo process...  
+using measurement policy 2 succeeded  
+wait for 3s...  
+start attester demo the third time...  
+wait for 3s...  
+kill attester demo process...  
+using measurement policy 3 succeeded  
+wait for 3s...  
+start attester demo the last time...  
+wait for 3s...  
+kill all processes...  
+已终止  
+已终止  
+using measurement policy 0 succeeded  
+test succeeded!  
+
+## story2.6测试
+
+### 测试思路
+1.  在kunpengsecl根目录下进行 `make build` 编译。
+2.  创建测试目录，并加载程序启动所需文件。
+3.  启动AK Service。
+4.  等待3秒，添加-C 2参数启动QCA Demo。
+5.  等待3秒，添加-T -M 1参数启动ATTESTER Demo。
+6.  等待3秒，终止ATTESTER Demo进程，检查是否完成image度量，若没有，则测试失败，流程结束。
+7.  等待3秒，添加-T -M 2参数启动ATTESTER Demo。
+8.  等待3秒，终止ATTESTER Demo进程，检查是否完成hash度量，若没有，则测试失败，流程结束。
+9.  等待3秒，添加-T -M 3参数启动ATTESTER Demo。
+10. 等待3秒，终止ATTESTER Demo进程，检查是否完成image&hash度量，若没有，则测试失败，流程结束。
+11. 等待3秒，添加-T -M 0参数启动ATTESTER Demo。
+12. 等待3秒，终止AK Service、QCA Demo和ATTESTER Demo进程，检查是否提示度量失败，若没有，则测试失败，流程结束，否则，测试成功。
+
+### 测试结果
+>~/kunpengsecl ~/kunpengsecl  
+Generating RSA private key, 4096 bit long modulus (2 primes)  
+.....................................................................................................................................................................................................................................................++++  
+.........................++++  
+e is 65537 (0x010001)  
+writing RSA key  
+You are about to be asked to enter information that will be incorporated  
+into your certificate request.  
+What you are about to enter is what is called a Distinguished Name or a DN.  
+There are quite a few fields but you can leave some blank  
+For some fields there will be a default value,  
+If you enter '.', the field will be left blank.  
+\-----  
+Country Name (2 letter code) [AU]:  
+State or Province Name (full name) [Some-State]:  
+Locality Name (eg, city) []:  
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:  
+Organizational Unit Name (eg, section) []:  
+Common Name (e.g. server FQDN or YOUR name) []:  
+Email Address []:  
+~/kunpengsecl  
+\==========  
+start story2.6 at: 2022年 11月 18日 星期五 09:53:56 CST  
+prepare the test environments...  
+start akservice...  
+wait for 3s...  
+start qca demo...  
+wait for 3s...  
+start attester demo the first time...  
+wait for 3s...  
+kill attester demo process...  
+measuring image value succeeded  
+wait for 3s...  
+start attester demo the second time...  
+wait for 3s...  
+kill attester demo process...  
+measuring hash value succeeded  
+wait for 3s...  
+start attester demo the third time...  
+wait for 3s...  
+kill attester demo process...  
+measuring image & hash value succeeded  
+wait for 3s...  
+start attester demo the last time...  
+wait for 3s...  
+kill all processes...  
+已终止  
+已终止  
+check the invalid policy correctly  
+test succeeded!  
