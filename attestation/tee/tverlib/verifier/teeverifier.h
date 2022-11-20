@@ -9,11 +9,19 @@
 #include <stdint.h>
 #include <ctype.h>
 
+#define UUID_SIZE 16
+#define HASH_SIZE 32
 //Attester will send the report by this type
 typedef struct{
     uint32_t size;
     uint8_t *buf;
 } buffer_data;
+
+typedef struct
+{
+    uint8_t uuid[UUID_SIZE];
+    uint8_t valueinfo[2][HASH_SIZE]; // valueinfo[0]=img measurement and valueinfo[1]=mem measurement
+} base_value;
 
 enum error_status_code {
     TVS_ALL_SUCCESSED = 0,
@@ -23,7 +31,9 @@ enum error_status_code {
 };
 
 int tee_verify_report(buffer_data *data_buf,buffer_data *nonce,int type, char *filename);
-bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
-bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *cert, uint32_t scenario);
+int tee_validate_report(buffer_data *buf_data, buffer_data *nonce);
+int tee_verify_report2(buffer_data *buf_data, int type,base_value *baseval);
+bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval);
+bool tee_get_akcert_data(buffer_data *akcert, buffer_data *akpub, buffer_data *drkcrt);
 
 #endif

@@ -106,6 +106,44 @@ var (
 	serialNumber int64 = 1
 )
 
+func verifyAKCert(oldAKCert []byte) (drkpub *rsa.PublicKey, akpub []byte, err error) {
+	// STEP1: get data used for verify
+	var c_cert, c_certdrk, c_akpub C.buffer_data
+	c_cert.size = C.uint(len(oldAKCert))
+	up_old_cert := C.CBytes(oldAKCert)
+	defer C.free(up_old_cert)
+	c_cert.buf = (*C.uchar)(up_old_cert)
+	C.tee_get_akcert_data(&c_cert, &c_akpub, &c_certdrk)
+	drkcertbyte := []byte(C.GoBytes(unsafe.Pointer(c_certdrk.buf), C.int(c_certdrk.size)))
+	// STEP2: get data used for re-sign
+	akpub = []byte(C.GoBytes(unsafe.Pointer(c_akpub.buf), C.int(c_akpub.size)))
+	// STEP3: parse device cert
+	drkcertBlock, _ := pem.Decode(drkcertbyte)
+	drkcert, err := x509.ParseCertificate(drkcertBlock.Bytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	drkpub = drkcert.PublicKey.(*rsa.PublicKey)
+	log.Print("Server: Parse drk cert succeeded.")
+	// STEP4: verify device cert signature
+	err = verifyDRKSig(drkcert)
+	if err != nil {
+		return nil, nil, errors.New("verify drk signature failed")
+	}
+	log.Print("Server: Verify drk signature ok.")
+	// STEP5: verify ak cert signature & QCA
+	up_qca_ref := C.CBytes([]byte(config.GetBaseValue()))
+	defer C.free(up_qca_ref)
+	rs := C.tee_verify_akcert(&c_cert, 3, (*C.char)(up_qca_ref))
+	if !bool(rs) {
+		return nil, nil, errors.New("verify ak signature failed")
+	}
+	log.Print("Server: Verify ak signature & QCA ok.")
+	//TODO: verify TCB
+	return drkpub, akpub, nil
+}
+
+
 // The input parameter is the AK certificate issued by the target platform device certificate
 // After receiving the AK certificate, parse and extract the signed data fields,
 // signature fields, and DRK certificate fields
@@ -117,47 +155,21 @@ var (
 // Re-sign the AK certificate using the AS private key
 // Return the re-signed AK certificate
 func GenerateNoDAAAKCert(oldAKCert []byte) ([]byte, error) {
-	// STEP1: get data used for verify
-	var c_cert, c_signdata, c_signdrk, c_certdrk, c_akpub C.buffer_data
-	c_cert.size = C.uint(len(oldAKCert))
-	up_old_cert := C.CBytes(oldAKCert)
-	defer C.free(up_old_cert)
-	c_cert.buf = (*C.uchar)(up_old_cert)
-	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akpub)
-	drkcertbyte := []byte(C.GoBytes(unsafe.Pointer(c_certdrk.buf), C.int(c_certdrk.size)))
-	// STEP2: get data used for re-sign
-	signdrkbyte := []byte(C.GoBytes(unsafe.Pointer(c_signdrk.buf), C.int(c_signdrk.size)))
-	akpubbyte := []byte(C.GoBytes(unsafe.Pointer(c_akpub.buf), C.int(c_akpub.size)))
+	_, akpubbyte, err := verifyAKCert(oldAKCert)
+	if err != nil {
+		return nil, err
+	}
 	b := big.NewInt(0)
 	b.SetBytes(akpubbyte)
 	akpub := &rsa.PublicKey{
 		N: b,
 		E: 0x10001,
 	}
-	// STEP3: parse device cert
-	drkcertBlock, _ := pem.Decode(drkcertbyte)
-	drkcert, err := x509.ParseCertificate(drkcertBlock.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	log.Print("Server: Parse drk cert succeeded.")
-	// STEP4: verify device cert signature
-	err = verifyDRKSig(drkcert)
-	if err != nil {
-		return nil, errors.New("verify drk signature failed")
-	}
-	log.Print("Server: Verify drk signature ok.")
-	// STEP5: verify ak cert signature
-	rs := C.verifysig(&c_signdata, &c_signdrk, &c_certdrk, 1)
-	if !bool(rs) {
-		return nil, errors.New("verify ak signature failed")
-	}
-	log.Print("Server: Verify ak signature ok.")
 	// STEP6: get as private key and as cert
 	asprivkey := config.GetASPrivKey()
 	ascert := config.GetASCert()
 	// STEP7: re-sign ak cert
-	newCertDer, err := signForAKCert(oldAKCert, ascert, signdrkbyte, akpub, asprivkey)
+	newCertDer, err := signForAKCert(oldAKCert, ascert, akpub, asprivkey)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +298,7 @@ func verifyDRKSig(c *x509.Certificate) error {
 // AS will uses its private key/cert to re-sign AK cert,
 // and convert AK cert to x509 format
 // TODO: Measure value in AK cert should be verified before sending to AS
-func signForAKCert(cb []byte, parent *x509.Certificate, sign []byte, pub interface{}, priv interface{}) ([]byte, error) {
+func signForAKCert(cb []byte, parent *x509.Certificate, pub interface{}, priv interface{}) ([]byte, error) {
 	var ACtemplate = x509.Certificate{
 		NotBefore:      time.Now(),
 		NotAfter:       time.Now().AddDate(1, 0, 0),
@@ -306,7 +318,6 @@ func signForAKCert(cb []byte, parent *x509.Certificate, sign []byte, pub interfa
 	serialNumber++
 	m.Unlock()
 	ACtemplate.SerialNumber = big.NewInt(id)
-	ACtemplate.Signature = append(ACtemplate.Signature, sign...)
 	// extract sign algorithm
 	alg_sign := extractSignAlg(c)
 	if alg_sign == ZERO_VALUE {
@@ -359,42 +370,13 @@ func extractSignAlg(c *certificate) uint64 {
 }
 
 func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
-	// STEP1: get data used for verify
-	var c_cert, c_signdata, c_signdrk, c_certdrk, c_akprip1 C.buffer_data
-	c_cert.size = C.uint(len(oldAKCert))
-	up_old_cert := C.CBytes(oldAKCert)
-	defer C.free(up_old_cert)
-	c_cert.buf = (*C.uchar)(up_old_cert)
-	C.getDataFromAkCert(&c_cert, &c_signdata, &c_signdrk, &c_certdrk, &c_akprip1)
-	drkcertbyte := []byte(C.GoBytes(unsafe.Pointer(c_certdrk.buf), C.int(c_certdrk.size)))
-	// STEP2: get data used for re-sign
-	akprip1byte := []byte(C.GoBytes(unsafe.Pointer(c_akprip1.buf), C.int(c_akprip1.size)))
-	// STEP3: parse device cert
-	drkcertBlock, _ := pem.Decode(drkcertbyte)
-	drkcert, err := x509.ParseCertificate(drkcertBlock.Bytes)
+	drkcertpubkey, akpubbyte, err := verifyAKCert(oldAKCert)
 	if err != nil {
 		return nil, err
 	}
-	log.Print("Server: Parse drk cert succeeded.")
-	drkcertpubkey := drkcert.PublicKey.(*rsa.PublicKey)
-	// STEP4: verify device cert signature
-	err = verifyDRKSig(drkcert)
-	if err != nil {
-		return nil, errors.New("verify drk signature failed")
-	}
-	log.Print("Server: Verify drk signature ok.")
-	// STEP5: verify ak cert signature
-	rs := C.verifysig(&c_signdata, &c_signdrk, &c_certdrk, 1)
-	if !bool(rs) {
-		return nil, errors.New("verify ak signature failed")
-	}
-	log.Print("Server: Verify ak signature ok.")
-
-	//TODO: verify QCA & TCB
-
 	skxstr, skystr := config.GetDAAGrpPrivKey()
 	// generate cert
-	sig, err := makeDAACredential(akprip1byte, skxstr, skystr, drkcertpubkey)
+	sig, err := makeDAACredential(akpubbyte, skxstr, skystr, drkcertpubkey)
 	if err != nil {
 		return nil, errors.New("make daa credential failed")
 	}
@@ -544,11 +526,17 @@ var t_l = [...]FP256BN.Chunk{0x660F4C750AD824, 0xE123D7A4E355BC, 0x16E93BDD02324
 var k = [...]FP256BN.Chunk{0x191A1B1C1D1E1F, 0x12131415161718, 0x0B0C0D0E0F1011, 0x0405060708090A, 0x00010203}
 */
 func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rsa.PublicKey) ([]byte, error) {
+	rnd := core.NewRAND()
+	var rndraw [128]byte
+	if _, err := io.ReadFull(rand.Reader, rndraw[:]); err != nil {
+		return nil, errors.New("daa K generation failed")
+	}
+	rnd.Seed(len(rndraw), rndraw[:])
 	// random r l
 	//r := FP256BN.NewBIGints(t_r) //test random r
 	//l := FP256BN.NewBIGints(t_l) //test random l
-	r := FP256BN.Random(core.NewRAND())
-	l := FP256BN.Random(core.NewRAND())
+	r := FP256BN.Random(rnd)
+	l := FP256BN.Random(rnd)
 	// daa private key
 	skx, err := str2chunk(skxstr)
 	if err != nil {
@@ -587,7 +575,7 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	yru := FP256BN.Modmul(ry, dcre.sigma.u, n)
 	dcre.sigma.j = FP256BN.Modadd(yru, l, n)
 	// use DRK to encrypt K -> ENCdrk(Qs||K)
-	K := FP256BN.Random(core.NewRAND())
+	K := FP256BN.Random(rnd)
 	//K := FP256BN.NewBIGints(k) //test random K
 	var Kbytes [FP256BN.MODBYTES]byte
 	K.ToBytes(Kbytes[:])

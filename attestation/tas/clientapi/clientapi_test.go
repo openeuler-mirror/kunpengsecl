@@ -1,4 +1,4 @@
-package akissuer
+package clientapi
 
 import (
 	"io/ioutil"
@@ -7,6 +7,18 @@ import (
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/config"
 )
+
+const serverConfig = `
+tasconfig:
+  port: 127.0.0.1:40008
+  rest: 127.0.0.1:40009
+  akskeycertfile: ../cmd/ascert.crt
+  aksprivkeyfile: ../cmd/aspriv.key
+  huaweiitcafile: ../cmd/Huawei IT Product CA.pem
+  DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
+  DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56
+  basevalue: cc0fe80b4510b3c8d5bf6308024676d2d9e83fbb05ba3d23cd645bfb573ae8a1 bd9df1a7f941c572c14723b80a0fbd805d52641bbac8325681a19d8ba8487b53
+`
 
 var (
 	bufferDAA = []byte{
@@ -450,20 +462,15 @@ var (
 		0x49, 0x77, 0x71, 0x68, 0x6e, 0x59, 0x6d, 0x43, 0x68, 0x67, 0x3d, 0x3d}
 )
 
-const serverConfig = `
-tasconfig:
-  port: 127.0.0.1:40008
-  rest: 127.0.0.1:40009
-  akskeycertfile: ../cmd/ascert.crt
-  aksprivkeyfile: ../cmd/aspriv.key
-  huaweiitcafile: ../cmd/Huawei IT Product CA.pem
-  DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
-  DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56
-  basevalue: cc0fe80b4510b3c8d5bf6308024676d2d9e83fbb05ba3d23cd645bfb573ae8a1 bd9df1a7f941c572c14723b80a0fbd805d52641bbac8325681a19d8ba8487b53
-`
-
 const (
 	configFilePath = "./config.yaml"
+)
+
+const (
+	// app scenario
+	RA_SCENARIO_NO_AS = int32(iota)
+	RA_SCENARIO_AS_NO_DAA
+	RA_SCENARIO_AS_WITH_DAA
 )
 
 func CreateServerConfigFile() {
@@ -474,46 +481,44 @@ func RemoveConfigFile() {
 	os.Remove(configFilePath)
 }
 
-func RemoveFiles() {
-	//TODD
-
-}
-
-func TestGenerateDAAAKCert(t *testing.T) {
+func TestClientapi(t *testing.T) {
 	CreateServerConfigFile()
 	defer RemoveConfigFile()
 
 	config.LoadConfigs()
-	defer RemoveFiles()
+	addr := config.GetServerPort()
+	go StartServer(addr)
+	defer StopServer()
 
 	err := config.InitializeAS()
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = GenerateDAAAKCert(bufferDAA)
-	if err != nil {
-		t.Errorf("generate daa scenario ak cert error %v", err)
+
+	req_1 := GetAKCertRequest{
+		Akcert:   bufferNoDAA,
+		Scenario: RA_SCENARIO_AS_NO_DAA,
 	}
-	/*
-		if !bytes.Equal(sig, sigDAA) {
-			t.Error("test DAA credential generation failed")
-		}
-	*/
-}
-
-func TestGenerateNoDAAAKCert(t *testing.T) {
-	CreateServerConfigFile()
-	defer RemoveConfigFile()
-
-	config.LoadConfigs()
-	defer RemoveFiles()
-
-	err := config.InitializeAS()
+	_, err = DoGetAKCert(addr, &req_1)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("test DoGetAKCert in scenario RA_SCENARIO_AS_NO_DAA error %v", err)
 	}
-	_, err = GenerateNoDAAAKCert(bufferNoDAA)
+
+	req_2 := GetAKCertRequest{
+		Akcert:   bufferDAA,
+		Scenario: RA_SCENARIO_AS_WITH_DAA,
+	}
+	_, err = DoGetAKCert(addr, &req_2)
 	if err != nil {
-		t.Errorf("generate nodaa scenario ak cert error %v", err)
+		t.Errorf("test DoGetAKCert in scenario RA_SCENARIO_AS_WITH_DAA error %v", err)
+	}
+
+	req_3 := GetAKCertRequest{
+		Akcert:   nil,
+		Scenario: RA_SCENARIO_NO_AS,
+	}
+	_, err = DoGetAKCert(addr, &req_3)
+	if err == nil {
+		t.Errorf("test DoGetAKCert in scenario RA_SCENARIO_NO_AS error %v", err)
 	}
 }

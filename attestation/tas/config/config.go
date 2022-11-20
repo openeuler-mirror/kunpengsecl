@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -16,9 +17,8 @@ const (
 	// config path
 	strLocalConf = "."
 	// config file
-	confName = "config"
-	confExt  = "yaml"
-
+	confName           = "config"
+	confExt            = "yaml"
 	confServPort       = "tasconfig.port"
 	confRestPort       = "tasconfig.rest"
 	confTASKeyCertFile = "tasconfig.akskeycertfile"
@@ -26,6 +26,13 @@ const (
 	confHWITCACertFile = "tasconfig.huaweiitcafile"
 	confDAAGrpPrivKeyX = "tasconfig.DAA_GRP_KEY_SK_X"
 	confDAAGrpPrivKeyY = "tasconfig.DAA_GRP_KEY_SK_Y"
+	confAuthKeyFile    = "tasconfig.authkeyfile"
+	confBaseValue      = "tasconfig.basevalue"
+	// cmd flag
+	// token output
+	lflagToken = "token"
+	sflagToken = "T"
+	helpToken  = "generate test token for rest api"
 )
 
 type (
@@ -37,6 +44,8 @@ type (
 		hwItCACertFile string
 		DAAGrpPrivKeyX string
 		DAAGrpPrivKeyY string
+		authKeyFile    string
+		basevalue      string
 	}
 )
 
@@ -48,7 +57,13 @@ var (
 	ascert    *x509.Certificate
 	asprivkey *rsa.PrivateKey
 	hwcert    *x509.Certificate
+	TokenFlag *bool
 )
+
+func InitFlags() {
+	TokenFlag = pflag.BoolP(lflagToken, sflagToken, false, helpToken)
+	pflag.Parse()
+}
 
 func LoadConfigs() {
 	log.Print("Load TAS configs...")
@@ -73,6 +88,8 @@ func LoadConfigs() {
 	tasCfg.hwItCACertFile = viper.GetString(confHWITCACertFile)
 	tasCfg.DAAGrpPrivKeyX = viper.GetString(confDAAGrpPrivKeyX)
 	tasCfg.DAAGrpPrivKeyY = viper.GetString(confDAAGrpPrivKeyY)
+	tasCfg.authKeyFile = viper.GetString(confAuthKeyFile)
+	tasCfg.basevalue = viper.GetString(confBaseValue)
 }
 
 func InitializeAS() error {
@@ -123,6 +140,13 @@ func GetServerPort() string {
 	return tasCfg.servPort
 }
 
+func GetRestPort() string {
+	if tasCfg == nil {
+		return ""
+	}
+	return tasCfg.restPort
+}
+
 func GetASCertFile() string {
 	if tasCfg == nil {
 		return ""
@@ -158,4 +182,25 @@ func GetHWCert() *x509.Certificate {
 
 func GetDAAGrpPrivKey() (string, string) {
 	return tasCfg.DAAGrpPrivKeyX, tasCfg.DAAGrpPrivKeyY
+}
+
+func GetAuthKeyFile() string {
+	if tasCfg == nil {
+		return ""
+	}
+	return tasCfg.authKeyFile
+}
+
+func GetBaseValue() string {
+	if tasCfg == nil {
+		return ""
+	}
+	return tasCfg.basevalue
+}
+
+func SetBaseValue(s string) {
+	if tasCfg == nil {
+		return
+	}
+	tasCfg.basevalue = s
 }

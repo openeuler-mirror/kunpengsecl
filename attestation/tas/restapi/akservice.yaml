@@ -3,6 +3,39 @@ info:
   title: TEE Independent Attestation REST server
   description: tee independent attestation server provides Restful APIs to maintain the as-related info
   version: 1.0.0
+  license:
+    name: MulanPSL-2.0
+    url: http://license.coscl.org.cn/MulanPSL2
 Servers:
 -url: http://localhost:40009
 paths:
+  /config:
+    get:
+      description: get the current configuration of tas
+      responses:
+        '200':
+          description: success return the configuration of tas
+          content:
+            application/json:
+              schema:
+                type: string
+    post:
+      description: modify a new configuration of tas
+      responses:
+        '200':
+          description: success modify the new configuration of tas
+      security:
+        - servermgt_oauth2:
+          - write:servers
+components:
+  securitySchemes:
+    servermgt_oauth2:
+      description: oauth2 authentication to remote attestation server
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: http://localhost:5096/authorization
+          tokenUrl: http://localhost:5096/token
+          scopes:
+            write:servers: modify target server configurations
+            read:servers: read server informations

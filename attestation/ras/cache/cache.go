@@ -43,6 +43,7 @@ type (
 		regtime      string
 		online       bool
 		hostTrusted  string
+		taTrusted    map[string]string
 		isAutoUpdate bool //true表示信任下一次的可信报告，不验证直接抽取更新基准值；false则正常对下一次报告进行验证
 		// current commands for RAC.
 		commands uint64
@@ -55,7 +56,8 @@ type (
 		nonce  uint64
 		ikCert *x509.Certificate
 		// for verify process
-		Bases []*typdefs.BaseRow
+		Bases   []*typdefs.BaseRow
+		TaBases map[string]*typdefs.TaBaseRow
 	}
 )
 
@@ -71,6 +73,7 @@ func NewCache() *Cache {
 		nonce:           0,
 		ikCert:          nil,
 		Bases:           make([]*typdefs.BaseRow, 0, defaultBaseRows),
+		TaBases:         map[string]*typdefs.TaBaseRow{},
 	}
 	return c
 }
@@ -122,6 +125,10 @@ func (c *Cache) SetTrusted(v string) {
 	c.hostTrusted = v
 }
 
+func (c *Cache) SetTaTrusted(uuid string, v string) {
+	c.taTrusted[uuid] = v
+}
+
 // GetTrusted checks where the RAC trust report is valid or not.
 func (c *Cache) GetTrusted() string {
 	// After trust report expiration there is no one report received,
@@ -134,6 +141,17 @@ func (c *Cache) GetTrusted() string {
 		c.hostTrusted = StrUnknown
 	}
 	return c.hostTrusted
+}
+
+func (c *Cache) GetTaTrusted(uuid string) string {
+	if !c.online {
+		c.taTrusted[uuid] = StrUnknown
+	}
+	if time.Now().After(c.trustExpiration) {
+		c.SetCommands(typdefs.CmdGetReport)
+		c.taTrusted[uuid] = StrUnknown
+	}
+	return c.taTrusted[uuid]
 }
 
 // GetNonce returns a nonce value for remote attestation trust report.

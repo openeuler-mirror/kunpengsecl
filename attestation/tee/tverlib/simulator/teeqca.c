@@ -1,6 +1,7 @@
 // a simulation of qcalib
 
 #include "teeqca.h"
+#include "testdata.h"
 #include <string.h>
 
 /*** Set up hard-coded test case ***/
@@ -994,22 +995,22 @@ uint8_t cert2[] = {
 
 struct ra_buffer_data report_array[] = {
     {// case1: report-no as
-        3624,
-     report1},
+        sizeof(report_noas),
+        report_noas},
     {// case2: report-as no daa
-        4888,
-     report2},
+        sizeof(report_nodaa),
+        report_nodaa},
     {// case3.1: report-as with daa, without bsn
-        0x2bc,
-     report4},
-    {// case3.2: report-as with daa, with bsn
+        sizeof(report_daa),
+        report_daa},
+/*    {// case3.2: report-as with daa, with bsn
         0x34c,
      report3},
-     };
+*/     };
 
 static int g_scenario = RA_SCENARIO_NO_AS; // default noas mode
 
-TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report)
+TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report, bool with_tcb)
 {
     if (usr_data == NULL || param_set == NULL || report == NULL)
     {
@@ -1023,17 +1024,18 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_dat
         return 0xFFFF0006; // bad parameters
     }
 
-    if (param_set->size < sizeof(uint32_t) + 2 * sizeof(struct ra_params))
+    if (param_set->size < sizeof(uint32_t) + 1 * sizeof(struct ra_params))
     {
         printf("bad param_set 1!\n");
         return 0xFFFF0006; // bad parameters
     }
 
     struct ra_params_set_t *pset = (struct ra_params_set_t *)param_set->buf;
-    if (pset->param_count < 2 || pset->params[0].tags != RA_TAG_HASH_TYPE
+    if (pset->param_count < 1 || pset->params[0].tags != RA_TAG_HASH_TYPE
         || pset->params[0].data.integer != RA_ALG_SHA_256
-        || pset->params[1].tags != RA_TAG_WITH_TCB
-        || pset->params[1].data.integer != false)
+        //|| pset->params[1].tags != RA_TAG_WITH_TCB
+        //|| pset->params[1].data.integer != false
+	|| with_tcb)
     {
         printf("bad param_set 2!\n");
         return 0xFFFF0006; // bad parameters
@@ -1042,7 +1044,7 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_dat
     switch (g_scenario)
     {
     case RA_SCENARIO_NO_AS:
-        if (pset->param_count != 2)
+        if (pset->param_count != 1)
         {
             printf("bad param_set 3!\n");
             return 0xFFFF0006; // bad parameters
@@ -1051,7 +1053,7 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_dat
         break;
 
     case RA_SCENARIO_AS_NO_DAA:
-        if (pset->param_count != 2)
+        if (pset->param_count != 1)
         {
             printf("bad param_set 4!\n");
             return 0xFFFF0006; // bad parameters
@@ -1083,6 +1085,7 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_dat
     report->size = report_array[g_scenario].size;
     memcpy(report->buf, report_array[g_scenario].buf, report->size);
 
+    printf("Get report successfully!\n");
     return 0;
 }
 
@@ -1095,7 +1098,7 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
         return 0xFFFF0006; // bad parameters
     }
 
-    if (scenario > 2)
+    if (scenario > 1)
     {
         printf("Unsupported scenario %d!\n", scenario);
         return 0xFFFF0006; // bad parameters
@@ -1140,8 +1143,8 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
             return 0xFFFF0006; // bad parameters
         }
 
-        out_data->size = sizeof(cert1);
-        memcpy(out_data->buf, cert1, out_data->size);
+        out_data->size = sizeof(akcert_nodaa);
+        memcpy(out_data->buf, akcert_nodaa, out_data->size);
         break;
     case RA_SCENARIO_AS_WITH_DAA:
         if (pset->param_count != 2 || pset->params[0].tags != RA_TAG_HASH_TYPE
@@ -1159,8 +1162,8 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
             return 0xFFFF0006; // bad parameters
         }
 
-        out_data->size = sizeof(cert2);
-        memcpy(out_data->buf, cert2, out_data->size);
+        out_data->size = sizeof(akcert_daa);
+        memcpy(out_data->buf, akcert_daa, out_data->size);
         break;
     default:
         break;
@@ -1168,17 +1171,12 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
     
     g_scenario = scenario;
 
-    printf("Generate RSA AK and AK Cert success!\n");
+    printf("Generate AK and AK Cert successfully!\n");
     return 0;
 }
 
 TEEC_Result RemoteAttestSaveAKCert(struct ra_buffer_data *akcert)
 {
-    if (akcert->size > 0x1000) {
-        printf("akcert is too large!\n");
-	return 0xFFFF0006; // bad parameters
-    }
-
-    memcpy(&report2[0x318], akcert->buf, akcert->size);
+    printf("Save AK Cert successfully!\n");
     return 0;
 }

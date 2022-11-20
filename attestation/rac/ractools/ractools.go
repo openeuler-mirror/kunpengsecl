@@ -29,6 +29,7 @@ import (
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
@@ -164,6 +165,12 @@ type (
 		DecryptAlg      string // the algorithm & scheme used to decrypt the IK Cert
 		DecryptParam    []byte // the parameter required by the decrypt algorithm to decrypt the IK Cert
 		// if DecryptAlg == "AES128-CBC" then it is the IV used to decrypt IK Cert together with the key recovered from CredBlob & EncryptedSecret
+	}
+
+	TaReportInput struct {
+		Uuid     string
+		UserData []byte
+		WithTcb  bool
 	}
 )
 
@@ -595,7 +602,7 @@ func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {
 }
 
 // GetTrustReport takes a nonce input, generates the current trust report
-func GetTrustReport(clientID int64, nonce uint64, algStr string) (*typdefs.TrustReport, error) {
+func GetTrustReport(clientID int64, nonce uint64, algStr string, taInputs map[string]TaReportInput) (*typdefs.TrustReport, error) {
 	if tpmRef == nil {
 		return nil, ErrFailTPMInit
 	}
@@ -647,6 +654,16 @@ func GetTrustReport(clientID int64, nonce uint64, algStr string) (*typdefs.Trust
 			{Key: typdefs.StrIma, Value: imaLog},
 		},
 	}
+
+	if taInputs != nil {
+		for uuid, taReportInput := range taInputs {
+			taReport := qcatools.GetTAReport([]byte(taReportInput.Uuid), taReportInput.UserData, taReportInput.WithTcb)
+			if err == nil {
+				report.TaReports[uuid] = taReport
+			}
+		}
+	}
+
 	return &report, nil
 }
 

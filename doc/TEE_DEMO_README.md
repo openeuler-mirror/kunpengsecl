@@ -82,7 +82,8 @@ scenario=RA_SCENARIO_AS_WITH_DAA有出参，出参结果为CertAK：ts||TAG||([A
 TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid,
                                struct ra_buffer_data *usr_data,
                                struct ra_buffer_data *param_set,
-                               struct ra_buffer_data *report);
+                               struct ra_buffer_data *report,
+                               bool with_tcb);
 ```
 接口描述：获取证明报告  
 参数1【传入】：待证明的TA uuid。  
@@ -96,6 +97,7 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid,
 原report的明文数据 || DAA签名 || AK证书  
 DAA签名：size || J || size || K || size || h2 || size || s || size || nm  
 AK证书：size || AKCert.A || size || AKCert.B || size || AKCert.C || size || AKCert.D  
+参数5【传入】：是否关联软件可信基度量值，目前只能是false。  
 ***
 ```c
 TEEC_Result RemoteAttestSaveAKCert(struct ra_buffer_data *akcert);
@@ -388,7 +390,14 @@ $ go run main.go
 ```
 读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书，配置DAA密钥等。
 
-**对于QCA和ATTESTER的启用**
+**对于服务端QCA的启用**
+```bash
+$ cd kunpengsecl/attestation/tee/demo/qca_demo/cmd
+$ go run main.go -C 1
+```
+读取 `config.yaml` 中保存的缺省配置开放服务端口。
+
+**对于ATTESTER的启用**
 
 同<a href="#程序启动">最小实现</a>。
 
@@ -415,10 +424,15 @@ $ go run main.go
 ```
 读取 `config.yaml` 中保存的缺省配置开放服务端口，加载设备证书和根证书，配置DAA密钥等。
 
-**对于QCA和ATTESTER的启用**
+**对于服务端QCA的启用**
+```bash
+$ cd kunpengsecl/attestation/tee/demo/qca_demo/cmd
+$ go run main.go -C 2
+```
+读取 `config.yaml` 中保存的缺省配置开放服务端口。
 
-同<a href="#程序启动">最小实现</a>。测试模式下可运行如下命令行来执行attester：
-$ cd kunpengsecl/attestation/tee/demo/attester_demo/cmd
-$ go run main.go -T -B ./basevalue2.txt
+**对于ATTESTER的启用**
+
+同<a href="#程序启动">最小实现</a>。
 
 >注：在有AK_Service环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问AK_Service以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有AK_Service签发的证书保存于本地，若成功读取证书，则无需访问AK_Service，若读取证书失败，则需要访问AK_Service，并将AK_Service返回的证书保存于本地。
