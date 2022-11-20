@@ -13,18 +13,28 @@ Create: 2022-11-04
 Description: api module in kta.
 	1. 2022-11-04	leezhenxiang
 		define the structures.
+	2. 2022-11-18   waterh2o
+        redefine some interface
 */
 
 #ifndef KTA_API_H
 #define KTA_API_H
 
 #include <tee_defines.h>
-#include <kta_initialize.h>
-#include <key_manager.h>
+#include <kta_common.h>
 
-TEE_Result SendRequest(); //parameters to be set
+//for kcm
 
-TEE_Result HandleKAReply(); //parameters to be set
+TEE_Result KTAInitialize();
+
+TEE_Result KTAInitialReply();
+
+TEE_Result SendRequest();
+
+TEE_Result GetResponse();
+
+
+//for TA
 
 TEE_Result SearchTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache, char *keyvalue);
 

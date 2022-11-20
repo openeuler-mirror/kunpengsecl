@@ -17,7 +17,6 @@ Description: kta manages the TA's key cache in the TEE.
 
 #include <tee_ext_api.h>
 #include <tee_log.h>
-#include <kta_initialize.h>
 #include <kta_command.h>
 
 #define PARAM_COUNT 4

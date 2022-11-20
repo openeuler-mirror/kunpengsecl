@@ -72,8 +72,28 @@ typedef struct _tagCmdQueue{
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last cmd for enqueue operation.
 } CmdQueue;
 
-TEE_Result KTAInitialize(void *teepubkey, void *signedpubkey, Cache *cache, CmdQueue *cmdqueue);
+//internal function
 
-TEE_Result SaveLocalKey(void *keyname, void *keyvalue, uint32_t keytype);
+//for initializition
+void saveLocalKey(void *keyname, void *keyvalue, uint32_t keytype);
+
+void restoreLocalKey(void *keyname, void *keyvalue, uint32_t keytype);
+
+void initTACache(Cache cache);
+
+void initCmdCache(CmdQueue *cmdqueue);
+
+//for key management
+
+void saveKey(TEE_UUID TA_uuid, uint32_t keyid, char *keyvalue, Cache *cache);
+
+//for ta-auth
+void addTaState(TEE_UUID TA_uuid, char *taId, char *passWd, Cache *cache) ;
+
+void deleteTaState(TEE_UUID TA_uuid, char *taId, char *passWd, Cache *cache);
+
+void searchTAState(TEE_UUID TA_uuid, char *taId, char *passWd, Cache *cache);
+
+void attestTA();
 
 #endif /* __KTA_H__ */

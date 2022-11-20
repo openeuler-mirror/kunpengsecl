@@ -13,38 +13,39 @@ Create: 2022-11-04
 Description: api module in kta.
 	1. 2022-11-04	leezhenxiang
 		define the structures.
+    2. 2022-11-18   waterh2o
+        redefine some interface
 */
 
 #include <tee_defines.h>
 #include <kta_command.h>
 
+// Communication with kcm
+
+TEE_Result KTAInitialize(void *teepubkey, void *signedpubkey, Cache *cache, CmdQueue *cmdqueue) {
+    //basic function for calling the above functions
+
+    //output: teepubkey, signedpubkey
+}
+
+TEE_Result KTAInitialReply(void *teepubkey, void *signedpubkey, Cache *cache, CmdQueue *cmdqueue) {
+    //basic function for calling the above functions
+
+    //output: teepubkey, signedpubkey
+}
+
 TEE_Result SendRequest() {
     //todo: send request to ka when ka polls, and answer ta trusted state which ka asks
 }
 
-TEE_Result HandleReply() {
-    //todo: handle ta's reply
+TEE_Result GetResponse() {
+    //todo: Get Response from ka when kta had sent request to kcm before
 }
 
-TEE_Result EncodeRequest(void *kmskey, CmdQueue cmdqueue) {
-    //todo: encode cmd with kmskey
+// Communication with ta
 
-    //input: kmskey, cmdqueue
-    //output: cmdqueue
-}
-
-TEE_Result DncodeRequest(void *kmskey, CmdQueue cmdqueue) {
-    //todo: decode cmd with kmskey
-    
-    //input: kmskey, cmdqueue
-    //output: cmdqueue
-}
-
-TEE_Result SaveTAKey(TEE_UUID TA_uuid, char *keyid, char *keyvalue, Cache *cache) {
-    //todo: save a key value into the cache
-
-    //input: TA_uuid, keyid, keyvalue, cache
-    //output: cache
+TEE_Result SendReplytoTA() {
+    //todo: answer to ta when ta asks its command's reply.
 }
 
 //the following operation must start with ta authenticating
@@ -68,8 +69,4 @@ TEE_Result DestoryKey(TEE_UUID TA_uuid, char *keyid, Cache *cache) {
 
     //input: TA_uuid, keyid, cache
     //output: cache
-}
-
-TEE_Result SendReplytoTA() {
-    //todo: answer to ta when ta asks its command's reply.
 }

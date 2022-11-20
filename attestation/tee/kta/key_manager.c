@@ -16,31 +16,63 @@ Description: key managing module in kta.
 */
 
 #include <tee_defines.h>
-#include <key_manager.h>
+#include <kta_common.h>
 
-TEE_Result SearchKey(TEE_UUID TA_uuid, uint32_t keyid, Cache *cache, char *keyvalue) {
-    //todo: options to search a certain key in cache
+TEE_Result SendRequest() {
+    //todo: send request to ka when ka polls, and answer ta trusted state which ka asks
+}
+
+TEE_Result GetResponse() {
+    //todo: Get Response from ka when kta had sent request to kcm before
+}
+
+// Communication with ta
+
+TEE_Result SendReplytoTA() {
+    //todo: answer to ta when ta asks its command's reply.
+}
+
+//the following operation must start with ta authenticating
+
+TEE_Result SearchTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache, char *keyvalue) {
+    //todo: search a certain ta key, if not exist, call AddTATable() to add a request
 
     //input: TA_uuid, keyid, cache
     //output: cache, keyvalue
 }
 
-TEE_Result SaveKey(TEE_UUID TA_uuid, uint32_t keyid, char *keyvalue, Cache *cache) {
+TEE_Result DeleteTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache) {
+    //todo: delete a certain key in the cache
+
+    //input: TA_uuid, keyid, cache
+    //output: cache
+}
+
+TEE_Result DestoryKey(TEE_UUID TA_uuid, char *keyid, Cache *cache) {
+    //todo: delete a certain key by calling DeleteTAKey(), then generate a delete key request in TaCache
+
+    //input: TA_uuid, keyid, cache
+    //output: cache
+}
+
+
+void saveKey(TEE_UUID TA_uuid, uint32_t keyid, char *keyvalue, Cache *cache) {
     //todo: options to save a certain key in cache
 
     //input: TA_uuid, keyid, keyvalue, cache
     //output: cache
 }
 
-TEE_Result DeleteKey(TEE_UUID TA_uuid, uint32_t keyid, Cache *cache) {
-    //todo: options to delete a certain key in cache
+void encodeRequest(void *kmskey, CmdQueue cmdqueue) {
+    //todo: encode cmd with kmskey
 
-    //input: TA_uuid, keyid
-    //output: cache
+    //input: kmskey, cmdqueue
+    //output: cmdqueue
 }
 
-TEE_Result DestoryCache(Cache *cache) {
-    //todo: options to destory cache
-
-    //input: cache
+void decodeRequest(void *kmskey, CmdQueue cmdqueue) {
+    //todo: decode cmd with kmskey
+    
+    //input: kmskey, cmdqueue
+    //output: cmdqueue
 }
