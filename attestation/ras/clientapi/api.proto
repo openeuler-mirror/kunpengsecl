@@ -90,8 +90,9 @@ message SendReportReply {
 }
 
 message InitializeKTARequest {
-  bytes teeCert = 1;
-	bytes signedCert = 2;
+  int64 clientId = 1;
+  bytes teeCert = 2;
+	bytes signedCert = 3;
 }
 
 message InitializeKTAReply {

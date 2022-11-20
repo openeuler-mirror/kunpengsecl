@@ -48,6 +48,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kcmstools"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 )
@@ -298,6 +299,91 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 	return &SendReportReply{Result: true}, nil
 }
 
+func (s *rasService) InitializeKTA(ctx context.Context, in *InitializeKTARequest) (*InitializeKTAReply, error) {
+
+	teeDer := in.GetTeeCert()
+	teePem, err := cryptotools.EncodeKeyCertToPEM(teeDer)
+	if err != nil {
+		logger.L.Sugar().Errorf("encode Tee Cert to PEM fail, %v", err)
+		return &InitializeKTAReply{Result: false}, err
+	}
+
+	signedDer := in.GetSignedCert()
+	signedPem, err := cryptotools.EncodeKeyCertToPEM(signedDer)
+	if err != nil {
+		logger.L.Sugar().Errorf("encode Signed Cert to PEM fail, %v", err)
+		return &InitializeKTAReply{Result: false}, err
+	}
+
+	deviceId := in.GetClientId()
+
+	err = kcmstools.Initialize(deviceId, string(teePem), string(signedPem))
+	if err != nil{
+		logger.L.Sugar().Errorf("Initialize KTA %x error, %v", deviceId, err)
+		return &InitializeKTAReply{Result: false}, nil
+	}
+	//logger.L.Sugar().Debugf("validate success and send reply to %s", string(did))
+	return &InitializeKTAReply{Result: true}, nil
+}
+
+func (s *rasService) GenerateNewKey(ctx context.Context, in *GenerateNewKeyRequest) (*GenerateNewKeyReply, error) {
+
+	taId := in.GetTaId()
+	hostKeyId := in.GetHostkeyId()
+
+	keyId, encBlob, keyText, err := kcmstools.GenerateNewKey(taId, in.GetAccount(), in.GetPassword(), hostKeyId)
+
+	if err != nil{
+		logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", taId, err)
+		return &GenerateNewKeyReply{Result: false}, nil
+	} else {
+		out := GenerateNewKeyReply{
+			Result:		true,
+			KeyId:		keyId,
+			KeyText:	keyText,
+			EncBlob:	encBlob,
+		}
+		return &out, nil
+	}
+}
+
+func (s *rasService) GetCurrentKey(ctx context.Context, in *GetCurrentKeyRequest) (*GetCurrentKeyReply, error) {
+
+	taId := in.GetTaId()
+	keyId := in.GetKeyId()
+	hostKeyId := in.GetHostkeyId()
+
+	encBlob, keyText, err := kcmstools.GetKey(taId, in.GetAccount(), in.GetPassword(), keyId, hostKeyId)
+
+	if err != nil{
+		logger.L.Sugar().Errorf("Get current key of TA %s error, %v", taId, err)
+		return &GetCurrentKeyReply{Result: false}, nil
+	} else {
+		out := GetCurrentKeyReply{
+			Result:		true,
+			KeyId:		keyId,
+			KeyText:	keyText,
+			EncBlob:	encBlob,
+		}
+		return &out, nil
+	}
+}
+
+func (s *rasService) DeleteCurrentKey(ctx context.Context, in *DeleteCurrentKeyRequest) (*DeleteCurrentKeyReply, error) {
+
+	taId := in.GetTaId()
+	keyId := in.GetKeyId()
+
+	err := kcmstools.DeleteKey(taId, keyId)
+
+	if err != nil{
+		logger.L.Sugar().Errorf("Delete key of TA %s error, %v", taId, err)
+		return &DeleteCurrentKeyReply{Result: false}, nil
+	}
+	//logger.L.Sugar().Debugf("validate success and send reply to %s", taid)
+	return &DeleteCurrentKeyReply{Result: true}, nil
+}
+
 type RasConn struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -399,15 +485,6 @@ func DoSendHeartbeatWithConn(ras *RasConn, in *SendHeartbeatRequest) (*SendHeart
 		logger.L.Sugar().Errorf("invoke SendHeartbeat error, %v", err)
 		return nil, err
 	}
-	/*
-		if bk.GetClientConfig() != nil {
-			logger.L.Sugar().Debugf("invoke SendHeartbeat ok, NextActions=%d ClientConfig=%+v",
-				bk.GetNextAction(), bk.GetClientConfig())
-		} else {
-			logger.L.Sugar().Debugf("invoke SendHeartbeat ok, NextActions=%d",
-				bk.GetNextAction())
-		}
-	*/
 	return bk, nil
 }
 
@@ -423,6 +500,62 @@ func DoSendReportWithConn(ras *RasConn, in *SendReportRequest) (*SendReportReply
 		return nil, err
 	}
 	//logger.L.Debug("invoke SendReport ok")
+	return bk, nil
+}
+
+func DoInitializeKTAWithConn(ras *RasConn, in *InitializeKTARequest) (*InitializeKTAReply, error) {
+	//logger.L.Debug("invoke InitializeKTA...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.InitializeKTA(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke InitializeKTA error, %v", err)
+		return nil, err
+	}
+	//logger.L.Debug("invoke InitializeKTA ok")
+	return bk, nil
+}
+
+func DoGenerateNewKeyWithConn(ras *RasConn, in *GenerateNewKeyRequest) (*GenerateNewKeyReply, error) {
+	//logger.L.Debug("invoke GenerateNewKey...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.GenerateNewKey(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke GenerateNewKey error, %v", err)
+		return nil, err
+	}
+	//logger.L.Debug("invoke GenerateNewKey ok")
+	return bk, nil
+}
+
+func DoGetCurrentKeyWithConn(ras *RasConn, in *GetCurrentKeyRequest) (*GetCurrentKeyReply, error) {
+	//logger.L.Debug("invoke GetCurrentKey...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.GetCurrentKey(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke GetCurrentKey error, %v", err)
+		return nil, err
+	}
+	//logger.L.Debug("invoke GetCurrentKey ok")
+	return bk, nil
+}
+
+func DoDeleteCurrentKeyWithConn(ras *RasConn, in *DeleteCurrentKeyRequest) (*DeleteCurrentKeyReply, error) {
+	//logger.L.Debug("invoke DeleteCurrentKey...")
+	if ras == nil {
+		return nil, ErrClientApiParameterWrong
+	}
+	bk, err := ras.c.DeleteCurrentKey(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke DeleteCurrentKey error, %v", err)
+		return nil, err
+	}
+	//logger.L.Debug("invoke DeleteCurrentKey ok")
 	return bk, nil
 }
 
@@ -545,5 +678,77 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 		return nil, err
 	}
 	//logger.L.Debug("invoke SendReport ok")
+	return bk, nil
+}
+
+func DoInitializeKTA(addr string, in *InitializeKTARequest) (*InitializeKTAReply, error) {
+	//logger.L.Debug("invoke InitializeKTA...")
+	ras, err := CreateConn(addr)
+	if err != nil {
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+		
+	bk, err := ras.c.InitializeKTA(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke InitializeKTA error, %v", err)
+		return nil, err
+	}
+	//logger.L.Sugar().Debugf("invoke InitializeKTA %v", bk.Result)
+	return bk, nil
+}
+
+func DoGenerateNewKey(addr string, in *GenerateNewKeyRequest) (*GenerateNewKeyReply, error) {
+	//logger.L.Debug("invoke GenerateNewKey...")
+	ras, err := CreateConn(addr)
+	if err != nil {
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+		
+	bk, err := ras.c.GenerateNewKey(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke GenerateNewKey error, %v", err)
+		return nil, err
+	}
+	//logger.L.Sugar().Debugf("invoke GenerateNewKey %v", bk.Result)
+	return bk, nil
+}
+
+func DoGetCurrentKey(addr string, in *GetCurrentKeyRequest) (*GetCurrentKeyReply, error) {
+	//logger.L.Debug("invoke GetCurrentKey...")
+	ras, err := CreateConn(addr)
+	if err != nil {
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+	
+	bk, err := ras.c.GetCurrentKey(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke GetCurrentKey error, %v", err)
+		return nil, err
+	}
+	//logger.L.Sugar().Debugf("invoke GetCurrentKey %v", bk.Result)
+	return bk, nil
+}
+
+func DoDeleteCurrentKey(addr string, in *DeleteCurrentKeyRequest) (*DeleteCurrentKeyReply, error) {
+	//logger.L.Debug("invoke DeleteCurrentKey...")
+	ras, err := CreateConn(addr)
+	if err != nil {
+		return nil, err
+	}
+	defer ras.conn.Close()
+	defer ras.cancel()
+	
+	bk, err := ras.c.DeleteCurrentKey(ras.ctx, in)
+	if err != nil {
+		logger.L.Sugar().Errorf("invoke DeleteCurrentKey error, %v", err)
+		return nil, err
+	}
+	//logger.L.Sugar().Debugf("invoke DeleteCurrentKey %v", bk.Result)
 	return bk, nil
 }
