@@ -104,6 +104,76 @@ wait for 3s...
 daa-ac.crt generated successed!  
 test succeeded!  
 
+## story2.3测试
+
+### 测试思路
+1.  在kunpengsecl根目录下进行 `make build` 编译。
+2.  创建测试目录，并加载程序启动所需文件。
+3.  添加-T参数启动AK Service获取authtoken值，若获取失败，流程结束。
+4.  等待3秒，启动AK Service。
+5.  等待3秒，查询当前服务端基准值信息，若查询失败，流程结束，否则，记录为默认基准值。
+6.  等待3秒，终止AK Service进程。
+7.  等待3秒，重新启动AK Service。
+8.  等待3秒，查询当前服务端基准值信息，若与默认值不一致，则测试失败，流程结束。
+9.  等待3秒，修改基准值信息为"test value"。
+10. 等待3秒，比较修改值是否与"test value"一致，若不一致，则测试失败，流程结束，否则，测试成功。
+
+### 测试结果
+>~/kunpengsecl ~/kunpengsecl  
+Generating RSA private key, 4096 bit long modulus (2 primes)  
+....................................++++  
+..................................................................................................................++++  
+e is 65537 (0x010001)  
+writing RSA key  
+You are about to be asked to enter information that will be incorporated  
+into your certificate request.  
+What you are about to enter is what is called a Distinguished Name or a DN.  
+There are quite a few fields but you can leave some blank  
+For some fields there will be a default value,  
+If you enter '.', the field will be left blank.  
+\-----  
+Country Name (2 letter code) [AU]:  
+State or Province Name (full name) [Some-State]:  
+Locality Name (eg, city) []:  
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:  
+Organizational Unit Name (eg, section) []:  
+Common Name (e.g. server FQDN or YOUR name) []:  
+Email Address []:  
+~/kunpengsecl  
+\==========  
+start story2.3 at: 2022年 11月 21日 星期一 10:13:08 CST  
+prepare the test environments...  
+get authtoken value...  
+get authtoken value succeeded  
+wait for 3s...  
+start akservice...  
+wait for 3s...  
+get default base value...  
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current  
+                                 Dload  Upload   Total   Spent    Left  Speed  
+100   146  100   146    0     0  16222      0 --:--:-- --:--:-- --:--:-- 16222  
+get default base value succeeded  
+wait for 3s...  
+kill ak service process...  
+wait for 3s...  
+已终止  
+re-start akservice...  
+wait for 3s...  
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current  
+                                 Dload  Upload   Total   Spent    Left  Speed  
+100   146  100   146    0     0   142k      0 --:--:-- --:--:-- --:--:--  142k  
+check base value is right  
+wait for 3s...  
+modify base value to: test value  
+{"basevalue":"test value"}  
+wait for 3s...  
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current  
+                                 Dload  Upload   Total   Spent    Left  Speed  
+100    27  100    27    0     0  27000      0 --:--:-- --:--:-- --:--:-- 27000  
+modify base value to: "test value" succeeded  
+test succeeded!  
+已终止  
+
 ## story2.4测试
 
 ### 测试思路
