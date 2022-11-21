@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "tee_client_api.h"
+//#include "tee_client_api.h"
+#include "../teesimulator/tee.h"
 //#include "securec.h"
 /*
     主要思路：

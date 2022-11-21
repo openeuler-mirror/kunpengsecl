@@ -1,9 +1,15 @@
 package main
 
 /*
-#cgo CFLAGS: -I../ktalib -I../ktalib/itrustee_sdk/include/CA
+#cgo CFLAGS: -I../ktalib -I../teesimulator
 #cgo LDFLAGS: -L${SRCDIR}/../ktalib -lkta -Wl,-rpath=${SRCDIR}/../ktalib -lkta -ldl
 #include "ktalib.h"
+
+*/
+/*
+//#cgo CFLAGS: -I../ktalib -I../ktalib/itrustee_sdk/include/CA
+//#cgo LDFLAGS: -L${SRCDIR}/../ktalib -lkta -Wl,-rpath=${SRCDIR}/../ktalib -lkta -ldl
+//#include "ktalib.h"
 
 */
 import "C"
