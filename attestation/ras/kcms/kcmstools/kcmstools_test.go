@@ -16,10 +16,12 @@ const (
 func TestDeleteKey(t *testing.T) {
 	kdb.CreateKdbManager(constDB, constDNS)
 	defer kdb.ReleaseKdbManager()
-	taid := "1"
-	keyid := "testkey1"
+	taid := []byte{'1'}
+	keyid := []byte{'t', 'e', 's', 't', 'k', 'e', 'y', '1'}
 	ciphertext := "text1"
-	k, err := kdb.SaveKeyInfo(taid, keyid, ciphertext)
+	str_taid := string(taid)
+	str_keyid := string(keyid)
+	k, err := kdb.SaveKeyInfo(str_taid, str_keyid, ciphertext)
 	if err != nil {
 		t.Logf(constsavekeyinfofailed, err)
 	}
@@ -30,7 +32,7 @@ func TestDeleteKey(t *testing.T) {
 		t.Logf(constfindkeyinfofailed, err1)
 	}
 
-	err2 := kdb.DeleteKeyInfo(taid, keyid)
+	err2 := kdb.DeleteKeyInfo(str_taid, str_keyid)
 	if err2 == nil {
 		t.Logf("delete key information success")
 	} else {
