@@ -15,9 +15,17 @@ Description: initialize module in kta.
 		define the structures.
     2. 2022-11-18   waterh2o
         redefine some interface
+    3. 2022-11-25   waterh2o
+        Function implementation
 */
 
 #include <kta_common.h>
+#include <tee_mem_mgmt_api.h>
+#include <tee_trusted_storage_api.h>
+#include <tee_crypto_api.h>
+#include <tee_crypto_api.h>
+#include <string.h>
+
 
 // TEE_Result GenerateKeyPair(uint32_t keytype, uint32_t keysize, void *pubkey, void *privkey) {
 //     //todo: generate a pair of key according to keytype and keysize
@@ -46,40 +54,102 @@ Description: initialize module in kta.
 //     //output: signedpubkey
 // }
 
-TEE_Result KTAInitialize(void *teepubkey, void *signedpubkey, Cache *cache, CmdQueue *cmdqueue) {
-    //basic function for calling the above functions
-
-    //output: teepubkey, signedpubkey
-}
-
-TEE_Result KTAInitialReply(void *teepubkey, void *signedpubkey, Cache *cache, CmdQueue *cmdqueue) {
-    //basic function for calling the above functions
-
-    //output: teepubkey, signedpubkey
-}
-
-
-void saveLocalKey(void *keyname, void *keyvalue, uint32_t keytype) {
+TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, uint32_t keysize, uint32_t keytype) {
     //todo: save a certain kind ok key into the physical media
-
-    //input: keyname, keyvalue, keytype
+    //TEE_TYPE_RSA_PUBLIC_KEY
+    //TEE_TYPE_RSA_KEYPAIR
+    uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
+    TEE_ObjectHandle transient_key = NULL;
+    TEE_ObjectHandle persistent_key = NULL;
+    TEE_Result ret;
+    uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
+    uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
+    void *objectID = keyname;
+    void *key = NULL;
+    ret = TEE_AllocateTransientObject(keytype, 0x00000800, (&transient_key));
+    transient_key->Attribute->content.ref.length = keysize;
+    transient_key->Attribute->content.ref.buffer = keyvalue;
+    ret = TEE_CreatePersistentObject(storageID, objectID, strlen(objectID), w_flags, transient_key, NULL, keysize+1,(&persistent_key));
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to create object:ret = 0x%x\n", ret);
+        TEE_FreeTransientObject(transient_key);
+        return ret;
+    }
+    TEE_CloseObject(persistent_key);
+    TEE_FreeTransientObject(transient_key);
+    return TEE_SUCCESS;
 }
 
-void restoreLocalKey(void *keyname, void *keyvalue, uint32_t keytype) {
-    //todo: restore a certain kind of key from the physical media
+TEE_Result saveCert(void *certname, void *certvalue, uint32_t certsize) {
+    //todo: save a certain kind ok key into the physical media
+    uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
+    uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
+    void *create_objectID = certname;
+    TEE_ObjectHandle persistent_data = NULL;
+    TEE_Result ret;
+    char *write_buffer = certvalue;
+    ret = TEE_CreatePersistentObject(storageID, create_objectID, strlen(create_objectID), w_flags, TEE_HANDLE_NULL, NULL, 0, (&persistent_data));
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to create file: ret = 0x%x\n", ret);
+        return ret;
+    }
 
-    //input: keyname
-    //output: keyvalue, keytype
+    ret = TEE_WriteObjectData(persistent_data, write_buffer, certsize);
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to write file: ret = 0x%x\n", ret);
+        /* 打开或创建文件之后异常分支需要关闭文件，否则会产生内存泄漏 */
+        TEE_CloseObject(persistent_data);
+        return ret;
+    }
+    TEE_CloseObject(persistent_data);
+    return TEE_SUCCESS;
 }
 
-void initTACache(Cache cache) {
-    //todo: initialize a data cache for saving ka info and saving keys
+TEE_Result restoreCert(void *certname, uint8_t* buffer, size_t *buf_len) {
+    TEE_Result ret;
+    uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
+    uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
+    void *create_objectID = certname;
+    TEE_ObjectHandle persistent_data = NULL;
+    uint32_t pos = 0;
+    uint32_t len = 0;
+    char *read_buffer = NULL;
+    uint32_t count = 0;
+    ret = TEE_OpenPersistentObject(storageID, create_objectID, strlen(create_objectID),r_flags, (&persistent_data));
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to open file:ret = 0x%x\n", ret);
+        return ret;
+    }
 
-    //output: cache
-}
+    ret = TEE_InfoObjectData(persistent_data, &pos, &len);
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to open file:ret = 0x%x\n", ret);
+        TEE_CloseObject(persistent_data);
+        return ret;
+    }
 
-void initCmdCache(CmdQueue *cmdqueue) {
-    //todo: initialize a cmd cache
+    read_buffer = TEE_Malloc(len + 1, 0);
+    if (read_buffer == NULL) {
+        tloge("Failed to open file:ret = 0x%x\n", ret);
+        TEE_CloseObject(persistent_data);
+        return ret;
+    }
 
-    //output: cmdqueue
+    /* 读取已存入的数据 */
+    ret = TEE_ReadObjectData(persistent_data, read_buffer, len, &count);
+    if (ret != TEE_SUCCESS) {
+        TEE_CloseObject(persistent_data);
+        TEE_Free(read_buffer);
+        return ret;
+    }
+    buf_len = len;
+    int32_t rc = memmove_s(buffer, len, read_buffer, len);
+    if (rc != 0) {
+        TEE_CloseObject(persistent_data);
+        TEE_Free(read_buffer);
+        return TEE_ERROR_SECURITY;
+    }
+    TEE_CloseObject(persistent_data);
+    TEE_Free(read_buffer);
+    return TEE_SUCCESS;
 }

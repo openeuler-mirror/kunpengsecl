@@ -19,6 +19,7 @@ Description: initialize module in kta.
 #define __KTA_H__
 
 #include <tee_defines.h>
+#include <tee_log.h>
 
 #define MAX_TA_NUM          16
 #define MAX_KEY_NUM         16
@@ -26,6 +27,7 @@ Description: initialize module in kta.
 #define KEY_SIZE            128
 #define MAX_CMD_SIZE        16
 #define NODE_LEN            8
+#define MAX_DATA_LEN        1024
 
 
 static const char *signed_pubkey_path = ""; //to be set
@@ -42,6 +44,7 @@ typedef struct _tagTaInfo{
     TEE_UUID    id;
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
+    uint8_t masterkey[KEY_SIZE];
     int32_t next;   // -1: empty; 0~MAX_TA_NUM: next ta for search operation.
     KeyInfo key[MAX_KEY_NUM];
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first key for dequeue operation.
@@ -55,14 +58,20 @@ typedef struct _tagCache{
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last ta for enqueue operation.
 } Cache;
 
-
 /* command queue to store the commands */
-typedef struct _tagCmdNode{
+
+typedef struct _tagParseCmdData{
     int32_t cmd;
     TEE_UUID    taId;
     TEE_UUID    keyId;
+    uint8_t masterkey[KEY_SIZE];
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
+} ParseCmdData;
+
+typedef struct _tagCmdNode{
+    int32_t cmd;
+    uint8_t data[MAX_DATA_LEN];
     int32_t next;  // -1: empty; 0~MAX_TA_NUM: next cmd for search operation.
 } CmdNode;
 
@@ -75,13 +84,12 @@ typedef struct _tagCmdQueue{
 //internal function
 
 //for initializition
-void saveLocalKey(void *keyname, void *keyvalue, uint32_t keytype);
 
-void restoreLocalKey(void *keyname, void *keyvalue, uint32_t keytype);
+TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, uint32_t keysize, uint32_t keytype);
 
-void initTACache(Cache cache);
+TEE_Result saveCert(void *certname, void *certvalue, uint32_t certsize);
 
-void initCmdCache(CmdQueue *cmdqueue);
+TEE_Result restoreCert(void *certname, uint8_t* buffer, size_t *buf_len);
 
 //for key management
 
