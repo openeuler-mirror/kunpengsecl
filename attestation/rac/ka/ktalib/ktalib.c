@@ -82,6 +82,14 @@ TEEC_Result initialize(TEEC_Context *context, TEEC_Session *session, struct buff
     } else if (initresult.a != 0x01) {
         /* 到kta初始化失败处理逻辑 */
     }
+
+    ret = TEEC_InvokeCommand(session, CMD_KTA_INITREPLY, &operation, &origin);
+    if (ret != TEEC_SUCCESS) {
+        tloge("kta initialize failed, codes=0x%x, origin=0x%x", ret, origin);
+        return ret;
+    } else if (initresult.a != 0x01) {
+        /* 到kta初始化失败处理逻辑 */
+    }
     //从operation中获取到KTA的公钥证书
     pubCert->buf = operation.params[PARAMETER_SECOND].tmpref.buffer; //在operation的第二个参数中存放有返回来的kta的公钥证书
     pubCert->size = operation.params[PARAMETER_SECOND].tmpref.size;
