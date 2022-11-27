@@ -10,7 +10,6 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"math/big"
-	"math/rand"
 	"net"
 	"os"
 	"testing"
@@ -93,6 +92,7 @@ const (
 
 const (
 	deviceId = 1
+	command = 0x80000003
 )
 
 var (
@@ -107,8 +107,14 @@ var (
 		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
 		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}
 	hostKeyId = []byte{
-		0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x20,
-		0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x20}
+		0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30,
+		0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30}
+	account = []byte{
+		0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40,
+		0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40}
+	password = []byte{
+		0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50,
+		0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50}
 )
 
 var (
@@ -385,71 +391,49 @@ func TestClientapiInKC(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
+	// test SendKCMPubKeyCert
+	_, err = ras.c.SendKCMPubKeyCert(ctx, &SendKCMPubKeyCertRequest{})
+	if err != nil {
+		t.Errorf("test SendKCMPubKeyCert failed %v", err)
+	}
+
 	// test empty deviceId
-	_, err = ras.c.InitializeKTA(ctx, &InitializeKTARequest{})
+	_, err = ras.c.VerifyKTAPubKeyCert(ctx, &VerifyKTAPubKeyCertRequest{})
 	if err != nil {
-		t.Errorf("test InitializeKTA with empty deviceId failed %v", err)
+		t.Errorf("test VerifyKTAPubKeyCert with empty deviceId failed %v", err)
 	}
 
-	_, err = ras.c.InitializeKTA(ctx, &InitializeKTARequest{
+	_, err = ras.c.VerifyKTAPubKeyCert(ctx, &VerifyKTAPubKeyCertRequest{
 		ClientId:		deviceId,
-		TeeCert:       	createCert(),
-		SignedCert: 	createCert(),
+		KtaPubKeyCert: 	createCert(),
 	})
 	if err != nil {
-		t.Errorf("test InitializeKTA error %v", err)
+		t.Errorf("test VerifyKTAPubKeyCert error %v", err)
 	}
 
 	// test empty taId
-	_, err = ras.c.GenerateNewKey(ctx, &GenerateNewKeyRequest{})
+	_, err = ras.c.KeyOperation(ctx, &KeyOperationRequest{})
 	if err != nil {
-		t.Errorf("test GenerateNewKey with empty taId failed %v", err)
+		t.Errorf("test KeyOperation with empty taId failed %v", err)
 	}
 
-	// generate random account and password
-	rand.Seed(time.Now().UnixNano())
-	account := randomString(randomInt(1, 50))	// random length between 1 and 50
-	password := randomString(randomInt(1, 50))
-
-	_, err = ras.c.GenerateNewKey(ctx, &GenerateNewKeyRequest{
-		TaId:		taId,
-		Account:	account,
-		Password:	password,
-		HostkeyId:	hostKeyId,
+	message := inKeyInfo {
+		taId:		taId,
+		account:	account,
+		password:	password,
+		keyId:		keyId,
+		hostKeyId:	hostKeyId,
+		command:	command,
+	}
+	encMessage ,err := json.Marshal(message)
+	if err != nil {
+		t.Errorf("Encode parameter of key operation error:, %v", err)
+	}
+	_, err = ras.c.KeyOperation(ctx, &KeyOperationRequest{
+		EncMessage:	encMessage,
 	})
 	if err != nil {
-		t.Errorf("test InitializeKTA error %v", err)
-	}
-
-	// test empty taId
-	_, err = ras.c.GetCurrentKey(ctx, &GetCurrentKeyRequest{})
-	if err != nil {
-		t.Errorf("test GetCurrentKey with empty taId failed %v", err)
-	}
-
-	_, err = ras.c.GetCurrentKey(ctx, &GetCurrentKeyRequest{
-		TaId:		taId,
-		Account:	account,
-		Password:	password,
-		KeyId:		keyId,
-		HostkeyId:	hostKeyId,
-	})
-	if err != nil {
-		t.Errorf("test GetCurrentKey error %v", err)
-	}
-
-	// test empty taId
-	_, err = ras.c.DeleteCurrentKey(ctx, &DeleteCurrentKeyRequest{})
-	if err != nil {
-		t.Errorf("test DeleteCurrentKey with empty taId failed %v", err)
-	}
-
-	_, err = ras.c.DeleteCurrentKey(ctx, &DeleteCurrentKeyRequest{
-		TaId:		taId,
-		KeyId:		keyId,
-	})
-	if err != nil {
-		t.Errorf("test DeleteCurrentKey error %v", err)
+		t.Errorf("test KeyOperation error %v", err)
 	}
 }
 
@@ -581,71 +565,49 @@ func TestDoClientapiInKC(t *testing.T) {
 	go StartServer(server)
 	defer StopServer()
 
+	// test SendKCMPubKeyCert
+	_, err := DoSendKCMPubKeyCert(server, &SendKCMPubKeyCertRequest{})
+	if err != nil {
+		t.Errorf("test DoSendKCMPubKeyCert failed %v", err)
+	}
+
 	// test empty deviceId
-	_, err := DoInitializeKTA(server, &InitializeKTARequest{})
+	_, err = DoVerifyKTAPubKeyCert(server, &VerifyKTAPubKeyCertRequest{})
 	if err != nil {
-		t.Errorf("test DoInitializeKTA with empty deviceId failed %v", err)
+		t.Errorf("test DoVerifyKTAPubKeyCert with empty deviceId failed %v", err)
 	}
 
-	_, err = DoInitializeKTA(server, &InitializeKTARequest{
+	_, err = DoVerifyKTAPubKeyCert(server, &VerifyKTAPubKeyCertRequest{
 		ClientId:		deviceId,
-		TeeCert:       	createCert(),
-		SignedCert: 	createCert(),
+		KtaPubKeyCert: 	createCert(),
 	})
 	if err != nil {
-		t.Errorf("test DoInitializeKTA error %v", err)
+		t.Errorf("test DoVerifyKTAPubKeyCert error %v", err)
 	}
 
 	// test empty taId
-	_, err = DoGenerateNewKey(server, &GenerateNewKeyRequest{})
+	_, err = DoKeyOperation(server, &KeyOperationRequest{})
 	if err != nil {
-		t.Errorf("test DoGenerateNewKey with empty taId failed %v", err)
+		t.Errorf("test DoKeyOperation with empty taId failed %v", err)
 	}
 
-	// generate random account and password
-	rand.Seed(time.Now().UnixNano())
-	account := randomString(randomInt(1, 50))	// random length between 1 and 50
-	password := randomString(randomInt(1, 50))
-
-	_, err = DoGenerateNewKey(server, &GenerateNewKeyRequest{
-		TaId:		taId,
-		Account:	account,
-		Password:	password,
-		HostkeyId:	hostKeyId,
+	message := inKeyInfo {
+		taId:		taId,
+		account:	account,
+		password:	password,
+		keyId:		keyId,
+		hostKeyId:	hostKeyId,
+		command:	command,
+	}
+	encMessage ,err := json.Marshal(message)
+	if err != nil {
+		t.Errorf("Encode parameter of key operation error, %v", err)
+	}
+	_, err = DoKeyOperation(server, &KeyOperationRequest{
+		EncMessage:	encMessage,
 	})
 	if err != nil {
-		t.Errorf("test DoInitializeKTA error %v", err)
-	}
-
-	// test empty taId
-	_, err = DoGetCurrentKey(server, &GetCurrentKeyRequest{})
-	if err != nil {
-		t.Errorf("test DoGetCurrentKey with empty taId failed %v", err)
-	}
-
-	_, err = DoGetCurrentKey(server, &GetCurrentKeyRequest{
-		TaId:		taId,
-		Account:	account,
-		Password:	password,
-		KeyId:		keyId,
-		HostkeyId:	hostKeyId,
-	})
-	if err != nil {
-		t.Errorf("test DoGetCurrentKey error %v", err)
-	}
-
-	// test empty taId
-	_, err = DoDeleteCurrentKey(server, &DeleteCurrentKeyRequest{})
-	if err != nil {
-		t.Errorf("test DoDeleteCurrentKey with empty taId failed %v", err)
-	}
-
-	_, err = DoDeleteCurrentKey(server, &DeleteCurrentKeyRequest{
-		TaId:		taId,
-		KeyId:		keyId,
-	})
-	if err != nil {
-		t.Errorf("test DoDeleteCurrentKey error %v", err)
+		t.Errorf("test KeyOperation error %v", err)
 	}
 }
 
@@ -795,86 +757,50 @@ func TestClientapiWithConnInKC(t *testing.T) {
 	}
 	defer ReleaseConn(ras)
 
+	// test SendKCMPubKeyCert
+	_, err = DoSendKCMPubKeyCertWithConn(ras, &SendKCMPubKeyCertRequest{})
+	if err != nil {
+		t.Errorf("test DoSendKCMPubKeyCertWithConn failed %v", err)
+	}
+
 	// test empty deviceId
-	_, err = DoInitializeKTAWithConn(ras, &InitializeKTARequest{})
+	_, err = DoVerifyKTAPubKeyCertWithConn(ras, &VerifyKTAPubKeyCertRequest{})
 	if err != nil {
-		t.Errorf("test DoInitializeKTAWithConn with empty deviceId failed %v", err)
+		t.Errorf("test DoVerifyKTAPubKeyCertWithConn with empty deviceId failed %v", err)
 	}
 
-	_, err = DoInitializeKTAWithConn(ras, &InitializeKTARequest{
+	_, err = DoVerifyKTAPubKeyCertWithConn(ras, &VerifyKTAPubKeyCertRequest{
 		ClientId:		deviceId,
-		TeeCert:       	createCert(),
-		SignedCert: 	createCert(),
+		KtaPubKeyCert: 	createCert(),
 	})
 	if err != nil {
-		t.Errorf("test DoInitializeKTAWithConn error %v", err)
+		t.Errorf("test DoVerifyKTAPubKeyCertWithConn error %v", err)
 	}
 
 	// test empty taId
-	_, err = DoGenerateNewKeyWithConn(ras, &GenerateNewKeyRequest{})
+	_, err = DoKeyOperationWithConn(ras, &KeyOperationRequest{})
 	if err != nil {
-		t.Errorf("test DoGenerateNewKeyWithConn with empty taId failed %v", err)
+		t.Errorf("test DoKeyOperationWithConn with empty taId failed %v", err)
 	}
 
-	// generate random account and password
-	rand.Seed(time.Now().UnixNano())
-	account := randomString(randomInt(1, 50))	// random length between 1 and 50
-	password := randomString(randomInt(1, 50))
-	
-	_, err = DoGenerateNewKeyWithConn(ras, &GenerateNewKeyRequest{
-		TaId:		taId,
-		Account:	account,
-		Password:	password,
-		HostkeyId:	hostKeyId,
+	message := inKeyInfo {
+		taId:		taId,
+		account:	account,
+		password:	password,
+		keyId:		keyId,
+		hostKeyId:	hostKeyId,
+		command:	command,
+	}
+	encMessage ,err := json.Marshal(message)
+	if err != nil {
+		t.Errorf("Encode parameter of key operation error, %v", err)
+	}
+	_, err = DoKeyOperationWithConn(ras, &KeyOperationRequest{
+		EncMessage:	encMessage,
 	})
 	if err != nil {
-		t.Errorf("test DoInitializeKTAWithConn error %v", err)
+		t.Errorf("test DoKeyOperationWithConn error %v", err)
 	}
-
-	// test empty taId
-	_, err = DoGetCurrentKeyWithConn(ras, &GetCurrentKeyRequest{})
-	if err != nil {
-		t.Errorf("test DoGetCurrentKeyWithConn with empty taId failed %v", err)
-	}
-
-	_, err = DoGetCurrentKeyWithConn(ras, &GetCurrentKeyRequest{
-		TaId:		taId,
-		Account:	account,
-		Password:	password,
-		KeyId:		keyId,
-		HostkeyId:	hostKeyId,
-	})
-	if err != nil {
-		t.Errorf("test DoGetCurrentKeyWithConn error %v", err)
-	}
-
-	// test empty taId
-	_, err = DoDeleteCurrentKeyWithConn(ras, &DeleteCurrentKeyRequest{})
-	if err != nil {
-		t.Errorf("test DoDeleteCurrentKeyWithConn with empty taId failed %v", err)
-	}
-
-	_, err = DoDeleteCurrentKeyWithConn(ras, &DeleteCurrentKeyRequest{
-		TaId:		taId,
-		KeyId:		keyId,
-	})
-	if err != nil {
-		t.Errorf("test DoDeleteCurrentKeyWithConn error %v", err)
-	}
-}
-
-// Returns an int >= min, < max
-func randomInt(min, max int) int {
-    return min + rand.Intn(max-min)
-}
- 
-// Generate a random string of 0-9/A-Z/a-z chars with len = l
-func randomString(len int) string {
-    bytes := make([]byte, len)
-    for index := 0; index < len; index++ {
-        bytes[index] = byte(byteTable[randomInt(0, 61)])
-    }
-    return string(bytes)
 }
 
 func createCert() []byte {
