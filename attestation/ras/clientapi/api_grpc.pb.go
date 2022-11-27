@@ -28,10 +28,9 @@ type RasClient interface {
 	UnregisterClient(ctx context.Context, in *UnregisterClientRequest, opts ...grpc.CallOption) (*UnregisterClientReply, error)
 	SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest, opts ...grpc.CallOption) (*SendHeartbeatReply, error)
 	SendReport(ctx context.Context, in *SendReportRequest, opts ...grpc.CallOption) (*SendReportReply, error)
-	InitializeKTA(ctx context.Context, in *InitializeKTARequest, opts ...grpc.CallOption) (*InitializeKTAReply, error)
-	GenerateNewKey(ctx context.Context, in *GenerateNewKeyRequest, opts ...grpc.CallOption) (*GenerateNewKeyReply, error)
-	GetCurrentKey(ctx context.Context, in *GetCurrentKeyRequest, opts ...grpc.CallOption) (*GetCurrentKeyReply, error)
-	DeleteCurrentKey(ctx context.Context, in *DeleteCurrentKeyRequest, opts ...grpc.CallOption) (*DeleteCurrentKeyReply, error)
+	SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest, opts ...grpc.CallOption) (*SendKCMPubKeyCertReply, error)
+	VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKeyCertRequest, opts ...grpc.CallOption) (*VerifyKTAPubKeyCertReply, error)
+	KeyOperation(ctx context.Context, in *KeyOperationRequest, opts ...grpc.CallOption) (*KeyOperationReply, error)
 }
 
 type rasClient struct {
@@ -96,36 +95,27 @@ func (c *rasClient) SendReport(ctx context.Context, in *SendReportRequest, opts 
 	return out, nil
 }
 
-func (c *rasClient) InitializeKTA(ctx context.Context, in *InitializeKTARequest, opts ...grpc.CallOption) (*InitializeKTAReply, error) {
-	out := new(InitializeKTAReply)
-	err := c.cc.Invoke(ctx, "/Ras/InitializeKTA", in, out, opts...)
+func (c *rasClient) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest, opts ...grpc.CallOption) (*SendKCMPubKeyCertReply, error) {
+	out := new(SendKCMPubKeyCertReply)
+	err := c.cc.Invoke(ctx, "/Ras/SendKCMPubKeyCert", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *rasClient) GenerateNewKey(ctx context.Context, in *GenerateNewKeyRequest, opts ...grpc.CallOption) (*GenerateNewKeyReply, error) {
-	out := new(GenerateNewKeyReply)
-	err := c.cc.Invoke(ctx, "/Ras/GenerateNewKey", in, out, opts...)
+func (c *rasClient) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKeyCertRequest, opts ...grpc.CallOption) (*VerifyKTAPubKeyCertReply, error) {
+	out := new(VerifyKTAPubKeyCertReply)
+	err := c.cc.Invoke(ctx, "/Ras/VerifyKTAPubKeyCert", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *rasClient) GetCurrentKey(ctx context.Context, in *GetCurrentKeyRequest, opts ...grpc.CallOption) (*GetCurrentKeyReply, error) {
-	out := new(GetCurrentKeyReply)
-	err := c.cc.Invoke(ctx, "/Ras/GetCurrentKey", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *rasClient) DeleteCurrentKey(ctx context.Context, in *DeleteCurrentKeyRequest, opts ...grpc.CallOption) (*DeleteCurrentKeyReply, error) {
-	out := new(DeleteCurrentKeyReply)
-	err := c.cc.Invoke(ctx, "/Ras/DeleteCurrentKey", in, out, opts...)
+func (c *rasClient) KeyOperation(ctx context.Context, in *KeyOperationRequest, opts ...grpc.CallOption) (*KeyOperationReply, error) {
+	out := new(KeyOperationReply)
+	err := c.cc.Invoke(ctx, "/Ras/KeyOperation", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -142,10 +132,9 @@ type RasServer interface {
 	UnregisterClient(context.Context, *UnregisterClientRequest) (*UnregisterClientReply, error)
 	SendHeartbeat(context.Context, *SendHeartbeatRequest) (*SendHeartbeatReply, error)
 	SendReport(context.Context, *SendReportRequest) (*SendReportReply, error)
-	InitializeKTA(context.Context, *InitializeKTARequest) (*InitializeKTAReply, error)
-	GenerateNewKey(context.Context, *GenerateNewKeyRequest) (*GenerateNewKeyReply, error)
-	GetCurrentKey(context.Context, *GetCurrentKeyRequest) (*GetCurrentKeyReply, error)
-	DeleteCurrentKey(context.Context, *DeleteCurrentKeyRequest) (*DeleteCurrentKeyReply, error)
+	SendKCMPubKeyCert(context.Context, *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error)
+	VerifyKTAPubKeyCert(context.Context, *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error)
+	KeyOperation(context.Context, *KeyOperationRequest) (*KeyOperationReply, error)
 	mustEmbedUnimplementedRasServer()
 }
 
@@ -171,17 +160,14 @@ func (UnimplementedRasServer) SendHeartbeat(context.Context, *SendHeartbeatReque
 func (UnimplementedRasServer) SendReport(context.Context, *SendReportRequest) (*SendReportReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendReport not implemented")
 }
-func (UnimplementedRasServer) InitializeKTA(context.Context, *InitializeKTARequest) (*InitializeKTAReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InitializeKTA not implemented")
+func (UnimplementedRasServer) SendKCMPubKeyCert(context.Context, *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendKCMPubKeyCert not implemented")
 }
-func (UnimplementedRasServer) GenerateNewKey(context.Context, *GenerateNewKeyRequest) (*GenerateNewKeyReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GenerateNewKey not implemented")
+func (UnimplementedRasServer) VerifyKTAPubKeyCert(context.Context, *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifyKTAPubKeyCert not implemented")
 }
-func (UnimplementedRasServer) GetCurrentKey(context.Context, *GetCurrentKeyRequest) (*GetCurrentKeyReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentKey not implemented")
-}
-func (UnimplementedRasServer) DeleteCurrentKey(context.Context, *DeleteCurrentKeyRequest) (*DeleteCurrentKeyReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteCurrentKey not implemented")
+func (UnimplementedRasServer) KeyOperation(context.Context, *KeyOperationRequest) (*KeyOperationReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method KeyOperation not implemented")
 }
 func (UnimplementedRasServer) mustEmbedUnimplementedRasServer() {}
 
@@ -304,74 +290,56 @@ func _Ras_SendReport_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Ras_InitializeKTA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InitializeKTARequest)
+func _Ras_SendKCMPubKeyCert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendKCMPubKeyCertRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RasServer).InitializeKTA(ctx, in)
+		return srv.(RasServer).SendKCMPubKeyCert(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Ras/InitializeKTA",
+		FullMethod: "/Ras/SendKCMPubKeyCert",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RasServer).InitializeKTA(ctx, req.(*InitializeKTARequest))
+		return srv.(RasServer).SendKCMPubKeyCert(ctx, req.(*SendKCMPubKeyCertRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Ras_GenerateNewKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GenerateNewKeyRequest)
+func _Ras_VerifyKTAPubKeyCert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyKTAPubKeyCertRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RasServer).GenerateNewKey(ctx, in)
+		return srv.(RasServer).VerifyKTAPubKeyCert(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Ras/GenerateNewKey",
+		FullMethod: "/Ras/VerifyKTAPubKeyCert",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RasServer).GenerateNewKey(ctx, req.(*GenerateNewKeyRequest))
+		return srv.(RasServer).VerifyKTAPubKeyCert(ctx, req.(*VerifyKTAPubKeyCertRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Ras_GetCurrentKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetCurrentKeyRequest)
+func _Ras_KeyOperation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyOperationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RasServer).GetCurrentKey(ctx, in)
+		return srv.(RasServer).KeyOperation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Ras/GetCurrentKey",
+		FullMethod: "/Ras/KeyOperation",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RasServer).GetCurrentKey(ctx, req.(*GetCurrentKeyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Ras_DeleteCurrentKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteCurrentKeyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RasServer).DeleteCurrentKey(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Ras/DeleteCurrentKey",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RasServer).DeleteCurrentKey(ctx, req.(*DeleteCurrentKeyRequest))
+		return srv.(RasServer).KeyOperation(ctx, req.(*KeyOperationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -408,20 +376,16 @@ var Ras_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Ras_SendReport_Handler,
 		},
 		{
-			MethodName: "InitializeKTA",
-			Handler:    _Ras_InitializeKTA_Handler,
+			MethodName: "SendKCMPubKeyCert",
+			Handler:    _Ras_SendKCMPubKeyCert_Handler,
 		},
 		{
-			MethodName: "GenerateNewKey",
-			Handler:    _Ras_GenerateNewKey_Handler,
+			MethodName: "VerifyKTAPubKeyCert",
+			Handler:    _Ras_VerifyKTAPubKeyCert_Handler,
 		},
 		{
-			MethodName: "GetCurrentKey",
-			Handler:    _Ras_GetCurrentKey_Handler,
-		},
-		{
-			MethodName: "DeleteCurrentKey",
-			Handler:    _Ras_DeleteCurrentKey_Handler,
+			MethodName: "KeyOperation",
+			Handler:    _Ras_KeyOperation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

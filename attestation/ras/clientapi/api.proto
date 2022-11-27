@@ -9,10 +9,10 @@ service Ras {
   rpc UnregisterClient (UnregisterClientRequest) returns (UnregisterClientReply) {}
   rpc SendHeartbeat (SendHeartbeatRequest) returns (SendHeartbeatReply) {}
   rpc SendReport (SendReportRequest) returns (SendReportReply) {}
-  rpc InitializeKTA (InitializeKTARequest) returns (InitializeKTAReply) {}
-  rpc GenerateNewKey (GenerateNewKeyRequest) returns (GenerateNewKeyReply) {}
-  rpc GetCurrentKey (GetCurrentKeyRequest) returns (GetCurrentKeyReply) {}
-  rpc DeleteCurrentKey (DeleteCurrentKeyRequest) returns (DeleteCurrentKeyReply) {}
+
+  rpc SendKCMPubKeyCert (SendKCMPubKeyCertRequest) returns (SendKCMPubKeyCertReply) {}
+  rpc VerifyKTAPubKeyCert (VerifyKTAPubKeyCertRequest) returns (VerifyKTAPubKeyCertReply) {}
+  rpc KeyOperation (KeyOperationRequest) returns (KeyOperationReply) {}
 }
 
 message GenerateEKCertRequest {
@@ -89,50 +89,29 @@ message SendReportReply {
   bool result = 1;
 }
 
-message InitializeKTARequest {
+message SendKCMPubKeyCertRequest {
+
+}
+
+message SendKCMPubKeyCertReply {
+  bool result = 1;
+  bytes kcmPubKeyCert = 2;
+}
+
+message VerifyKTAPubKeyCertRequest {
   int64 clientId = 1;
-  bytes teeCert = 2;
-	bytes signedCert = 3;
+  bytes ktaPubKeyCert = 2;
 }
 
-message InitializeKTAReply {
+message VerifyKTAPubKeyCertReply {
   bool result = 1;
 }
 
-message GenerateNewKeyRequest {
-  bytes taId = 1;
-  string account = 2;
-  string password = 3;
-  bytes hostkeyId = 4;
+message KeyOperationRequest {
+  bytes encMessage = 1;
 }
 
-message GenerateNewKeyReply {
+message KeyOperationReply {
   bool result = 1;
-  bytes keyId = 2;
-  bytes keyText = 3;
-  bytes encBlob = 4;
-}
-
-message GetCurrentKeyRequest {
-  bytes taId = 1;
-  string account = 2;
-  string password = 3;
-  bytes keyId = 4;
-  bytes hostkeyId = 5;
-}
-
-message GetCurrentKeyReply {
-  bool result = 1;
-  bytes keyId = 2;
-  bytes keyText = 3;
-  bytes encBlob = 4;
-}
-
-message DeleteCurrentKeyRequest {
-  bytes taId = 1;
-  bytes keyId = 2;
-}
-
-message DeleteCurrentKeyReply {
-  bool result = 1;
+  bytes encRetMessage = 2;
 }
