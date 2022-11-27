@@ -80,7 +80,7 @@ func verifyCert(s string, cert *x509.Certificate) error {
 // 	fmt.Println(string(testByte))
 // }
 func main() {
-	cert, _, err := cryptotools.DecodeKeyCertFromFile("./test.crt")
+	cert, _, err := cryptotools.DecodeKeyCertFromFile("../cert/kta.crt")
 	if err != nil {
 		fmt.Println("failed")
 		return

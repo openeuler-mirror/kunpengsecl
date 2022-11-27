@@ -65,7 +65,7 @@ TEEC_Result initialize(TEEC_Context *context, TEEC_Session *session, struct buff
     operation.started = OPERATION_START_FLAG;
     operation.paramTypes = TEEC_PARAM_TYPES(
         TEEC_VALUE_OUTPUT, //存放初始化结果，具体有待商议
-        TEEC_MEMREF_TEMP_OUTPUT, //本来是存放TEE证书私钥签名的KTA公钥，现在待定
+        TEEC_MEMREF_TEMP_INPUT, //本来是存放TEE证书私钥签名的KTA公钥，现在待定
         TEEC_MEMREF_TEMP_OUTPUT, //本来是存放TEE设备公钥，现在待定
         TEEC_NONE
     );
@@ -75,6 +75,8 @@ TEEC_Result initialize(TEEC_Context *context, TEEC_Session *session, struct buff
     operation.params[PARAMETER_SECOND].tmpref.buffer = pubKey->buf;
     operation.params[PARAMETER_SECOND].tmpref.size = pubKey->size;
 
+<<<<<<< HEAD
+<<<<<<< HEAD
     ret = TEEC_InvokeCommand(session, CMD_KTA_INITIALIZE, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
         tloge("kta initialize failed, codes=0x%x, origin=0x%x", ret, origin);
@@ -90,9 +92,13 @@ TEEC_Result initialize(TEEC_Context *context, TEEC_Session *session, struct buff
     } else if (initresult.a != 0x01) {
         /* 到kta初始化失败处理逻辑 */
     }
+=======
+>>>>>>> 4dd0651... update ka for kta using
+=======
+>>>>>>> 4dd0651ef1302cd09c43e8b948aa532066001164
     //从operation中获取到KTA的公钥证书
-    pubCert->buf = operation.params[PARAMETER_SECOND].tmpref.buffer; //在operation的第二个参数中存放有返回来的kta的公钥证书
-    pubCert->size = operation.params[PARAMETER_SECOND].tmpref.size;
+    pubCert->buf = operation.params[PARAMETER_THIRD].tmpref.buffer; //在operation的第二个参数中存放有返回来的kta的公钥证书
+    pubCert->size = operation.params[PARAMETER_THIRD].tmpref.size;
 
     return TEEC_SUCCESS;
 }
@@ -112,12 +118,12 @@ TEEC_Result RemoteAttestKTA(uint32_t cmdnum,struct buffer_data *req,struct buffe
         return TEEC_ERROR_BAD_BUFFER_DATA;
     }
     TEEC_Result ret = TEEC_SUCCESS;
-    struct buffer_data out_data; 
+    //struct buffer_data out_data; 
     TEEC_Context context = {0};
     TEEC_Session session = {0};
     //init kta
     context = initcontext(context);
-    ret = initialize(&context,&session,req,&out_data);
+    ret = initialize(&context,&session,req,&rsp);
     if (ret != TEEC_SUCCESS) {
         printf("kta initialize failed, codes=0x%x", ret);
         return ret;
