@@ -23,13 +23,13 @@ Description: kta manages the TA's key cache in the TEE.
 
 enum {
     CMD_KTA_INITIALIZE      = 0x00000001,
-    CMD_KTA_INITREPLY       = 0x00000002,
-    CMD_SEND_REQUEST        = 0x00000003,
-    CMD_RESPOND_REQUEST     = 0x00000004,
-    CMD_KEY_SEARCH          = 0x80000001,
-    CMD_KEY_DELETE          = 0x80000002,
-    CMD_KEY_DESTORY         = 0x80000003,
-    CMD_KEY_REPLY           = 0x80000004,
+    CMD_SEND_REQUEST        = 0x00000002,
+    CMD_RESPOND_REQUEST     = 0x00000003,
+    CMD_KEY_INIT            = 0x80000001,
+    CMD_KEY_SEARCH          = 0x80000002,
+    CMD_KEY_DELETE          = 0x80000003,
+    CMD_KEY_DESTORY         = 0x80000004,
+    CMD_KEY_REPLY           = 0x80000005,
 };
 
 Cache *cache = {0};
@@ -91,25 +91,19 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
     if (caller_info.session_type == SESSION_FROM_CA) {
         switch (cmd) {
         case CMD_KTA_INITIALIZE:
-            ret = KTAInitialize(teepubkey, signedpubkey, cache, cmdqueue);//parameters to be set
+            ret = KTAInitialize( parm_type, params );
             if (ret != TEE_SUCCESS)
                 tloge("initialize kta failed\n");
             return ret;
             break;
-        case CMD_KTA_INITREPLY:
-            ret = SaveLocalKey(kcm_encodekey_path, keyvalue, TEE_TYPE_SM4);//parameters to be set
-            if (ret != TEE_SUCCESS)
-                tloge("save kta failed\n");
-            return ret;
-            break;
         case CMD_SEND_REQUEST:
-            ret = SendRequest();
+            ret = SendRequest(cmd, params);
             if (ret != TEE_SUCCESS)
                 tloge("send ta requests failed\n");
             return ret;
             break;
         case CMD_RESPOND_REQUEST:
-            ret = HandleReply();
+            ret = GetResponse(cmd, params);
             if (ret != TEE_SUCCESS)
                 tloge("handle ka response failed\n");
             return ret;
@@ -120,6 +114,12 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
         }
     } else if (caller_info.session_type == SESSION_FROM_TA) {
         switch (cmd) {
+        case CMD_KEY_INIT:
+            ret = InitTAKey(uuid, cache);
+            if (ret != TEE_SUCCESS)
+                tloge("init ta failed\n");
+            return ret;
+            break;
         case CMD_KEY_SEARCH:
             ret = SearchTAKey(uuid, keyid, cache, keyvalue);
             if (ret != TEE_SUCCESS)

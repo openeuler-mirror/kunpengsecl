@@ -12,45 +12,45 @@
 ```C
 cmd CMD_KTA_INITIALIZE
 parm_type = TEEC_PARAM_TYPES(
-        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放初始化结果
-        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放KTA公钥证书
-        TEE_PARAM_TYPE_MEMREF_OUTPUT,  
-        TEE_PARAM_TYPE_NONE
+        TEE_PARAM_TYPE_MEMREF_INPUT,   //存放KCM公钥
+        TEE_PARAM_TYPE_MEMREF_INPUT,   //存放KTA公钥证书
+        TEE_PARAM_TYPE_MEMREF_INPUT,   //存放KTA私钥
+        TEE_PARAM_TYPE_VALUE_OUTPUT,   //存放KTA公钥证书（返回）
         );
 ```
 
-2、描述：KTA初始化结果返回
-
-```c
-cmd CMD_KTA_INITREPLY
-parm_type = TEEC_PARAM_TYPES(
-    TEE_PARAM_TYPE_MEMREF_INPUT, //存放KCM生成的加密密钥
-    TEE_PARAM_TYPE_MEMREF_INPUT, //存放KMS公钥
-    TEE_PARAM_TYPE_NONE,
-    TEE_PARAM_TYPE_NONE,
-    );
-```
-3、描述：KA轮询
+2、描述：KTA请求函数
 ```C
 cmd CMD_SEND_REQUEST
 parm_type = TEEC_PARAM_TYPES(
-        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放请求列表
-        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放请求数量
-        TEE_PARAM_TYPE_MEMREF_INPUT, //存放需要更新可信状态的TAuuid列表
-        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放需要更新可信状态的TA可信状态查询结果
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放请求
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE,
         );
 ```
-4、描述：KA请求返回
+3、描述：KA请求返回
 ```C
 cmd CMD_RESPOND_REQUEST
 parm_type = TEEC_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT, //存放请求结果
-        TEE_PARAM_TYPE_VALUE_INPUT, //存放请求数量
+        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放KTA处理结果
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE,
         );
 ```
 ### 与TA交互接口
+
+4、描述：TA初始化
+```C
+cmd CMD_TA_INITIALIZE
+parm_type = TEEC_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_INPUT,  
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, 
+        TEE_PARAM_TYPE_VALUE_OUTPUT, 
+        TEE_PARAM_TYPE_NONE,
+        );
+```
 
 5、描述：TA请求生成/查询密钥
 
@@ -94,73 +94,56 @@ cmd CMD_KEY_REPLY
 使用多重数组实现密钥/TA信息本地缓存
 
 ```C
-typedef struct _tagKeyInfo{
-    TEE_UUID    id;
-    uint8_t value[KEY_SIZE];
-    int32_t next;
-} KeyInfo;
+/* command queue to store the commands */
 
-typedef struct _tagTaInfo{
-    TEE_UUID    id;
-    uint8_t account[MAX_STR_LEN];
-    uint8_t password[MAX_STR_LEN];
-    int32_t next;
-    KeyInfo key[MAX_KEY_NUM];
-    int32_t head;
-    int32_t tail;
-} TaInfo;
-
-
-typedef struct _tagCache{
-    TaInfo  ta[MAX_TA_NUM];
-    int32_t head;
-    int32_t tail;
-} Cache;
-
-typedef struct _tagCmdNode{
+typedef struct _tagParseCmdData{
     int32_t cmd;
     TEE_UUID    taId;
     TEE_UUID    keyId;
+    uint8_t masterkey[KEY_SIZE];
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
-    int32_t next;
+} ParseCmdData;
+
+typedef struct _tagCmdNode{
+    int32_t cmd;
+    uint8_t data[MAX_DATA_LEN];
+    int32_t next;  // -1: empty; 0~MAX_TA_NUM: next cmd for search operation.
+} CmdNode;
 
 typedef struct _tagCmdQueue{
     CmdNode queue[MAX_CMD_SIZE];
-    int32_t head;
-    int32_t tail;
+    int32_t head;   // -1: empty; 0~MAX_TA_NUM: first cmd for dequeue operation.
+    int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last cmd for enqueue operation.
 } CmdQueue;
+
 ```
 
 ### 初始化
 #### 函数声明
 
-描述：初始化KTA内部数据存储结构
-参数：teepubkey[IN]TEE设备公钥，signedpubkey[OUT]签名后kta公钥，cache[OUT]数据存储结构，cmdqueue[OUT]请求存储结构
+描述：初始化KTA所需密钥和证书，向KA返回其证书
 
 ```C
-TEE_Result KTAInitialize(void *teepubkey, void *signedpubkey, Cache *cache, CmdQueue *cmdqueue);
+TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[4]);
 ```
 
-描述：保存密钥
-参数：privkeyname[IN]存储的密钥名称，key[IN]需要存储的密钥
-
+描述：保存密钥（包括KTA私钥和KCM公钥）
+参数：keyname[IN]密钥保存路径，keyvalue[IN]密钥值，keysize[IN]密钥大小，keytype[IN]密钥种类
 ```C
-TEE_Result SaveLocalKey(void *keyname, void *keyvalue)
+TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, uint32_t keysize, uint32_t keytype);
 ```
 
-描述：读取保存的密钥
-参数：privkeyname[IN]读取的密钥名称，key[OUT]读取的密钥
-
+描述：保存KTA公钥证书
+参数：certname[IN]证书保存路径，certvalue[IN]证书内容，certsize[IN]证书大小
 ```C
-TEE_Result RestoreLocalKey(void *keyname, void *keyvalue)
+TEE_Result saveCert(void *certname, void *certvalue, uint32_t certsize);
 ```
 
-描述：初始化本地缓存
-参数：datacache[OUT]KTA内部缓存数据结构
-
+描述：读取保存的KTA证书到缓冲区
+参数：certname[IN]证书保存路径，buffer[IN]缓冲区，buf_len[IN]缓冲区大小
 ```C
-TEE_Result InitCache(Cache *cache)
+TEE_Result restoreCert(void *certname, uint8_t* buffer, size_t *buf_len);
 ```
 
 ### 密钥管理：实现密钥存取、维护密钥表

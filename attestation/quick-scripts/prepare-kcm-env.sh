@@ -25,7 +25,7 @@ openssl rsa -in ca.key -out ca.key -passin pass:123456
 
 #kta
 #Generate the kta private key (the encryption method is des3, and the password is 123456 2048 bytes)
-openssl genrsa -des3 -passout pass:123456 -out kta.key 2048
+openssl genrsa -passout pass:123456 -out kta.key 2048
 openssl rsa -in kta.key -out kta.key -passin pass:123456
 #Generate certificate request file
 openssl req -new -key kta.key -out kta.csr -subj "${kta_subj}"
@@ -33,7 +33,7 @@ openssl req -new -key kta.key -out kta.csr -subj "${kta_subj}"
 openssl ca -in kta.csr -out kta.crt -cert ca.crt -keyfile ca.key -days $days -policy policy_anything
 
 #kcm
-openssl genrsa -des3 -passout pass:123456 -out kcm.key 2048
+openssl genrsa -passout pass:123456 -out kcm.key 2048
 openssl rsa -in kcm.key -out kcm.key -passin pass:123456
 openssl req -new -key kcm.key -out kcm.csr -subj "${kcm_subj}"
 openssl ca -in kcm.csr -out kcm.crt -cert ca.crt -keyfile ca.key -days $days -policy policy_anything

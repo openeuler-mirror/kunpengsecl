@@ -25,9 +25,7 @@ Description: api module in kta.
 
 //for kcm
 
-TEE_Result KTAInitialize();
-
-TEE_Result KTAInitialReply();
+TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[4]);
 
 TEE_Result SendRequest();
 
@@ -35,6 +33,8 @@ TEE_Result GetResponse();
 
 
 //for TA
+
+TEE_Result InitTAKey(TEE_UUID TA_uuid, Cache *cache);
 
 TEE_Result SearchTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache, char *keyvalue);
 

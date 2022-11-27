@@ -20,18 +20,57 @@ Description: api module in kta.
 #include <tee_defines.h>
 #include <kta_command.h>
 
-// Communication with kcm
+#define MAX_CERT_LEN 8192
+#define MAX_KEY_LEN 2048
 
-TEE_Result KTAInitialize(void *teepubkey, void *signedpubkey, Cache *cache, CmdQueue *cmdqueue) {
+TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[4]){
     //basic function for calling the above functions
-
-    //output: teepubkey, signedpubkey
-}
-
-TEE_Result KTAInitialReply(void *teepubkey, void *signedpubkey, Cache *cache, CmdQueue *cmdqueue) {
-    //basic function for calling the above functions
-
-    //output: teepubkey, signedpubkey
+    TEE_Result ret;
+    if (!check_param_type(param_types,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
+        TEE_PARAM_TYPE_MEMREF_OUTPUT)) {
+        tloge("Bad expected parameter types, 0x%x.\n", param_types);
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    if (params[0].memref.size == 0 || params[0].memref.size > MAX_KEY_LEN || params[0].memref.buffer == NULL) {
+        tloge("Bad expected parameter.\n");
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    if (params[1].memref.size == 0 || params[1].memref.size > MAX_CERT_LEN || params[1].memref.buffer == NULL) {
+        tloge("Bad expected parameter.\n");
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    if (params[2].memref.size == 0 || params[2].memref.size > MAX_KEY_LEN || params[2].memref.buffer == NULL) {
+        tloge("Bad expected parameter.\n");
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    if (params[3].memref.size == 0 || params[3].memref.buffer == NULL) {
+        tloge("Bad expected parameter.\n");
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    ret = saveKeyPair("sec_storage_data/kcmpub.txt", params[0].memref.buffer, params[0].memref.size, TEE_TYPE_RSA_PUBLIC_KEY);
+    if (ret != TEE_SUCCESS){
+        tloge("save kcmpub failed\n");
+        return ret;
+    }
+    ret = saveCert("sec_storage_data/ktacert.txt", params[1].memref.buffer, params[1].memref.size);
+    if (ret != TEE_SUCCESS){
+        tloge("save kta cert failed\n");
+        return ret;
+    }
+    ret = saveKeyPair("sec_storage_data/ktakey.txt", params[2].memref.buffer, params[2].memref.size, TEE_TYPE_RSA_KEYPAIR);
+    if (ret != TEE_SUCCESS){
+        tloge("save ktakey failed\n");
+        return ret;
+    }
+    ret = restoreCert("sec_storage_data/ktacert.txt",params[3].memref.buffer, &params[3].memref.size);
+    if (ret != TEE_SUCCESS){
+        tloge("restore kta cert failed\n");
+        return ret;
+    }
+    return TEE_SUCCESS;
 }
 
 TEE_Result SendRequest() {
@@ -43,6 +82,10 @@ TEE_Result GetResponse() {
 }
 
 // Communication with ta
+
+TEE_Result InitTAKey(TEE_UUID TA_uuid, Cache *cache) {
+    //todo: init ta cache;
+};
 
 TEE_Result SendReplytoTA() {
     //todo: answer to ta when ta asks its command's reply.
