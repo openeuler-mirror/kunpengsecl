@@ -1,12 +1,14 @@
 // kcmstools package implements the whole process of key caching management service
 package kcmstools
 
+import "gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
+
 func Initialize(deviceId int64, signCert string, teeCert string) error {
 	if deviceId == 1 {
 		return nil
-	} else if signCert == "signCert"{
+	} else if signCert == "signCert" {
 		return nil
-	} else if teeCert =="teeCert"{
+	} else if teeCert == "teeCert" {
 		return nil
 	}
 	// TODO: unmarshal cert to *x509.Certificate
@@ -81,14 +83,17 @@ func GetKey(taid []byte, account string, password string, keyid []byte, hostkeyi
 }
 
 func DeleteKey(taid []byte, keyid []byte) error {
-	if taid == nil {
-		return nil
-	} else if keyid == nil {
-		return nil
-	}
 	// TODO: get the trusted status of TA (from cache)
-
+	str_taid := string(taid)
+	str_keyid := string(keyid)
+	_, err := kdb.FindKeyInfo(str_taid, str_keyid)
+	if err != nil {
+		return err
+	}
 	// TODO: delete the specific key in database
-
+	err2 := kdb.DeleteKeyInfo(str_taid, str_keyid)
+	if err2 != nil {
+		return err2
+	}
 	return nil
 }
