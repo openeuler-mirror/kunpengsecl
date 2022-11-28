@@ -75,8 +75,7 @@ TEEC_Result initialize(TEEC_Context *context, TEEC_Session *session, struct buff
     operation.params[PARAMETER_SECOND].tmpref.buffer = pubKey->buf;
     operation.params[PARAMETER_SECOND].tmpref.size = pubKey->size;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
+
     ret = TEEC_InvokeCommand(session, CMD_KTA_INITIALIZE, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
         tloge("kta initialize failed, codes=0x%x, origin=0x%x", ret, origin);
@@ -92,10 +91,7 @@ TEEC_Result initialize(TEEC_Context *context, TEEC_Session *session, struct buff
     } else if (initresult.a != 0x01) {
         /* 到kta初始化失败处理逻辑 */
     }
-=======
->>>>>>> 4dd0651... update ka for kta using
-=======
->>>>>>> 4dd0651ef1302cd09c43e8b948aa532066001164
+
     //从operation中获取到KTA的公钥证书
     pubCert->buf = operation.params[PARAMETER_THIRD].tmpref.buffer; //在operation的第二个参数中存放有返回来的kta的公钥证书
     pubCert->size = operation.params[PARAMETER_THIRD].tmpref.size;
@@ -123,7 +119,7 @@ TEEC_Result RemoteAttestKTA(uint32_t cmdnum,struct buffer_data *req,struct buffe
     TEEC_Session session = {0};
     //init kta
     context = initcontext(context);
-    ret = initialize(&context,&session,req,&rsp);
+    ret = initialize(&context,&session,req,rsp);
     if (ret != TEEC_SUCCESS) {
         printf("kta initialize failed, codes=0x%x", ret);
         return ret;
@@ -139,3 +135,121 @@ TEEC_Result RemoteAttestKTA(uint32_t cmdnum,struct buffer_data *req,struct buffe
 // int main(){
 //     return 0;
 // }
+
+// 初始化上下文和会话
+TEEC_Result InitContextSession(TEEC_Context *context, TEEC_Session *session) {
+    TEEC_Operation operation = {0};
+    uint32_t origin = 0;
+    TEEC_Result ret;
+
+    ret = TEEC_InitializeContext(NULL, context);
+    if (ret != TEEC_SUCCESS) {
+        return ret;
+    }
+    context->ta_path = "/root/data/435dcafa-0029-4d53-97e8-a7a13a80c82e.sec"; //to be set, the path of kta mirror
+    operation.started = OPERATION_START_FLAG;
+    operation.paramTypes = TEEC_PARAM_TYPES(
+        TEEC_NONE,
+        TEEC_NONE,
+        TEEC_NONE,
+        TEEC_NONE);
+
+    ret = TEEC_OpenSession(context, session, &Uuid, TEEC_LOGIN_IDENTIFY, NULL, &operation, &origin);
+    if (ret != TEEC_SUCCESS) {
+        TEEC_FinalizeContext(context);
+        return ret;
+    }
+    return ret;
+}
+
+// 向KTA发出初始化命令
+TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, struct buffer_data* kcmPrivKey,struct buffer_data* ktaPubCert, struct buffer_data *out_data){
+    TEEC_Operation operation = {0};
+    uint32_t origin = 0;
+    TEEC_Result ret;
+    TEEC_Value initresult = {0};
+    unsigned int pubkeyBufLen = SIGEND_PUBKEY_BUF;
+    unsigned int teePubkeyBufLen = TEE_PUBKEY_BUF;
+
+    operation.started = OPERATION_START_FLAG;
+    operation.paramTypes = TEEC_PARAM_TYPES(
+        TEEC_MEMREF_TEMP_INPUT,   //存放KCM公钥
+        TEEC_MEMREF_TEMP_INPUT,   //存放KTA公钥证书
+        TEEC_MEMREF_TEMP_INPUT,   //存放KTA私钥
+        TEEC_MEMREF_TEMP_OUTPUT  //存放KTA公钥证书（返回）
+    );
+
+    operation.params[PARAMETER_FRIST].tmpref.buffer = kcmPubKey->buf;
+    operation.params[PARAMETER_FRIST].tmpref.size = kcmPubKey->size;
+    operation.params[PARAMETER_SECOND].tmpref.buffer = ktaPubCert->buf;
+    operation.params[PARAMETER_SECOND].tmpref.size = ktaPubCert->size;
+    operation.params[PARAMETER_THIRD].tmpref.buffer = kcmPrivKey->buf;
+    operation.params[PARAMETER_THIRD].tmpref.size = kcmPrivKey->size;
+    operation.params[PARAMETER_FOURTH].tmpref.buffer = out_data->buf;
+    operation.params[PARAMETER_FOURTH].tmpref.size = out_data->size;
+
+    ret = TEEC_InvokeCommand(session, CMD_KTA_INITIALIZE, &operation, &origin);
+    if (ret != TEEC_SUCCESS) {
+        printf("kta initialize failed, codes=0x%x, origin=0x%x", ret, origin);
+        return ret;
+    }
+
+    return TEEC_SUCCESS;
+}
+// 从KTA拿取密钥请求
+TEEC_Result KTAgetCommand(TEEC_Session *session, struct buffer_data* out_data){
+    TEEC_Operation operation = {0};
+    uint32_t origin = 1;
+    TEEC_Result ret;
+
+    operation.started = OPERATION_START_FLAG;
+    operation.paramTypes = TEEC_PARAM_TYPES(
+        TEEC_MEMREF_TEMP_OUTPUT, //存放请求
+        TEEC_NONE,
+        TEEC_NONE,
+        TEEC_NONE
+    );
+    operation.params[PARAMETER_FRIST].tmpref.buffer = out_data->buf;
+    operation.params[PARAMETER_FRIST].tmpref.size = out_data->size;
+    ret = TEEC_InvokeCommand(session, CMD_GET_REQUEST, &operation, &origin);
+    if (ret != TEEC_SUCCESS) {
+        printf("get kta requests failed, codes=0x%x, origin=0x%x", ret, origin);
+        return ret;
+    }
+
+    return TEEC_SUCCESS;
+}
+
+// 向KTA返回密钥请求结果
+TEEC_Result KTAsendCommandreply(TEEC_Session *session, struct buffer_data* in_data){
+    TEEC_Operation operation = {0};
+    TEEC_Value ktares = {0};
+    uint32_t origin = 2;
+    TEEC_Result ret;
+
+    operation.started = OPERATION_START_FLAG;
+    operation.paramTypes = TEEC_PARAM_TYPES(
+        TEEC_MEMREF_TEMP_INPUT, //存放请求结果
+        TEEC_VALUE_OUTPUT, //存放KTA处理结果
+        TEEC_NONE,
+        TEEC_NONE
+    );
+    operation.params[PARAMETER_FRIST].tmpref.buffer = in_data->buf;
+    operation.params[PARAMETER_FRIST].tmpref.size = in_data->size;
+    operation.params[PARAMETER_SECOND].value = ktares;
+    ret = TEEC_InvokeCommand(session, CMD_RESPOND_REQUEST, &operation, &origin);
+    if (ret != TEEC_SUCCESS) {
+        printf("respond kta requests failed, codes=0x%x, origin=0x%x", ret, origin);
+        return ret;
+    }
+    if (ktares.a == 0){
+        return TEEC_ERROR_BAD_BUFFER_DATA;
+    }
+    return TEEC_SUCCESS;
+}
+
+// 关闭与KTA的连接
+void KTAshutdown(TEEC_Context *context, TEEC_Session *session) {
+    TEEC_CloseSession(session);
+    TEEC_FinalizeContext(context);
+}
