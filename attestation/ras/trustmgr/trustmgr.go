@@ -103,8 +103,8 @@ const (
 	sqlUnRegisterClientByID              = `UPDATE client SET registered=false WHERE id=$1`
 	sqlUpdateClientByID                  = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport                 = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlInsertTaReport                    = `INSERT INTO report(clientid, createtime, validated, trusted, uuid,value) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6)`
+	sqlInsertTaReport                    = `INSERT INTO report(clientid, createtime, validated, trusted, uuid, value) VALUES ($1, $2, $3, $4, $5, $6)`
+	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	sqlInsertTaBase                      = `INSERT INTO base(clientid, uuid, createtime, name, valueinfo) VALUES ($1, $2, $3, $4, $5)`
 	sqlDisableBaseValuesByClientID       = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype='host'`
 	sqlEnableBaseValueByid               = `UPDATE base set enabled=true WHERE id=$1`
@@ -912,7 +912,7 @@ func VerifyTaReport(report *typdefs.TrustReport) {
 
 		c, _ := GetCache(report.ClientID)
 		basevalue := C.build_basevalue((*C.uchar)(C.CBytes(c.TaBases[uuid].Valueinfo)))
-		ans := C.tee_verify_report2(&buf_data, &nonce, C.int(typdefs.TaVerifyType), basevalue)
+		ans := C.tee_verify_report2(&buf_data, C.int(typdefs.TaVerifyType), basevalue)
 		var trusted string
 		if ans == 0 {
 			trusted = cache.StrTrusted
