@@ -59,6 +59,7 @@ import (
 	"crypto/sha256"
 
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -90,25 +91,34 @@ const (
 	sqlFindClientsByInfo                 = `SELECT id, regtime, registered, info, ikcert FROM client WHERE info @> $1`
 	sqlFindReportsByClientID             = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
 	sqlFindReportByID                    = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
+	sqlFindTaReportsByTaID               = `SELECT id, clientid, uuid, createtime, validated, trusted FROM tareport WHERE clientid=$1 AND uuid=$2 ORDER BY createtime ASC`
+	sqlFindTaReportByID                  = `SELECT id, clientid, uuid, createtime, validated, trusted FROM tareport WHERE id=$1`
 	sqlFindBaseValuesByClientID          = `SELECT id, basetype, uuid, createtime, name, enabled FROM base WHERE clientid=$1 ORDER BY createtime ASC`
 	sqlFindHostBaseValuesByClientID      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='host' ORDER BY createtime ASC`
 	sqlFindContainerBaseValuesByClientID = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='container' ORDER BY createtime ASC`
 	sqlFindDeviceBaseValuesByClientID    = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='device' ORDER BY createtime ASC`
 	sqlFindBaseValueByID                 = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE id=$1 ORDER BY createtime ASC`
 	sqlFindBaseValueByUuid               = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
+	sqlFindTaBaseValuesByUuid            = `SELECT id, clientid, uuid, createtime, name FROM tabase WHERE clientid=$1 AND uuid=$2 ORDER BY createtime ASC`
+	sqlFindTaBaseValueByID               = `SELECT id, clientid, uuid, createtime, name FROM tabase WHERE id=$1 ORDER BY createtime ASC`
 	sqlDeleteReportByID                  = `DELETE FROM report WHERE id=$1`
+	sqlDeleteTaReportByID                = `DELETE FROM tareport WHERE id=$1`
 	sqlDeleteBaseValueByID               = `DELETE FROM base WHERE id=$1`
+	sqlDeleteTaBaseValueByID             = `DELETE FROM tabase WHERE id=$1`
 	sqlDeleteClientByID                  = `DELETE FROM client WHERE id=$1`
 	sqlRegisterClientByID                = `UPDATE client SET registered=true WHERE id=$1`
 	sqlUnRegisterClientByID              = `UPDATE client SET registered=false WHERE id=$1`
 	sqlUpdateClientByID                  = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport                 = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlInsertTaReport                    = `INSERT INTO report(clientid, createtime, validated, trusted, uuid, value) VALUES ($1, $2, $3, $4, $5, $6)`
+	sqlInsertTaReport                    = `INSERT INTO tareport(clientid, createtime, validated, trusted, uuid, value) VALUES ($1, $2, $3, $4, $5, $6)`
 	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	sqlInsertTaBase                      = `INSERT INTO base(clientid, uuid, createtime, name, valueinfo) VALUES ($1, $2, $3, $4, $5)`
+	sqlInsertTaBase                      = `INSERT INTO tabase(clientid, uuid, createtime, name, valueinfo) VALUES ($1, $2, $3, $4, $5)`
 	sqlDisableBaseValuesByClientID       = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype='host'`
+	sqlDisableTaBaseValuesByUuid         = `UPDATE tabase set enabled=false WHERE uuid=$1`
 	sqlEnableBaseValueByid               = `UPDATE base set enabled=true WHERE id=$1`
 	sqlDisableBaseValueByid              = `UPDATE base set enabled=false WHERE id=$1`
+	sqlEnableTaBaseValueByid             = `UPDATE tabase set enabled=true WHERE id=$1`
+	sqlDisableTaBaseValueByid            = `UPDATE tabase set enabled=false WHERE id=$1`
 )
 
 type (
@@ -200,6 +210,18 @@ func DisableBaseByClientID(id int64) error {
 	return nil
 }
 
+// DisableTaBaseByClientID modify all base enabled=false of a ta
+func DisableTaBaseByUuid(taid string) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Query(sqlDisableTaBaseValuesByUuid, taid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // ModifyEnabledByID modify base enabled flag
 func ModifyEnabledByID(id int64, enabled bool) error {
 	if tmgr == nil {
@@ -210,6 +232,25 @@ func ModifyEnabledByID(id int64, enabled bool) error {
 		sql = sqlEnableBaseValueByid
 	} else {
 		sql = sqlDisableBaseValueByid
+	}
+	_, err := tmgr.db.Query(sql, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ModifyTaEnabledByID modify ta base enabled flag
+func ModifyTaEnabledByID(id int64, enabled bool) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	var sql string
+	if enabled {
+		sql = sqlEnableTaBaseValueByid
+	} else {
+		sql = sqlDisableTaBaseValueByid
 	}
 	_, err := tmgr.db.Query(sql, id)
 	if err != nil {
@@ -578,6 +619,102 @@ func FindBaseValueByUuid(uuid string) (*typdefs.BaseRow, error) {
 	return basevalue, nil
 }
 
+// FindTaReportByID returns the ta report by a specific ta report id.
+func FindTaReportByID(id int64) (*typdefs.TaReportRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	tareport := &typdefs.TaReportRow{}
+	err := tmgr.db.QueryRow(sqlFindTaReportByID, id).Scan(&tareport.ID, &tareport.ClientID,
+		&tareport.Uuid, &tareport.CreateTime, &tareport.Validated, &tareport.Trusted)
+	if err != nil {
+		return nil, err
+	}
+	return tareport, nil
+}
+
+// FindTaReportsByUuid returns all reports by a specific ta uuid.
+func FindTaReportsByUuid(cid int64, taid string) ([]typdefs.TaReportRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindTaReportsByTaID, cid, taid)
+	if err != nil {
+		return nil, err
+	}
+	tareports := make([]typdefs.TaReportRow, 0, 100)
+	for rows.Next() {
+		res := typdefs.TaReportRow{}
+		err2 := rows.Scan(&res.ID, &res.ClientID, &res.Uuid,
+			&res.CreateTime, &res.Validated, &res.Trusted)
+		if err2 != nil {
+			return nil, err2
+		}
+		tareports = append(tareports, res)
+	}
+	return tareports, nil
+}
+
+// DeleteTaReportByID deletes a specific ta report by ta report id.
+func DeleteTaReportByID(id int64) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Exec(sqlDeleteTaReportByID, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// FindTaBaseValueByID returns a specific ta base value by ta base value id.
+func FindTaBaseValueByID(id int64) (*typdefs.TaBaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	tabasevalue := &typdefs.TaBaseRow{}
+	err := tmgr.db.QueryRow(sqlFindTaBaseValueByID, id).Scan(&tabasevalue.ID,
+		&tabasevalue.ClientID, &tabasevalue.Uuid, &tabasevalue.CreateTime, &tabasevalue.Name)
+	if err != nil {
+		return nil, err
+	}
+	return tabasevalue, nil
+}
+
+// FindTaBaseValuesByUuid returns a specific base value by a ta uuid.
+func FindTaBaseValuesByUuid(cid int64, taid string) ([]*typdefs.TaBaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindTaBaseValuesByUuid, cid, taid)
+	if err != nil {
+		return nil, err
+	}
+	tabasevalues := make([]*typdefs.TaBaseRow, 0, 20)
+	for rows.Next() {
+		res := typdefs.TaBaseRow{}
+		err2 := rows.Scan(&res.ID, &res.ClientID, &res.Uuid,
+			&res.CreateTime, &res.Name)
+		if err2 != nil {
+			return nil, err2
+		}
+		tabasevalues = append(tabasevalues, &res)
+	}
+	return tabasevalues, nil
+}
+
+// DeleteTaBaseValueByID deletes a specific ta base value by ta base value id.
+func DeleteTaBaseValueByID(id int64) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Exec(sqlDeleteTaBaseValueByID, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // DeleteBaseValueByID deletes a specific base value by base value id.
 func DeleteBaseValueByID(id int64) error {
 	if tmgr == nil {
@@ -663,7 +800,7 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 				return false, fmt.Errorf("signature err")
 			}
 		}
-		row := typdefs.TaReportRow{
+		row := &typdefs.TaReportRow{
 			ClientID:   report.ClientID,
 			CreateTime: time.Now(),
 			Validated:  true,
@@ -1467,7 +1604,7 @@ func handleReportStore(v *typdefs.ReportRow) {
 func handleTaReportStore(v *typdefs.TaReportRow) {
 	res, err := storeDb.Exec(sqlInsertTaReport,
 		v.ClientID, v.CreateTime, v.Validated, v.Trusted,
-		v.Uuid, v.Value)
+		v.Uuid, base64.StdEncoding.EncodeToString(v.Value))
 	if err != nil {
 		logger.L.Sugar().Errorf("insert taReport error, result %v, %v", res, err)
 	}
@@ -1487,7 +1624,7 @@ func handleBaseStore(v *typdefs.BaseRow) {
 
 func handleTaBaseStore(v *typdefs.TaBaseRow) {
 	res, err := storeDb.Exec(sqlInsertTaBase, v.ClientID, v.Uuid, v.CreateTime,
-		v.Name, v.Valueinfo)
+		v.Name, base64.StdEncoding.EncodeToString(v.Valueinfo))
 	if err != nil {
 		logger.L.Sugar().Errorf("insert taBase error, result %v, %v", res, err)
 	}
