@@ -38,3 +38,9 @@ CREATE TABLE keyinfo (
     keyid CHAR(36),
     ciphertext TEXT
 );
+
+CREATE TABLE pubkeyinfo (
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    deviceid BIGINT,
+    pubkeycert TEXT
+);

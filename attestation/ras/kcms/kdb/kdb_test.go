@@ -5,9 +5,10 @@ import (
 )
 
 const (
-	constDB                = "postgres"
-	constDNS               = "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
-	constsavekeyinfofailed = "save key information fail %v"
+	constDB                   = "postgres"
+	constDNS                  = "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
+	constsavekeyinfofailed    = "save key information fail %v"
+	constsavepubkeyinfofailed = "save pubkey information fail %v"
 )
 
 func TestSaveKeyInfo(t *testing.T) {
@@ -53,5 +54,49 @@ func TestFindKeyInfo(t *testing.T) {
 		t.Logf("find key information by taid=%s and keyid=%s, key=%v\n", k1.TaID, k1.KeyID, k)
 	} else {
 		t.Errorf("find by taid and keyid error: %v", err)
+	}
+}
+
+func TestSavePubKeyInfo(t *testing.T) {
+	pubkeyinfos := []struct {
+		DeviceID   int64
+		PubKeyCert string
+	}{
+		{1, "testpubkey1"},
+		{2, "testpubkey2"},
+		{3, "testpubkey3"},
+		{4, "testpubkey4"},
+		{5, "testpubkey5"},
+		{6, "testpubkey6"},
+	}
+	CreateKdbManager(constDB, constDNS)
+	defer ReleaseKdbManager()
+	for _, k := range pubkeyinfos {
+		SavePubKeyInfo(k.DeviceID, k.PubKeyCert)
+		krow, err := FindPubKeyInfo(k.DeviceID)
+		t.Logf(krow.PubKeyCert)
+		if err != nil {
+			t.Errorf("test FindPubKeyInfo failed, err: %s", err)
+		}
+		defer DeletePubKeyInfoByID(krow.ID)
+	}
+}
+
+func TestFindPubKeyInfo(t *testing.T) {
+	CreateKdbManager(constDB, constDNS)
+	defer ReleaseKdbManager()
+	var deviceid int64 = 1
+	pubkeycert := "testpubkey1"
+	k, err := SavePubKeyInfo(deviceid, pubkeycert)
+	if err != nil {
+		t.Logf(constsavepubkeyinfofailed, err)
+	}
+	defer DeletePubKeyInfoByID(k.ID)
+
+	k1, err := FindPubKeyInfo(k.DeviceID)
+	if err == nil {
+		t.Logf("find public key information by deviceid=%d, public key=%v\n", k1.DeviceID, k)
+	} else {
+		t.Errorf("find by deviceid error: %v", err)
 	}
 }
