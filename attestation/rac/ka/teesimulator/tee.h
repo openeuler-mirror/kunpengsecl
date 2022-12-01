@@ -3,12 +3,23 @@
 #ifndef __TEE_SIM__
 #define __TEE_SIM__
 
-#include<stdlib.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include<stdbool.h>
+#include <stdbool.h>
+#include <string.h>
 //#include "tee_client_api.h"
-
+#define OPERATION_START_FLAG 1
+#define MAX_STR_LEN 200 //now set randomly
+#define PARAMETER_FRIST 0
+#define PARAMETER_SECOND 1
+#define PARAMETER_THIRD 2
+#define PARAMETER_FOURTH 3
+#define SIGEND_PUBKEY_BUF 1000 //now set randomly
+#define TEE_PUBKEY_BUF 500 //now set randomly
+#define KCM_ENCRYPT_BUF 600 //now set randomly
+#define KMS_PUBKEY_BUF 800 //now set randomly
+#define TEEC_Error(fmt, args...) printf("%s: " fmt, __func__, ## args)
 typedef enum TEEC_ReturnCode TEEC_Result;
 enum TEEC_ReturnCode {
     TEEC_SUCCESS = 0x0,
