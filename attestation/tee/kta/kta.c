@@ -91,10 +91,10 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
     if (caller_info.session_type == SESSION_FROM_CA) {
         switch (cmd) {
         case CMD_KTA_INITIALIZE:
-            ret = KTAInitialize( parm_type, params );
+            ret = KTAInitialize( parm_type, params, cache, cmdqueue);
             if (ret != TEE_SUCCESS)
-                tloge("initialize kta failed\n");
-            return ret;
+                tloge("initialize kta key and cert failed\n");
+            return ret ;
             break;
         case CMD_SEND_REQUEST:
             ret = SendRequest(cmd, params);
