@@ -25,7 +25,7 @@ Description: api module in kta.
 
 //for kcm
 
-TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[4]);
+TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[4], Cache *cache, CmdQueue *cmdqueue);
 
 TEE_Result SendRequest();
 

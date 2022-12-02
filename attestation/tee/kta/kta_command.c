@@ -22,16 +22,17 @@ Description: api module in kta.
 
 #define MAX_CERT_LEN 8192
 #define MAX_KEY_LEN 2048
+#define PARAM_COUNT 4
 
-TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[4]){
+TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue){
     //basic function for calling the above functions
     TEE_Result ret;
-    if (!check_param_type(param_types,
+    if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_MEMREF_OUTPUT)) {
-        tloge("Bad expected parameter types, 0x%x.\n", param_types);
+        tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
     if (params[0].memref.size == 0 || params[0].memref.size > MAX_KEY_LEN || params[0].memref.buffer == NULL) {
@@ -65,6 +66,12 @@ TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[4]){
         tloge("save ktakey failed\n");
         return ret;
     }
+    ret = initStructure(cache,cmdqueue);
+    if (ret != TEE_SUCCESS){
+        tloge("init kta struct failed\n");
+        return ret;
+    }
+
     ret = restoreCert("sec_storage_data/ktacert.txt",params[3].memref.buffer, &params[3].memref.size);
     if (ret != TEE_SUCCESS){
         tloge("restore kta cert failed\n");

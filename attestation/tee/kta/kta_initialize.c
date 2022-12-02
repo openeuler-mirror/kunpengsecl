@@ -25,7 +25,7 @@ Description: initialize module in kta.
 #include <tee_crypto_api.h>
 #include <tee_crypto_api.h>
 #include <string.h>
-
+#include <securec.h>
 
 // TEE_Result GenerateKeyPair(uint32_t keytype, uint32_t keysize, void *pubkey, void *privkey) {
 //     //todo: generate a pair of key according to keytype and keysize
@@ -54,7 +54,7 @@ Description: initialize module in kta.
 //     //output: signedpubkey
 // }
 
-TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, uint32_t keysize, uint32_t keytype) {
+TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, size_t keysize, uint32_t keytype) {
     //todo: save a certain kind ok key into the physical media
     //TEE_TYPE_RSA_PUBLIC_KEY
     //TEE_TYPE_RSA_KEYPAIR
@@ -63,10 +63,10 @@ TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, uint32_t keysize, uint3
     TEE_ObjectHandle persistent_key = NULL;
     TEE_Result ret;
     uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
-    uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
+    //uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
     void *objectID = keyname;
-    void *key = NULL;
-    ret = TEE_AllocateTransientObject(keytype, 0x00000800, (&transient_key));
+    //void *key = NULL;
+    ret = TEE_AllocateTransientObject(keytype, 0x00001000, (&transient_key));
     transient_key->Attribute->content.ref.length = keysize;
     transient_key->Attribute->content.ref.buffer = keyvalue;
     ret = TEE_CreatePersistentObject(storageID, objectID, strlen(objectID), w_flags, transient_key, NULL, keysize+1,(&persistent_key));
@@ -80,14 +80,14 @@ TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, uint32_t keysize, uint3
     return TEE_SUCCESS;
 }
 
-TEE_Result saveCert(void *certname, void *certvalue, uint32_t certsize) {
+TEE_Result saveCert(char *certname, uint8_t *certvalue, size_t certsize) {
     //todo: save a certain kind ok key into the physical media
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
     uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
     void *create_objectID = certname;
     TEE_ObjectHandle persistent_data = NULL;
     TEE_Result ret;
-    char *write_buffer = certvalue;
+    uint8_t *write_buffer = certvalue;
     ret = TEE_CreatePersistentObject(storageID, create_objectID, strlen(create_objectID), w_flags, TEE_HANDLE_NULL, NULL, 0, (&persistent_data));
     if (ret != TEE_SUCCESS) {
         tloge("Failed to create file: ret = 0x%x\n", ret);
@@ -105,7 +105,7 @@ TEE_Result saveCert(void *certname, void *certvalue, uint32_t certsize) {
     return TEE_SUCCESS;
 }
 
-TEE_Result restoreCert(void *certname, uint8_t* buffer, size_t *buf_len) {
+TEE_Result restoreCert(char *certname, uint8_t *buffer, size_t *buf_len) {
     TEE_Result ret;
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
     uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
@@ -142,7 +142,7 @@ TEE_Result restoreCert(void *certname, uint8_t* buffer, size_t *buf_len) {
         TEE_Free(read_buffer);
         return ret;
     }
-    buf_len = len;
+    *buf_len = len;
     int32_t rc = memmove_s(buffer, len, read_buffer, len);
     if (rc != 0) {
         TEE_CloseObject(persistent_data);
@@ -153,3 +153,60 @@ TEE_Result restoreCert(void *certname, uint8_t* buffer, size_t *buf_len) {
     TEE_Free(read_buffer);
     return TEE_SUCCESS;
 }
+
+TEE_Result initStructure(Cache *cache,CmdQueue *cmdqueue){
+    //init cache
+    cache->head = -1;
+    cache->tail = -1;
+    for(int i=0;i<MAX_TA_NUM;i++){
+        cache->ta[i].next = -1;
+        cache->ta[i].head = -1;
+        cache->ta[i].tail = -1;
+        for(int j=0;j<MAX_KEY_NUM;j++){
+            cache->ta[i].key[j].next = -1;
+        }
+    }
+    //init cmdqueue
+    cmdqueue->head = -1;
+    cmdqueue->tail = -1;
+    for(int i=0;i<MAX_CMD_SIZE;i++){
+        cmdqueue->queue[i].next = -1;
+    }
+    return TEE_SUCCESS;
+}
+
+TEE_Result reset_all(){
+    TEE_Result ret;
+    ret = reset("sec_storage_data/ktacert.txt");
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to reset ktacert\n", ret);
+        return ret;
+    }
+    reset("sec_storage_data/kcmpub");
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to reset kcmpub\n", ret);
+        return ret;
+    }
+    reset("sec_storage_data/ktakey");
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to reset ktakey\n", ret);
+        return ret;
+    }
+    return TEE_SUCCESS;
+}
+
+TEE_Result reset(char *name){
+    TEE_Result ret;
+    uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
+    uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
+    TEE_ObjectHandle persistent_data = NULL;
+    ret = TEE_OpenPersistentObject(storageID, name, strlen(name),
+    r_flags | TEE_DATA_FLAG_ACCESS_WRITE_META, (&persistent_data));
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to execute TEE_OpenPersistentObject:ret = %x\n", ret);
+        return ret;
+    }
+    TEE_CloseAndDeletePersistentObject(persistent_data);
+    return TEE_SUCCESS;
+}
+

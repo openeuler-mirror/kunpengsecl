@@ -60,18 +60,17 @@ typedef struct _tagCache{
 
 /* command queue to store the commands */
 
-typedef struct _tagParseCmdData{
-    int32_t cmd;
+typedef struct _tagCmdData{
+    int32_t     cmd;
     TEE_UUID    taId;
     TEE_UUID    keyId;
     uint8_t masterkey[KEY_SIZE];
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
-} ParseCmdData;
+} CmdData;
 
 typedef struct _tagCmdNode{
-    int32_t cmd;
-    uint8_t data[MAX_DATA_LEN];
+    CmdData cmddata;
     int32_t next;  // -1: empty; 0~MAX_TA_NUM: next cmd for search operation.
 } CmdNode;
 
@@ -81,15 +80,38 @@ typedef struct _tagCmdQueue{
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last cmd for enqueue operation.
 } CmdQueue;
 
+typedef struct _tagRequest{
+    /*
+    when using as Intermediate Request:
+    Symmetric key plaintext and CmdData (json) plaintext
+    ====================================================
+    when using as final request:
+    json:  key:*****;cmdData:*****； 
+    key has been encrypted by the kcm-pub
+    cmddata has been encrypted by the key
+    */
+    uint8_t key[KEY_SIZE]; 
+    uint32_t key_size;
+    uint8_t cmddata[MAX_DATA_LEN];
+    uint32_t data_size;
+} CmdRequest;
+
+
 //internal function
 
 //for initializition
 
-TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, uint32_t keysize, uint32_t keytype);
+TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, size_t keysize, uint32_t keytype);
 
-TEE_Result saveCert(void *certname, void *certvalue, uint32_t certsize);
+TEE_Result saveCert(char *certname, uint8_t *certvalue, size_t certsize);
 
-TEE_Result restoreCert(void *certname, uint8_t* buffer, size_t *buf_len);
+TEE_Result restoreCert(char *certname, uint8_t *buffer, size_t *buf_len);
+
+TEE_Result initStructure(Cache *cache,CmdQueue *cmdqueue);
+
+TEE_Result reset_all();
+
+TEE_Result reset(char *name);
 
 //for key management
 
