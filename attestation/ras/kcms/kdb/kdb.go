@@ -9,10 +9,14 @@ import (
 )
 
 const (
-	sqlFindKeyInfo       = `SELECT id, taid, keyid, ciphertext FROM keyinfo WHERE taid=$1 AND keyid=$2`
-	sqlDeleteKeyInfoByID = `DELETE FROM keyinfo WHERE id=$1`
-	sqlDeleteKeyInfo     = `DELETE FROM keyinfo WHERE taid=$1 AND keyid=$2`
-	sqlInsertKeyInfo     = `INSERT INTO keyinfo(taid, keyid, ciphertext) VALUES ($1, $2, $3) RETURNING id`
+	sqlFindKeyInfo          = `SELECT id, taid, keyid, ciphertext FROM keyinfo WHERE taid=$1 AND keyid=$2`
+	sqlDeleteKeyInfoByID    = `DELETE FROM keyinfo WHERE id=$1`
+	sqlDeleteKeyInfo        = `DELETE FROM keyinfo WHERE taid=$1 AND keyid=$2`
+	sqlInsertKeyInfo        = `INSERT INTO keyinfo(taid, keyid, ciphertext) VALUES ($1, $2, $3) RETURNING id`
+	sqlFindPubKeyInfo       = `SELECT id, deviceid, pubkeycert FROM pubkeyinfo WHERE deviceid=$1`
+	sqlDeletePubKeyInfoByID = `DELETE FROM pubkeyinfo WHERE id=$1`
+	sqlDeletePubKeyInfo     = `DELETE FROM pubkeyinfo WHERE deviceid=$1`
+	sqlInsertPubKeyInfo     = `INSERT INTO pubkeyinfo(deviceid, pubkeycert) VALUES ($1, $2) RETURNING id`
 )
 
 type (
@@ -96,6 +100,56 @@ func SaveKeyInfo(taid, keyid, cipherkey string) (*typdefs.KeyinfoRow, error) {
 	}
 	k := typdefs.KeyinfoRow{TaID: taid, KeyID: keyid, Ciphertext: cipherkey}
 	err := kmgr.db.QueryRow(sqlInsertKeyInfo, k.TaID, k.KeyID, k.Ciphertext).Scan(&k.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &k, nil
+}
+
+// FindPubKeyInfo returns the pubkeyinfo by deviceid.
+func FindPubKeyInfo(deviceid int64) (*typdefs.PubKeyinfoRow, error) {
+	if kmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	pubkeyinfo := &typdefs.PubKeyinfoRow{}
+	err := kmgr.db.QueryRow(sqlFindPubKeyInfo, deviceid).Scan(&pubkeyinfo.ID, &pubkeyinfo.DeviceID, &pubkeyinfo.PubKeyCert)
+	if err != nil {
+		return nil, err
+	}
+	return pubkeyinfo, nil
+}
+
+// DeletePubKeyInfoByID deletes a specific pubkeyinfo by pubkeyinfo id.
+func DeletePubKeyInfoByID(id int64) error {
+	if kmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := kmgr.db.Exec(sqlDeletePubKeyInfoByID, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeletePubKeyInfo deletes a specific keyinfo by deviceid.
+func DeletePubKeyInfo(deviceid int64) error {
+	if kmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := kmgr.db.Exec(sqlDeletePubKeyInfo, deviceid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// SavePubKeyInfo insert a new keyinfo to database, including deviceid, pubkey.
+func SavePubKeyInfo(deviceid int64, pubkeycert string) (*typdefs.PubKeyinfoRow, error) {
+	if kmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	k := typdefs.PubKeyinfoRow{DeviceID: deviceid, PubKeyCert: pubkeycert}
+	err := kmgr.db.QueryRow(sqlInsertPubKeyInfo, k.DeviceID, k.PubKeyCert).Scan(&k.ID)
 	if err != nil {
 		return nil, err
 	}
