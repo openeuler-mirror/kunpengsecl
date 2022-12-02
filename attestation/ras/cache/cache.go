@@ -67,6 +67,7 @@ func NewCache() *Cache {
 		regtime:         "",
 		online:          false,
 		hostTrusted:     StrUnknown,
+		taTrusted:       make(map[string]string),
 		isAutoUpdate:    false,
 		commands:        typdefs.CmdNone,
 		trustExpiration: time.Now(),

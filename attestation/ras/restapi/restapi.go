@@ -250,6 +250,10 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr){if(stat
 <th>Parameter</th><th>Value</th></tr>`
 	htmlReportValue = `<tr><td align="center">%s</td><td>%v</td></tr>`
 
+	// (GET /{id}/ta/{tauuid}/newtabasevalue)
+	// TODO
+	htmlNewTaBaseValue = "NewTaBaseValue, id:%d, tauuid:%s\n"
+
 	strHBDuration     = `Heart Beat Duration(s)`
 	nameHBDuration    = `hbduration`
 	strTrustDuration  = `Trust Report Duration(s)`
@@ -283,14 +287,19 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr){if(stat
 	strBIOS           = "bios"
 	strIMA            = "ima"
 	strBaseValueID    = `BaseValue ID`
+	strVInfo          = "valueinfo"
 	errNoClient       = `rest api error: %v`
 	errParseWrong     = "parse parameters failed!"
 
-	strDeleteClientSuccess    = `delete client %d success`
-	strDeleteReportSuccess    = `delete client %d report %d success`
-	strDeleteReportFail       = `delete client %d report %d fail, %v`
-	strDeleteBaseValueSuccess = `delete client %d base value %d success`
-	strDeleteBaseValueFail    = `delete client %d base value %d fail, %v`
+	strDeleteClientSuccess      = `delete client %d success`
+	strDeleteReportSuccess      = `delete client %d report %d success`
+	strDeleteReportFail         = `delete client %d report %d fail, %v`
+	strDeleteBaseValueSuccess   = `delete client %d base value %d success`
+	strDeleteBaseValueFail      = `delete client %d base value %d fail, %v`
+	strDeleteTaReportSuccess    = `delete client %d ta %s report %d success`
+	strDeleteTaReportFail       = `delete client %d ta %s report %d fail, %v`
+	strDeleteTaBaseValueSuccess = `delete client %d ta %s base value %d success`
+	strDeleteTaBaseValueFail    = `delete client %d ta %s base value %d fail, %v`
 )
 
 type MyRestAPIServer struct {
@@ -970,6 +979,14 @@ type baseValueJson struct {
 	IsNewGroup bool   `json:"isnewgroup"` // TRUE represent this request will create a new group of base value, otherwise it just be added in an existing base value group. This field must be contained in the request!
 }
 
+type tabaseValueJson struct {
+	Uuid       string `json:"uuid"`
+	Name       string `json:"name"`
+	Enabled    bool   `json:"enabled"`
+	Valueinfo  []byte `json:"valueinfo"`
+	IsNewGroup bool   `json:"isnewgroup"` // TRUE represent this request will create a new group of base value, otherwise it just be added in an existing base value group. This field must be contained in the request!
+}
+
 // (POST /{id}/newbasevalue)
 //  save node {id} a new base value by html
 //    curl -X POST -H "Content-type: multipart/form-data" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/1/newbasevalue
@@ -1107,6 +1124,80 @@ func (s *MyRestAPIServer) postBValueByMultiForm(ctx echo.Context, id int64) erro
 	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/basevalues", id))
 }
 
+func (s *MyRestAPIServer) postTaBValueByXml(ctx echo.Context, id int64, tauuid string) error {
+	bvXml := make([]byte, ctx.Request().ContentLength)
+	_, err := ctx.Request().Body.Read(bvXml)
+	if err != nil {
+		return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
+	}
+
+	row := &typdefs.TaBaseRow{
+		ClientID:   id,
+		Uuid:       tauuid,
+		CreateTime: time.Now(),
+	}
+
+	// set other base value records' enabled field to false.
+	err = trustmgr.DisableTaBaseByUuid(tauuid)
+	if err != nil {
+		logger.L.Debug("disable ta base by id failed. " + err.Error())
+	}
+
+	logger.L.Debug("set other ta base value records' enabled field to false...")
+
+	trustmgr.SaveTaBaseValue(row)
+	return ctx.JSON(http.StatusOK, "add a new ta base value OK!")
+}
+
+func (s *MyRestAPIServer) postTaBValueByJson(ctx echo.Context, id int64, tauuid string) error {
+	bv := new(tabaseValueJson)
+	err := ctx.Bind(bv)
+	if err != nil {
+		return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
+	}
+
+	row := &typdefs.TaBaseRow{
+		ClientID:   id,
+		Uuid:       tauuid,
+		CreateTime: time.Now(),
+		Name:       bv.Name,
+		Valueinfo:  bv.Valueinfo,
+	}
+	if bv.IsNewGroup {
+		// set other base value records' enabled field to false.
+		// TODO: need a interface to do the above operation!
+		trustmgr.DisableTaBaseByUuid(tauuid)
+		logger.L.Debug("set other ta base value records' enabled field to false...")
+	}
+	trustmgr.SaveTaBaseValue(row)
+	return ctx.JSON(http.StatusOK, "add a new ta base value ok!")
+}
+
+func (s *MyRestAPIServer) postTaBValueByMultiForm(ctx echo.Context, id int64, tauuid string) error {
+	name := ctx.FormValue(strName)
+	//sEnv := ctx.FormValue(strEnabled)
+	//enabled, _ := strconv.ParseBool(sEnv)
+	//??这里的enabled需不需要post？但是tabaseRow中没有enabled
+	valueinfo, err := s.getFile(ctx, strVInfo)
+	if err != nil && err != http.ErrMissingFile {
+		return err
+	}
+	row := &typdefs.TaBaseRow{
+		ClientID:   id,
+		Uuid:       tauuid,
+		CreateTime: time.Now(),
+		Name:       name,
+		Valueinfo:  []byte(valueinfo),
+	}
+	trustmgr.SaveTaBaseValue(row)
+	/* // no use???
+	if checkJSON(ctx) {
+		return ctx.JSON(http.StatusFound, row)
+	}
+	*/
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/ta/%s/basevalues", id, tauuid))
+}
+
 func genReportsHtml(id int64, rows []typdefs.ReportRow) string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf(htmlListReports, id))
@@ -1125,6 +1216,7 @@ func genReportsHtml(id int64, rows []typdefs.ReportRow) string {
 //    curl -X GET http://localhost:40002/{id}/reports
 //  get node {id} all reports as json
 //    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/reports
+//    curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/reports
 func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
 	rows, err := trustmgr.FindReportsByClientID(id)
 	if checkJSON(ctx) {
@@ -1257,4 +1349,183 @@ func (s *MyRestAPIServer) GetIdDeviceStatus(ctx echo.Context, cid int64) error {
 	}
 
 	return ctx.JSON(http.StatusOK, buf.String())
+}
+
+func genNewTaBaseValueHtml(id int64, tauuid string) string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf(htmlNewTaBaseValue, id, tauuid))
+	return buf.String()
+}
+
+// (GET /{id}/ta/{tauuid}/newtabasevalue)
+// curl -k -X GET  -H "Content-type: application/json" https://localhost:40003/30/ta/test/newtabasevalue
+// test pass, TODO: HTML implementation
+func (s *MyRestAPIServer) GetIdTaTauuidNewtabasevalue(ctx echo.Context, id int64, tauuid string) error {
+	return ctx.HTML(http.StatusOK, genNewTaBaseValueHtml(id, tauuid))
+}
+
+// (POST /{id}/ta/{tauuid}/newtabasevalue)
+//  save node {id} a new base value by json
+//    curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/ta/{tauuid}/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
+//    curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -k https://localhost:40003/24/ta/test/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
+func (s *MyRestAPIServer) PostIdTaTauuidNewtabasevalue(ctx echo.Context, id int64, tauuid string) error {
+	if checkJSON(ctx) {
+		return s.postTaBValueByJson(ctx, id, tauuid)
+	}
+	if checkXML(ctx) {
+		return s.postTaBValueByXml(ctx, id, tauuid)
+	}
+	return s.postTaBValueByMultiForm(ctx, id, tauuid)
+}
+
+// Return the trust status for a specific TA of a given client
+// (GET /{id}/ta/{tauuid}/status)
+func (s *MyRestAPIServer) GetIdTaTauuidStatus(ctx echo.Context, id int64, tauuid string) error {
+	c, err := trustmgr.GetCache(id)
+	if err != nil {
+		return err
+	}
+	status := c.GetTaTrusted(tauuid)
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf("trust status of ta %s : %s\n", tauuid, status))
+
+	return ctx.JSON(http.StatusOK, buf.String())
+}
+
+// (GET /{id}/ta/{tauuid}/tabasevalues)
+// curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/ta/{tauuid}/tabasevalues
+// test pass
+func (s *MyRestAPIServer) GetIdTaTauuidTabasevalues(ctx echo.Context, id int64, tauuid string) error {
+	rows, err := trustmgr.FindTaBaseValuesByUuid(id, tauuid)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, rows)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, "")
+	//return ctx.HTML(http.StatusOK, genBaseValuesHtml(id, rows))
+	//TODO: genTaBaseValuesHtml(id, rows)
+}
+
+// (DELETE /{id}/ta/{tauuid}/tabasevalues/{tabasevalueid})
+// curl -X DELETE -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" -k http://localhost:40003/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid}
+// test pass
+func (s *MyRestAPIServer) DeleteIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context, id int64, tauuid string, tabasevalueid int64) error {
+	err := trustmgr.DeleteTaBaseValueByID(tabasevalueid)
+	if checkJSON(ctx) {
+		res := JsonResult{}
+		if err != nil {
+			res.Result = fmt.Sprintf(strDeleteTaBaseValueFail, id, tauuid, tabasevalueid, err)
+			return ctx.JSON(http.StatusOK, res)
+		}
+		res.Result = fmt.Sprintf(strDeleteTaBaseValueSuccess, id, tauuid, tabasevalueid)
+		return ctx.JSON(http.StatusOK, res)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteTaBaseValueSuccess, id, tauuid, tabasevalueid))
+}
+
+// (GET /{id}/ta/{tauuid}/tabasevalues/{tabasevalueid})
+// curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/ta/{tauuid}/tabasevalues{tabasevalueid}
+// test pass
+func (s *MyRestAPIServer) GetIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context, id int64, tauuid string, tabasevalueid int64) error {
+	row, err := trustmgr.FindTaBaseValueByID(tabasevalueid)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, row)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, "")
+	//return ctx.HTML(http.StatusOK, genBaseValueHtml(row))
+	//TODO: genTaBaseValuesHtml(row)
+}
+
+// (POST /{id}/ta/{tauuid}/tabasevalues/{tabasevalueid})
+// curl -k -X POST -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN"  https://localhost:40003/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid}) --data '{"enabled":true}'
+// test pass
+func (s *MyRestAPIServer) PostIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context, id int64, tauuid string, tabasevalueid int64) error {
+	if checkJSON(ctx) {
+		bv := new(tabaseValueJson)
+		err := ctx.Bind(bv)
+		if err != nil {
+			return ctx.JSON(http.StatusNotAcceptable, errParseWrong)
+		}
+		trustmgr.ModifyTaEnabledByID(tabasevalueid, bv.Enabled)
+		return ctx.JSON(http.StatusFound, fmt.Sprintf("server id:%d, ta id:%s, basevalueid:%d, modify enabled=%t", id, tauuid, tabasevalueid, bv.Enabled))
+	}
+	sEnv := ctx.FormValue(strEnabled)
+	enabled, _ := strconv.ParseBool(sEnv)
+	trustmgr.ModifyTaEnabledByID(tabasevalueid, enabled)
+	return ctx.HTML(http.StatusFound, "")
+}
+
+// (GET /{id}/ta/{tauuid}/tareports)
+//  get node {id} all reports as json
+//    curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/ta/test/tareports
+//    curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/ta/test/tareports
+// test pass
+func (s *MyRestAPIServer) GetIdTaTauuidTareports(ctx echo.Context, id int64, tauuid string) error {
+	rows, err := trustmgr.FindTaReportsByUuid(id, tauuid)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, rows)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, "")
+	//return ctx.HTML(http.StatusOK, genReportsHtml(id, rows))
+	//TODO: genTaReportsHtml(id, rows)
+}
+
+// (DELETE /{id}/ta/{tauuid}/tareports/{tareportid})
+// curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}/ta/{tauuid}/tareports/{tareportid}
+// curl -k -X GET -H "Content-type: application/json" https://localhost:40003/28/ta/test/tareports/2
+// test pass
+func (s *MyRestAPIServer) DeleteIdTaTauuidTareportsTareportid(ctx echo.Context, id int64, tauuid string, tareportid int64) error {
+	err := trustmgr.DeleteTaReportByID(tareportid)
+	if checkJSON(ctx) {
+		res := JsonResult{}
+		if err != nil {
+			res.Result = fmt.Sprintf(strDeleteTaReportFail, id, tauuid, tareportid, err)
+			return ctx.JSON(http.StatusOK, res)
+		}
+		res.Result = fmt.Sprintf(strDeleteTaReportSuccess, id, tauuid, tareportid)
+		return ctx.JSON(http.StatusOK, res)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteTaReportSuccess, id, tauuid, tareportid))
+}
+
+// (GET /{id}/ta/{tauuid}/tareports/{tareportid})
+// curl -k -X GET -H "Content-type: application/json" https://localhost:40003/28/ta/test/tareports/2
+// test pass
+func (s *MyRestAPIServer) GetIdTaTauuidTareportsTareportid(ctx echo.Context, id int64, tauuid string, tareportid int64) error {
+	row, err := trustmgr.FindTaReportByID(tareportid)
+	if checkJSON(ctx) {
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, row)
+	}
+	if err != nil {
+		return err
+	}
+	return ctx.HTML(http.StatusOK, "")
+	//return ctx.HTML(http.StatusOK, genReportsHtml(id, rows))
+	//TODO: genTaReportsHtml(id, rows)
 }

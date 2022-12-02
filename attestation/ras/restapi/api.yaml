@@ -320,6 +320,293 @@ paths:
       security:
         - servermgt_oauth2:
           - write:servers
+  /{id}/ta/{tauuid}/tareports:
+    get:
+      description: get a specific ta's all reports
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: return a specific ta's all reports
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaReportInfo'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaReportInfo'
+  /{id}/ta/{tauuid}/tareports/{tareportid}:
+    get:
+      description: get a specific ta's specific report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tareportid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: return a specific ta's specific report
+          content:
+            text/plain:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/TaReportInfo'
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/TaReportInfo'
+    delete:
+      description: delete a specific ta's specific report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tareportid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: success delete a specific ta's specific report
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{id}/ta/{tauuid}/tabasevalues:
+    get:
+      description: get a specific ta's all base values
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: return a specific ta's all base values
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaBaseValueInfo'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaBaseValueInfo'
+  /{id}/ta/{tauuid}/newtabasevalue:
+    get:
+      description: get a specific ta's new base value page
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: return a specific ta's new empty base value
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaBaseValueInfo'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaBaseValueInfo'
+    post:
+      description: add a new base value to a specific ta
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: success add a new base value to a specific ta
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{id}/ta/{tauuid}/tabasevalues/{tabasevalueid}:
+    get:
+      description: get a specific ta's specific base value
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tabasevalueid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: return a specific ta's specific base value
+          content:
+            text/plain:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/TaBaseValueInfo'
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/TaBaseValueInfo'
+    post:
+      description: modify a specific base value to a specific ta
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tabasevalueid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: success modify a specific base value to a specific ta
+      security:
+        - servermgt_oauth2:
+          - write:servers
+    delete:
+      description: delete a specific ta's specific base value
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tabasevalueid
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: success delete a specific ta's specific base value
+      security:
+        - servermgt_oauth2:
+          - write:servers
+  /{id}/ta/{tauuid}/status:
+    get:
+      summary: Return the trust status for a specific TA of a given client
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: tauuid
+        in: path
+        required: true
+        schema:
+          type: string
+      response:
+        '200':
+          description: return trust status of a specific ta
+          content:
+            text/plain:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/TrustStatus'
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/TrustStatus'
+      security:
+        - servermgt_oauth2:
+          - write:servers  
   /version:
     get:
       description: get the current version of the rest api
@@ -510,6 +797,58 @@ components:
       - unknown
       - untrusted
       - trusted
+    TaReportInfo:
+      type: object
+      required:
+        - id
+        - uuid
+        - createtime
+        - validated
+        - trusted
+        - value
+      properties:
+        id:
+          type: integer
+          format: int64
+        uuid:
+          type: string
+        createtime:
+          type: string
+        validated:
+          type: boolean
+          default: false
+        trusted:
+          type: boolean
+          default: false
+        value:
+          type: string
+    TaBaseValueInfo:
+      type: object
+      required:
+        - id
+        - clientid
+        - uuid
+        - createtime
+        - name
+        - valueinfo
+        - enabled
+      properties:
+        id:
+          type: integer
+          format: int64
+        clientid:
+          type: integer
+          format: int64
+        uuid:
+          type: string
+        createtime:
+          type: string
+        name:
+          type: string
+        valueinfo:
+          type: string
+        enabled:
+          type: boolean
   securitySchemes:
     servermgt_http:
       description: http basic authentication to remote attestation server

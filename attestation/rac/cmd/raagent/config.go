@@ -58,6 +58,7 @@ const (
 	ikCertTest         = "./ictest"
 	confNullSeed       = -1
 	defaultTestMode    = false
+	defaultTaTestMode  = false
 	defaultVerboseMode = false
 	defaultDigestAlg   = "sha1"
 	defaultImaLog      = "./ascii_runtime_measurements"
@@ -70,6 +71,10 @@ const (
 	lflagTest = "test"
 	sflagTest = "t"
 	helpTest  = "run in test mode[true] or not[false/default]"
+	// test mode switcher
+	lflagTaTest = "tatest"
+	sflagTaTest = "T"
+	helpTaTest  = "run in test mode[true] or not[false/default]"
 	// version output
 	lflagVersion = "version"
 	sflagVersion = "V"
@@ -101,6 +106,7 @@ type (
 		logPath       string
 		digest        string
 		testMode      bool
+		taTestMode    bool
 		eKeyCert      []byte
 		iKeyCert      []byte
 
@@ -126,6 +132,7 @@ var (
 	racCfg      *racConfig
 	server      *string = nil
 	testMode    *bool   = nil
+	taTestMode  *bool   = nil
 	versionFlag *bool   = nil
 	verboseFlag *bool   = nil
 	//algDigest   *string = nil
@@ -137,6 +144,7 @@ var (
 func initFlags() {
 	server = pflag.StringP(lflagServer, sflagServer, nullString, helpServer)
 	testMode = pflag.BoolP(lflagTest, sflagTest, defaultTestMode, helpTest)
+	taTestMode = pflag.BoolP(lflagTaTest, sflagTaTest, defaultTaTestMode, helpTaTest)
 	versionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
 	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, defaultVerboseMode, helpVerbose)
 	//algDigest = pflag.StringP(lflagAlg, sflagAlg, defaultDigestAlg, helpAlg)
@@ -434,6 +442,22 @@ func SetTestMode(m bool) {
 		return
 	}
 	racCfg.testMode = m
+}
+
+// GetTaTestMode returns the taTest mode configuration.
+func GetTaTestMode() bool {
+	if racCfg == nil {
+		return false
+	}
+	return racCfg.taTestMode
+}
+
+// SetTaTestMode sets the taTest mode configuration.
+func SetTaTestMode(m bool) {
+	if racCfg == nil {
+		return
+	}
+	racCfg.taTestMode = m
 }
 
 // GetHBDuration returns the heart beat duration configuration.

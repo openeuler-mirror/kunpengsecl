@@ -281,6 +281,7 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 		Quoted:     in.GetQuoted(),
 		Signature:  in.GetSignature(),
 		Manifests:  ms,
+		TaReports:  in.GetTaReports(),
 	}
 	//logger.L.Debug("validate report and save...")
 	_, err := trustmgr.ValidateReport(&trustReport)

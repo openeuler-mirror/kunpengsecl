@@ -612,6 +612,80 @@ func TestBaseValue(t *testing.T) {
 	//mgr.SaveReport(c.ID, []byte("haha"))
 }
 
+func TestTaBaseValue(t *testing.T) {
+	CreateTrustManager(constDB, constDNS)
+	defer ReleaseTrustManager()
+	ik := "IK" + time.Now().Format(consttimeformat) + "KA"
+	info := fmt.Sprintf(constinfo, time.Now().Second(), time.Now().Second())
+	cRow, err := RegisterClientByIK(ik, info, true)
+	if err != nil {
+		t.Logf(constregisterfailed, err)
+	}
+	defer DeleteClientByID(cRow.ID)
+
+	tabaseRow := &typdefs.TaBaseRow{
+		ClientID:   cRow.ID,
+		CreateTime: time.Now(),
+		Uuid:       "ta1",
+	}
+	_, err = storeDb.Exec(sqlInsertTaBase, tabaseRow.ClientID, tabaseRow.Uuid, tabaseRow.CreateTime,
+		tabaseRow.Name, tabaseRow.Valueinfo)
+	if err != nil {
+		t.Errorf("insert ta base error, %v", err)
+	}
+
+	c1row, err := FindTaBaseValuesByUuid(tabaseRow.ClientID, tabaseRow.Uuid)
+	if err != nil {
+		t.Errorf("FindTaBaseValueByUuid failed, err: %s", err)
+	}
+	for _, c1 := range c1row {
+		defer DeleteTaBaseValueByID(c1.ID)
+	}
+
+	c2, err := FindTaBaseValueByID(c1row[0].ID)
+	if err != nil {
+		t.Errorf("FindBaseValueByID failed, err: %s", err)
+	}
+	if !assert.Equal(t, c1row[0], c2) {
+		t.Errorf("test TaBase failed")
+	}
+}
+
+func TestTaReport(t *testing.T) {
+	CreateTrustManager(constDB, constDNS)
+	defer ReleaseTrustManager()
+	ik := "IK" + time.Now().Format(consttimeformat) + "KA"
+	info := fmt.Sprintf(constinfo, time.Now().Second(), time.Now().Second())
+	cRow, err := RegisterClientByIK(ik, info, true)
+	if err != nil {
+		t.Logf(constregisterfailed, err)
+	}
+	defer DeleteClientByID(cRow.ID)
+
+	row := &typdefs.TaReportRow{
+		ClientID:   cRow.ID,
+		CreateTime: time.Now(),
+	}
+	_, err = storeDb.Exec(sqlInsertTaReport,
+		row.ClientID, row.CreateTime, row.Validated, row.Trusted,
+		row.Uuid, row.Value)
+	if err != nil {
+		t.Errorf("insert ta report error,  %v", err)
+	}
+	defer DeleteClientByID(cRow.ID)
+	c1, err := FindTaReportsByUuid(row.ClientID, row.Uuid)
+	if err != nil {
+		t.Errorf("FindTaReportsByUuid failed, err: %s", err)
+	}
+	if len(c1) != 0 {
+		_, err := FindTaReportByID(c1[0].ID)
+		if err != nil {
+			t.Errorf("FindTaReportByID failed, err: %s", err)
+		}
+		DeleteTaReportByID(c1[0].ID)
+	}
+}
+
 /*
 func TestValidate(t *testing.T) {
 
