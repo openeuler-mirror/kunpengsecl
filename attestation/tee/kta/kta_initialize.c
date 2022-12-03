@@ -154,7 +154,7 @@ TEE_Result restoreCert(char *certname, uint8_t *buffer, size_t *buf_len) {
     return TEE_SUCCESS;
 }
 
-TEE_Result initStructure(Cache *cache,CmdQueue *cmdqueue){
+TEE_Result initStructure(Cache *cache,CmdQueue *cmdqueue,CmdQueue *replyqueue){
     //init cache
     cache->head = -1;
     cache->tail = -1;
@@ -172,10 +172,16 @@ TEE_Result initStructure(Cache *cache,CmdQueue *cmdqueue){
     for(int i=0;i<MAX_CMD_SIZE;i++){
         cmdqueue->queue[i].next = -1;
     }
+    //init replyqueue
+    replyqueue->head = -1;
+    replyqueue->tail = -1;
+    for(int i=0;i<MAX_CMD_SIZE;i++){
+        replyqueue->queue[i].next = -1;
+    }
     return TEE_SUCCESS;
 }
 
-TEE_Result reset_all(){
+TEE_Result Reset_All(){
     TEE_Result ret;
     ret = reset("sec_storage_data/ktacert.txt");
     if (ret != TEE_SUCCESS) {

@@ -18,18 +18,10 @@ Description: ta authenticating module in kta.
 #include <tee_defines.h>
 #include <kta_common.h>
 
-void addTaState(TEE_UUID TA_uuid, char *taId, char *passWd, Cache *cache) {
-    //todo: add a ta's id and passwd in to the table
-}
-
-void deleteTaState(TEE_UUID TA_uuid, char *taId, char *passWd, Cache *cache) {
-    //todo: delete a ta state from tacache
-}
-
-void searchTAState(TEE_UUID TA_uuid, char *taId, char *passWd, Cache *cache) {
+void verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password, Cache *cache) {
     //todo: search a ta state from tacache
 }
 
-void attestTA() {
+void attestTA(TEE_UUID TA_uuid) {
     //attest a ta's trusted station locally by QTA
 }

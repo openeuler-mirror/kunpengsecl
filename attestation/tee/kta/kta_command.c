@@ -24,7 +24,7 @@ Description: api module in kta.
 #define MAX_KEY_LEN 2048
 #define PARAM_COUNT 4
 
-TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue){
+TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue,CmdQueue *replyqueue){
     //basic function for calling the above functions
     TEE_Result ret;
     if (!check_param_type(param_type,
@@ -66,7 +66,7 @@ TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cach
         tloge("save ktakey failed\n");
         return ret;
     }
-    ret = initStructure(cache,cmdqueue);
+    ret = initStructure(cache, cmdqueue, replyqueue);
     if (ret != TEE_SUCCESS){
         tloge("init kta struct failed\n");
         return ret;
@@ -80,43 +80,47 @@ TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cach
     return TEE_SUCCESS;
 }
 
-TEE_Result SendRequest() {
+TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache, CmdQueue *cmdqueue) {
     //todo: send request to ka when ka polls, and answer ta trusted state which ka asks
 }
 
-TEE_Result GetResponse() {
-    //todo: Get Response from ka when kta had sent request to kcm before
+TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache, CmdQueue *cmdqueue) {
+    //todo: Get Response from ka when kta had sent request to kcm before,and put the result into replyqueue
 }
+
 
 // Communication with ta
 
-TEE_Result InitTAKey(TEE_UUID TA_uuid, Cache *cache) {
+TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache, CmdQueue *cmdqueue) {
     //todo: init ta cache;
 };
 
-TEE_Result SendReplytoTA() {
-    //todo: answer to ta when ta asks its command's reply.
-}
-
 //the following operation must start with ta authenticating
 
-TEE_Result SearchTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache, char *keyvalue) {
-    //todo: search a certain ta key, if not exist, call AddTATable() to add a request
+TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache, CmdQueue *cmdqueue) {
+    //todo: search a certain ta key, if not exist, call generaterKcmRequest to add a request
 
     //input: TA_uuid, keyid, cache
     //output: cache, keyvalue
 }
 
-TEE_Result DeleteTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache) {
+TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache) {
     //todo: delete a certain key in the cache
-
     //input: TA_uuid, keyid, cache
     //output: cache
 }
 
-TEE_Result DestoryKey(TEE_UUID TA_uuid, char *keyid, Cache *cache) {
-    //todo: delete a certain key by calling DeleteTAKey(), then generate a delete key request in TaCache
+TEE_Result DestoryKey(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache, CmdQueue *cmdqueue) {
+    //todo: delete a certain key by calling DeleteTAKey()
+    DeleteTAKey();
+    //then generate a delete key request in TaCache
+    generaterKcmRequest();
+}
 
-    //input: TA_uuid, keyid, cache
-    //output: cache
+TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT], CmdQueue *replyqueue) {
+    //todo: get reply result from replyqueque
+}
+
+TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache) {
+    //todo: clear all ta cache
 }
