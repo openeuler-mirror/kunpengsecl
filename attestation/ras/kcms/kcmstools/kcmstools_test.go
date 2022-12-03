@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	kmsServer "gitee.com/openeuler/kunpengsecl/attestation/kms"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
 )
 
@@ -687,6 +688,9 @@ func TestSendKCMPubKeyCert(t *testing.T) {
 }
 
 func TestGenerateNewKey(t *testing.T) {
+	go kmsServer.ExampleServer()
+	defer kmsServer.StopServer()
+
 	taid := []byte("taid")
 	account := []byte("account")
 	password := []byte("password")
@@ -715,6 +719,9 @@ func TestGenerateNewKey(t *testing.T) {
 }
 
 func TestGetKey(t *testing.T) {
+	go kmsServer.ExampleServer()
+	defer kmsServer.StopServer()
+
 	taid := []byte("taid")
 	account := []byte("account")
 	password := []byte("password")
@@ -735,7 +742,7 @@ func TestGetKey(t *testing.T) {
 	}
 	defer kdb.DeletePubKeyInfo(deviceID)
 
-	_, err = kdb.SaveKeyInfo(string(taid), string(keyid), "ciphertext")
+	_, err = kdb.SaveKeyInfo(string(taid), string(keyid), "89Kl9gkvWImjh5CUsADSbmFyDb7s5q+voUf2ym4u6dc=")
 	if err != nil {
 		t.Errorf("save key in database failed, error: %v", err)
 	}

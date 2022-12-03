@@ -2,6 +2,7 @@
 package kcmstools
 
 import (
+	"bufio"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -9,13 +10,34 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
+	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/common"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
+	"github.com/gemalto/kmip-go"
+	"github.com/gemalto/kmip-go/kmip14"
+	"github.com/gemalto/kmip-go/ttlv"
 	uuid "github.com/satori/go.uuid"
 )
+
+const (
+	AesKeySize = 16
+	KeyIdSize  = 8
+	AlgAES     = 0x0006
+	AlgCBC     = 0x0042
+)
+
+func dailKMS() net.Conn {
+	conn, err := net.DialTimeout("tcp", "localhost:5696", 3*time.Second)
+	if err != nil {
+		panic(err)
+	}
+	return conn
+}
 
 var deviceId int64 = 1238263726351263121
 
@@ -73,7 +95,8 @@ func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []by
 
 	// save information(taid, keyid, ciphertext) of the
 	// new key to database
-	_, err = kdb.SaveKeyInfo(str_taid, keyid, string(ciphertext))
+	b64_cipher := base64.StdEncoding.EncodeToString(ciphertext)
+	_, err = kdb.SaveKeyInfo(str_taid, keyid, b64_cipher)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -182,18 +205,128 @@ func DeleteKey(taid []byte, keyid []byte) error {
 }
 
 func KmsGenerateKey(account, passwd, hostkeyid []byte) ([]byte, []byte, []byte, error) {
-	_ = account
-	_ = passwd
-	_ = hostkeyid
-	return nil, []byte("ciphertext"), []byte("plaintext"), nil
+	conn := dailKMS()
+	payload := kmip.CreateRequestPayload{
+		ObjectType: kmip14.ObjectTypeSymmetricKey,
+	}
+	payload.TemplateAttribute.Append(kmip14.TagCryptographicAlgorithm, kmip14.CryptographicAlgorithmAES)
+	payload.TemplateAttribute.Append(kmip14.TagCryptographicLength, 128)
+	payload.TemplateAttribute.Append(kmip14.TagCryptographicUsageMask, kmip14.CryptographicUsageMaskEncrypt|kmip14.CryptographicUsageMaskDecrypt)
+	payload.TemplateAttribute.Append(kmip14.TagUniqueIdentifier, string(hostkeyid))
+	payload.TemplateAttribute.Append(kmip14.TagDeviceIdentifier, account)
+	payload.TemplateAttribute.Append(kmip14.TagPassword, passwd)
+	biID := uuid.NewV4().Bytes()
+	msg := kmip.RequestMessage{
+		RequestHeader: kmip.RequestHeader{
+			ProtocolVersion: kmip.ProtocolVersion{
+				ProtocolVersionMajor: 1,
+				ProtocolVersionMinor: 4,
+			},
+			BatchCount: 1,
+		},
+		BatchItem: []kmip.RequestBatchItem{
+			{
+				UniqueBatchItemID: biID[:],
+				Operation:         kmip14.OperationCreate,
+				RequestPayload:    &payload,
+			},
+		},
+	}
+
+	req, err := ttlv.Marshal(msg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	_, err = conn.Write(req)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	decoder := ttlv.NewDecoder(bufio.NewReader(conn))
+	resp, err := decoder.NextTTLV()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var respMsg kmip.ResponseMessage
+	err = decoder.DecodeValue(&respMsg, resp)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	bi := respMsg.BatchItem[0]
+	var respPayload kmip.CreateResponsePayload
+	err = decoder.DecodeValue(&respPayload, bi.ResponsePayload.(ttlv.TTLV))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	attr0 := respPayload.TemplateAttribute.Get(kmip14.TagUniqueIdentifier.String())
+	mid := []byte(attr0.AttributeValue.(string))
+	attr1 := respPayload.TemplateAttribute.Get(kmip14.TagSymmetricKey.CanonicalName())
+	rawKey := attr1.AttributeValue.([]byte)
+	attr2 := respPayload.TemplateAttribute.Get(kmip14.TagEncryptionKeyInformation.CanonicalName())
+	cipherKey := attr2.AttributeValue.([]byte)
+	return mid, cipherKey, rawKey, nil
 }
 
 func KmsGetKey(account []byte, passwd []byte, ciphertext string, hostkeyid []byte) ([]byte, []byte, []byte, error) {
-	_ = account
-	_ = passwd
-	_ = hostkeyid
-	_ = ciphertext
-	return nil, nil, []byte("plaintext"), nil
+	conn := dailKMS()
+	cipherByte, err := base64.StdEncoding.DecodeString(ciphertext)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	payload := common.GetRequestPayload{}
+	payload.TemplateAttribute = &kmip.TemplateAttribute{}
+	payload.TemplateAttribute.Append(kmip14.TagUniqueIdentifier, string(hostkeyid))
+	payload.TemplateAttribute.Append(kmip14.TagDeviceIdentifier, account)
+	payload.TemplateAttribute.Append(kmip14.TagPassword, passwd)
+	payload.TemplateAttribute.Append(kmip14.TagEncryptionKeyInformation, cipherByte)
+	biID := uuid.NewV4().Bytes()
+	msg := kmip.RequestMessage{
+		RequestHeader: kmip.RequestHeader{
+			ProtocolVersion: kmip.ProtocolVersion{
+				ProtocolVersionMajor: 1,
+				ProtocolVersionMinor: 4,
+			},
+			BatchCount: 1,
+		},
+		BatchItem: []kmip.RequestBatchItem{
+			{
+				UniqueBatchItemID: biID[:],
+				Operation:         kmip14.OperationGet,
+				RequestPayload:    &payload,
+			},
+		},
+	}
+
+	req, err := ttlv.Marshal(msg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	_, err = conn.Write(req)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	decoder := ttlv.NewDecoder(bufio.NewReader(conn))
+	resp, err := decoder.NextTTLV()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var respMsg kmip.ResponseMessage
+	err = decoder.DecodeValue(&respMsg, resp)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	bi := respMsg.BatchItem[0]
+	var respPayload common.GetResponsePayload
+	err = decoder.DecodeValue(&respPayload, bi.ResponsePayload.(ttlv.TTLV))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	attr0 := respPayload.TemplateAttribute.Get(kmip14.TagUniqueIdentifier.CanonicalName())
+	mid := []byte(attr0.AttributeValue.(string))
+	attr1 := respPayload.TemplateAttribute.Get(kmip14.TagSymmetricKey.CanonicalName())
+	rawKey := attr1.AttributeValue.([]byte)
+	attr2 := respPayload.TemplateAttribute.Get(kmip14.TagEncryptionKeyInformation.CanonicalName())
+	cipherKey := attr2.AttributeValue.([]byte)
+	return mid, cipherKey, rawKey, nil
 }
 
 func EncryptWithAES256GCM(plaintext []byte, sessionkey []byte) ([]byte, error) {
