@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-//#include "tee_client_api.h"
-#include "../teesimulator/tee.h"
+#include "tee_client_api.h"
+// #include "../teesimulator/tee.h"
 //#include "securec.h"
 /*
     主要思路：
@@ -29,7 +29,7 @@ TEEC_Result RemoteAttestInitial(uint32_t cmdnum,struct buffer_data *req,struct b
 TEEC_Result RemoteAttestKTA(uint32_t cmdnum,struct buffer_data *req,struct buffer_data *rsp);
 
 TEEC_Result InitContextSession(TEEC_Context *context, TEEC_Session *session);
-TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, struct buffer_data* kcmPrivKey,struct buffer_data* ktaPubCert, struct buffer_data *out_data);
+TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, struct buffer_data* ktaPrivKey,struct buffer_data* ktaPubCert, struct buffer_data *out_data);
 TEEC_Result KTAgetCommand(TEEC_Session *session, struct buffer_data* out_data);
 TEEC_Result KTAsendCommandreply(TEEC_Session *session, struct buffer_data* in_data);
 void KTAshutdown(TEEC_Context *context, TEEC_Session *session);

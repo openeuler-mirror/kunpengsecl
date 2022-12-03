@@ -2,6 +2,7 @@
 PKGPATH=pkg
 TESTEES=./ractools
 RACPATH = ./cmd/raagent
+KTALIBPATH = ka/ktalib
 HUBPATH = ./cmd/rahub
 SCRPATH = ../quick-scripts
 TOPPATH = ../..
@@ -15,15 +16,20 @@ all: build
 test:
 	go test -count=1 $(TESTEES)
 
-build: 
+build: build-libkta
 	go build -mod=vendor -o $(PKGPATH)/ractools ractools/*.go
 	go build -mod=vendor -o $(PKGPATH)/raagent cmd/raagent/*.go
 	#go build -mod=vendor -o $(PKGPATH)/tbprovisioner cmd/tbprovisioner/*.go
 	go build -mod=vendor -o $(PKGPATH)/rahub cmd/rahub/*.go
 
+build-libkta:
+	cd $(KTALIBPATH); sh ./prepare-tee-sdk.sh; \
+	gcc -fPIC -shared -o libkta.so ktalib.c ./itrustee_sdk/src/CA/libteec_adaptor.c -I ./itrustee_sdk/include/CA/
+
 
 clean:
 	@rm -rf $(PKGPATH)
+	@rm -rf $(KTALIBPATH)/itrustee_sdk $(KTALIBPATH)/libkta.so
 
 install: build
 	mkdir -p $(DESTDIR)$(ETCTAR)/rac $(DESTDIR)$(ETCTAR)/rahub $(DESTDIR)$(ETCTAR)/default_test $(DESTDIR)$(SHARETAR)/rac $(DESTDIR)$(SHARETAR)/rahub $(DESTDIR)$(DOCTAR)/rac $(DESTDIR)$(DOCTAR)/rahub $(DESTDIR)$(BINTAR)
