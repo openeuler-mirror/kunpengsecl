@@ -26,7 +26,7 @@ enum {
 };
 
 TEEC_Context initcontext(TEEC_Context context) {
-    context.ta_path = "/root/data/435dcafa-0029-4d53-97e8-a7a13a80c82e.sec"; //to be set, the path of kta mirror
+    context.ta_path = "/root/data/bbb2d138-ee21-43af-8796-40c20d7b45fa.sec"; //to be set, the path of kta mirror
     return context;
 }
 TEEC_Result initialize(TEEC_Context *context, TEEC_Session *session, struct buffer_data* pubKey,struct buffer_data* pubCert){
@@ -146,7 +146,7 @@ TEEC_Result InitContextSession(TEEC_Context *context, TEEC_Session *session) {
     if (ret != TEEC_SUCCESS) {
         return ret;
     }
-    context->ta_path = "/root/data/435dcafa-0029-4d53-97e8-a7a13a80c82e.sec"; //to be set, the path of kta mirror
+    context->ta_path = "/root/data/bbb2d138-ee21-43af-8796-40c20d7b45fa.sec"; //to be set, the path of kta mirror
     operation.started = OPERATION_START_FLAG;
     operation.paramTypes = TEEC_PARAM_TYPES(
         TEEC_NONE,
@@ -163,7 +163,7 @@ TEEC_Result InitContextSession(TEEC_Context *context, TEEC_Session *session) {
 }
 
 // 向KTA发出初始化命令
-TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, struct buffer_data* kcmPrivKey,struct buffer_data* ktaPubCert, struct buffer_data *out_data){
+TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, struct buffer_data* ktaPrivKey,struct buffer_data* ktaPubCert, struct buffer_data *out_data){
     TEEC_Operation operation = {0};
     uint32_t origin = 0;
     TEEC_Result ret;
@@ -183,8 +183,8 @@ TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, 
     operation.params[PARAMETER_FRIST].tmpref.size = kcmPubKey->size;
     operation.params[PARAMETER_SECOND].tmpref.buffer = ktaPubCert->buf;
     operation.params[PARAMETER_SECOND].tmpref.size = ktaPubCert->size;
-    operation.params[PARAMETER_THIRD].tmpref.buffer = kcmPrivKey->buf;
-    operation.params[PARAMETER_THIRD].tmpref.size = kcmPrivKey->size;
+    operation.params[PARAMETER_THIRD].tmpref.buffer = ktaPrivKey->buf;
+    operation.params[PARAMETER_THIRD].tmpref.size = ktaPrivKey->size;
     operation.params[PARAMETER_FOURTH].tmpref.buffer = out_data->buf;
     operation.params[PARAMETER_FOURTH].tmpref.size = out_data->size;
 

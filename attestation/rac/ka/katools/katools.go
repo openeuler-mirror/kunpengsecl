@@ -1,13 +1,13 @@
-package main
+package katools
 
 /*
-#cgo CFLAGS: -I../ktalib -I../teesimulator
+#cgo CFLAGS: -I../ktalib -I../ktalib/itrustee_sdk/include/CA
 #cgo LDFLAGS: -L${SRCDIR}/../ktalib -lkta -Wl,-rpath=${SRCDIR}/../ktalib -lkta -ldl
 #include "ktalib.h"
 
 */
 /*
-//#cgo CFLAGS: -I../ktalib -I../ktalib/itrustee_sdk/include/CA
+//#cgo CFLAGS: -I../ktalib -I../teesimulator
 //#cgo LDFLAGS: -L${SRCDIR}/../ktalib -lkta -Wl,-rpath=${SRCDIR}/../ktalib -lkta -ldl
 //#include "ktalib.h"
 
@@ -85,19 +85,19 @@ func verifyCert(s string, cert *x509.Certificate) error {
 // 	testByte := []byte(C.GoBytes(unsafe.Pointer(c_response_data.buf), C.int(c_response_data.size)))
 // 	fmt.Println(string(testByte))
 // }
-func main() {
-	cert, _, err := cryptotools.DecodeKeyCertFromFile("../cert/kta.crt")
-	if err != nil {
-		fmt.Println("failed")
-		return
-	}
-	_, err = InitialKTA(cert)
-	fmt.Println(err)
-	//InitialKTA()
-}
+// func main() {
+// 	cert, _, err := cryptotools.DecodeKeyCertFromFile("../cert/kta.crt")
+// 	if err != nil {
+// 		fmt.Println("failed")
+// 		return
+// 	}
+// 	_, err = InitialKTA(cert)
+// 	fmt.Println(err)
+// 	//InitialKTA()
+// }
 
 // KA主函数
-func kaMain(addr string, id int64) {
+func KaMain(addr string, id int64) {
 	c_context := C.TEEC_Context{}
 	c_session := C.TEEC_Session{}
 	err := getContextSession(&c_context, &c_session)
@@ -106,6 +106,7 @@ func kaMain(addr string, id int64) {
 	}
 	defer C.KTAshutdown(&c_context, &c_session)
 	ras, err := clientapi.CreateConn(addr)
+	defer clientapi.ReleaseConn(ras)
 	if err != nil {
 		logger.L.Sugar().Errorf("connect ras server fail, %s", err)
 	}
@@ -164,12 +165,12 @@ func kaMain(addr string, id int64) {
 	// os.Remove("../../ka/cert/kta.crt")
 
 	// 轮询密钥请求过程
-	askLoop(ras, &c_session, 1*time.Second)
+	kaLoop(ras, &c_session, 1*time.Second)
 
 }
 
 // 轮询函数
-func askLoop(ras *clientapi.RasConn, c_session *C.TEEC_Session, askDuration time.Duration) {
+func kaLoop(ras *clientapi.RasConn, c_session *C.TEEC_Session, askDuration time.Duration) {
 	for {
 		nextCmd, err := getKTACmd(c_session)
 		if err != nil {
@@ -229,13 +230,6 @@ func initialKTA(c_session *C.TEEC_Session, kcmPubkey []byte, ktaPrivKey []byte, 
 	bk := C.GoBytes(unsafe.Pointer(c_response_data.buf), C.int(c_response_data.size))
 
 	return bk, nil
-	//测试KTA的初始化过程
-	// c_request_data := C.struct_buffer_data{}
-	// c_response_data := C.struct_buffer_data{}
-	// cmd := C.uint(1)
-	// C.RemoteAttestKTA(cmd, &c_request_data, &c_response_data)
-	// testByte := []byte(C.GoBytes(unsafe.Pointer(c_response_data.buf), C.int(c_response_data.size)))
-	// fmt.Println(string(testByte))
 }
 
 // 从KTA拿取密钥请求
