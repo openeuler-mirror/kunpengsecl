@@ -31,6 +31,8 @@ package clientapi
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/x509"
 	"errors"
 	"encoding/json"
@@ -64,8 +66,44 @@ const (
 cat $1 | awk '/open files/ { print $4 }'`
 )
 
+const (
+	kcmPrivateKey = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpgIBAAKCAQEAwSJfAG/41gODhRpcVDVoe6Vjxc++u+T68fphzp9Jn58Am+O1
+DdB0GpnAdFQd2kyhvutAK5NlvC6EcTy0zqGXLfgOmDcQRtOn9/W3Lb+PTK8TgI5g
+l3tBUovJ5696/9MPal/4kUX49hETeMinVjvgK3sKbuel3kn+FlHd3ElrG3p3/jb0
+SCknJXe3HQ4O9dBNXAiT4qMUQoS58Gs/0feKgILuNcThHHFjGNVuirkxevVopzsu
+0EcU4fN3oh4fiVEn8WvWghjiOZsJ4GXi1YpcRtkOwRRkQXZhYqdq1dFOHKizHyep
+3/ShY3VeCw2k29Hc6OpXkBdjhY/sXAMexfN2XwIDAQABAoIBAQCweyXwkmEBvyg5
+QoNH953IDrODGHij3XNqFm+1jVyLXZIC4Sqauva9L+3q3sqApjHO8c0rhH8cXC1u
+BBj8EDDDMr6zXO2kqtf7/y4pwbfCTOE3QeMFyP1B3rba3UE577VQcO4EYbpDsAro
+/gHbDM+lK8O24DpzS43A+4IOP5B+A+1QDB8nXnOKA38l/W2HvTHbym2FY9WHYqlr
+vbdWFupSEZNVS+slK+H5plU+un9Mdf1HToj9Jv8ptqwDJQsD/6fls24bmq5+TF0X
+KklC6MdXJ8gQ2d5YMWNkXCZARFUj3YBOOvi5XMUx9GnQw45LWaRKRJWuUXMRmRkw
+ACZHMwqhAoGBAPFfHe7KHIUkJ8vT6vYpyIhjalCqWE1Ce0Kl+cnlrWgYIxNzXoy1
+4cg5BHpMKqw4ScOOwxfrF6Dm/NpWHuQTWB+ekzSS85LlMudASFuLJDYhaqB0dx3C
+pYJY7y+CVmKKHW14UHoFjy3z1wM3dG+8ASjlRBZhHOGjM1PpZadu5/EnAoGBAMzW
+2hmYOKaV8TF/PIIdP4xv6MQ72fqVRN+gzDFUoKeFOs2fnVyG0GoXpvaZeVoHmJA4
+dDCHOb7R/pV1KtE8hnonyx3SWO6LV7sx1kZEFtnBirdYGvL1CmUCy+SmEQt2Jey2
+LE1st0bLqj1cE/vFFC/Ar3Z16wkF3gzCkKYvmaQJAoGBAKaz6cl1P5NY8D9fQoT3
+QK+p8dB6hff+NYFHfqhJf6VIHlmdsax/JcwSTRxmJIbDbXapz+ZiEPSo8/ObzUP6
+dD+KVuLVp3JJ6Ak9JXxMMhtMowbkySv9ti+7Wp62ZxExkLd9hB9yXXwAT/zBvSI6
+d5aWGZtXQQo5nAaVSQcFmx27AoGBAMw+BmWy0/m2VDIoTermwvCCvTK9AtHKeEwK
+hs9BNJcUTtesKTmS6sh+IOqNiORt4n8a6y9gBgHwXMolc7YBhYzTlMF9dVMU+Tsb
+rC2PwsEJLAk3/lb2YZDqQucPdrtY6OOnmXDxz6T1eh+IahyGG2Sp2cpiNSJgCVHr
+xlMN70IRAoGBAK8lkBISg5JL7fQVq0v00CVxF1HbKHb6BU5TlSksbhiWu7tPo6JS
+KNP4YufzR0vTsIbUiwqBVgWWwpg/axa5Az+obzZpb0gir/tDOFAKRGCOyDeGnm1Q
+YNTm0LULYytmAi45+h9jDemMzMcnMSWUZsOu599U2CitMGTegL9KmCuk
+-----END RSA PRIVATE KEY-----`
+)
+
 type rasService struct {
 	UnimplementedRasServer
+}
+
+type tagCmdData struct {
+	key			[]byte
+	encCmdData	[]byte
 }
 
 type inKeyInfo struct {
@@ -320,7 +358,6 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 func (s *rasService) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
 
 	kcmPubKeyCert, err := kcmstools.SendKCMPubKeyCert()
-
 	if err != nil{
 		logger.L.Sugar().Errorf("Send KCM public key cert error, %v", err)
 		return &SendKCMPubKeyCertReply{Result: false}, nil
@@ -354,13 +391,39 @@ func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKe
 
 func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) (*KeyOperationReply, error) {
 
-	encMessage := in.GetEncMessage()
+	encCmdData := in.GetEncMessage()
+	var cmdData tagCmdData
+	var encMessage []byte
 	var message inKeyInfo
 	var retMessage retKeyInfo
 	var encRetMessage []byte
-	err := json.Unmarshal(encMessage, &message)
+	err := json.Unmarshal(encCmdData, &cmdData)
 	if err != nil {
-		logger.L.Sugar().Errorf("Decode parameter of TA %s error, %v", message.taId, err)
+		logger.L.Sugar().Errorf("Decode outside json of TA error, %v", err)
+		return &KeyOperationReply{Result: false}, nil
+	}
+
+	// TODO: get kcm private key
+	kcmPrivKey, _, err := cryptotools.DecodePrivateKeyFromPEM([]byte(kcmPrivateKey))
+	if err != nil {
+		logger.L.Sugar().Errorf("Decode kcm private key error, %v", err)
+		return &KeyOperationReply{Result: false}, nil
+	}
+
+	// TODO: decode cmdData.key by kcm private key
+	label := []byte("label")
+	decKey, err := cryptotools.AsymmetricDecrypt(0x0001, 0x0000, kcmPrivKey, cmdData.key, label)
+
+	// TODO: use decoded key to decode cmdData.encCmdData and save the result in encMessage
+	encMessage, err = aesGCMDecrypt(decKey, cmdData.encCmdData)	// Encrypt algorithm: AES GCM (256bit) (AES256GCM)
+	if err != nil {
+		logger.L.Sugar().Errorf("Decode AESGCM error, %v", err)
+		return &KeyOperationReply{Result: false}, nil
+	}
+
+	err = json.Unmarshal(encMessage, &message)
+	if err != nil {
+		logger.L.Sugar().Errorf("Decode inside json of TA error, %v", err)
 		return &KeyOperationReply{Result: false}, nil
 	}
 
@@ -757,4 +820,21 @@ func DoKeyOperation(addr string, in *KeyOperationRequest) (*KeyOperationReply, e
 	}
 	//logger.L.Sugar().Debugf("invoke KeyOperation %v", bk.Result)
 	return bk, nil
+}
+
+func aesGCMDecrypt(key, cipherText []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, aesGCM.NonceSize())
+	plain, err := aesGCM.Open(nonce, nonce, cipherText, nil)
+	if err != nil {
+		return nil, err
+	}
+	return plain, nil
 }
