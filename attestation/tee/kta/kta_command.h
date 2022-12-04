@@ -23,25 +23,28 @@ Description: api module in kta.
 #include <tee_defines.h>
 #include <kta_common.h>
 
+#define PARAM_COUNT 4
+
 //for kcm
 
-TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[4], Cache *cache, CmdQueue *cmdqueue);
+TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[PARAM_COUNT], Cache *cache, CmdQueue *cmdqueue, CmdQueue *replyqueue);
 
-TEE_Result SendRequest();
+TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue);
 
-TEE_Result GetResponse();
+TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue);
 
 
 //for TA
 
-TEE_Result InitTAKey(TEE_UUID TA_uuid, Cache *cache);
+TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue);
 
-TEE_Result SearchTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache, char *keyvalue);
+TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue);
 
-TEE_Result DeleteTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache);
+TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache);
 
-TEE_Result DestoryTAKey(TEE_UUID TA_uuid, char *keyid, Cache *cache); //parameters to be set
+TEE_Result DestoryTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue); 
 
-TEE_Result SendReplytoTA(); //如果异步实现，ta需要再次调用kta获取返回结果
+TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT], CmdQueue *replyqueue);
 
+TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache) ;
 #endif

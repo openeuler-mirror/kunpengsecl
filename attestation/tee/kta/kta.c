@@ -25,15 +25,18 @@ enum {
     CMD_KTA_INITIALIZE      = 0x00000001,
     CMD_SEND_REQUEST        = 0x00000002,
     CMD_RESPOND_REQUEST     = 0x00000003,
-    CMD_KEY_INIT            = 0x80000001,
+    CMD_RESET_ALL           = 0x00000004,
+    CMD_KEY_GENETARE        = 0x80000001,
     CMD_KEY_SEARCH          = 0x80000002,
     CMD_KEY_DELETE          = 0x80000003,
     CMD_KEY_DESTORY         = 0x80000004,
-    CMD_KEY_REPLY           = 0x80000005,
+    CMD_KCM_REPLY           = 0x80000005,
+    CMD_CLEAR_CACHE         = 0x80000006
 };
 
-Cache *cache = {0};
-CmdQueue *cmdqueue = {0};
+Cache cache;
+CmdQueue cmdqueue;
+CmdQueue replyqueue;
 
 TEE_Result TA_CreateEntryPoint(void)
 {
@@ -77,12 +80,11 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
     uint32_t parm_type, TEE_Param params[PARAM_COUNT])
 {
     TEE_Result ret;
-    TEE_UUID uuid = {0};
-    caller_info caller_info = {0};
-    void *teepubkey = {0};
-    void *signedpubkey = {0};
-    void *keyvalue = {0};
-    char keyid[32] = {0};
+    TEE_UUID uuid ;
+    caller_info caller_info ;
+    void *teepubkey ;
+    void *keyvalue ;
+    char keyid[32] ;
 
     (void)session_context;
 
@@ -91,7 +93,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
     if (caller_info.session_type == SESSION_FROM_CA) {
         switch (cmd) {
         case CMD_KTA_INITIALIZE:
-            ret = KTAInitialize( parm_type, params, cache, cmdqueue);
+            ret = KTAInitialize( parm_type, params, &cache, &cmdqueue, &replyqueue);
             if (ret != TEE_SUCCESS)
                 tloge("initialize kta key and cert failed\n");
             return ret ;
@@ -108,40 +110,52 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
                 tloge("handle ka response failed\n");
             return ret;
             break;
+        case CMD_RESET_ALL:
+            ret = Reset_All();
+            if (ret != TEE_SUCCESS)
+                tloge("reset failed\n");
+            return ret;
+            break;
         default:
             tloge("Unknown cmd is %u", cmd);
             ret = TEE_ERROR_BAD_PARAMETERS;
         }
     } else if (caller_info.session_type == SESSION_FROM_TA) {
         switch (cmd) {
-        case CMD_KEY_INIT:
-            ret = InitTAKey(uuid, cache);
+        case CMD_KEY_GENETARE:
+            ret = GenerateTAKey(parm_type, params, &cache, &cmdqueue);
             if (ret != TEE_SUCCESS)
                 tloge("init ta failed\n");
             return ret;
             break;
         case CMD_KEY_SEARCH:
-            ret = SearchTAKey(uuid, keyid, cache, keyvalue);
+            ret = SearchTAKey(parm_type, params, &cache, &cmdqueue);
             if (ret != TEE_SUCCESS)
                 tloge("search ta key failed\n");
             return ret;
             break;
         case CMD_KEY_DELETE:
-            ret = DeleteTAKey(uuid, keyid, cache);
+            ret = DeleteTAKey(parm_type, params, &cache);
             if (ret != TEE_SUCCESS)
                 tloge("delete ta key failed\n");
             return ret;
             break;
         case CMD_KEY_DESTORY:
-            ret = DestoryTAKey(uuid, keyid, cache);
+            ret = DestoryTAKey(parm_type, params, &cache, &cmdqueue);
             if (ret != TEE_SUCCESS)
                 tloge("destory ta key failed\n");
             return ret;
             break;
-        case CMD_KEY_REPLY:
-            ret = SendReplytoTA();
+        case CMD_KCM_REPLY:
+            ret = GetKcmReply(parm_type, params, &replyqueue);
             if (ret != TEE_SUCCESS)
-                tloge("get kta's reply failed\n");
+                tloge("reply failed\n");
+            return ret;
+            break;
+        case CMD_CLEAR_CACHE:
+            ret = ClearCache(parm_type, params, &cache);
+            if (ret != TEE_SUCCESS)
+                tloge("clear all ta cache failed\n");
             return ret;
             break;
         default:

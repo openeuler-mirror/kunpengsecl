@@ -42,9 +42,9 @@ typedef struct _tagKeyInfo{
 
 typedef struct _tagTaInfo{
     TEE_UUID    id;
+    TEE_UUID    masterkey;
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
-    uint8_t masterkey[KEY_SIZE];
     int32_t next;   // -1: empty; 0~MAX_TA_NUM: next ta for search operation.
     KeyInfo key[MAX_KEY_NUM];
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first key for dequeue operation.
@@ -64,7 +64,7 @@ typedef struct _tagCmdData{
     int32_t     cmd;
     TEE_UUID    taId;
     TEE_UUID    keyId;
-    uint8_t masterkey[KEY_SIZE];
+    TEE_UUID    masterkey;
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
 } CmdData;
@@ -107,7 +107,9 @@ TEE_Result saveCert(char *certname, uint8_t *certvalue, size_t certsize);
 
 TEE_Result restoreCert(char *certname, uint8_t *buffer, size_t *buf_len);
 
-TEE_Result initStructure(Cache *cache,CmdQueue *cmdqueue);
+TEE_Result initStructure(Cache *cache,CmdQueue *cmdqueue,CmdQueue *replyqueue);
+
+//for reset key and cert
 
 TEE_Result reset_all();
 
@@ -115,15 +117,11 @@ TEE_Result reset(char *name);
 
 //for key management
 
-void saveKey(TEE_UUID TA_uuid, uint32_t keyid, char *keyvalue, Cache *cache);
+
 
 //for ta-auth
-void addTaState(TEE_UUID TA_uuid, char *taId, char *passWd, Cache *cache) ;
+void verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password, Cache *cache);
 
-void deleteTaState(TEE_UUID TA_uuid, char *taId, char *passWd, Cache *cache);
-
-void searchTAState(TEE_UUID TA_uuid, char *taId, char *passWd, Cache *cache);
-
-void attestTA();
+void attestTA(TEE_UUID TA_uuid);
 
 #endif /* __KTA_H__ */
