@@ -27,24 +27,24 @@ Description: api module in kta.
 
 //for kcm
 
-TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[PARAM_COUNT], Cache *cache, CmdQueue *cmdqueue, CmdQueue *replyqueue);
+TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[PARAM_COUNT]);
 
-TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue);
+TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 
-TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue);
+TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 
 
 //for TA
 
-TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue);
+TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 
-TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue);
+TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 
-TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache);
+TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 
-TEE_Result DestoryTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue); 
+TEE_Result DestoryTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]); 
 
-TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT], CmdQueue *replyqueue);
+TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 
-TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache) ;
+TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) ;
 #endif

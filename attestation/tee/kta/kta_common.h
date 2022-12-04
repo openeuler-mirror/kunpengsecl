@@ -107,7 +107,7 @@ TEE_Result saveCert(char *certname, uint8_t *certvalue, size_t certsize);
 
 TEE_Result restoreCert(char *certname, uint8_t *buffer, size_t *buf_len);
 
-TEE_Result initStructure(Cache *cache,CmdQueue *cmdqueue,CmdQueue *replyqueue);
+TEE_Result initStructure();
 
 //for reset key and cert
 
@@ -120,7 +120,7 @@ TEE_Result reset(char *name);
 
 
 //for ta-auth
-void verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password, Cache *cache);
+void verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password);
 
 void attestTA(TEE_UUID TA_uuid);
 

@@ -27,6 +27,10 @@ Description: initialize module in kta.
 #include <string.h>
 #include <securec.h>
 
+extern Cache cache;
+extern CmdQueue cmdqueue;
+extern CmdQueue replyqueue;
+
 // TEE_Result GenerateKeyPair(uint32_t keytype, uint32_t keysize, void *pubkey, void *privkey) {
 //     //todo: generate a pair of key according to keytype and keysize
 
@@ -154,30 +158,24 @@ TEE_Result restoreCert(char *certname, uint8_t *buffer, size_t *buf_len) {
     return TEE_SUCCESS;
 }
 
-TEE_Result initStructure(Cache *cache,CmdQueue *cmdqueue,CmdQueue *replyqueue){
+TEE_Result initStructure(){
     //init cache
-    cache->head = -1;
-    cache->tail = -1;
+    cache.head = -1;
+    cache.tail = -1;
     for(int i=0;i<MAX_TA_NUM;i++){
-        cache->ta[i].next = -1;
-        cache->ta[i].head = -1;
-        cache->ta[i].tail = -1;
+        cache.ta[i].next = -1;
+        cache.ta[i].head = -1;
+        cache.ta[i].tail = -1;
         for(int j=0;j<MAX_KEY_NUM;j++){
-            cache->ta[i].key[j].next = -1;
+            cache.ta[i].key[j].next = -1;
         }
     }
     //init cmdqueue
-    cmdqueue->head = -1;
-    cmdqueue->tail = -1;
-    for(int i=0;i<MAX_CMD_SIZE;i++){
-        cmdqueue->queue[i].next = -1;
-    }
+    cmdqueue.head = 0;
+    cmdqueue.tail = 0;
     //init replyqueue
-    replyqueue->head = -1;
-    replyqueue->tail = -1;
-    for(int i=0;i<MAX_CMD_SIZE;i++){
-        replyqueue->queue[i].next = -1;
-    }
+    replyqueue.head = 0;
+    replyqueue.tail = 0;
     return TEE_SUCCESS;
 }
 
