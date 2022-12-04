@@ -18,7 +18,7 @@ Description: ta authenticating module in kta.
 #include <tee_defines.h>
 #include <kta_common.h>
 
-void verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password, Cache *cache) {
+void verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password) {
     //todo: search a ta state from tacache
 }
 
