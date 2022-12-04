@@ -17,9 +17,32 @@ Description: ta authenticating module in kta.
 
 #include <tee_defines.h>
 #include <kta_common.h>
-
-void verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password, Cache *cache) {
+#include <string.h>
+bool verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password, Cache *cache) {
     //todo: search a ta state from tacache
+    //step1: check the queue is or not is empty
+    if (cache->head == END_NULL && cache->tail == END_NULL)
+    {
+         tloge("Failed to get a valid cache!\n");
+         return false;
+    }
+    int32_t front = head;//don not change the original value
+    while (front != END_NULL && TA_uuid != cache->ta[front].id)
+    {
+        //loop
+        front = cache->ta->next; //move to next one
+    }
+    if (front != END_NULL)
+    {
+        //find the TA_uuid in the cache
+        if(!(memcmp(account,cache->ta[front].account) && memcmp(password,cache->ta[front].password)))
+        {
+            tloge("Failed to verify the TA password!\n");
+            return false;
+        }
+    }
+    return true;   
+
 }
 
 void attestTA(TEE_UUID TA_uuid) {
