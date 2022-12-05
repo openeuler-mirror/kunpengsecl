@@ -11,7 +11,7 @@
 1、描述：KTA初始化
 ```C
 cmd CMD_KTA_INITIALIZE
-parm_type = TEEC_PARAM_TYPES(
+parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT,   //存放KCM公钥
         TEE_PARAM_TYPE_MEMREF_INPUT,   //存放KTA公钥证书
         TEE_PARAM_TYPE_MEMREF_INPUT,   //存放KTA私钥
@@ -22,7 +22,7 @@ parm_type = TEEC_PARAM_TYPES(
 2、描述：KTA请求函数
 ```C
 cmd CMD_SEND_REQUEST
-parm_type = TEEC_PARAM_TYPES(
+parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放请求
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE,
@@ -32,7 +32,7 @@ parm_type = TEEC_PARAM_TYPES(
 3、描述：KA请求返回
 ```C
 cmd CMD_RESPOND_REQUEST
-parm_type = TEEC_PARAM_TYPES(
+parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT, //存放请求结果
         TEE_PARAM_TYPE_VALUE_OUTPUT, //存放KTA处理结果
         TEE_PARAM_TYPE_NONE,
@@ -44,11 +44,12 @@ parm_type = TEEC_PARAM_TYPES(
 4、描述：TA请求生成密钥
 ```C
 cmd CMD_TA_GENERATE
-parm_type = TEEC_PARAM_TYPES(
+parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
-        TEE_PARAM_TYPE_NONE，
+        TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放是否需要向kcm生成请求：固定为1（需要）
-        TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放向kcm生成请求结果：0表示失败，1表示成功
+                                      //b为0表示生成请求结果失败，1表示生成请求结果成功（详见数据结构TEE_Param）
+        TEE_PARAM_TYPE_NONE
         );
 ```
 
@@ -56,37 +57,39 @@ parm_type = TEEC_PARAM_TYPES(
 
 ```C
 cmd CMD_KEY_SEARCH
-parm_type = TEEC_PARAM_TYPES(
+parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
         TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放返回密钥明文
-        TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放是否需要向kcm生成请求：0表示不需要向kcm生成请求，1表示需要向kcm生成请求
-        TEE_PARAM_TYPE_VALUE_OUTPUT   //存放向kcm生成请求结果：0表示失败，1表示成功
+        TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放是否需要向kcm生成请求：a为0表示不需要向kcm生成请求，1表示需要向kcm生成请求
+                                      //b为0表示生成请求结果失败，1表示生成请求结果成功（详见数据结构TEE_Param）
+        TEE_PARAM_TYPE_NONE
         );
 ```
 6、描述：TA请求删除密钥缓存
 ```C
 cmd CMD_KEY_DELETE
-parm_type = TEEC_PARAM_TYPES(
+parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT, //存放cmd结构体
         TEE_PARAM_TYPE_VALUE_OUTPUT, //返回删除结果
         TEE_PARAM_TYPE_VALUE_OUTPUT, //存放是否需要向kcm生成请求：固定为0（不需要）
-        TEE_PARAM_TYPE_NONE，
+        TEE_PARAM_TYPE_NONE
         );
 ```
 7、描述：TA请求删除KCM中缓存密钥
 ```C
 cmd CMD_KEY_DESTORY
-parm_type = TEEC_PARAM_TYPES(
+parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
-        TEE_PARAM_TYPE_VALUE_OUTPUT,  //返回请求生成结果
+        TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放kta本地删除结果：0表示失败，1表示成功
         TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放是否需要向kcm生成请求：固定为1（需要向kcm生成请求）
-        TEE_PARAM_TYPE_VALUE_OUTPUT   //存放向kcm生成请求结果：0表示失败，1表示成功
+                                      //b为0表示生成请求结果失败，1表示生成请求结果成功（详见数据结构TEE_Param）
+        TEE_PARAM_TYPE_NONE, 
         );
 ```
 8、描述：KTA向TA返回结果
 ```C
 cmd CMD_KCM_REPLY
-parm_type = TEEC_PARAM_TYPES(
+parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
         TEE_PARAM_TYPE_MEMREF_OUTPUT, //返回请求结果
         TEE_PARAM_TYPE_NONE，
@@ -95,10 +98,10 @@ parm_type = TEEC_PARAM_TYPES(
 ```
 9、描述：TA删除所有kta内部保存的信息
 ```C
-cmd CMD_KCM_REPLY
-parm_type = TEEC_PARAM_TYPES(
+cmd CMD_CLEAR_CACHE
+parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
-        TEE_PARAM_TYPE_VALUE_OUTPUT, //返回请求结果：0表示失败，1表示成功
+        TEE_PARAM_TYPE_VALUE_OUTPUT,  //返回请求结果：0表示失败，1表示成功
         TEE_PARAM_TYPE_NONE，
         TEE_PARAM_TYPE_NONE
         );
