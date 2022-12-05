@@ -28,7 +28,7 @@ Description: initialize module in kta.
 #define MAX_CMD_SIZE        16
 #define NODE_LEN            8
 #define MAX_DATA_LEN        1024
-
+#define END_NULL            -1
 
 static const char *signed_pubkey_path = ""; //to be set
 static const char *kcm_encodekey_path = ""; //to be set
@@ -56,6 +56,7 @@ typedef struct _tagCache{
     TaInfo  ta[MAX_TA_NUM];
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first ta for dequeue operation.
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last ta for enqueue operation.
+    
 } Cache;
 
 /* command queue to store the commands */
@@ -120,7 +121,7 @@ TEE_Result reset(char *name);
 
 
 //for ta-auth
-void verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password);
+bool verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password);
 
 void attestTA(TEE_UUID TA_uuid);
 
