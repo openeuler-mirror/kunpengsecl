@@ -74,7 +74,7 @@ const (
 	// test mode switcher
 	lflagTaTest = "tatest"
 	sflagTaTest = "T"
-	helpTaTest  = "run in test mode[true] or not[false/default]"
+	helpTaTest  = "use tareport testdata for test integrated implantation"
 	// version output
 	lflagVersion = "version"
 	sflagVersion = "V"
@@ -182,6 +182,9 @@ func handleFlags() {
 	/*if algDigest != nil && *algDigest != nullString {
 		SetDigestAlgorithm(*algDigest)
 	}*/
+	if taTestMode != nil && *taTestMode {
+		SetTaTestMode(*taTestMode)
+	}
 	if testMode != nil && *testMode {
 		// in test mode, load EK/IK and their certificate from files
 		// because simulator couldn't save them after restart.

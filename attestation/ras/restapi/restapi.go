@@ -280,6 +280,7 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr){if(stat
 	strDevice         = "device"
 	strName           = "name"
 	strEnabled        = "enabled"
+	strIsNewGroup     = "isNewGroup"
 	strIsAutoUpdate   = "isAutoUpdate"
 	strRegistered     = "registered"
 	strVerified       = "Verified"
@@ -300,6 +301,8 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr){if(stat
 	strDeleteTaReportFail       = `delete client %d ta %s report %d fail, %v`
 	strDeleteTaBaseValueSuccess = `delete client %d ta %s base value %d success`
 	strDeleteTaBaseValueFail    = `delete client %d ta %s base value %d fail, %v`
+	strDisableBaseByClientID    = "set other base value records' enabled field to false..."
+	strDisableTaBaseByUuid      = "set other ta base value records' enabled field to false..."
 )
 
 type MyRestAPIServer struct {
@@ -1036,7 +1039,7 @@ func (s *MyRestAPIServer) postBValueByXml(ctx echo.Context, id int64) error {
 		logger.L.Debug("disable base by id failed. " + err.Error())
 	}
 
-	logger.L.Debug("set other base value records' enabled field to false...")
+	logger.L.Debug(strDisableBaseByClientID)
 
 	trustmgr.SaveBaseValue(row)
 	return ctx.JSON(http.StatusOK, "add a new base value by RIM OK!")
@@ -1080,7 +1083,7 @@ func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 			}
 		}
 		trustmgr.DisableBaseByClientID(id)
-		logger.L.Debug("set other base value records' enabled field to false...")
+		logger.L.Debug(strDisableBaseByClientID)
 	}
 	trustmgr.SaveBaseValue(row)
 	return ctx.JSON(http.StatusOK, "add a new base value ok!")
@@ -1091,7 +1094,9 @@ func (s *MyRestAPIServer) postBValueByMultiForm(ctx echo.Context, id int64) erro
 	baseType := ctx.FormValue(strBaseType)
 	uuid := ctx.FormValue(strUuid)
 	sEnv := ctx.FormValue(strEnabled)
+	sIsNewGroup := ctx.FormValue(strIsNewGroup)
 	enabled, _ := strconv.ParseBool(sEnv)
+	isNewGroup, _ := strconv.ParseBool(sIsNewGroup)
 	pcr, err := s.getFile(ctx, strPCR)
 	if err != nil && err != http.ErrMissingFile {
 		return err
@@ -1114,6 +1119,18 @@ func (s *MyRestAPIServer) postBValueByMultiForm(ctx echo.Context, id int64) erro
 		Pcr:        pcr,
 		Bios:       bios,
 		Ima:        ima,
+	}
+	if isNewGroup {
+		// set other base value records' enabled field to false.
+		// TODO: need a interface to do the above operation!
+		c, err := trustmgr.GetCache(id)
+		if err == nil {
+			for _, base := range c.Bases {
+				base.Enabled = false
+			}
+		}
+		trustmgr.DisableBaseByClientID(id)
+		logger.L.Debug(strDisableBaseByClientID)
 	}
 	trustmgr.SaveBaseValue(row)
 	/* // no use???
@@ -1143,7 +1160,7 @@ func (s *MyRestAPIServer) postTaBValueByXml(ctx echo.Context, id int64, tauuid s
 		logger.L.Debug("disable ta base by id failed. " + err.Error())
 	}
 
-	logger.L.Debug("set other ta base value records' enabled field to false...")
+	logger.L.Debug(strDisableTaBaseByUuid)
 
 	trustmgr.SaveTaBaseValue(row)
 	return ctx.JSON(http.StatusOK, "add a new ta base value OK!")
@@ -1163,12 +1180,10 @@ func (s *MyRestAPIServer) postTaBValueByJson(ctx echo.Context, id int64, tauuid 
 		Name:       bv.Name,
 		Valueinfo:  bv.Valueinfo,
 	}
-	if bv.IsNewGroup {
-		// set other base value records' enabled field to false.
-		// TODO: need a interface to do the above operation!
-		trustmgr.DisableTaBaseByUuid(tauuid)
-		logger.L.Debug("set other ta base value records' enabled field to false...")
-	}
+
+	trustmgr.DisableTaBaseByUuid(tauuid)
+	logger.L.Debug(strDisableTaBaseByUuid)
+
 	trustmgr.SaveTaBaseValue(row)
 	return ctx.JSON(http.StatusOK, "add a new ta base value ok!")
 }
@@ -1189,6 +1204,9 @@ func (s *MyRestAPIServer) postTaBValueByMultiForm(ctx echo.Context, id int64, ta
 		Name:       name,
 		Valueinfo:  []byte(valueinfo),
 	}
+	trustmgr.DisableTaBaseByUuid(tauuid)
+	logger.L.Debug(strDisableTaBaseByUuid)
+
 	trustmgr.SaveTaBaseValue(row)
 	/* // no use???
 	if checkJSON(ctx) {
