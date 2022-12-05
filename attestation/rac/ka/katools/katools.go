@@ -25,6 +25,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
+	"go.uber.org/zap"
 )
 
 const (
@@ -97,73 +98,80 @@ func verifyCert(s string, cert *x509.Certificate) error {
 // }
 
 // KA主函数
-func KaMain(addr string, id int64) {
+func KaMain(addr string, id int64, raclog *zap.Logger) {
+	logger.L.Debug("start ka...")
+	logger.L = raclog
 	c_context := C.TEEC_Context{}
 	c_session := C.TEEC_Session{}
 	err := getContextSession(&c_context, &c_session)
 	if err != nil {
-		fmt.Printf("open session failed\n")
+		logger.L.Sugar().Errorf("open session failed, %s", err)
 	}
 	defer C.KTAshutdown(&c_context, &c_session)
 	ras, err := clientapi.CreateConn(addr)
-	defer clientapi.ReleaseConn(ras)
 	if err != nil {
 		logger.L.Sugar().Errorf("connect ras server fail, %s", err)
 	}
+	defer clientapi.ReleaseConn(ras)
+	logger.L.Debug("ka initialize...")
 	// 从clientapi获得公钥证书
 	kcm_cert_data, err := clientapi.DoSendKCMPubKeyCertWithConn(ras, &clientapi.SendKCMPubKeyCertRequest{})
 	// kcm_cert_data, err := ioutil.ReadFile("../../../ras/kcms/cert/kcm.crt")
 	if err != nil || !kcm_cert_data.Result {
-		fmt.Printf("get kcm cert error\n")
+		logger.L.Sugar().Errorf("get kcm cert from clientapi error, %s", err)
 	}
 	kcm_cert, _, err := cryptotools.DecodeKeyCertFromPEM(kcm_cert_data.KcmPubKeyCert)
 	if err != nil {
-		fmt.Printf("get kcm cert error\n")
+		logger.L.Sugar().Errorf("decode kcm cert from clientapi error, %s", err)
 	}
 	// 验证公钥证书
-	ca_cert, _, err := cryptotools.DecodeKeyCertFromFile("../../ka/cert/ca.crt")
+	ca_cert, _, err := cryptotools.DecodeKeyCertFromFile("../cert/ca.crt")
 	if err != nil {
-		fmt.Printf("get ca cert error\n")
+		logger.L.Sugar().Errorf("decode ca cert from file error, %s", err)
 	}
 	err1 := validateCert(kcm_cert, ca_cert)
 	if err1 != nil {
-		fmt.Printf("cert error\n")
+		logger.L.Sugar().Errorf("validate kcm cert error, %s", err1)
 	} else {
-		fmt.Printf("cert successfull\n")
+		logger.L.Debug("validate kcm cert success")
 	}
-	// kta公钥
+	// kcm公钥
 	pub1 := kcm_cert.PublicKey
 	kcmPubkey, err := x509.MarshalPKIXPublicKey(pub1)
 	if err != nil {
-		fmt.Printf("get kcmPubkey error\n")
+		logger.L.Sugar().Errorf("decode kcm pubkey error, %s", err1)
 	}
 	// kta私钥
-	keypemData, _ := ioutil.ReadFile("../../ka/cert/kta.key")
+	keypemData, err := ioutil.ReadFile("../cert/kta.key")
+	if err != nil {
+		logger.L.Sugar().Errorf("read kta privkey from file error, %s", err)
+	}
 	block, _ := pem.Decode(keypemData)
 	ktaPrivKey := block.Bytes
 	// kta公钥证书
-	ktaPubCert, err := ioutil.ReadFile("../../ka/cert/kta.crt")
+	ktaPubCert, err := ioutil.ReadFile("../cert/kta.crt")
 	if err != nil {
-		fmt.Printf("get ktaPubCert error\n")
+		logger.L.Sugar().Errorf("read kta pubcert from file error, %s", err)
 	}
 
 	ktaCert, err := initialKTA(&c_session, kcmPubkey, ktaPrivKey, ktaPubCert)
 	if err != nil {
 		logger.L.Sugar().Errorf("init kta fail, %s", err)
 	}
+	ktaPubBlock, _ := pem.Decode(ktaCert)
 	req := clientapi.VerifyKTAPubKeyCertRequest{
 		ClientId:      id,
-		KtaPubKeyCert: ktaCert,
+		KtaPubKeyCert: ktaPubBlock.Bytes,
 	}
 	//向clientapi发送证书和设备id
 	rpy, err := clientapi.DoVerifyKTAPubKeyCertWithConn(ras, &req)
 	if err != nil || !rpy.Result {
-		fmt.Printf("Verify KTA PubKeyCert error\n")
+		logger.L.Sugar().Errorf("kcm verify kta pubKeycert error, %s", err)
 	}
 	// 删除密钥文件
 	// os.Remove("../../ka/cert/kta.key")
 	// os.Remove("../../ka/cert/kta.crt")
-
+	logger.L.Debug("ka initialize done")
 	// 轮询密钥请求过程
 	kaLoop(ras, &c_session, 1*time.Second)
 
@@ -171,10 +179,12 @@ func KaMain(addr string, id int64) {
 
 // 轮询函数
 func kaLoop(ras *clientapi.RasConn, c_session *C.TEEC_Session, askDuration time.Duration) {
+	logger.L.Debug("start ka loop...")
 	for {
 		nextCmd, err := getKTACmd(c_session)
 		if err != nil {
 			fmt.Printf("get KTACmd error\n")
+			logger.L.Sugar().Errorf("get kta command error, %s", err)
 		}
 		req := clientapi.KeyOperationRequest{
 			EncMessage: nextCmd,
@@ -182,11 +192,11 @@ func kaLoop(ras *clientapi.RasConn, c_session *C.TEEC_Session, askDuration time.
 		// 向clientapi返回
 		rpy, err := clientapi.DoKeyOperationWithConn(ras, &req)
 		if err != nil {
-			fmt.Printf("Do KeyOperation WithConn error\n")
+			logger.L.Sugar().Errorf("do key operation withconn error, %s", err)
 		}
 		err1 := sendRpyToKTA(c_session, rpy.EncRetMessage)
 		if err1 != nil {
-			fmt.Printf("send Rpy To KTA error\n")
+			logger.L.Sugar().Errorf("send rpy to kta error, %s", err)
 		}
 		// 错误处理
 
