@@ -179,6 +179,21 @@ TEE_Result initStructure(){
     return TEE_SUCCESS;
 }
 
+TEE_Result reset(char *name){
+    TEE_Result ret;
+    uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
+    uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
+    TEE_ObjectHandle persistent_data = NULL;
+    ret = TEE_OpenPersistentObject(storageID, name, strlen(name),
+    r_flags | TEE_DATA_FLAG_ACCESS_WRITE_META, (&persistent_data));
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to execute TEE_OpenPersistentObject:ret = %x\n", ret);
+        return ret;
+    }
+    TEE_CloseAndDeletePersistentObject(persistent_data);
+    return TEE_SUCCESS;
+}
+
 TEE_Result Reset_All(){
     TEE_Result ret;
     ret = reset("sec_storage_data/ktacert.txt");
@@ -198,19 +213,3 @@ TEE_Result Reset_All(){
     }
     return TEE_SUCCESS;
 }
-
-TEE_Result reset(char *name){
-    TEE_Result ret;
-    uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
-    uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
-    TEE_ObjectHandle persistent_data = NULL;
-    ret = TEE_OpenPersistentObject(storageID, name, strlen(name),
-    r_flags | TEE_DATA_FLAG_ACCESS_WRITE_META, (&persistent_data));
-    if (ret != TEE_SUCCESS) {
-        tloge("Failed to execute TEE_OpenPersistentObject:ret = %x\n", ret);
-        return ret;
-    }
-    TEE_CloseAndDeletePersistentObject(persistent_data);
-    return TEE_SUCCESS;
-}
-
