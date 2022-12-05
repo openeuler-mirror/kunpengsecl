@@ -628,7 +628,7 @@ func TestTaBaseValue(t *testing.T) {
 		CreateTime: time.Now(),
 		Uuid:       "ta1",
 	}
-	_, err = storeDb.Exec(sqlInsertTaBase, tabaseRow.ClientID, tabaseRow.Uuid, tabaseRow.CreateTime,
+	_, err = storeDb.Exec(sqlInsertTaBase, tabaseRow.ClientID, tabaseRow.Uuid, tabaseRow.CreateTime, true,
 		tabaseRow.Name, tabaseRow.Valueinfo)
 	if err != nil {
 		t.Errorf("insert ta base error, %v", err)
