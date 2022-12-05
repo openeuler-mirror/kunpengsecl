@@ -115,25 +115,31 @@ parm_type = TEE_PARAM_TYPES(
 ```C
 /* command queue to store the commands */
 
-typedef struct _tagParseCmdData{
-    int32_t cmd;
+typedef struct _tagCmdData{
+    int32_t     cmd;
     TEE_UUID    taId;
     TEE_UUID    keyId;
-    uint8_t masterkey[KEY_SIZE];
+    TEE_UUID    masterkey;
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
-} ParseCmdData;
-
-typedef struct _tagCmdNode{
-    int32_t cmd;
-    uint8_t data[MAX_DATA_LEN];
-    int32_t next;  // -1: empty; 0~MAX_TA_NUM: next cmd for search operation.
 } CmdNode;
 
 typedef struct _tagCmdQueue{
-    CmdNode queue[MAX_CMD_SIZE];
-    int32_t head;   // -1: empty; 0~MAX_TA_NUM: first cmd for dequeue operation.
-    int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last cmd for enqueue operation.
+    CmdNode queue[MAX_QUEUE_SIZE];
+    int32_t head;   // 0~MAX_TA_NUM: first cmd for dequeue operation.
+    int32_t tail;   // 0~MAX_TA_NUM: last cmd for enqueue operation.
 } CmdQueue;
+
+typedef struct _tagReplyData{
+    TEE_UUID    taId;
+    TEE_UUID    keyId;
+    uint8_t keyvalue[KEY_SIZE];
+} ReplyNode;
+
+typedef struct _tagCmdQueue{
+    CmdNode queue[MAX_QUEUE_SIZE];
+    int32_t head;   // 0~MAX_TA_NUM: first cmd for dequeue operation.
+    int32_t tail;   // 0~MAX_TA_NUM: last cmd for enqueue operation.
+} ReplyQueue;
 
 ```
