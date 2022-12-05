@@ -62,12 +62,12 @@ TEE_Result TA_CreateEntryPoint(void)
     return TEE_SUCCESS;
 }
 
-TEE_Result TA_OpenSessionEntryPoint(uint32_t parm_type,
+TEE_Result TA_OpenSessionEntryPoint(uint32_t param_type,
     TEE_Param params[PARAM_COUNT], void** session_context) {
     
     TEE_Result ret;
 
-    (void)parm_type;
+    (void)param_type;
     (void)params;
     (void)session_context;
     tlogd("---- TA open session -------- ");
@@ -77,7 +77,7 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t parm_type,
 
 //this function maybe needs to be modified according to ta and ka workflow
 TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
-    uint32_t parm_type, TEE_Param params[PARAM_COUNT])
+    uint32_t param_type, TEE_Param params[PARAM_COUNT])
 {
     TEE_Result ret;
     TEE_UUID uuid ;
@@ -93,19 +93,19 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
     if (caller_info.session_type == SESSION_FROM_CA) {
         switch (cmd) {
         case CMD_KTA_INITIALIZE:
-            ret = KTAInitialize( parm_type, params, &cache, &cmdqueue, &replyqueue);
+            ret = KTAInitialize(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("initialize kta key and cert failed\n");
             return ret ;
             break;
         case CMD_SEND_REQUEST:
-            ret = SendRequest(cmd, params);
+            ret = SendRequest(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("send ta requests failed\n");
             return ret;
             break;
         case CMD_RESPOND_REQUEST:
-            ret = GetResponse(cmd, params);
+            ret = GetResponse(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("handle ka response failed\n");
             return ret;
@@ -123,37 +123,37 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
     } else if (caller_info.session_type == SESSION_FROM_TA) {
         switch (cmd) {
         case CMD_KEY_GENETARE:
-            ret = GenerateTAKey(parm_type, params, &cache, &cmdqueue);
+            ret = GenerateTAKey(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("init ta failed\n");
             return ret;
             break;
         case CMD_KEY_SEARCH:
-            ret = SearchTAKey(parm_type, params, &cache, &cmdqueue);
+            ret = SearchTAKey(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("search ta key failed\n");
             return ret;
             break;
         case CMD_KEY_DELETE:
-            ret = DeleteTAKey(parm_type, params, &cache);
+            ret = DeleteTAKey(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("delete ta key failed\n");
             return ret;
             break;
         case CMD_KEY_DESTORY:
-            ret = DestoryTAKey(parm_type, params, &cache, &cmdqueue);
+            ret = DestoryTAKey(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("destory ta key failed\n");
             return ret;
             break;
         case CMD_KCM_REPLY:
-            ret = GetKcmReply(parm_type, params, &replyqueue);
+            ret = GetKcmReply(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("reply failed\n");
             return ret;
             break;
         case CMD_CLEAR_CACHE:
-            ret = ClearCache(parm_type, params, &cache);
+            ret = ClearCache(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("clear all ta cache failed\n");
             return ret;

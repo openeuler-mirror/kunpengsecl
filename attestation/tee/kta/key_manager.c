@@ -19,52 +19,30 @@ Description: key managing module in kta.
 
 #include <tee_defines.h>
 #include <kta_common.h>
+#include <tee_object_api.h>
 #include <tee_crypto_api.h>
 //#include <cJSON.h>
 
 #define PARAM_COUNT 4
 
+extern Cache cache;
+extern CmdQueue cmdqueue;
+extern CmdQueue replyqueue;
 // ===================Communication with kcm====================================
 
 //--------------------------1、SendRequest---------------------------------------------
-
-TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT], CmdQueue *cmdQueue) {
-    //todo: send request to ka when ka polls, and answer ta trusted state which ka asks
-    TEE_Result ret;
-    int queue_empty;
-    if (!check_param_type(param_type,
-        TEE_PARAM_TYPE_MEMREF_OUTPUT,
-        TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE)) {
-        tloge("Bad expected parameter types, 0x%x.\n", param_type);
-        return TEE_ERROR_BAD_PARAMETERS;
-    }
-    //Judge whether cmd queue is empty 
-    queue_empty = isQueueEmpty(cmdQueue);
-    if (!queue_empty){
-        return TEE_ERROR_ITEM_NOT_FOUND;
-    }
-    //generater Request Return value for ka
-    CmdRequest finalrequest;
-    generaterFinalRequest(finalrequest);
-    params[0].memref.buffer = ;
-    return TEE_SUCCESS;
-}
-int isQueueEmpty(CmdQueue *cmdQueue){
+bool isQueueEmpty(CmdQueue cmdQueue){
     // 1=empty,0=not empty
-    if (cmdQueue->head == -1 && cmdQueue->tail == -1){
-        tloge("cmdQueue is empty,nothing should be sent.\n");
+    if (cmdQueue.head == -1 && cmdQueue.tail == -1){
+        tlogd("cmdQueue is empty,nothing should be sent.\n");
         return 1;
     }
     return 0;
 }
 
-
 //generate Data encryption symmetric key kcm-pub key
 TEE_Result generaterCmdDataKey(CmdRequest *intermediateRequest){
 };
-
 
 void encryption(char *pubkeyname, CmdRequest *intermediateRequest,
                 CmdRequest *finalrequest){
@@ -74,22 +52,6 @@ void encryption(char *pubkeyname, CmdRequest *intermediateRequest,
     2 encrypt symmetric key by kcm-pub key
     */
    
-};
-
-int dequeue(CmdQueue *cmdQueue){
-    //1=failed ;0=success
-    int rtn;
-    rtn = isQueueEmpty(cmdQueue);
-    if (rtn){
-        return rtn;
-    }
-    int cmd_now = cmdQueue->head;
-    if (cmdQueue->queue[cmd_now].next = -1){
-        cmdQueue->tail = -1;
-    }
-    cmdQueue->head = cmdQueue->queue[cmd_now].next;
-    cmdQueue->queue[cmd_now].next = -1;
-    return 0;
 };
 
 void generaterFinalRequest(){
@@ -103,6 +65,47 @@ void generaterFinalRequest(){
     //释放IntermediateRequest
     return;
 }
+
+TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
+    //todo: send request to ka when ka polls, and answer ta trusted state which ka asks
+    TEE_Result ret;
+    void *buffer; //the buffer is to be specified
+    int queue_empty;
+    if (!check_param_type(param_type,
+        TEE_PARAM_TYPE_MEMREF_OUTPUT,
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE)) {
+        tloge("Bad expected parameter types, 0x%x.\n", param_type);
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    //Judge whether cmd queue is empty 
+    queue_empty = isQueueEmpty(cmdqueue);
+    if (!queue_empty){
+        return TEE_ERROR_ITEM_NOT_FOUND;
+    }
+    //generater Request Return value for ka
+    CmdRequest finalrequest;
+    generaterFinalRequest(finalrequest);
+    params[0].memref.buffer = buffer;
+    return TEE_SUCCESS;
+}
+
+int dequeue(CmdQueue cmdQueue){
+    //1=failed ;0=success
+    int rtn;
+    rtn = isQueueEmpty(cmdqueue);
+    if (rtn){
+        return rtn;
+    }
+    int cmd_now = cmdQueue.head;
+    if (cmdQueue.queue[cmd_now].next == -1){
+        cmdQueue.tail = -1;
+    }
+    cmdQueue.head = cmdQueue.queue[cmd_now].next;
+    cmdQueue.queue[cmd_now].next = -1;
+    return 0;
+};
 
 //--------------------------2、GetResponse---------------------------------------------
 
@@ -158,7 +161,7 @@ void generateKcmRequest(){
 
 //---------------------------InitTAKey--------------------------------------------------
 
-TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue) {
+TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     //TEE_UUID TA_uuid, TEE_UUID masterkey, char *account, char *password
     //todo: new a key for ta
     TEE_Result ret;
@@ -172,11 +175,11 @@ TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cach
     }
     //params[0].memref.buffer内为输入的cmd结构体
     //params[2]值固定为1
-    generatKcmRequest(); //生成请求成功或失败的结果存放到params[3]的值中
+    generateKcmRequest(); //生成请求成功或失败的结果存放到params[3]的值中
 }
 //---------------------------SearchTAKey------------------------------------------------
 
-TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue) {
+TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     //todo: search a certain ta key, if not exist, call generateKcmRequest(）to generate SearchTAKey request
     TEE_Result ret;
     if (!check_param_type(param_type,
@@ -192,7 +195,7 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache 
 
 //---------------------------DeleteTAKey------------------------------------------------
 
-TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache) {
+TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     //todo: delete a certain key in the cache
     TEE_Result ret;
     if (!check_param_type(param_type,
@@ -208,7 +211,7 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache 
 
 //----------------------------DestoryKey------------------------------------------------
 
-TEE_Result DestoryKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *cache,CmdQueue *cmdqueue) {
+TEE_Result DestoryKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     //todo: delete a certain key by calling DeleteTAKey(), then generate a delete key request in TaCache
     TEE_Result ret;
     if (!check_param_type(param_type,
@@ -224,7 +227,7 @@ TEE_Result DestoryKey(uint32_t param_type, TEE_Param params[PARAM_COUNT],Cache *
 
 //----------------------------GetKcmReply------------------------------------------------
 
-TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT], CmdQueue *replyqueue){
+TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
     TEE_Result ret;
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,  
@@ -239,7 +242,7 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT], CmdQu
 
 //----------------------------ClearCache------------------------------------------------
 
-TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT], Cache *cache) {
+TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     //todo: clear all ta cache
     TEE_Result ret;
     if (!check_param_type(param_type,
