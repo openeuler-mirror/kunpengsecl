@@ -29,7 +29,7 @@ Description: initialize module in kta.
 
 extern Cache cache;
 extern CmdQueue cmdqueue;
-extern CmdQueue replyqueue;
+extern ReplyQueue replyqueue;
 
 // TEE_Result GenerateKeyPair(uint32_t keytype, uint32_t keysize, void *pubkey, void *privkey) {
 //     //todo: generate a pair of key according to keytype and keysize

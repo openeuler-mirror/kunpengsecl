@@ -27,13 +27,13 @@ Description: key managing module in kta.
 
 extern Cache cache;
 extern CmdQueue cmdqueue;
-extern CmdQueue replyqueue;
+extern ReplyQueue replyqueue;
 // ===================Communication with kcm====================================
 
 //--------------------------1、SendRequest---------------------------------------------
 bool isQueueEmpty(CmdQueue cmdQueue){
     // 1=empty,0=not empty
-    if (cmdQueue.head == -1 && cmdQueue.tail == -1){
+    if (cmdQueue.head == cmdQueue.tail){
         tlogd("cmdQueue is empty,nothing should be sent.\n");
         return 1;
     }
@@ -98,12 +98,7 @@ int dequeue(CmdQueue cmdQueue){
     if (rtn){
         return rtn;
     }
-    int cmd_now = cmdQueue.head;
-    if (cmdQueue.queue[cmd_now].next == -1){
-        cmdQueue.tail = -1;
-    }
-    cmdQueue.head = cmdQueue.queue[cmd_now].next;
-    cmdQueue.queue[cmd_now].next = -1;
+    cmdQueue.head = (cmdQueue.head + 1) % MAX_QUEUE_SIZE;
     return 0;
 };
 

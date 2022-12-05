@@ -26,7 +26,7 @@ Description: api module in kta.
 
 extern Cache cache;
 extern CmdQueue cmdqueue;
-extern CmdQueue replyqueue;
+extern ReplyQueue replyqueue;
 
 TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
     //basic function for calling the above functions

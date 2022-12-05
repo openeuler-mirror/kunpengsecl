@@ -36,7 +36,7 @@ enum {
 
 Cache cache;
 CmdQueue cmdqueue;
-CmdQueue replyqueue;
+CmdQueue ReplyQueue;
 
 TEE_Result TA_CreateEntryPoint(void)
 {
