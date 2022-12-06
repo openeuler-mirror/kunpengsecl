@@ -579,17 +579,17 @@ paths:
     get:
       summary: Return the trust status for a specific TA of a given client
       parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-      - name: tauuid
-        in: path
-        required: true
-        schema:
-          type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tauuid
+          in: path
+          required: true
+          schema:
+            type: string
       response:
         '200':
           description: return trust status of a specific ta

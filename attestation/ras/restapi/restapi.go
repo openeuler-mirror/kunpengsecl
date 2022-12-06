@@ -303,6 +303,7 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr){if(stat
 	strDeleteTaBaseValueFail    = `delete client %d ta %s base value %d fail, %v`
 	strDisableBaseByClientID    = "set other base value records' enabled field to false..."
 	strDisableTaBaseByUuid      = "set other ta base value records' enabled field to false..."
+	strGetTaStatus              = "trust status of ta %s : %s"
 )
 
 type MyRestAPIServer struct {
@@ -1153,9 +1154,10 @@ func (s *MyRestAPIServer) postTaBValueByXml(ctx echo.Context, id int64, tauuid s
 		Uuid:       tauuid,
 		CreateTime: time.Now(),
 	}
+	//TODO: 从rim中获取bv.valueinfo和bv.name
 
 	// set other base value records' enabled field to false.
-	err = trustmgr.DisableTaBaseByUuid(tauuid)
+	err = trustmgr.DisableTaBaseByUuid(id, tauuid)
 	if err != nil {
 		logger.L.Debug("disable ta base by id failed. " + err.Error())
 	}
@@ -1181,7 +1183,7 @@ func (s *MyRestAPIServer) postTaBValueByJson(ctx echo.Context, id int64, tauuid 
 		Valueinfo:  bv.Valueinfo,
 	}
 
-	trustmgr.DisableTaBaseByUuid(tauuid)
+	trustmgr.DisableTaBaseByUuid(id, tauuid)
 	logger.L.Debug(strDisableTaBaseByUuid)
 
 	trustmgr.SaveTaBaseValue(row)
@@ -1192,7 +1194,7 @@ func (s *MyRestAPIServer) postTaBValueByMultiForm(ctx echo.Context, id int64, ta
 	name := ctx.FormValue(strName)
 	//sEnv := ctx.FormValue(strEnabled)
 	//enabled, _ := strconv.ParseBool(sEnv)
-	//??这里的enabled需不需要post？但是tabaseRow中没有enabled
+	//这里的enabled不需要post
 	valueinfo, err := s.getFile(ctx, strVInfo)
 	if err != nil && err != http.ErrMissingFile {
 		return err
@@ -1204,7 +1206,7 @@ func (s *MyRestAPIServer) postTaBValueByMultiForm(ctx echo.Context, id int64, ta
 		Name:       name,
 		Valueinfo:  []byte(valueinfo),
 	}
-	trustmgr.DisableTaBaseByUuid(tauuid)
+	trustmgr.DisableTaBaseByUuid(id, tauuid)
 	logger.L.Debug(strDisableTaBaseByUuid)
 
 	trustmgr.SaveTaBaseValue(row)
@@ -1213,7 +1215,7 @@ func (s *MyRestAPIServer) postTaBValueByMultiForm(ctx echo.Context, id int64, ta
 		return ctx.JSON(http.StatusFound, row)
 	}
 	*/
-	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/ta/%s/basevalues", id, tauuid))
+	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/ta/%s/tabasevalues", id, tauuid))
 }
 
 func genReportsHtml(id int64, rows []typdefs.ReportRow) string {
@@ -1384,8 +1386,8 @@ func (s *MyRestAPIServer) GetIdTaTauuidNewtabasevalue(ctx echo.Context, id int64
 
 // (POST /{id}/ta/{tauuid}/newtabasevalue)
 //  save node {id} a new base value by json
-//    curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/ta/{tauuid}/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
-//    curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -k https://localhost:40003/24/ta/test/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
+//  curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/ta/{tauuid}/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
+//  curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -k https://localhost:40003/24/ta/test/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
 func (s *MyRestAPIServer) PostIdTaTauuidNewtabasevalue(ctx echo.Context, id int64, tauuid string) error {
 	if checkJSON(ctx) {
 		return s.postTaBValueByJson(ctx, id, tauuid)
@@ -1398,6 +1400,8 @@ func (s *MyRestAPIServer) PostIdTaTauuidNewtabasevalue(ctx echo.Context, id int6
 
 // Return the trust status for a specific TA of a given client
 // (GET /{id}/ta/{tauuid}/status)
+// curl -k -X GET -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" https://localhost:40003/{id}/ta/{tauuid}/status
+// test pass
 func (s *MyRestAPIServer) GetIdTaTauuidStatus(ctx echo.Context, id int64, tauuid string) error {
 	c, err := trustmgr.GetCache(id)
 	if err != nil {
@@ -1405,7 +1409,7 @@ func (s *MyRestAPIServer) GetIdTaTauuidStatus(ctx echo.Context, id int64, tauuid
 	}
 	status := c.GetTaTrusted(tauuid)
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("trust status of ta %s : %s\n", tauuid, status))
+	buf.WriteString(fmt.Sprintf(strGetTaStatus, tauuid, status))
 
 	return ctx.JSON(http.StatusOK, buf.String())
 }
@@ -1469,7 +1473,7 @@ func (s *MyRestAPIServer) GetIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Contex
 }
 
 // (POST /{id}/ta/{tauuid}/tabasevalues/{tabasevalueid})
-// curl -k -X POST -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN"  https://localhost:40003/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid}) --data '{"enabled":true}'
+// curl -k -X POST -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN"  https://localhost:40003/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid} --data '{"enabled":true}'
 // test pass
 func (s *MyRestAPIServer) PostIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context, id int64, tauuid string, tabasevalueid int64) error {
 	if checkJSON(ctx) {
