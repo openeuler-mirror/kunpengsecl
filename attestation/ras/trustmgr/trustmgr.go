@@ -115,7 +115,7 @@ const (
 	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	sqlInsertTaBase                      = `INSERT INTO tabase(clientid, uuid, createtime,enabled, name, valueinfo) VALUES ($1, $2, $3, $4, $5,$6)`
 	sqlDisableBaseValuesByClientID       = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype='host'`
-	sqlDisableTaBaseValuesByUuid         = `UPDATE tabase set enabled=false WHERE uuid=$1`
+	sqlDisableTaBaseValuesByUuid         = `UPDATE tabase set enabled=false WHERE clientid=$1 AND uuid=$2`
 	sqlEnableBaseValueByid               = `UPDATE base set enabled=true WHERE id=$1`
 	sqlDisableBaseValueByid              = `UPDATE base set enabled=false WHERE id=$1`
 	sqlEnableTaBaseValueByid             = `UPDATE tabase set enabled=true WHERE id=$1`
@@ -223,11 +223,11 @@ func DisableBaseByClientID(id int64) error {
 }
 
 // DisableTaBaseByClientID modify all base enabled=false of a ta
-func DisableTaBaseByUuid(taid string) error {
+func DisableTaBaseByUuid(cid int64, taid string) error {
 	if tmgr == nil {
 		return typdefs.ErrParameterWrong
 	}
-	_, err := tmgr.db.Query(sqlDisableTaBaseValuesByUuid, taid)
+	_, err := tmgr.db.Query(sqlDisableTaBaseValuesByUuid, cid, taid)
 	if err != nil {
 		return err
 	}
