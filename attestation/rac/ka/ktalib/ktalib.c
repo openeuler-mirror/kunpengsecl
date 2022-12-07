@@ -25,6 +25,9 @@ enum {
     CMD_RESPOND_REQUEST     = 0x00000004, //reply a command to kta(maybe one)
 };
 
+TEEC_Context context;
+TEEC_Session session;
+
 TEEC_Context initcontext(TEEC_Context context) {
     context.ta_path = "/root/data/bbb2d138-ee21-43af-8796-40c20d7b45fa.sec"; //to be set, the path of kta mirror
     return context;
@@ -137,16 +140,16 @@ TEEC_Result RemoteAttestKTA(uint32_t cmdnum,struct buffer_data *req,struct buffe
 // }
 
 // 初始化上下文和会话
-TEEC_Result InitContextSession(TEEC_Context *context, TEEC_Session *session) {
+TEEC_Result InitContextSession() {
     TEEC_Operation operation = {0};
     uint32_t origin = 0;
     TEEC_Result ret;
 
-    ret = TEEC_InitializeContext(NULL, context);
+    ret = TEEC_InitializeContext(NULL, &context);
     if (ret != TEEC_SUCCESS) {
         return ret;
     }
-    context->ta_path = "/root/data/bbb2d138-ee21-43af-8796-40c20d7b45fa.sec"; //to be set, the path of kta mirror
+    context.ta_path = "/root/data/bbb2d138-ee21-43af-8796-40c20d7b45fa.sec"; //to be set, the path of kta mirror
     operation.started = OPERATION_START_FLAG;
     operation.paramTypes = TEEC_PARAM_TYPES(
         TEEC_NONE,
@@ -154,16 +157,16 @@ TEEC_Result InitContextSession(TEEC_Context *context, TEEC_Session *session) {
         TEEC_NONE,
         TEEC_NONE);
 
-    ret = TEEC_OpenSession(context, session, &Uuid, TEEC_LOGIN_IDENTIFY, NULL, &operation, &origin);
+    ret = TEEC_OpenSession(&context, &session, &Uuid, TEEC_LOGIN_IDENTIFY, NULL, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
-        TEEC_FinalizeContext(context);
+        TEEC_FinalizeContext(&context);
         return ret;
     }
     return ret;
 }
 
 // 向KTA发出初始化命令
-TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, struct buffer_data* ktaPrivKey,struct buffer_data* ktaPubCert, struct buffer_data *out_data){
+TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey, struct buffer_data* ktaPrivKey,struct buffer_data* ktaPubCert, struct buffer_data *out_data){
     TEEC_Operation operation = {0};
     uint32_t origin = 0;
     TEEC_Result ret;
@@ -188,7 +191,7 @@ TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, 
     operation.params[PARAMETER_FOURTH].tmpref.buffer = out_data->buf;
     operation.params[PARAMETER_FOURTH].tmpref.size = out_data->size;
 
-    ret = TEEC_InvokeCommand(session, CMD_KTA_INITIALIZE, &operation, &origin);
+    ret = TEEC_InvokeCommand(&session, CMD_KTA_INITIALIZE, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
         printf("kta initialize failed, codes=0x%x, origin=0x%x", ret, origin);
         return ret;
@@ -197,7 +200,7 @@ TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, 
     return TEEC_SUCCESS;
 }
 // 从KTA拿取密钥请求
-TEEC_Result KTAgetCommand(TEEC_Session *session, struct buffer_data* out_data){
+TEEC_Result KTAgetCommand(struct buffer_data* out_data){
     TEEC_Operation operation = {0};
     uint32_t origin = 1;
     TEEC_Result ret;
@@ -211,7 +214,7 @@ TEEC_Result KTAgetCommand(TEEC_Session *session, struct buffer_data* out_data){
     );
     operation.params[PARAMETER_FRIST].tmpref.buffer = out_data->buf;
     operation.params[PARAMETER_FRIST].tmpref.size = out_data->size;
-    ret = TEEC_InvokeCommand(session, CMD_GET_REQUEST, &operation, &origin);
+    ret = TEEC_InvokeCommand(&session, CMD_GET_REQUEST, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
         printf("get kta requests failed, codes=0x%x, origin=0x%x", ret, origin);
         return ret;
@@ -221,7 +224,7 @@ TEEC_Result KTAgetCommand(TEEC_Session *session, struct buffer_data* out_data){
 }
 
 // 向KTA返回密钥请求结果
-TEEC_Result KTAsendCommandreply(TEEC_Session *session, struct buffer_data* in_data){
+TEEC_Result KTAsendCommandreply(struct buffer_data* in_data){
     TEEC_Operation operation = {0};
     TEEC_Value ktares = {0};
     uint32_t origin = 2;
@@ -237,7 +240,7 @@ TEEC_Result KTAsendCommandreply(TEEC_Session *session, struct buffer_data* in_da
     operation.params[PARAMETER_FRIST].tmpref.buffer = in_data->buf;
     operation.params[PARAMETER_FRIST].tmpref.size = in_data->size;
     operation.params[PARAMETER_SECOND].value = ktares;
-    ret = TEEC_InvokeCommand(session, CMD_RESPOND_REQUEST, &operation, &origin);
+    ret = TEEC_InvokeCommand(&session, CMD_RESPOND_REQUEST, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
         printf("respond kta requests failed, codes=0x%x, origin=0x%x", ret, origin);
         return ret;
@@ -249,7 +252,7 @@ TEEC_Result KTAsendCommandreply(TEEC_Session *session, struct buffer_data* in_da
 }
 
 // 关闭与KTA的连接
-void KTAshutdown(TEEC_Context *context, TEEC_Session *session) {
-    TEEC_CloseSession(session);
-    TEEC_FinalizeContext(context);
+void KTAshutdown() {
+    TEEC_CloseSession(&session);
+    TEEC_FinalizeContext(&context);
 }

@@ -28,10 +28,10 @@ TEEC_Result RemoteAttestInitial(uint32_t cmdnum,struct buffer_data *req,struct b
 
 TEEC_Result RemoteAttestKTA(uint32_t cmdnum,struct buffer_data *req,struct buffer_data *rsp);
 
-TEEC_Result InitContextSession(TEEC_Context *context, TEEC_Session *session);
-TEEC_Result KTAinitialize(TEEC_Session *session, struct buffer_data* kcmPubKey, struct buffer_data* ktaPrivKey,struct buffer_data* ktaPubCert, struct buffer_data *out_data);
-TEEC_Result KTAgetCommand(TEEC_Session *session, struct buffer_data* out_data);
-TEEC_Result KTAsendCommandreply(TEEC_Session *session, struct buffer_data* in_data);
-void KTAshutdown(TEEC_Context *context, TEEC_Session *session);
+TEEC_Result InitContextSession();
+TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey, struct buffer_data* ktaPrivKey,struct buffer_data* ktaPubCert, struct buffer_data *out_data);
+TEEC_Result KTAgetCommand(struct buffer_data* out_data);
+TEEC_Result KTAsendCommandreply(struct buffer_data* in_data);
+void KTAshutdown();
 
 #endif

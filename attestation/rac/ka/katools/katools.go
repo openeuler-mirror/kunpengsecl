@@ -101,13 +101,11 @@ func verifyCert(s string, cert *x509.Certificate) error {
 func KaMain(addr string, id int64, raclog *zap.Logger) {
 	logger.L.Debug("start ka...")
 	logger.L = raclog
-	c_context := C.TEEC_Context{}
-	c_session := C.TEEC_Session{}
-	err := getContextSession(&c_context, &c_session)
+	err := getContextSession()
 	if err != nil {
 		logger.L.Sugar().Errorf("open session failed, %s", err)
 	}
-	defer C.KTAshutdown(&c_context, &c_session)
+	defer C.KTAshutdown()
 	ras, err := clientapi.CreateConn(addr)
 	if err != nil {
 		logger.L.Sugar().Errorf("connect ras server fail, %s", err)
@@ -154,7 +152,7 @@ func KaMain(addr string, id int64, raclog *zap.Logger) {
 		logger.L.Sugar().Errorf("read kta pubcert from file error, %s", err)
 	}
 
-	ktaCert, err := initialKTA(&c_session, kcmPubkey, ktaPrivKey, ktaPubCert)
+	ktaCert, err := initialKTA(kcmPubkey, ktaPrivKey, ktaPubCert)
 	if err != nil {
 		logger.L.Sugar().Errorf("init kta fail, %s", err)
 	}
@@ -173,15 +171,15 @@ func KaMain(addr string, id int64, raclog *zap.Logger) {
 	// os.Remove("../../ka/cert/kta.crt")
 	logger.L.Debug("ka initialize done")
 	// 轮询密钥请求过程
-	kaLoop(ras, &c_session, 1*time.Second)
+	kaLoop(ras, 1*time.Second)
 
 }
 
 // 轮询函数
-func kaLoop(ras *clientapi.RasConn, c_session *C.TEEC_Session, askDuration time.Duration) {
+func kaLoop(ras *clientapi.RasConn, askDuration time.Duration) {
 	logger.L.Debug("start ka loop...")
 	for {
-		nextCmd, err := getKTACmd(c_session)
+		nextCmd, err := getKTACmd()
 		if err != nil {
 			fmt.Printf("get KTACmd error\n")
 			logger.L.Sugar().Errorf("get kta command error, %s", err)
@@ -194,7 +192,7 @@ func kaLoop(ras *clientapi.RasConn, c_session *C.TEEC_Session, askDuration time.
 		if err != nil {
 			logger.L.Sugar().Errorf("do key operation withconn error, %s", err)
 		}
-		err1 := sendRpyToKTA(c_session, rpy.EncRetMessage)
+		err1 := sendRpyToKTA(rpy.EncRetMessage)
 		if err1 != nil {
 			logger.L.Sugar().Errorf("send rpy to kta error, %s", err)
 		}
@@ -206,8 +204,8 @@ func kaLoop(ras *clientapi.RasConn, c_session *C.TEEC_Session, askDuration time.
 }
 
 // 建立上下文和会话
-func getContextSession(c_context *C.TEEC_Context, c_session *C.TEEC_Session) error {
-	teec_result := C.InitContextSession(c_context, c_session)
+func getContextSession() error {
+	teec_result := C.InitContextSession()
 	if int(teec_result) != 0 {
 		return errors.New("get session failed")
 	}
@@ -215,7 +213,7 @@ func getContextSession(c_context *C.TEEC_Context, c_session *C.TEEC_Session) err
 }
 
 //初始化KTA
-func initialKTA(c_session *C.TEEC_Session, kcmPubkey []byte, ktaPrivKey []byte, ktaPubCert []byte) ([]byte, error) {
+func initialKTA(kcmPubkey []byte, ktaPrivKey []byte, ktaPubCert []byte) ([]byte, error) {
 
 	c_kcmPubkey := C.CBytes(kcmPubkey)
 	defer C.free(c_kcmPubkey)
@@ -233,7 +231,7 @@ func initialKTA(c_session *C.TEEC_Session, kcmPubkey []byte, ktaPrivKey []byte, 
 	c_response_data := C.struct_buffer_data{}
 	c_response_data.size = C.__uint32_t(len(ktaPubCert))
 	c_response_data.buf = (*C.uint8_t)(C.malloc(C.ulong(c_response_data.size)))
-	teec_result := C.KTAinitialize(c_session, &c_request_data1, &c_request_data2, &c_request_data3, &c_response_data)
+	teec_result := C.KTAinitialize(&c_request_data1, &c_request_data2, &c_request_data3, &c_response_data)
 	if int(teec_result) != 0 {
 		return nil, errors.New("initial kta failed")
 	}
@@ -243,12 +241,12 @@ func initialKTA(c_session *C.TEEC_Session, kcmPubkey []byte, ktaPrivKey []byte, 
 }
 
 // 从KTA拿取密钥请求
-func getKTACmd(c_session *C.TEEC_Session) ([]byte, error) {
+func getKTACmd() ([]byte, error) {
 	c_cmd_data := C.struct_buffer_data{}
 	// malloc大小待设置
 	c_cmd_data.size = C.__uint32_t(10000)
 	c_cmd_data.buf = (*C.uint8_t)(C.malloc(C.ulong(c_cmd_data.size)))
-	teec_result := C.KTAgetCommand(c_session, &c_cmd_data)
+	teec_result := C.KTAgetCommand(&c_cmd_data)
 	if int(teec_result) != 0 {
 		return nil, errors.New("get kta commmand failed")
 	}
@@ -258,12 +256,12 @@ func getKTACmd(c_session *C.TEEC_Session) ([]byte, error) {
 }
 
 // 向KTA返发送密钥请求返回值
-func sendRpyToKTA(c_session *C.TEEC_Session, rpy []byte) error {
+func sendRpyToKTA(rpy []byte) error {
 	c_cmd_data := C.CBytes(rpy)
 	defer C.free(c_cmd_data)
 	c_request_data := C.struct_buffer_data{
 		C.__uint32_t(len(rpy)), (*C.uchar)(c_cmd_data)}
-	teec_result := C.KTAsendCommandreply(c_session, &c_request_data)
+	teec_result := C.KTAsendCommandreply(&c_request_data)
 	if int(teec_result) != 0 {
 		return errors.New("send kta commmand rpy failed")
 	}
