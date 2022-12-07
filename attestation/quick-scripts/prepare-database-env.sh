@@ -8,7 +8,7 @@ case $osv in
     Ubuntu)
         sudo apt-get install $ubuntu_deps
         ;;
-    openEuler|CentOS)
+    openEuler|CentOS|BigCloud)
         sudo dnf -y install openldap-devel
         sudo dnf -y --allowerasing install $openeuler_deps
         sudo su - postgres <<EOF
