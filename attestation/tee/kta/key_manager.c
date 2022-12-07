@@ -233,6 +233,17 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         return TEE_ERROR_BAD_PARAMETERS;
     }
     //params[0].memref.buffer内为输入的cmd结构体
+    if (replyqueue.head == replyqueue.tail) {
+        tloge("get kcm reply error: reply queue is empty\n");
+        return TEE_ERROR_ITEM_NOT_FOUND;
+    }
+    ReplyNode nullInfo;
+    params[1].memref.size = sizeof(replyqueue.queue[0]);
+    params[1].memref.buffer = (void*)malloc(params[1].memref.size);
+    params[1].memref.buffer = &replyqueue.queue[0];
+    replyqueue.queue[replyqueue.head] = nullInfo;
+    replyqueue.head = (replyqueue.head + 1) % MAX_QUEUE_SIZE;
+    return TEE_SUCCESS;
 }
 
 //----------------------------ClearCache------------------------------------------------
@@ -249,4 +260,53 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return TEE_ERROR_BAD_PARAMETERS;
     }
     //params[0].memref.buffer内为输入的cmd结构体
+    CmdNode *n = params[0].memref.buffer;
+    // 验证帐号密码
+    if (!verifyTApasswd(n->keyId, n->account, n->password)) {
+        return TEE_ERROR_ACCESS_DENIED;
+    }
+
+    // cache仅1个元素且命中
+    if (CheckUUID(cache.ta[cache.head].id, n->keyId) && cache.head == cache.tail) {
+        if (verifyTApasswd)
+        cache.head = END_NULL;
+        cache.tail = END_NULL;
+        tloge("clear ta cache succeeded.\n");
+        params[1].value.a = 1;
+        return TEE_SUCCESS;
+    }
+
+    // cache仅1个元素且未命中
+    if (!CheckUUID(cache.ta[cache.head].id, n->keyId) && cache.head == cache.tail) {
+        tloge("ta cache not fount.\n");
+        params[1].value.a = 0;
+        return TEE_ERROR_ITEM_NOT_FOUND;
+    }
+
+    // cache有2个或以上元素
+    int32_t cur = cache.head;
+    if (CheckUUID(cache.ta[cur].id, n->keyId)) {
+        cache.head = cache.ta[cur].next;
+        tloge("clear ta cache succeeded.\n");
+        params[1].value.a = 1;
+        return TEE_SUCCESS;
+    }
+    int32_t nxt = cache.ta[cur].next;
+    while (nxt != END_NULL) {
+        TEE_UUID tmp = cache.ta[nxt].id;
+        if (CheckUUID(tmp, n->keyId)) {
+            cache.ta[cur].next = cache.ta[nxt].next;
+            if (nxt == cache.tail) {
+                cache.tail = cur;
+            }
+            tloge("clear ta cache succeeded.\n");
+            params[1].value.a = 1;
+            return TEE_SUCCESS;
+        }
+        cur = nxt;
+        nxt = cache.ta[nxt].next;
+    }
+    tloge("ta cache not found.\n");
+    params[1].value.a = 0;
+    return TEE_ERROR_ITEM_NOT_FOUND;
 }

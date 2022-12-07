@@ -83,7 +83,7 @@ typedef struct _tagReplyData{
 } ReplyNode;
 
 typedef struct _tagCmdQueue{
-    CmdNode queue[MAX_QUEUE_SIZE];
+    ReplyNode queue[MAX_QUEUE_SIZE];
     int32_t head;   // 0~MAX_TA_NUM: first cmd for dequeue operation.
     int32_t tail;   // 0~MAX_TA_NUM: last cmd for enqueue operation.
 } ReplyQueue;
