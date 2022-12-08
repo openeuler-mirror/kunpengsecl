@@ -34,8 +34,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/x509"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -50,8 +50,9 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kcmstools"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 )
@@ -95,6 +96,7 @@ xlMN70IRAoGBAK8lkBISg5JL7fQVq0v00CVxF1HbKHb6BU5TlSksbhiWu7tPo6JS
 KNP4YufzR0vTsIbUiwqBVgWWwpg/axa5Az+obzZpb0gir/tDOFAKRGCOyDeGnm1Q
 YNTm0LULYytmAi45+h9jDemMzMcnMSWUZsOu599U2CitMGTegL9KmCuk
 -----END RSA PRIVATE KEY-----`
+	constDB = "postgres"
 )
 
 type rasService struct {
@@ -102,25 +104,25 @@ type rasService struct {
 }
 
 type tagCmdData struct {
-	key			[]byte
-	encCmdData	[]byte
+	key        []byte
+	encCmdData []byte
 }
 
 type inKeyInfo struct {
-	taId		[]byte
-	account		[]byte
-	password	[]byte
-	keyId		[]byte
-	hostKeyId	[]byte
-	command		uint32
+	taId      []byte
+	account   []byte
+	password  []byte
+	keyId     []byte
+	hostKeyId []byte
+	command   uint32
 }
 
 type retKeyInfo struct {
-	taId		[]byte
-	keyId		[]byte
-	plainText	[]byte
-	hostKeyId	[]byte
-	encKey		[]byte
+	taId      []byte
+	keyId     []byte
+	plainText []byte
+	hostKeyId []byte
+	encKey    []byte
 }
 
 var (
@@ -128,6 +130,8 @@ var (
 
 	srv *grpc.Server = nil
 )
+
+// var dbConfig string = "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
 
 func getSockNum() int {
 	pid := os.Getpid()
@@ -164,9 +168,8 @@ func StartServer(addr string) {
 		logger.L.Sugar().Errorf("fail to listen at %s, %v", addr, err)
 		return
 	}
-	dbConfig := fmt.Sprintf(strDbConfig, config.GetDBUser(), config.GetDBPassword(),
-		config.GetDBName(), config.GetDBHost(), config.GetDBPort())
-	trustmgr.CreateTrustManager("postgres", dbConfig)
+	dbConfig := GetdbConfig(strDbConfig)
+	trustmgr.CreateTrustManager(constDB, dbConfig)
 	srv := grpc.NewServer()
 	RegisterRasServer(srv, newRasService())
 	//logger.L.Sugar().Debugf("listen at %s", addr)
@@ -358,19 +361,22 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 func (s *rasService) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
 
 	kcmPubKeyCert, err := kcmstools.SendKCMPubKeyCert()
-	if err != nil{
+	if err != nil {
 		logger.L.Sugar().Errorf("Send KCM public key cert error, %v", err)
 		return &SendKCMPubKeyCertReply{Result: false}, nil
 	} else {
 		out := SendKCMPubKeyCertReply{
-			Result:		true,
-			KcmPubKeyCert:	kcmPubKeyCert,
+			Result:        true,
+			KcmPubKeyCert: kcmPubKeyCert,
 		}
 		return &out, nil
 	}
 }
 
 func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
+	dbConfig := GetdbConfig(strDbConfig)
+	// fmt.Printf("----------------------------------\ndbConfig: %s\n", dbConfig)
+	kdb.CreateKdbManager(constDB, dbConfig)
 
 	ktaDer := in.GetKtaPubKeyCert()
 	ktaPem, err := cryptotools.EncodeKeyCertToPEM(ktaDer)
@@ -382,7 +388,7 @@ func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKe
 	deviceId := in.GetClientId()
 
 	err = kcmstools.VerifyKTAPubKeyCert(deviceId, string(ktaPem))
-	if err != nil{
+	if err != nil {
 		logger.L.Sugar().Errorf("Verify cert of KTA %x error, %v", deviceId, err)
 		return &VerifyKTAPubKeyCertReply{Result: false}, nil
 	}
@@ -402,6 +408,8 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		logger.L.Sugar().Errorf("Decode outside json of TA error, %v", err)
 		return &KeyOperationReply{Result: false}, nil
 	}
+	dbConfig := GetdbConfig(strDbConfig)
+	kdb.CreateKdbManager(constDB, dbConfig)
 
 	// TODO: get kcm private key
 	kcmPrivKey, _, err := cryptotools.DecodePrivateKeyFromPEM([]byte(kcmPrivateKey))
@@ -415,7 +423,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	decKey, err := cryptotools.AsymmetricDecrypt(0x0001, 0x0000, kcmPrivKey, cmdData.key, label)
 
 	// TODO: use decoded key to decode cmdData.encCmdData and save the result in encMessage
-	encMessage, err = aesGCMDecrypt(decKey, cmdData.encCmdData)	// Encrypt algorithm: AES GCM (256bit) (AES256GCM)
+	encMessage, err = aesGCMDecrypt(decKey, cmdData.encCmdData) // Encrypt algorithm: AES GCM (256bit) (AES256GCM)
 	if err != nil {
 		logger.L.Sugar().Errorf("Decode AESGCM error, %v", err)
 		return &KeyOperationReply{Result: false}, nil
@@ -428,58 +436,58 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	}
 
 	switch message.command {
-		case 0x80000001:
-			retTAId, encKey, plainText, retKeyId, err := kcmstools.GenerateNewKey(message.taId, message.account, message.password, message.hostKeyId)
-			if err != nil{
-				logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", message.taId, err)
-				return &KeyOperationReply{Result: false}, nil
-			}
-			retMessage = retKeyInfo {
-				taId:		retTAId,
-				keyId:		retKeyId,
-				plainText:	plainText,
-				hostKeyId:	message.hostKeyId,
-				encKey:		encKey,
-			}
-		case 0x80000002:
-			retTAId, encKey, plainText, retKeyId, err := kcmstools.GetKey(message.taId, message.account, message.password, message.keyId, message.hostKeyId)
-			if err != nil{
-				logger.L.Sugar().Errorf("Get key of TA %s error, %v", message.taId, err)
-				return &KeyOperationReply{Result: false}, nil
-			}
-			retMessage = retKeyInfo {
-				taId:		retTAId,
-				keyId:		retKeyId,
-				plainText:	plainText,
-				hostKeyId:	message.hostKeyId,
-				encKey:		encKey,
-			}
-		case 0x80000003:
-			err := kcmstools.DeleteKey(message.taId, message.keyId)
-			if err != nil{
-				logger.L.Sugar().Errorf("Delete key of TA %s error, %v", message.taId, err)
-				return &KeyOperationReply{Result: false}, nil
-			}
-			retMessage = retKeyInfo {
-				taId:		message.taId,
-				keyId:		message.keyId,
-				hostKeyId:	message.hostKeyId,
-			}
-		case 0x80000004:
-			fallthrough
-		default:
-			logger.L.Sugar().Errorf("resolve command of TA %s failed", message.taId)
+	case 0x80000001:
+		retTAId, encKey, plainText, retKeyId, err := kcmstools.GenerateNewKey(message.taId, message.account, message.password, message.hostKeyId)
+		if err != nil {
+			logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", message.taId, err)
 			return &KeyOperationReply{Result: false}, nil
+		}
+		retMessage = retKeyInfo{
+			taId:      retTAId,
+			keyId:     retKeyId,
+			plainText: plainText,
+			hostKeyId: message.hostKeyId,
+			encKey:    encKey,
+		}
+	case 0x80000002:
+		retTAId, encKey, plainText, retKeyId, err := kcmstools.GetKey(message.taId, message.account, message.password, message.keyId, message.hostKeyId)
+		if err != nil {
+			logger.L.Sugar().Errorf("Get key of TA %s error, %v", message.taId, err)
+			return &KeyOperationReply{Result: false}, nil
+		}
+		retMessage = retKeyInfo{
+			taId:      retTAId,
+			keyId:     retKeyId,
+			plainText: plainText,
+			hostKeyId: message.hostKeyId,
+			encKey:    encKey,
+		}
+	case 0x80000003:
+		err := kcmstools.DeleteKey(message.taId, message.keyId)
+		if err != nil {
+			logger.L.Sugar().Errorf("Delete key of TA %s error, %v", message.taId, err)
+			return &KeyOperationReply{Result: false}, nil
+		}
+		retMessage = retKeyInfo{
+			taId:      message.taId,
+			keyId:     message.keyId,
+			hostKeyId: message.hostKeyId,
+		}
+	case 0x80000004:
+		fallthrough
+	default:
+		logger.L.Sugar().Errorf("resolve command of TA %s failed", message.taId)
+		return &KeyOperationReply{Result: false}, nil
 	}
 
 	encRetMessage, err = json.Marshal(retMessage)
-	if err != nil{
+	if err != nil {
 		logger.L.Sugar().Errorf("Encode return message of TA %s after get key, error, %v", message.taId, err)
 		return &KeyOperationReply{Result: false}, nil
 	}
 	out := KeyOperationReply{
-		Result:		true,
-		EncRetMessage:	encRetMessage,
+		Result:        true,
+		EncRetMessage: encRetMessage,
 	}
 	return &out, nil
 }
@@ -767,7 +775,6 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 	return bk, nil
 }
 
-
 func DoSendKCMPubKeyCert(addr string, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
 	//logger.L.Debug("invoke SendKCMPubKeyCert...")
 	ras, err := CreateConn(addr)
@@ -776,7 +783,7 @@ func DoSendKCMPubKeyCert(addr string, in *SendKCMPubKeyCertRequest) (*SendKCMPub
 	}
 	defer ras.conn.Close()
 	defer ras.cancel()
-	
+
 	bk, err := ras.c.SendKCMPubKeyCert(ras.ctx, in)
 	if err != nil {
 		logger.L.Sugar().Errorf("invoke SendKCMPubKeyCert error, %v", err)
@@ -794,7 +801,7 @@ func DoVerifyKTAPubKeyCert(addr string, in *VerifyKTAPubKeyCertRequest) (*Verify
 	}
 	defer ras.conn.Close()
 	defer ras.cancel()
-	
+
 	bk, err := ras.c.VerifyKTAPubKeyCert(ras.ctx, in)
 	if err != nil {
 		logger.L.Sugar().Errorf("invoke VerifyKTAPubKeyCert error, %v", err)
@@ -812,7 +819,7 @@ func DoKeyOperation(addr string, in *KeyOperationRequest) (*KeyOperationReply, e
 	}
 	defer ras.conn.Close()
 	defer ras.cancel()
-	
+
 	bk, err := ras.c.KeyOperation(ras.ctx, in)
 	if err != nil {
 		logger.L.Sugar().Errorf("invoke KeyOperation error, %v", err)
@@ -837,4 +844,9 @@ func aesGCMDecrypt(key, cipherText []byte) ([]byte, error) {
 		return nil, err
 	}
 	return plain, nil
+}
+
+func GetdbConfig(strDbConfig string) string {
+	return fmt.Sprintf(strDbConfig, config.GetDBUser(), config.GetDBPassword(),
+		config.GetDBName(), config.GetDBHost(), config.GetDBPort())
 }

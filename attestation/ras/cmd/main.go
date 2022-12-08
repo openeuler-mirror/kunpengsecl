@@ -27,6 +27,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/restapi"
 )
 
@@ -74,4 +75,5 @@ func main() {
 	logger.L.Debug("start server")
 	go restapi.StartServer(config.GetHttpsSwitch())
 	clientapi.StartServer(config.GetServerPort())
+	defer kdb.ReleaseKdbManager()
 }
