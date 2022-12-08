@@ -146,9 +146,18 @@ void saveTaKey(TEE_UUID TA_uuid, uint32_t keyid, char *keyvalue) {
 
 // ===================Communication with kcm from ta====================================
 
-void generateKcmRequest(){
+bool generateKcmRequest(TEE_Param params[PARAM_COUNT]){
     /* when kta can't complete ta-operation in local kta,
     generate a request and insert it in cmdqueue*/
+    // 若队列已满，则无法添加新命令
+    if (cmdqueue.head == cmdqueue.tail + 1) {
+        tloge("cmd queue is already full");
+        return false;
+    }
+    CmdNode *n = params[0].memref.buffer;
+    cmdqueue.queue[cmdqueue.tail] = *n;
+    cmdqueue.tail = (cmdqueue.tail + 1) % MAX_TA_NUM;
+    return true;
 }
 
 
@@ -170,9 +179,55 @@ TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     }
     //params[0].memref.buffer内为输入的cmd结构体
     //params[2]值固定为1
-    generateKcmRequest(); //生成请求成功或失败的结果存放到params[3]的值中
+    bool res = generateKcmRequest(params); //生成请求成功或失败的结果存放到params[3]的值中
+    if (res) {
+        params[3].value.b = 1;
+        return TEE_SUCCESS;
+    }
+    params[3].value.b = 0;
+    return TEE_ERROR_OVERFLOW;
 }
 //---------------------------SearchTAKey------------------------------------------------
+
+void flushCache(TEE_UUID taid, TEE_UUID keyid) {
+    /*
+    flush the cache according to the LRU algorithm
+    support two types of element refresh:
+    1.ta sequence;
+    2.key sequence;
+    */
+    int32_t head = cache.head;
+    if (!CheckUUID(cache.ta[head].id, taid)) {
+        int32_t cur = head;
+        int32_t nxt = cache.ta[cur].next;
+        while (nxt != -1) {
+            if (CheckUUID(cache.ta[nxt].id, taid)) {
+                cache.ta[cur].next = cache.ta[nxt].next;
+                cache.ta[nxt].next = head;
+                cache.head = nxt;
+                break;
+            }
+            cur = nxt;
+            nxt = cache.ta[nxt].next;
+        }
+    }
+    TaInfo ta = cache.ta[head];
+    head = ta.head;
+    if (!CheckUUID(ta.key[head].id, keyid)) {
+        int32_t cur = head;
+        int32_t nxt = ta.key[cur].next;
+        while (nxt != -1) {
+            if (CheckUUID(ta.key[nxt].id, keyid)) {
+                ta.key[cur].next = ta.key[nxt].next;
+                ta.key[nxt].next = head;
+                ta.head = nxt;
+                break;
+            }
+            cur = nxt;
+            nxt = ta.key[nxt].next;
+        }
+    }
+}
 
 TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     //todo: search a certain ta key, if not exist, call generateKcmRequest(）to generate SearchTAKey request
@@ -186,6 +241,34 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return TEE_ERROR_BAD_PARAMETERS;
     }
     //params[0].memref.buffer内为输入的cmd结构体
+    CmdNode *n = params[0].memref.buffer;
+    int32_t cur = cache.head;
+    while (cur != -1) {
+        if (CheckUUID(cache.ta[cur].id, n->taId)) {
+            TaInfo ta = cache.ta[cur];
+            int32_t idx = ta.head;
+            while (idx != -1) {
+                if (CheckUUID(ta.key[idx].id, n->keyId)) {
+                    params[1].memref.size = sizeof(ta.key[idx].value);
+                    params[1].memref.buffer = ta.key[idx].value;
+                    params[2].value.a = 0;
+                    // 更新cache
+                    flushCache(n->taId, n->keyId);
+                    return TEE_SUCCESS;
+                }
+                idx = ta.key[idx].next;
+            }
+        }
+        cur = cache.ta[cur].next;
+    }
+    params[2].value.a = 1;
+    bool res = generateKcmRequest(params);
+    if (res) {
+        params[3].value.b = 1;
+        return TEE_SUCCESS;
+    }
+    params[3].value.b = 0;
+    return TEE_ERROR_OVERFLOW;
 }
 
 //---------------------------DeleteTAKey------------------------------------------------
@@ -237,11 +320,10 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         tloge("get kcm reply error: reply queue is empty\n");
         return TEE_ERROR_ITEM_NOT_FOUND;
     }
-    ReplyNode nullInfo;
-    params[1].memref.size = sizeof(replyqueue.queue[0]);
+    int32_t first = replyqueue.head;
+    params[1].memref.size = sizeof(replyqueue.queue[first]);
     params[1].memref.buffer = (void*)malloc(params[1].memref.size);
-    params[1].memref.buffer = &replyqueue.queue[0];
-    replyqueue.queue[replyqueue.head] = nullInfo;
+    params[1].memref.buffer = &replyqueue.queue[first];
     replyqueue.head = (replyqueue.head + 1) % MAX_QUEUE_SIZE;
     return TEE_SUCCESS;
 }
@@ -262,51 +344,51 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     //params[0].memref.buffer内为输入的cmd结构体
     CmdNode *n = params[0].memref.buffer;
     // 验证帐号密码
-    if (!verifyTApasswd(n->keyId, n->account, n->password)) {
+    if (!verifyTApasswd(n->taId, n->account, n->password)) {
+        params[1].value.b = 0;
         return TEE_ERROR_ACCESS_DENIED;
     }
 
     // cache仅1个元素且命中
-    if (CheckUUID(cache.ta[cache.head].id, n->keyId) && cache.head == cache.tail) {
-        if (verifyTApasswd)
+    if (CheckUUID(cache.ta[cache.head].id, n->taId) && cache.head == cache.tail) {
         cache.head = END_NULL;
         cache.tail = END_NULL;
         tloge("clear ta cache succeeded.\n");
-        params[1].value.a = 1;
+        params[1].value.b = 1;
         return TEE_SUCCESS;
     }
 
     // cache仅1个元素且未命中
-    if (!CheckUUID(cache.ta[cache.head].id, n->keyId) && cache.head == cache.tail) {
+    if (!CheckUUID(cache.ta[cache.head].id, n->taId) && cache.head == cache.tail) {
         tloge("ta cache not fount.\n");
-        params[1].value.a = 0;
+        params[1].value.b = 0;
         return TEE_ERROR_ITEM_NOT_FOUND;
     }
 
     // cache有2个或以上元素
     int32_t cur = cache.head;
-    if (CheckUUID(cache.ta[cur].id, n->keyId)) {
+    if (CheckUUID(cache.ta[cur].id, n->taId)) {
         cache.head = cache.ta[cur].next;
         tloge("clear ta cache succeeded.\n");
-        params[1].value.a = 1;
+        params[1].value.b = 1;
         return TEE_SUCCESS;
     }
     int32_t nxt = cache.ta[cur].next;
     while (nxt != END_NULL) {
         TEE_UUID tmp = cache.ta[nxt].id;
-        if (CheckUUID(tmp, n->keyId)) {
+        if (CheckUUID(tmp, n->taId)) {
             cache.ta[cur].next = cache.ta[nxt].next;
             if (nxt == cache.tail) {
                 cache.tail = cur;
             }
             tloge("clear ta cache succeeded.\n");
-            params[1].value.a = 1;
+            params[1].value.b = 1;
             return TEE_SUCCESS;
         }
         cur = nxt;
         nxt = cache.ta[nxt].next;
     }
     tloge("ta cache not found.\n");
-    params[1].value.a = 0;
+    params[1].value.b = 0;
     return TEE_ERROR_ITEM_NOT_FOUND;
 }
