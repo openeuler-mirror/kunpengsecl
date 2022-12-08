@@ -38,6 +38,7 @@ const (
 	// raagent config key
 	confClientID        = "racconfig.clientid"
 	confServer          = "racconfig.server"
+	confQCAServer       = "racconfig.qcaserver"
 	confHbDuration      = "racconfig.hbduration"
 	confTrustDuration   = "racconfig.trustduration"
 	confPassword        = "racconfig.password"
@@ -109,6 +110,7 @@ type (
 		taTestMode    bool
 		eKeyCert      []byte
 		iKeyCert      []byte
+		qcaserver     string
 
 		// for TPM chip
 		password string
@@ -295,6 +297,7 @@ func loadConfigs() {
 	racCfg.password = viper.GetString(confPassword)
 	racCfg.digest = viper.GetString(confDigestAlgorithm)
 	racCfg.seed = viper.GetInt64(confSeed)
+	racCfg.qcaserver = viper.GetString(confQCAServer)
 }
 
 // saveConfigs saves all config variables to the config.yaml file.
@@ -429,6 +432,22 @@ func SetServer(s string) {
 		return
 	}
 	racCfg.server = s
+}
+
+// GetQCAServer returns the qca server listening ip:port configuration.
+func GetQCAServer() string {
+	if racCfg == nil {
+		return ""
+	}
+	return racCfg.qcaserver
+}
+
+// SetQCAServer sets the qca server listening ip:port configuration.
+func SetQCAServer(s string) {
+	if racCfg == nil {
+		return
+	}
+	racCfg.qcaserver = s
 }
 
 // GetTestMode returns the test mode configuration.

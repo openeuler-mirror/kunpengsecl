@@ -24,12 +24,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os/exec"
 	"strings"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
-	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
@@ -835,7 +836,7 @@ func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {
 }
 
 // GetTrustReport takes a nonce input, generates the current trust report
-func GetTrustReport(clientID int64, nonce uint64, algStr string, taInputs map[string]TaReportInput, taTestMode bool) (*typdefs.TrustReport, error) {
+func GetTrustReport(clientID int64, nonce uint64, algStr string, taInputs map[string]TaReportInput, taTestMode bool, qcaserver string) (*typdefs.TrustReport, error) {
 	if tpmRef == nil {
 		return nil, ErrFailTPMInit
 	}
@@ -891,16 +892,35 @@ func GetTrustReport(clientID int64, nonce uint64, algStr string, taInputs map[st
 	report.TaReports = make(map[string][]byte)
 	if !taTestMode {
 		for uuid, taReportInput := range taInputs {
-			taReport := qcatools.GetTAReport([]byte(taReportInput.Uuid), taReportInput.UserData, taReportInput.WithTcb)
-			if err == nil {
-				report.TaReports[uuid] = taReport
+			taReport, err := getTaReport(taReportInput, qcaserver)
+			if err != nil {
+				return nil, err
 			}
+			report.TaReports[uuid] = taReport
 		}
 	} else {
 		report.TaReports[uuid1] = taReport1
 	}
 
 	return &report, nil
+}
+
+// remote invoke qca api to get the TA's info
+func getTaReport(tain TaReportInput, server string) ([]byte, error) {
+	reqID := qapi.GetReportRequest{
+		Uuid:    []byte(tain.Uuid),
+		Nonce:   tain.UserData,
+		WithTcb: tain.WithTcb,
+	}
+
+	rpyID, err := qapi.DoGetTeeReport(server, &reqID)
+	if err != nil {
+		log.Printf("Get TA infomation failed, error: %v", err)
+		return nil, err
+	}
+	log.Print("Get TA report succeeded!")
+
+	return rpyID.GetTeeReport(), nil
 }
 
 func getManifest(imaPath, biosPath string) ([]typdefs.Manifest, error) {

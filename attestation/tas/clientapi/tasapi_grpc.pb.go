@@ -97,5 +97,5 @@ var Tas_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "clientapi/api.proto",
+	Metadata: "clientapi/tasapi.proto",
 }

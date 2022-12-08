@@ -984,11 +984,10 @@ type baseValueJson struct {
 }
 
 type tabaseValueJson struct {
-	Uuid       string `json:"uuid"`
-	Name       string `json:"name"`
-	Enabled    bool   `json:"enabled"`
-	Valueinfo  []byte `json:"valueinfo"`
-	IsNewGroup bool   `json:"isnewgroup"` // TRUE represent this request will create a new group of base value, otherwise it just be added in an existing base value group. This field must be contained in the request!
+	Uuid      string `json:"uuid"`
+	Name      string `json:"name"`
+	Enabled   bool   `json:"enabled"`
+	Valueinfo []byte `json:"valueinfo"`
 }
 
 // (POST /{id}/newbasevalue)
