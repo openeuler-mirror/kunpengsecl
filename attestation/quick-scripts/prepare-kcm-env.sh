@@ -1,8 +1,8 @@
 #/bin/sh
 ### This script is used to prepare the certificate chain needed for key-cache program execution.
 
-KCMSPATH=../ras/kcms/cert
-KAPATH=../rac/ka/cert
+KCMSPATH=../ras/cert
+KAPATH=../rac/cmd/raagent/cert
 CAVAR=./var
 ca_subj="/C=CN/ST=Shanghai/L=Shanghai/O=Huawei/CN=ca"
 kta_subj="/C=CN/ST=Shanghai/L=Shanghai/O=Huawei/CN=kta"

@@ -19,142 +19,79 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"time"
 	"unsafe"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
-	"go.uber.org/zap"
 )
 
 const (
-	RSA_PUBLIC_SZIE  = 4096
-	CERTIFICATE_SIZE = 3024
+	CMD_DATA_SZIE = 4096 // Now set randomly
 )
 
-/*
-   初始化KTA阶段主要分为以下几个过程
-   1.ka向KCM发起请求获取KCM公钥证书
-       GetKCMCert()certificate
-   2.验证KCM证书
-   3.对KTA进行初始化，传递KCM公钥
-   4.KTA侧返回KTA公钥证书
-   5.KA向KCM传递设备ID、KTA公钥证书
-*/
-/*
-using the cert of kcm to initialize the kta
-will get the kta cert by byte array and error
-*/
-func InitialKTA(cert *x509.Certificate) ([]byte, error) {
-	//verify the cert of kcm
-	err := verifyCert("./test.crt", cert)
-	if err != nil {
-		return []byte{}, err
-	}
-	pub := cert.PublicKey
-	pubKey, err := x509.MarshalPKIXPublicKey(pub)
-	if err != nil {
-		return []byte{}, err
-	}
-	pub_buf := C.CBytes(pubKey)
-	c_request_data := C.struct_buffer_data{
-		C.__uint32_t(len(pubKey)), (*C.uchar)(pub_buf)}
-	c_response_data := C.struct_buffer_data{}
-	cmd := C.uint(1)
-	c_response_data.size = C.uint(CERTIFICATE_SIZE)
-	c_response_data.buf = (*C.uint8_t)(C.malloc(C.ulong(c_response_data.size)))
-
-	C.RemoteAttestKTA(cmd, &c_request_data, &c_response_data)
-	testByte := []byte(C.GoBytes(unsafe.Pointer(c_response_data.buf), C.int(c_response_data.size)))
-	fmt.Println(string(testByte))
-	fmt.Println(c_response_data.size)
-	return []byte{}, nil
-}
-
-func verifyCert(s string, cert *x509.Certificate) error {
-	return nil
-}
-
-// func InitialKTA() {
-// 	//测试KTA的初始化过程
-// 	c_request_data := C.struct_buffer_data{}
-// 	c_response_data := C.struct_buffer_data{}
-// 	cmd := C.uint(1)
-
-// 	C.RemoteAttestKTA(cmd, &c_request_data, &c_response_data)
-// 	testByte := []byte(C.GoBytes(unsafe.Pointer(c_response_data.buf), C.int(c_response_data.size)))
-// 	fmt.Println(string(testByte))
-// }
-// func main() {
-// 	cert, _, err := cryptotools.DecodeKeyCertFromFile("../cert/kta.crt")
-// 	if err != nil {
-// 		fmt.Println("failed")
-// 		return
-// 	}
-// 	_, err = InitialKTA(cert)
-// 	fmt.Println(err)
-// 	//InitialKTA()
-// }
-
 // KA主函数
-func KaMain(addr string, id int64, raclog *zap.Logger) {
+func KaMain(addr string, id int64) {
 	logger.L.Debug("start ka...")
-	logger.L = raclog
+	loadConfigs()
 	err := getContextSession()
 	if err != nil {
 		logger.L.Sugar().Errorf("open session failed, %s", err)
+		return
 	}
 	defer C.KTAshutdown()
 	ras, err := clientapi.CreateConn(addr)
 	if err != nil {
 		logger.L.Sugar().Errorf("connect ras server fail, %s", err)
+		return
 	}
 	defer clientapi.ReleaseConn(ras)
+	err1 := kaInitialize(ras, id)
+	if err1 != nil {
+		logger.L.Sugar().Errorf("ka initial process fail, %s", err)
+		return
+	}
+	// 轮询密钥请求过程
+	kaLoop(ras, GetPollDuration())
+
+}
+func kaInitialize(ras *clientapi.RasConn, id int64) error {
 	logger.L.Debug("ka initialize...")
 	// 从clientapi获得公钥证书
 	kcm_cert_data, err := clientapi.DoSendKCMPubKeyCertWithConn(ras, &clientapi.SendKCMPubKeyCertRequest{})
-	// kcm_cert_data, err := ioutil.ReadFile("../../../ras/kcms/cert/kcm.crt")
 	if err != nil || !kcm_cert_data.Result {
 		logger.L.Sugar().Errorf("get kcm cert from clientapi error, %s", err)
+		return err
 	}
 	kcm_cert, _, err := cryptotools.DecodeKeyCertFromPEM(kcm_cert_data.KcmPubKeyCert)
 	if err != nil {
 		logger.L.Sugar().Errorf("decode kcm cert from clientapi error, %s", err)
+		return err
 	}
 	// 验证公钥证书
-	ca_cert, _, err := cryptotools.DecodeKeyCertFromFile("../cert/ca.crt")
+	ca_cert, _, err := cryptotools.DecodeKeyCertFromFile(getCaCertFile())
 	if err != nil {
 		logger.L.Sugar().Errorf("decode ca cert from file error, %s", err)
+		return err
 	}
 	err1 := validateCert(kcm_cert, ca_cert)
 	if err1 != nil {
 		logger.L.Sugar().Errorf("validate kcm cert error, %s", err1)
+		return err1
 	} else {
 		logger.L.Debug("validate kcm cert success")
 	}
-	// kcm公钥
-	pub1 := kcm_cert.PublicKey
-	kcmPubkey, err := x509.MarshalPKIXPublicKey(pub1)
+	kcmPubkey, ktaPubCert, ktaPrivKey, err := getSendKtaData(kcm_cert)
 	if err != nil {
-		logger.L.Sugar().Errorf("decode kcm pubkey error, %s", err1)
+		logger.L.Sugar().Errorf("get send kta data fail, %s", err)
+		return err
 	}
-	// kta私钥
-	keypemData, err := ioutil.ReadFile("../cert/kta.key")
-	if err != nil {
-		logger.L.Sugar().Errorf("read kta privkey from file error, %s", err)
-	}
-	block, _ := pem.Decode(keypemData)
-	ktaPrivKey := block.Bytes
-	// kta公钥证书
-	ktaPubCert, err := ioutil.ReadFile("../cert/kta.crt")
-	if err != nil {
-		logger.L.Sugar().Errorf("read kta pubcert from file error, %s", err)
-	}
-
 	ktaCert, err := initialKTA(kcmPubkey, ktaPrivKey, ktaPubCert)
 	if err != nil {
 		logger.L.Sugar().Errorf("init kta fail, %s", err)
+		return err
 	}
 	ktaPubBlock, _ := pem.Decode(ktaCert)
 	req := clientapi.VerifyKTAPubKeyCertRequest{
@@ -165,14 +102,38 @@ func KaMain(addr string, id int64, raclog *zap.Logger) {
 	rpy, err := clientapi.DoVerifyKTAPubKeyCertWithConn(ras, &req)
 	if err != nil || !rpy.Result {
 		logger.L.Sugar().Errorf("kcm verify kta pubKeycert error, %s", err)
+		return err
 	}
 	// 删除密钥文件
-	// os.Remove("../../ka/cert/kta.key")
-	// os.Remove("../../ka/cert/kta.crt")
+	removeKeyFile()
 	logger.L.Debug("ka initialize done")
-	// 轮询密钥请求过程
-	kaLoop(ras, 1*time.Second)
+	return nil
+}
+func getSendKtaData(kcm_cert *x509.Certificate) ([]byte, []byte, []byte, error) {
+	pub1 := kcm_cert.PublicKey
+	kcmPubkey, err := x509.MarshalPKIXPublicKey(pub1)
+	if err != nil {
+		logger.L.Sugar().Errorf("decode kcm pubkey error, %s", err)
+		return nil, nil, nil, err
+	}
+	ktaPubCert, err := ioutil.ReadFile(getKtaCertFile())
+	if err != nil {
+		logger.L.Sugar().Errorf("read kta pubcert from file error, %s", err)
+		return nil, nil, nil, err
+	}
+	keypemData, err := ioutil.ReadFile(getKtaKeyFile())
+	if err != nil {
+		logger.L.Sugar().Errorf("read kta privkey from file error, %s", err)
+		return nil, nil, nil, err
+	}
+	block, _ := pem.Decode(keypemData)
+	ktaPrivKey := block.Bytes
 
+	return kcmPubkey, ktaPubCert, ktaPrivKey, nil
+}
+func removeKeyFile() {
+	os.Remove(getKtaCertFile())
+	os.Remove(getKtaKeyFile())
 }
 
 // 轮询函数
@@ -213,20 +174,21 @@ func getContextSession() error {
 }
 
 //初始化KTA
-func initialKTA(kcmPubkey []byte, ktaPrivKey []byte, ktaPubCert []byte) ([]byte, error) {
+func initialKTA(kcmPubkey []byte, ktaPubCert []byte, ktaPrivKey []byte) ([]byte, error) {
 
 	c_kcmPubkey := C.CBytes(kcmPubkey)
 	defer C.free(c_kcmPubkey)
 	c_request_data1 := C.struct_buffer_data{
 		C.__uint32_t(len(kcmPubkey)), (*C.uchar)(c_kcmPubkey)}
-	c_ktaPrivKey := C.CBytes(ktaPrivKey)
-	defer C.free(c_ktaPrivKey)
-	c_request_data2 := C.struct_buffer_data{
-		C.__uint32_t(len(ktaPrivKey)), (*C.uchar)(c_ktaPrivKey)}
 	c_ktaPubCert := C.CBytes(ktaPubCert)
 	defer C.free(c_ktaPubCert)
-	c_request_data3 := C.struct_buffer_data{
+	c_request_data2 := C.struct_buffer_data{
 		C.__uint32_t(len(ktaPubCert)), (*C.uchar)(c_ktaPubCert)}
+	c_ktaPrivKey := C.CBytes(ktaPrivKey)
+	defer C.free(c_ktaPrivKey)
+	c_request_data3 := C.struct_buffer_data{
+		C.__uint32_t(len(ktaPrivKey)), (*C.uchar)(c_ktaPrivKey)}
+
 	// 返回值
 	c_response_data := C.struct_buffer_data{}
 	c_response_data.size = C.__uint32_t(len(ktaPubCert))
@@ -244,7 +206,7 @@ func initialKTA(kcmPubkey []byte, ktaPrivKey []byte, ktaPubCert []byte) ([]byte,
 func getKTACmd() ([]byte, error) {
 	c_cmd_data := C.struct_buffer_data{}
 	// malloc大小待设置
-	c_cmd_data.size = C.__uint32_t(10000)
+	c_cmd_data.size = C.__uint32_t(CMD_DATA_SZIE)
 	c_cmd_data.buf = (*C.uint8_t)(C.malloc(C.ulong(c_cmd_data.size)))
 	teec_result := C.KTAgetCommand(&c_cmd_data)
 	if int(teec_result) != 0 {
