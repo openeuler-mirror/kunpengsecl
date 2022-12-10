@@ -35,17 +35,17 @@ package trustmgr
 #include <stdio.h>
 #include <stdlib.h>
 
-base_value* build_basevalue(uint8_t *data){
+base_value* build_basevalue(uint8_t *uuid,uint8_t *data){
 	base_value *baseval = NULL;
 	baseval = (base_value *)calloc(1, sizeof(base_value));
 	for(int i=0;i<16;i++){
-		baseval->uuid[i]=*(data+i);
+		baseval->uuid[i]=*(uuid+i);
 	}
 	for(int i=0;i<32;i++){
-		baseval->valueinfo[0][i]=*(data+16+i);
+		baseval->valueinfo[0][i]=*(data+i);
 	}
 	for(int i=0;i<32;i++){
-		baseval->valueinfo[1][i]=*(data+48+i);
+		baseval->valueinfo[1][i]=*(data+32+i);
 	}
 	return baseval;
 }
@@ -99,9 +99,9 @@ const (
 	sqlFindDeviceBaseValuesByClientID    = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='device' ORDER BY createtime ASC`
 	sqlFindBaseValueByID                 = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE id=$1 ORDER BY createtime ASC`
 	sqlFindBaseValueByUuid               = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
-	sqlFindTaBaseValuesByUuid            = `SELECT id, clientid, uuid, createtime, name FROM tabase WHERE clientid=$1 AND uuid=$2 ORDER BY createtime ASC`
-	sqlFindAllEnabledTaBaseValuesByCid   = `SELECT id, clientid, uuid, createtime, name FROM tabase WHERE clientid=$1 AND enabled=true ORDER BY createtime ASC`
-	sqlFindTaBaseValueByID               = `SELECT id, clientid, uuid, createtime, name FROM tabase WHERE id=$1 ORDER BY createtime ASC`
+	sqlFindTaBaseValuesByUuid            = `SELECT id, clientid, uuid, createtime, name, valueinfo FROM tabase WHERE clientid=$1 AND uuid=$2 ORDER BY createtime ASC`
+	sqlFindAllEnabledTaBaseValuesByCid   = `SELECT id, clientid, uuid, createtime, name, valueinfo FROM tabase WHERE clientid=$1 AND enabled=true ORDER BY createtime ASC`
+	sqlFindTaBaseValueByID               = `SELECT id, clientid, uuid, createtime, name, valueinfo FROM tabase WHERE id=$1 ORDER BY createtime ASC`
 	sqlDeleteReportByID                  = `DELETE FROM report WHERE id=$1`
 	sqlDeleteTaReportByID                = `DELETE FROM tareport WHERE id=$1`
 	sqlDeleteBaseValueByID               = `DELETE FROM base WHERE id=$1`
@@ -685,11 +685,13 @@ func FindTaBaseValueByID(id int64) (*typdefs.TaBaseRow, error) {
 		return nil, typdefs.ErrParameterWrong
 	}
 	tabasevalue := &typdefs.TaBaseRow{}
+	var vi string
 	err := tmgr.db.QueryRow(sqlFindTaBaseValueByID, id).Scan(&tabasevalue.ID,
-		&tabasevalue.ClientID, &tabasevalue.Uuid, &tabasevalue.CreateTime, &tabasevalue.Name)
+		&tabasevalue.ClientID, &tabasevalue.Uuid, &tabasevalue.CreateTime, &tabasevalue.Name, &vi)
 	if err != nil {
 		return nil, err
 	}
+	tabasevalue.Valueinfo, _ = base64.StdEncoding.DecodeString(vi)
 	return tabasevalue, nil
 }
 
@@ -705,11 +707,13 @@ func FindTaBaseValuesByCid(cid int64) ([]*typdefs.TaBaseRow, error) {
 	tabasevalues := make([]*typdefs.TaBaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.TaBaseRow{}
+		var vi string
 		err2 := rows.Scan(&res.ID, &res.ClientID, &res.Uuid,
-			&res.CreateTime, &res.Name)
+			&res.CreateTime, &res.Name, &vi)
 		if err2 != nil {
 			return nil, err2
 		}
+		res.Valueinfo, _ = base64.StdEncoding.DecodeString(vi)
 		tabasevalues = append(tabasevalues, &res)
 	}
 	return tabasevalues, nil
@@ -727,11 +731,13 @@ func FindTaBaseValuesByUuid(cid int64, taid string) ([]*typdefs.TaBaseRow, error
 	tabasevalues := make([]*typdefs.TaBaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.TaBaseRow{}
+		var vi string
 		err2 := rows.Scan(&res.ID, &res.ClientID, &res.Uuid,
-			&res.CreateTime, &res.Name)
+			&res.CreateTime, &res.Name, &vi)
 		if err2 != nil {
 			return nil, err2
 		}
+		res.Valueinfo, _ = base64.StdEncoding.DecodeString(vi)
 		tabasevalues = append(tabasevalues, &res)
 	}
 	return tabasevalues, nil
@@ -1081,8 +1087,8 @@ func VerifyTaReport(report *typdefs.TrustReport) {
 		buf_data.buf = (*C.uchar)(up_buf_data_buf)
 
 		c, _ := GetCache(report.ClientID)
-		basevalue := C.build_basevalue((*C.uchar)(C.CBytes(c.TaBases[uuid].Valueinfo)))
-		ans := C.tee_verify_report2(&buf_data, C.int(typdefs.TaVerifyType), basevalue)
+		basevalue := C.build_basevalue((*C.uchar)(C.CBytes(taReport[76:92])), (*C.uchar)(C.CBytes(c.TaBases[uuid].Valueinfo)))
+		ans := C.tee_verify_report2(&buf_data, C.int(config.GetTaVerifyType()), basevalue)
 		var trusted string
 		if ans == 0 {
 			trusted = cache.StrTrusted
@@ -1116,8 +1122,7 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	extractFromOldBases(bases, &newBase, report)
 	taBases := map[string]*typdefs.TaBaseRow{}
 	for uuid, taReport := range report.TaReports {
-		valueinfo := make([]byte, typdefs.TaBaseLen)
-		valueinfo = taReport[104:168] // refer to struct TaReport
+		valueinfo := taReport[104:168] // refer to struct TaReport
 		base := typdefs.TaBaseRow{
 			ClientID:   report.ClientID,
 			Uuid:       uuid,

@@ -576,6 +576,7 @@ type cfgRecord struct {
 	DigestAlgorithm string `json:"digestalgorithm" form:"digestalgorithm"`
 	MgrStrategy     string `json:"mgrstrategy" form:"mgrstrategy"`
 	ExtractRules    string `json:"extractrules" form:"extractrules"`
+	TaVerifyType    int    `json:"taverifytype" form:"taverifytype"`
 }
 
 func genConfigJson() *cfgRecord {
@@ -587,6 +588,7 @@ func genConfigJson() *cfgRecord {
 		DigestAlgorithm: config.GetDigestAlgorithm(),
 		MgrStrategy:     config.GetMgrStrategy(),
 		ExtractRules:    getExtractRules(),
+		TaVerifyType:    config.GetTaVerifyType(),
 	}
 }
 
@@ -616,7 +618,7 @@ func genConfigHtml() string {
 //  read config as html
 //    curl -X GET http://localhost:40002/config
 //  read config as json
-//    curl -k -X GET -H "Content-type: application/json" https://localhost:40003/config
+//    curl -k -X GET -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" https://localhost:40003/config
 func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson())
@@ -629,12 +631,13 @@ func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 //  write config as html/form
 //    curl -X POST -d "hbduration=10s" -d "trustduration=2m0s"  -d"isallupdate=true" http://localhost:40002/config
 //  write config as json
-//    curl -X POST -H "Content-type: application/json" -d '{"hbduration":"10s", "trustduration":"2m0s", "isallupdate": true}' http://localhost:40002/config
+//    curl -X POST -k -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" -d '{"hbduration":"10s", "trustduration":"2m0s", "isallupdate": true}' https://localhost:40003/config
 // Notice: key name must be enclosed by "" in json format!!!
 func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 	cfg := new(cfgRecord)
 	cfg.IsAllupdate = config.GetIsAllUpdate()
 	cfg.LogTestMode = config.GetLoggerMode()
+	cfg.TaVerifyType = config.GetTaVerifyType()
 	err := ctx.Bind(cfg)
 	if err != nil {
 		logger.L.Sugar().Debugf(errNoClient, err)
@@ -671,6 +674,9 @@ func configSet(cfg *cfgRecord) {
 	}
 	if cfg.ExtractRules != strNull {
 		config.SetExtractRules(cfg.ExtractRules)
+	}
+	if cfg.TaVerifyType == 1 || cfg.TaVerifyType == 2 || cfg.TaVerifyType == 3 {
+		config.SetTaVerifyType(cfg.TaVerifyType)
 	}
 }
 
@@ -987,14 +993,15 @@ type tabaseValueJson struct {
 	Uuid      string `json:"uuid"`
 	Name      string `json:"name"`
 	Enabled   bool   `json:"enabled"`
-	Valueinfo []byte `json:"valueinfo"`
+	Valueinfo string `json:"valueinfo"`
 }
 
 // (POST /{id}/newbasevalue)
 //  save node {id} a new base value by html
 //    curl -X POST -H "Content-type: multipart/form-data" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/1/newbasevalue
 //  save node {id} a new base value by json
-//    curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/newbasevalue -d '{"name":"test", "enabled":true, "pcr":"pcr value", "bios":"bios value", "ima":"ima value", "isnewgroup":false}'
+// (pcr,bios,ima的赋值要经过安全检查，不满足的会发出解析错误，可以参考attestation\test\integration\manual_mode_test.sh的测试样例)
+//    curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -k https://localhost:40003/{id}/newbasevalue -d '{"name":"test", "enabled":true,"isnewgroup":false}'
 //  save node {id} a new base value by xml (a simple base RIM file according to TCG Reference Integrity Manifest (RIM) Information Model https://trustedcomputinggroup.org/wp-content/uploads/TCG_RIM_Model_v1p01_r0p16_pub.pdf)
 //    curl -X POST -H "Content-Type: text/xml" -k https://localhost:40003/{id}/newbasevalue -d [Signed base RIM according to TCG RIM spec]
 func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
@@ -1045,9 +1052,18 @@ func (s *MyRestAPIServer) postBValueByXml(ctx echo.Context, id int64) error {
 	return ctx.JSON(http.StatusOK, "add a new base value by RIM OK!")
 }
 
+//这三个正则表达式用于对新添加的基准值的pcr,bios，ima做安全检查，只有符合相应规则的值才能被正确解析并添加
 var (
-	reBvPcr  = regexp.MustCompile(`(?m)\A\z|\A(^[0-9]{1,2} [[:xdigit:]]{40,128}\n)+\z`)
-	reBvIma  = regexp.MustCompile(`(?m)\A\z|\A(^(ima-ng (sha1|sha256|sm3):[[:xdigit:]]{40,64}|ima [[:xdigit:]]{40}) [[:print:]]+\n)+\z`)
+	// 匹配一个多行字符串，每行可以是一个空行，
+	// 或者每行以 1 到 2 个数字开头，后面跟着 40 到 128 个十六进制数字，最后以换行符结束。
+	reBvPcr = regexp.MustCompile(`(?m)\A\z|\A(^[0-9]{1,2} [[:xdigit:]]{40,128}\n)+\z`)
+	// 匹配一个多行字符串，每行可以是一个空行，
+	// 或者每行以 "ima-ng (sha1|sha256|sm3):" 或 "ima" 开头，后面跟着 40 到 64 个十六进制数字，
+	// 最后以一个或多个打印字符（包括空格和换行符）结束
+	reBvIma = regexp.MustCompile(`(?m)\A\z|\A(^(ima-ng (sha1|sha256|sm3):[[:xdigit:]]{40,64}|ima [[:xdigit:]]{40}) [[:print:]]+\n)+\z`)
+	// 匹配一个多行字符串，每行可以是一个空行，
+	// 或者每行以 1 到 8 个十六进制数字、一个连字符和一个或多个数字开头，后面跟着 40 个十六进制数字、一个空格和 "sha256:"，
+	// 然后是 64 个十六进制数字，最后是 "N/A" 或 "sm3:" 和 64 个十六进制数字，最后以换行符结束。
 	reBvBios = regexp.MustCompile(`(?m)\A\z|\A(^[[:xdigit:]]{1,8}-[0-9]+ [[:xdigit:]]{40} sha256:[[:xdigit:]]{64} (N/A|sm3:[[:xdigit:]]{64})\n)+\z`)
 )
 
@@ -1179,7 +1195,7 @@ func (s *MyRestAPIServer) postTaBValueByJson(ctx echo.Context, id int64, tauuid 
 		Uuid:       tauuid,
 		CreateTime: time.Now(),
 		Name:       bv.Name,
-		Valueinfo:  bv.Valueinfo,
+		Valueinfo:  []byte(bv.Valueinfo),
 	}
 
 	trustmgr.DisableTaBaseByUuid(id, tauuid)
