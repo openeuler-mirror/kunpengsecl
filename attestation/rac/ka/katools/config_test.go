@@ -4,6 +4,8 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -23,12 +25,25 @@ func CreateClientConfigFile() {
 func RemoveConfigFile() {
 	os.Remove(configFilePath)
 }
+func PrepareConfig() {
+	viper.SetConfigName(confName)
+	viper.SetConfigType(confExt)
+	for _, s := range defaultPaths {
+		viper.AddConfigPath(s)
+	}
+	err := viper.ReadInConfig()
+	if err != nil {
+		// fmt.Printf("read config file error: %v\n", err)
+		return
+	}
+}
 
 func TestGetPollDuration(t *testing.T) {
 	CreateClientConfigFile()
 	defer RemoveConfigFile()
+	PrepareConfig()
 	loadConfigs()
-	polldur := GetPollDuration()
+	polldur := getPollDuration()
 	if polldur == 0 {
 		t.Errorf("Get poll duration error\n")
 	}
@@ -38,6 +53,7 @@ func TestGetPollDuration(t *testing.T) {
 func TestGetCaCertFile(t *testing.T) {
 	CreateClientConfigFile()
 	defer RemoveConfigFile()
+	PrepareConfig()
 	loadConfigs()
 	caCert := getCaCertFile()
 	if caCert == nullString {
@@ -48,6 +64,7 @@ func TestGetCaCertFile(t *testing.T) {
 func TestGetKtaCertFile(t *testing.T) {
 	CreateClientConfigFile()
 	defer RemoveConfigFile()
+	PrepareConfig()
 	loadConfigs()
 	ktaCert := getKtaCertFile()
 	if ktaCert == nullString {
@@ -59,6 +76,7 @@ func TestGetKtaCertFile(t *testing.T) {
 func TestGetKtaKeyFile(t *testing.T) {
 	CreateClientConfigFile()
 	defer RemoveConfigFile()
+	PrepareConfig()
 	loadConfigs()
 	ktaKey := getKtaKeyFile()
 	if ktaKey == nullString {

@@ -24,14 +24,16 @@ struct buffer_data{
 #define TAG_ERROR "[error]"
 #define tloge(fmt, args...) printf("[%s] %s %d:" fmt " ", LIBKTA_PREFIX, TAG_ERROR, __LINE__, ##args)
 
-TEEC_Result RemoteAttestInitial(uint32_t cmdnum,struct buffer_data *req,struct buffer_data*rsp);
-
-TEEC_Result RemoteAttestKTA(uint32_t cmdnum,struct buffer_data *req,struct buffer_data *rsp);
-
 TEEC_Result InitContextSession();
+
 TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey, struct buffer_data* ktaPubCert, struct buffer_data* ktaPrivKey, struct buffer_data *out_data);
+
 TEEC_Result KTAgetCommand(struct buffer_data* out_data);
+
 TEEC_Result KTAsendCommandreply(struct buffer_data* in_data);
+
 void KTAshutdown();
+
+TEEC_Result KTAterminate();
 
 #endif

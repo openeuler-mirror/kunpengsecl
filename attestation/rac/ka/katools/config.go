@@ -1,7 +1,6 @@
 package katools
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/spf13/viper"
@@ -57,23 +56,23 @@ func loadConfigs() {
 	// set default values
 	kaCfg = &kaConfig{}
 	// set config.yaml loading name and path
-	viper.SetConfigName(confName)
-	viper.SetConfigType(confExt)
-	for _, s := range defaultPaths {
-		viper.AddConfigPath(s)
-	}
-	err := viper.ReadInConfig()
-	if err != nil {
-		fmt.Printf("read config file error: %v\n", err)
-		return
-	}
+	// viper.SetConfigName(confName)
+	// viper.SetConfigType(confExt)
+	// for _, s := range defaultPaths {
+	// 	viper.AddConfigPath(s)
+	// }
+	// err := viper.ReadInConfig()
+	// if err != nil {
+	// 	fmt.Printf("read config file error: %v\n", err)
+	// 	return
+	// }
 	kaCfg.pollDuration = viper.GetDuration(confKaPollDuration)
 	kaCfg.ccFile = viper.GetString(confCKeyCert)
 	kaCfg.kcFile = viper.GetString(confKKeyCert)
 	kaCfg.kKeyFile = viper.GetString(confKKeyFile)
 }
 
-func GetPollDuration() time.Duration {
+func getPollDuration() time.Duration {
 	if kaCfg == nil {
 		return 0
 	}
