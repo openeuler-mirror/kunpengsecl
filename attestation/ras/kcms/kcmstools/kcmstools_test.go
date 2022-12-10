@@ -642,6 +642,7 @@ func TestDeleteKey(t *testing.T) {
 		t.Logf(constsavekeyinfofailed, err)
 	}
 
+	//_, _, err = DeleteKey(taid, keyid)
 	err = DeleteKey(taid, keyid)
 	if err == nil {
 		t.Logf("delete key information success")
@@ -664,7 +665,7 @@ func TestVerifyKTAPubKeyCert(t *testing.T) {
 	}
 	defer os.RemoveAll(certpath)
 
-	err = VerifyKTAPubKeyCert(deviceID, string(ktacert))
+	err = VerifyKTAPubKeyCert(deviceID, ktacert)
 	if err == nil {
 		t.Logf("verify KTAPubKeyCert success")
 	} else {
@@ -709,7 +710,7 @@ func TestGenerateNewKey(t *testing.T) {
 		t.Errorf("save public key in database failed, error: %v", err)
 	}
 	defer kdb.DeletePubKeyInfo(deviceID)
-	_, _, _, keyid, err := GenerateNewKey(taid, account, password, hostkeyid)
+	_, _, _, _, keyid, err := GenerateNewKey(taid, account, password, hostkeyid)
 	if err == nil {
 		t.Logf("test generate new key success")
 	} else {
@@ -748,7 +749,7 @@ func TestGetKey(t *testing.T) {
 	}
 	defer kdb.DeleteKeyInfo(string(taid), string(keyid))
 
-	_, _, _, _, err = GetKey(taid, account, password, keyid, hostkeyid)
+	_, _, _, _, _, err = GetKey(taid, account, password, keyid, hostkeyid)
 	if err == nil {
 		t.Logf("test get key success")
 	} else {
