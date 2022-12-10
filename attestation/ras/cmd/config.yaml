@@ -26,6 +26,7 @@ rasconfig:
   serverport: 127.0.0.1:40001
   onlineduration: 30s
   mgrstrategy: "auto"
+  taverifytype: 3
   basevalue-extract-rules:
     manifest:
     - name:

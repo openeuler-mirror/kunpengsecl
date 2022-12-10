@@ -60,7 +60,6 @@ const (
 	PcrMaxNum       = 24
 	StrTimeFormat   = `2006-01-02 15:04:05.999 -07:00`
 	DigestAlgStr    = "digestAlg"
-	TaVerifyType    = 3
 	TaBaseLen       = 64
 )
 
