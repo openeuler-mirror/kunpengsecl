@@ -17,6 +17,7 @@ enum {
     CMD_KTA_INITIALIZE      = 0x00000001, //send request to kta for setup snd initialization, get parameters kta generated during initialization
     CMD_GET_REQUEST         = 0x00000002, //ask kta for commands in its cmdqueue, and send ta identification whose trusted status needs to update
     CMD_RESPOND_REQUEST     = 0x00000003, //reply a command to kta(maybe one)
+    CMD_CLOSE_KTA           = 0x00000004,
 };
 
 TEEC_Context context = {0};
@@ -86,7 +87,7 @@ TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey, struct buffer_data* kta
 // 从KTA拿取密钥请求
 TEEC_Result KTAgetCommand(struct buffer_data* out_data){
     TEEC_Operation operation = {0};
-    uint32_t origin = 1;
+    uint32_t origin = 0;
     TEEC_Result ret;
 
     operation.started = OPERATION_START_FLAG;
@@ -111,7 +112,7 @@ TEEC_Result KTAgetCommand(struct buffer_data* out_data){
 TEEC_Result KTAsendCommandreply(struct buffer_data* in_data){
     TEEC_Operation operation = {0};
     TEEC_Value ktares = {0};
-    uint32_t origin = 2;
+    uint32_t origin = 0;
     TEEC_Result ret;
 
     operation.started = OPERATION_START_FLAG;
@@ -139,4 +140,24 @@ TEEC_Result KTAsendCommandreply(struct buffer_data* in_data){
 void KTAshutdown() {
     TEEC_CloseSession(&session);
     TEEC_FinalizeContext(&context);
+}
+
+// 终止kta, 测试用
+TEEC_Result KTAterminate(){
+    TEEC_Operation operation = {0};
+    uint32_t origin = 0;
+    TEEC_Result ret;
+
+    operation.started = OPERATION_START_FLAG;
+    operation.paramTypes = TEEC_PARAM_TYPES(
+        TEEC_NONE, 
+        TEEC_NONE,
+        TEEC_NONE,
+        TEEC_NONE
+    );
+    ret = TEEC_InvokeCommand(&session, CMD_CLOSE_KTA, &operation, &origin);
+    if (ret != TEEC_SUCCESS) {
+        return ret;
+    }
+    return TEEC_SUCCESS;
 }

@@ -17,7 +17,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -50,15 +49,13 @@ func KaMain(addr string, id int64) {
 	defer clientapi.ReleaseConn(ras)
 	err1 := kaInitialize(ras, id)
 	if err1 != nil {
-		logger.L.Sugar().Errorf("ka initial process fail, %s", err)
 		return
 	}
 	// 轮询密钥请求过程
-	kaLoop(ras, GetPollDuration())
-
+	kaLoop(ras, getPollDuration())
+	logger.L.Debug("ka closed...")
 }
 func kaInitialize(ras *clientapi.RasConn, id int64) error {
-	logger.L.Debug("ka initialize...")
 	// 从clientapi获得公钥证书
 	kcm_cert_data, err := clientapi.DoSendKCMPubKeyCertWithConn(ras, &clientapi.SendKCMPubKeyCertRequest{})
 	if err != nil || !kcm_cert_data.Result {
@@ -91,8 +88,11 @@ func kaInitialize(ras *clientapi.RasConn, id int64) error {
 	ktaCert, err := initialKTA(kcmPubkey, ktaPrivKey, ktaPubCert)
 	if err != nil {
 		logger.L.Sugar().Errorf("init kta fail, %s", err)
+		terminateKTA()
 		return err
 	}
+	// 删除密钥文件
+	removeKeyFile()
 	ktaPubBlock, _ := pem.Decode(ktaCert)
 	req := clientapi.VerifyKTAPubKeyCertRequest{
 		ClientId:      id,
@@ -102,10 +102,9 @@ func kaInitialize(ras *clientapi.RasConn, id int64) error {
 	rpy, err := clientapi.DoVerifyKTAPubKeyCertWithConn(ras, &req)
 	if err != nil || !rpy.Result {
 		logger.L.Sugar().Errorf("kcm verify kta pubKeycert error, %s", err)
+		terminateKTA()
 		return err
 	}
-	// 删除密钥文件
-	removeKeyFile()
 	logger.L.Debug("ka initialize done")
 	return nil
 }
@@ -142,8 +141,10 @@ func kaLoop(ras *clientapi.RasConn, askDuration time.Duration) {
 	for {
 		nextCmd, err := getKTACmd()
 		if err != nil {
-			fmt.Printf("get KTACmd error\n")
 			logger.L.Sugar().Errorf("get kta command error, %s", err)
+			break
+			// time.Sleep(askDuration)
+			// continue
 		}
 		req := clientapi.KeyOperationRequest{
 			EncMessage: nextCmd,
@@ -152,16 +153,16 @@ func kaLoop(ras *clientapi.RasConn, askDuration time.Duration) {
 		rpy, err := clientapi.DoKeyOperationWithConn(ras, &req)
 		if err != nil {
 			logger.L.Sugar().Errorf("do key operation withconn error, %s", err)
+			break
 		}
 		err1 := sendRpyToKTA(rpy.EncRetMessage)
 		if err1 != nil {
 			logger.L.Sugar().Errorf("send rpy to kta error, %s", err)
+			break
 		}
-		// 错误处理
-
 		time.Sleep(askDuration)
-
 	}
+	terminateKTA()
 }
 
 // 建立上下文和会话
@@ -251,4 +252,11 @@ func validateCert(cert, parent *x509.Certificate) error {
 		return err
 	}
 	return nil
+}
+
+func terminateKTA() {
+	teec_result := C.KTAterminate()
+	if int(teec_result) != 0 {
+		logger.L.Sugar().Errorf("terminate kta error, teec_result=%v", int(teec_result))
+	}
 }

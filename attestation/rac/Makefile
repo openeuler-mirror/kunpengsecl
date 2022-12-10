@@ -21,7 +21,6 @@ build: build-libkta
 	go build -mod=vendor -o $(PKGPATH)/raagent cmd/raagent/*.go
 	#go build -mod=vendor -o $(PKGPATH)/tbprovisioner cmd/tbprovisioner/*.go
 	go build -mod=vendor -o $(PKGPATH)/rahub cmd/rahub/*.go
-	ln -sfn $(PWD)/cmd/raagent/cert $(PKGPATH)/cert
 
 build-libkta:
 	cd $(KTALIBPATH); sh ./prepare-tee-sdk.sh; \
