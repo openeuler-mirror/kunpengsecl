@@ -33,9 +33,12 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -50,9 +53,10 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kcmstools"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	kmsServer "gitee.com/openeuler/kunpengsecl/attestation/kms"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 )
@@ -69,60 +73,203 @@ cat $1 | awk '/open files/ { print $4 }'`
 
 const (
 	kcmPrivateKey = `
+MIIEpAIBAAKCAQEAz+VymIVGNFRR/r30P3okV0Q2dgJ1Cv+/4sSPb1BU0m06E/oX
+9xvfm28qIj+ypK23vGQ2+2nsFVKxurdsLFuJK1A7Hb6nT5EZ0m5JR2tF8n2clPr1
+2IbmNwSOqgYePuKVJ5v39eY01y8eRr2Qib5DDc/EkRmAJpU8H/G9IwHDUJJpGgfC
+5q8HR/6iQQQcmsrtXfy0k3LA7lhbKuiB5nyu0U7QWRTq9k+8AeQ5rxvbBQHDstol
+9IYQ2ZKBquXW/QmoPOPQN9+p3ltlfPaQfP8bg2dHpT+VHz5DcCDVKQswJPuowWxE
+mWnBSr9ltoO/81wzQxHbY+oBhU5q5SYgdV55IwIDAQABAoIBAQCO4QF2IzpRopXL
+vt8LdTVeqGnJhvzLt2M4RaDSfuIc0Ka2rg4kbYqrN6Y8bYyoMx/woOtMtMplCTVO
+vtrgTXSjSPuoAKzaOT4G6ncAV5B2DLA9j5DA5E16CG7IGXZV/8FEvKOY40LzlNV5
+BrU8hX9uEZnloyH44l21Ep3LXl3Ok+P+A5itDBRscPhLzZG+6kdKJCB9yyEJminj
+KGWbFb4HvUF5ZsSqKhPBzw54SvMjpxbNJRc1AJgkqWKzYgBjTXmB51ACGDFtLH5b
+wNu2CijK6bJi1UBpr8bFa+g1JQzMOSMOozXZqZJykU9gJlBeZto2WszcZoevvOxW
+J4IvvFfZAoGBAOf8/B3Jmg3TznxAuXykVXfyXd+XE2WW8cCOahF/Qc2PANRIqP+y
+4RdUt+SF6GUuVHbr8LoJRWSMXybkXA/on2LanX56NTM77hAE9mD4YmrgTzeDnr/+
+I/deSDUYUnmhHH6mbMUEfS9n0SHXRP9Dx7xYFoJO84laNx71Efk1z0UlAoGBAOVq
+GKDaVAEMzgmoY1Qt1zwATFogkBWO72h3wLZlOL90ipPTrDUCivFibA0YXoGbKs4V
+9K3SMEfIoAOCWMM8X1S6ThVwqW0Pn3vgu7SkeFIlHhGptyPDh914Ic+RySgADjT6
+zF1sYTo25FGnBgyNu3CegeclJF7c6HlLGq6U64anAoGBAN9oYT8qa8JPLHW6OybO
+d0SI0mBFdDeMMoo2W+03uR4FTk4hHycHk/9M5b8cOd5ezJatxujRjtMy31tr5UCo
+y/19/NfVRrBtUWh57u8ZpGW6WG9kwJeyXd6WHEGNh7d8MR3CldLx7MCfYOYPEnIl
+Sw+VYS/iamPmzlhwt/tgF5hFAoGAHX+9+Pj58kSePbmsRAe89FcpejFTtaHygOFd
+I1byrBOlOgruysYv7Yf1Ut2+UTYNlABYvP0Y/jH6+ViKZ1hc/b0TC0i4UHDA1iH4
+oOrBGfbx3d2P0gZzcvPejR0223DeYsuY+a5U9jJWu3UZnwWeg4WuOHWbLqODNQ2G
+OcqmWmMCgYA4OmS/jMwek5ybLF4ng+Sr/sjKSd0qT+nPmQIK6BVkxI6LFllFm2hw
+VVNXxBuJ0py/RNIwYCUqoPNpvI+VTah0Ou1GhvnMuuUIcW1HTOJOljRnlLdbX1KJ
+WIqAuPlDlH/Zz6NxE0vJoFuZad7ExLWwP36MFuDGYJrT+vor4yhZuA==`
+)
+
+const (
+	kcmPrivateKey1 = `
 -----BEGIN RSA PRIVATE KEY-----
-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
+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
 -----END RSA PRIVATE KEY-----`
+)
+
+const (
+	kcmPrivateKey2 = `
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjNq/p49Xwi8UTqq+e+wr
+nsXeDfHJjVrtjmAJZvIgrkuYkItllkIINnjPYxKll56kuYVQZoKmQYDMNXN4zWON
+BQEko2azkwBdZnkkyFefTpfLY3t6njmO0go318vvrZ2EuPCOBAtWQ1YuxbdD0f+C
+haCjLbpGAJJwfpvQnLWLriYstxISEMUoeY6j5XYl4rR84Y3EvNsTDTK/omnUUWUF
+TLa9wCAmgcwTZQXakgvsyv/+v1c4yU3rxgn71XqhzYMK3wwzYzxUp5GEg9I5u6Vd
++F5Uys+gK4X5pByIIYwyc/HJYr7yYLTWIeN8Ovg+XOLq/X33CpwNXvf3LMoJCjBH
+JwIDAQAB
+-----END PUBLIC KEY-----`
+)
+
+const (
 	constDB = "postgres"
 )
+
+const (
+	kcmCert = `
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 2 (0x2)
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C=CN, ST=Shanghai, L=Shanghai, O=Huawei, CN=ca
+        Validity
+            Not Before: Dec  9 00:36:05 2022 GMT
+            Not After : Nov 30 00:36:05 2023 GMT
+        Subject: C=CN, ST=Shanghai, L=Shanghai, O=Huawei, CN=kcm
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                RSA Public-Key: (2048 bit)
+                Modulus:
+                    00:cf:e5:72:98:85:46:34:54:51:fe:bd:f4:3f:7a:
+                    24:57:44:36:76:02:75:0a:ff:bf:e2:c4:8f:6f:50:
+                    54:d2:6d:3a:13:fa:17:f7:1b:df:9b:6f:2a:22:3f:
+                    b2:a4:ad:b7:bc:64:36:fb:69:ec:15:52:b1:ba:b7:
+                    6c:2c:5b:89:2b:50:3b:1d:be:a7:4f:91:19:d2:6e:
+                    49:47:6b:45:f2:7d:9c:94:fa:f5:d8:86:e6:37:04:
+                    8e:aa:06:1e:3e:e2:95:27:9b:f7:f5:e6:34:d7:2f:
+                    1e:46:bd:90:89:be:43:0d:cf:c4:91:19:80:26:95:
+                    3c:1f:f1:bd:23:01:c3:50:92:69:1a:07:c2:e6:af:
+                    07:47:fe:a2:41:04:1c:9a:ca:ed:5d:fc:b4:93:72:
+                    c0:ee:58:5b:2a:e8:81:e6:7c:ae:d1:4e:d0:59:14:
+                    ea:f6:4f:bc:01:e4:39:af:1b:db:05:01:c3:b2:da:
+                    25:f4:86:10:d9:92:81:aa:e5:d6:fd:09:a8:3c:e3:
+                    d0:37:df:a9:de:5b:65:7c:f6:90:7c:ff:1b:83:67:
+                    47:a5:3f:95:1f:3e:43:70:20:d5:29:0b:30:24:fb:
+                    a8:c1:6c:44:99:69:c1:4a:bf:65:b6:83:bf:f3:5c:
+                    33:43:11:db:63:ea:01:85:4e:6a:e5:26:20:75:5e:
+                    79:23
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            Netscape Comment: 
+                OpenSSL Generated Certificate
+            X509v3 Subject Key Identifier: 
+                AC:68:E3:D5:5A:64:E6:1B:DB:32:1F:BA:01:5C:6A:ED:08:13:F5:E2
+            X509v3 Authority Key Identifier: 
+                keyid:F7:CC:87:ED:0D:1F:86:8B:C5:34:8E:47:08:47:AA:70:AF:EF:82:A6
+
+    Signature Algorithm: sha256WithRSAEncryption
+         a7:af:17:de:eb:7b:32:82:0b:f6:58:c1:15:5a:0a:01:57:81:
+         fb:4f:b2:e4:d8:27:27:bb:3e:cf:cd:6f:17:a1:75:25:5e:ec:
+         5a:57:8c:79:f3:69:39:54:35:1b:7f:a2:30:74:1d:3d:33:79:
+         ce:72:e8:7e:51:f3:e7:fd:80:ab:a1:ec:b4:7c:26:16:a8:09:
+         e9:91:d4:b2:7a:ba:a6:ee:73:d8:64:27:13:d9:55:51:33:3c:
+         f6:2f:2f:be:27:c6:7a:15:e3:49:f8:5f:c9:50:af:5a:fc:9b:
+         fb:fc:f9:09:0e:ba:b7:f3:5a:f3:13:05:2d:56:b9:46:ce:ec:
+         ae:b5:66:7b:e3:16:72:27:01:e1:d5:d3:c5:43:66:5f:b1:9c:
+         4d:bc:69:df:8a:b2:cc:a9:6d:bc:2d:36:76:ee:ae:20:9a:3d:
+         75:a1:ea:f0:58:e6:29:81:68:aa:09:56:23:80:a8:cf:92:9f:
+         01:e0:2c:f0:21:c0:63:2d:21:50:e7:d6:c0:8a:1c:f7:50:ba:
+         e1:05:f4:96:a7:b7:54:7c:e2:80:0c:de:c6:c7:bd:86:8a:84:
+         4b:11:09:79:0e:b4:5c:9d:b2:44:9a:ed:0c:ee:22:3f:f9:e3:
+         24:75:2e:44:60:c7:7b:c5:8e:fd:36:8d:60:95:70:54:f2:82:
+         4a:5f:f8:50
+-----BEGIN CERTIFICATE-----
+MIIDmTCCAoGgAwIBAgIBAjANBgkqhkiG9w0BAQsFADBRMQswCQYDVQQGEwJDTjER
+MA8GA1UECAwIU2hhbmdoYWkxETAPBgNVBAcMCFNoYW5naGFpMQ8wDQYDVQQKDAZI
+dWF3ZWkxCzAJBgNVBAMMAmNhMB4XDTIyMTIwOTAwMzYwNVoXDTIzMTEzMDAwMzYw
+NVowUjELMAkGA1UEBhMCQ04xETAPBgNVBAgMCFNoYW5naGFpMREwDwYDVQQHDAhT
+aGFuZ2hhaTEPMA0GA1UECgwGSHVhd2VpMQwwCgYDVQQDDANrY20wggEiMA0GCSqG
+SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDP5XKYhUY0VFH+vfQ/eiRXRDZ2AnUK/7/i
+xI9vUFTSbToT+hf3G9+bbyoiP7Kkrbe8ZDb7aewVUrG6t2wsW4krUDsdvqdPkRnS
+bklHa0XyfZyU+vXYhuY3BI6qBh4+4pUnm/f15jTXLx5GvZCJvkMNz8SRGYAmlTwf
+8b0jAcNQkmkaB8LmrwdH/qJBBByayu1d/LSTcsDuWFsq6IHmfK7RTtBZFOr2T7wB
+5DmvG9sFAcOy2iX0hhDZkoGq5db9Cag849A336neW2V89pB8/xuDZ0elP5UfPkNw
+INUpCzAk+6jBbESZacFKv2W2g7/zXDNDEdtj6gGFTmrlJiB1XnkjAgMBAAGjezB5
+MAkGA1UdEwQCMAAwLAYJYIZIAYb4QgENBB8WHU9wZW5TU0wgR2VuZXJhdGVkIENl
+cnRpZmljYXRlMB0GA1UdDgQWBBSsaOPVWmTmG9syH7oBXGrtCBP14jAfBgNVHSME
+GDAWgBT3zIftDR+Gi8U0jkcIR6pwr++CpjANBgkqhkiG9w0BAQsFAAOCAQEAp68X
+3ut7MoIL9ljBFVoKAVeB+0+y5NgnJ7s+z81vF6F1JV7sWleMefNpOVQ1G3+iMHQd
+PTN5znLoflHz5/2Aq6HstHwmFqgJ6ZHUsnq6pu5z2GQnE9lVUTM89i8vvifGehXj
+SfhfyVCvWvyb+/z5CQ66t/Na8xMFLVa5Rs7srrVme+MWcicB4dXTxUNmX7GcTbxp
+34qyzKltvC02du6uIJo9daHq8FjmKYFoqglWI4Coz5KfAeAs8CHAYy0hUOfWwIoc
+91C64QX0lqe3VHzigAzexse9hoqESxEJeQ60XJ2yRJrtDO4iP/njJHUuRGDHe8WO
+/TaNYJVwVPKCSl/4UA==
+-----END CERTIFICATE-----`
+)
+
+var (
+	/*decKey = []byte{
+		0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50,
+		0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e}*/
+	certPath = "../cert/"
+	kcmFileName = "kcm.crt"
+	ktaFileName  = "kta.crt"
+	rootFileName = "ca.crt"
+)
+
+//var Nonce []byte
+var privKey []byte
+var kcmPublicKey []byte
 
 type rasService struct {
 	UnimplementedRasServer
 }
 
 type tagCmdData struct {
-	key        []byte
-	encCmdData []byte
+	Key			[]byte
+	EncCmdData	[]byte
 }
 
 type inKeyInfo struct {
-	taId      []byte
-	account   []byte
-	password  []byte
-	keyId     []byte
-	hostKeyId []byte
-	command   uint32
+	TAId		[]byte
+	Account		[]byte
+	Password	[]byte
+	KeyId		[]byte
+	HostKeyId	[]byte
+	Command		uint32
 }
 
 type retKeyInfo struct {
-	taId      []byte
-	keyId     []byte
-	plainText []byte
-	hostKeyId []byte
-	encKey    []byte
+	TAId		[]byte
+	KeyId		[]byte
+	PlainText	[]byte
+	HostKeyId	[]byte
 }
 
 var (
@@ -130,8 +277,6 @@ var (
 
 	srv *grpc.Server = nil
 )
-
-// var dbConfig string = "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
 
 func getSockNum() int {
 	pid := os.Getpid()
@@ -168,8 +313,9 @@ func StartServer(addr string) {
 		logger.L.Sugar().Errorf("fail to listen at %s, %v", addr, err)
 		return
 	}
-	dbConfig := GetdbConfig(strDbConfig)
-	trustmgr.CreateTrustManager(constDB, dbConfig)
+	dbConfig := fmt.Sprintf(strDbConfig, config.GetDBUser(), config.GetDBPassword(),
+		config.GetDBName(), config.GetDBHost(), config.GetDBPort())
+	trustmgr.CreateTrustManager("postgres", dbConfig)
 	srv := grpc.NewServer()
 	RegisterRasServer(srv, newRasService())
 	//logger.L.Sugar().Debugf("listen at %s", addr)
@@ -359,135 +505,141 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 }
 
 func (s *rasService) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
-
-	kcmPubKeyCert, err := kcmstools.SendKCMPubKeyCert()
+	err := kcmstools.SaveCert([]byte(kcmCert), certPath, kcmFileName)
 	if err != nil {
+		logger.L.Sugar().Errorf("save KCM Cert failed, error: %v", err)
+	}
+	kcmPubKeyCert, err := kcmstools.SendKCMPubKeyCert()
+	if err != nil{
 		logger.L.Sugar().Errorf("Send KCM public key cert error, %v", err)
-		return &SendKCMPubKeyCertReply{Result: false}, nil
+		return &SendKCMPubKeyCertReply{Result: false}, err
 	} else {
 		out := SendKCMPubKeyCertReply{
-			Result:        true,
-			KcmPubKeyCert: kcmPubKeyCert,
+			Result:		true,
+			KcmPubKeyCert:	kcmPubKeyCert,
 		}
 		return &out, nil
 	}
 }
 
 func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
-	dbConfig := GetdbConfig(strDbConfig)
-	// fmt.Printf("----------------------------------\ndbConfig: %s\n", dbConfig)
-	kdb.CreateKdbManager(constDB, dbConfig)
-
-	ktaDer := in.GetKtaPubKeyCert()
-	ktaPem, err := cryptotools.EncodeKeyCertToPEM(ktaDer)
-	if err != nil {
-		logger.L.Sugar().Errorf("encode KTA public key cert to PEM fail, %v", err)
-		return &VerifyKTAPubKeyCertReply{Result: false}, err
-	}
-
 	deviceId := in.GetClientId()
-
-	err = kcmstools.VerifyKTAPubKeyCert(deviceId, string(ktaPem))
-	if err != nil {
-		logger.L.Sugar().Errorf("Verify cert of KTA %x error, %v", deviceId, err)
+	if deviceId == 0{
+		//logger.L.Sugar().Errorf("Outside json is empty")
 		return &VerifyKTAPubKeyCertReply{Result: false}, nil
 	}
+
+	dbConfig := GetdbConfig(strDbConfig)
+	kdb.CreateKdbManager(constDB, dbConfig)
+	defer kdb.ReleaseKdbManager()
+
+	ktaPem := in.GetKtaPubKeyCert()
+
+	logger.L.Sugar().Debugf("Going to verify cert of KTA %x", deviceId)
+	err := kcmstools.VerifyKTAPubKeyCert(deviceId, ktaPem)
+	if err != nil{
+		logger.L.Sugar().Errorf("Verify cert of KTA %x error result, %v", deviceId, err)
+		return &VerifyKTAPubKeyCertReply{Result: false}, err
+	}else{
+		logger.L.Sugar().Debugf("Have already verified cert of KTA %x", deviceId)
+	}
+	defer kdb.DeletePubKeyInfo(deviceId)
 	return &VerifyKTAPubKeyCertReply{Result: true}, nil
 }
 
 func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) (*KeyOperationReply, error) {
 
 	encCmdData := in.GetEncMessage()
-	var cmdData tagCmdData
-	var encMessage []byte
+	if len(encCmdData) == 0{
+		//logger.L.Sugar().Errorf("Outside json is empty")
+		return &KeyOperationReply{Result: false}, nil
+	}
+
 	var message inKeyInfo
+	var sessionKey []byte
+	var encSessionKey []byte
 	var retMessage retKeyInfo
-	var encRetMessage []byte
-	err := json.Unmarshal(encCmdData, &cmdData)
-	if err != nil {
-		logger.L.Sugar().Errorf("Decode outside json of TA error, %v", err)
-		return &KeyOperationReply{Result: false}, nil
-	}
-	dbConfig := GetdbConfig(strDbConfig)
-	kdb.CreateKdbManager(constDB, dbConfig)
 
-	// TODO: get kcm private key
-	kcmPrivKey, _, err := cryptotools.DecodePrivateKeyFromPEM([]byte(kcmPrivateKey))
-	if err != nil {
-		logger.L.Sugar().Errorf("Decode kcm private key error, %v", err)
-		return &KeyOperationReply{Result: false}, nil
-	}
+	message, err := DecryptKeyOpIncome(encCmdData)
 
-	// TODO: decode cmdData.key by kcm private key
-	label := []byte("label")
-	decKey, err := cryptotools.AsymmetricDecrypt(0x0001, 0x0000, kcmPrivKey, cmdData.key, label)
+	switch message.Command {
+		case 0x80000001:
+			logger.L.Sugar().Debugf("going to call GenerateNewKey()")
+			go kmsServer.ExampleServer()
+			defer kmsServer.StopServer()
+			dbConfig := GetdbConfig(strDbConfig)
+			kdb.CreateKdbManager(constDB, dbConfig)
+			defer kdb.ReleaseKdbManager()
 
-	// TODO: use decoded key to decode cmdData.encCmdData and save the result in encMessage
-	encMessage, err = aesGCMDecrypt(decKey, cmdData.encCmdData) // Encrypt algorithm: AES GCM (256bit) (AES256GCM)
-	if err != nil {
-		logger.L.Sugar().Errorf("Decode AESGCM error, %v", err)
-		return &KeyOperationReply{Result: false}, nil
-	}
+			retTAId, key, encKey, plainText, retKeyId, err := kcmstools.GenerateNewKey(message.TAId, message.Account, message.Password, message.HostKeyId)
+			if err != nil{
+				logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", message.TAId, err)
+				return &KeyOperationReply{Result: false}, err
+			}
+			retMessage = retKeyInfo {
+				TAId:		retTAId,
+				KeyId:		retKeyId,
+				PlainText:	plainText,
+				HostKeyId:	message.HostKeyId,
+			}
+			sessionKey = key
+			encSessionKey = encKey
+		case 0x80000002:
+			logger.L.Sugar().Debugf("going to call GetKey()")
+			go kmsServer.ExampleServer()
+			defer kmsServer.StopServer()
+			dbConfig := GetdbConfig(strDbConfig)
+			kdb.CreateKdbManager(constDB, dbConfig)
+			defer kdb.ReleaseKdbManager()
 
-	err = json.Unmarshal(encMessage, &message)
-	if err != nil {
-		logger.L.Sugar().Errorf("Decode inside json of TA error, %v", err)
-		return &KeyOperationReply{Result: false}, nil
-	}
+			retTAId, key, encKey, plainText, retKeyId, err := kcmstools.GetKey(message.TAId, message.Account, message.Password, message.KeyId, message.HostKeyId)
+			if err != nil{
+				logger.L.Sugar().Errorf("Get key of TA %s error, %v", message.TAId, err)
+				return &KeyOperationReply{Result: false}, err
+			}
+			retMessage = retKeyInfo {
+				TAId:		retTAId,
+				KeyId:		retKeyId,
+				PlainText:	plainText,
+				HostKeyId:	message.HostKeyId,
+			}
+			sessionKey = key
+			encSessionKey = encKey
+		case 0x80000003:
+			logger.L.Sugar().Debugf("going to call GetKey()")
+			go kmsServer.ExampleServer()
+			defer kmsServer.StopServer()
+			dbConfig := GetdbConfig(strDbConfig)
+			kdb.CreateKdbManager(constDB, dbConfig)
+			defer kdb.ReleaseKdbManager()
 
-	switch message.command {
-	case 0x80000001:
-		retTAId, encKey, plainText, retKeyId, err := kcmstools.GenerateNewKey(message.taId, message.account, message.password, message.hostKeyId)
-		if err != nil {
-			logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", message.taId, err)
-			return &KeyOperationReply{Result: false}, nil
-		}
-		retMessage = retKeyInfo{
-			taId:      retTAId,
-			keyId:     retKeyId,
-			plainText: plainText,
-			hostKeyId: message.hostKeyId,
-			encKey:    encKey,
-		}
-	case 0x80000002:
-		retTAId, encKey, plainText, retKeyId, err := kcmstools.GetKey(message.taId, message.account, message.password, message.keyId, message.hostKeyId)
-		if err != nil {
-			logger.L.Sugar().Errorf("Get key of TA %s error, %v", message.taId, err)
-			return &KeyOperationReply{Result: false}, nil
-		}
-		retMessage = retKeyInfo{
-			taId:      retTAId,
-			keyId:     retKeyId,
-			plainText: plainText,
-			hostKeyId: message.hostKeyId,
-			encKey:    encKey,
-		}
-	case 0x80000003:
-		err := kcmstools.DeleteKey(message.taId, message.keyId)
-		if err != nil {
-			logger.L.Sugar().Errorf("Delete key of TA %s error, %v", message.taId, err)
-			return &KeyOperationReply{Result: false}, nil
-		}
-		retMessage = retKeyInfo{
-			taId:      message.taId,
-			keyId:     message.keyId,
-			hostKeyId: message.hostKeyId,
-		}
-	case 0x80000004:
-		fallthrough
-	default:
-		logger.L.Sugar().Errorf("resolve command of TA %s failed", message.taId)
-		return &KeyOperationReply{Result: false}, nil
+			err = kcmstools.DeleteKey(message.TAId, message.KeyId)
+			if err != nil{
+				logger.L.Sugar().Errorf("Delete key of TA %s error, %v", message.TAId, err)
+				return &KeyOperationReply{Result: false}, err
+			}
+			retMessage = retKeyInfo {
+				TAId:		message.TAId,
+				KeyId:		message.KeyId,
+				HostKeyId:	message.HostKeyId,
+			}
+			sessionKey = make([]byte, 32)
+			ktaPublicKey := kcmPublicKey	// use kcms' public key as a temporary pulic key
+			encSessionKey = RsaEncrypt(sessionKey, ktaPublicKey)
+		default:
+			logger.L.Sugar().Errorf("resolve command of TA %s failed", message.TAId)
+			return &KeyOperationReply{Result: false}, err
 	}
 
-	encRetMessage, err = json.Marshal(retMessage)
-	if err != nil {
-		logger.L.Sugar().Errorf("Encode return message of TA %s after get key, error, %v", message.taId, err)
-		return &KeyOperationReply{Result: false}, nil
+	encRetMessage, err := EncryptKeyOpOutcome(retMessage, sessionKey, encSessionKey)
+	if err != nil{
+		logger.L.Sugar().Errorf("Encode return message of TA %s error, %v", retMessage.TAId, err)
+		return &KeyOperationReply{Result: false}, err
 	}
+
 	out := KeyOperationReply{
-		Result:        true,
-		EncRetMessage: encRetMessage,
+		Result:		true,
+		EncRetMessage:	encRetMessage,
 	}
 	return &out, nil
 }
@@ -775,6 +927,7 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 	return bk, nil
 }
 
+
 func DoSendKCMPubKeyCert(addr string, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
 	//logger.L.Debug("invoke SendKCMPubKeyCert...")
 	ras, err := CreateConn(addr)
@@ -783,7 +936,7 @@ func DoSendKCMPubKeyCert(addr string, in *SendKCMPubKeyCertRequest) (*SendKCMPub
 	}
 	defer ras.conn.Close()
 	defer ras.cancel()
-
+	
 	bk, err := ras.c.SendKCMPubKeyCert(ras.ctx, in)
 	if err != nil {
 		logger.L.Sugar().Errorf("invoke SendKCMPubKeyCert error, %v", err)
@@ -801,7 +954,7 @@ func DoVerifyKTAPubKeyCert(addr string, in *VerifyKTAPubKeyCertRequest) (*Verify
 	}
 	defer ras.conn.Close()
 	defer ras.cancel()
-
+	
 	bk, err := ras.c.VerifyKTAPubKeyCert(ras.ctx, in)
 	if err != nil {
 		logger.L.Sugar().Errorf("invoke VerifyKTAPubKeyCert error, %v", err)
@@ -819,7 +972,7 @@ func DoKeyOperation(addr string, in *KeyOperationRequest) (*KeyOperationReply, e
 	}
 	defer ras.conn.Close()
 	defer ras.cancel()
-
+	
 	bk, err := ras.c.KeyOperation(ras.ctx, in)
 	if err != nil {
 		logger.L.Sugar().Errorf("invoke KeyOperation error, %v", err)
@@ -827,6 +980,25 @@ func DoKeyOperation(addr string, in *KeyOperationRequest) (*KeyOperationReply, e
 	}
 	//logger.L.Sugar().Debugf("invoke KeyOperation %v", bk.Result)
 	return bk, nil
+}
+
+func GetdbConfig(strDbConfig string) string {
+	return fmt.Sprintf(strDbConfig, config.GetDBUser(), config.GetDBPassword(),
+		config.GetDBName(), config.GetDBHost(), config.GetDBPort())
+}
+
+func aesGCMEncrypt(key, plainText []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	Nonce := make([]byte, aesGCM.NonceSize())
+	cipher := aesGCM.Seal(nil, Nonce, plainText, nil)
+	return cipher, nil
 }
 
 func aesGCMDecrypt(key, cipherText []byte) ([]byte, error) {
@@ -838,15 +1010,115 @@ func aesGCMDecrypt(key, cipherText []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	nonce := make([]byte, aesGCM.NonceSize())
-	plain, err := aesGCM.Open(nonce, nonce, cipherText, nil)
+	Nonce := make([]byte, aesGCM.NonceSize())
+	plain, err := aesGCM.Open(nil, Nonce, cipherText, nil)	// error, message authentication failed
 	if err != nil {
+		logger.L.Sugar().Errorf("aesgcm decode error, %v", err)
 		return nil, err
 	}
 	return plain, nil
 }
 
-func GetdbConfig(strDbConfig string) string {
-	return fmt.Sprintf(strDbConfig, config.GetDBUser(), config.GetDBPassword(),
-		config.GetDBName(), config.GetDBHost(), config.GetDBPort())
+func RsaEncrypt(data, keyBytes []byte) []byte {
+	//解密pem格式的公钥
+	block, _ := pem.Decode(keyBytes)
+	// 解析公钥
+	pubInterface, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		panic(err)
+	}
+	// 类型断言
+	pub := pubInterface.(*rsa.PublicKey)
+	//加密
+	ciphertext, err := rsa.EncryptPKCS1v15(rand.Reader, pub, data)
+	if err != nil {
+		panic(err)
+	}
+	return ciphertext
+}
+
+func RsaDecrypt(ciphertext, keyBytes []byte) []byte {
+	//获取私钥
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		panic(errors.New("private key is nil"))
+	}
+	//解析PKCS1格式的私钥
+	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		panic(errors.New("x509 decode fail"))
+	}
+	if priv == nil {
+		panic(errors.New("x509 key is nil"))
+	}
+	// 解密
+	data, err := rsa.DecryptPKCS1v15(rand.Reader, priv, ciphertext)
+	if err != nil {
+		logger.L.Sugar().Errorf("rsa decode error, %v", err)
+	}
+	if data == nil {
+		logger.L.Sugar().Errorf("data is nil")
+	}
+	return data
+}
+
+func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, encSessionKey[]byte)([]byte, error){
+	str_taId := string(retMessage.TAId)
+	jsonRetMessage, err := json.Marshal(retMessage)
+	if err != nil{
+		logger.L.Sugar().Errorf("Encode inside json message of TA %s error, %v", str_taId, err)
+		return nil, err
+	}
+
+	//TODO: use sessionKey to encrypt jsonRetMessage
+	encRetMessage, err := aesGCMEncrypt(sessionKey, jsonRetMessage)
+	if err != nil{
+		logger.L.Sugar().Errorf("Encode return message(json format) of TA %s after get key, error, %v", str_taId, err)
+		return nil, err
+	}
+
+	//TODO: pack encrypted encRetMessage and encSessionKey as struct
+	finalMessage := tagCmdData {
+		Key:		encSessionKey,
+		EncCmdData:	encRetMessage,
+	}
+
+	//TODO encrypt the struct to json format
+	finalRetMessage, err := json.Marshal(finalMessage)
+	if err != nil{
+		logger.L.Sugar().Errorf("Encode outside json message of TA %s error, %v", str_taId, err)
+		return nil, err
+	}
+
+	return finalRetMessage, nil
+}
+
+func DecryptKeyOpIncome(encCmdData []byte)(inKeyInfo, error){
+	var cmdData tagCmdData
+	var message inKeyInfo
+	err := json.Unmarshal(encCmdData, &cmdData)
+	if err != nil {
+		logger.L.Sugar().Errorf("Decode outside json of TA error, %v", err)
+		return message, err
+	}
+
+	// TODO: get kcm private key(kcm private key is a global variable now)
+
+	// TODO: use kcm private key to decode key
+	decKey := RsaDecrypt(cmdData.Key, privKey)
+
+	// TODO: use decoded key to decode cmdData.encCmdData and save the result in encMessage
+	encMessage, err := aesGCMDecrypt(decKey, cmdData.EncCmdData)	// Encrypt algorithm: AES GCM (256bit) (AES256GCM)
+	if err != nil {
+		logger.L.Sugar().Errorf("Decode AESGCM error, %v", err)
+		return message, err
+	}
+
+	err = json.Unmarshal(encMessage, &message)
+	if err != nil {
+		logger.L.Sugar().Errorf("Decode inside json of TA error, %v", err)
+		return message, err
+	}
+
+	return message, nil
 }
