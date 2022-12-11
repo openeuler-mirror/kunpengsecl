@@ -26,7 +26,7 @@ Description: api module in kta.
 
 extern Cache cache;
 extern CmdQueue cmdqueue;
-extern ReplyQueue replyqueue;
+extern ReplyCache replycache;
 
 TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
     //basic function for calling the above functions
@@ -89,7 +89,7 @@ TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
 }
 
 TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: Get Response from ka when kta had sent request to kcm before,and put the result into replyqueue
+    //todo: Get Response from ka when kta had sent request to kcm before,and put the result into replycache
 }
 
 

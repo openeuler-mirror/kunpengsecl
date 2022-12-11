@@ -80,13 +80,14 @@ typedef struct _tagReplyData{
     TEE_UUID    taId;
     TEE_UUID    keyId;
     uint8_t keyvalue[KEY_SIZE];
+    int32_t next;   // -1: empty; 0~MAX_TA_NUM: next reply for search operation.
 } ReplyNode;
 
 typedef struct _tagReplyQueue{
-    ReplyNode queue[MAX_QUEUE_SIZE];
-    int32_t head;   // 0~MAX_TA_NUM: first cmd for dequeue operation.
-    int32_t tail;   // 0~MAX_TA_NUM: last cmd for enqueue operation.
-} ReplyQueue;
+    ReplyNode list[MAX_QUEUE_SIZE];
+    int32_t head;   // -1: empty; 0~MAX_TA_NUM: first reply for key generate.
+    int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last reply for key generate.
+} ReplyCache;
 
 typedef struct _tagRequest{
     /*
@@ -127,6 +128,8 @@ TEE_Result reset(char *name);
 
 //for ta-auth
 bool verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password);
+
+bool CheckUUID(TEE_UUID id1,TEE_UUID id2);
 
 void attestTA(TEE_UUID TA_uuid);
 
