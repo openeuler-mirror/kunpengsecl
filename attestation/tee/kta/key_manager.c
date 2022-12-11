@@ -285,6 +285,72 @@ TEE_Result DestoryKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return TEE_ERROR_BAD_PARAMETERS;
     }
     //params[0].memref.buffer内为输入的cmd结构体
+
+    TaInfo regTa;
+    int32_t taIndex;
+    int32_t targetTaIndex;
+    int32_t keyIndex;
+    int32_t targetKeyIndex;
+    CmdNode *n = params[0].memref.buffer;
+
+    //先对TA进行本地证明，证明通过之后根据UUID和密钥ID查询密钥，然后验证TA的账号密码，验证通过后删除指定密钥，最后向KCM发送删除指定密钥的请求
+
+    //TODO:local verification of TA
+    //kta通过ka到ras中获取指定ta基准值，在kta中调用本地证明接口获取ta度量报告，然后在kta中进行验证
+    //暂定:比较CmdNode和Cache的UUID和账号密码
+    //TODO:verify account and password of TA
+    if(!verifyTApasswd(n->taId, n->account, n->password)){                  // def of verifyTApasswd() is in ta_authentiate.c
+        tloge("verify Ta password failed");
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    taIndex = cache.head;
+    while (taIndex != END_NULL && !CheckUUID(n->taId,cache.ta[taIndex].id)) // def of CheckUUID() is in ta_authentiate.c
+    {
+        //loop
+        taIndex = cache.ta[taIndex].next; //move to next one
+    }
+    targetTaIndex = taIndex;
+
+    //TODO:search key on the basis of UUID and key id   (in Cache.TaInfo)
+    regTa = cache.ta[targetTaIndex];
+    keyIndex = regTa.head;
+    while (keyIndex != END_NULL && !CheckUUID(n->keyId ,regTa.key[keyIndex].id))
+    {
+        //loop
+        keyIndex = regTa.key[keyIndex].next; //move to next one
+    }
+    if(keyIndex == END_NULL){
+        tloge("target key not found");
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    targetKeyIndex = keyIndex;
+
+    //TODO:delete certain key                           (in Cache.TaInfo)
+    if(regTa.head == targetKeyIndex){
+        regTa.head = regTa.key[targetKeyIndex].next;
+    }
+    else{
+        keyIndex = regTa.head;
+        while (regTa.key[keyIndex].next != targetKeyIndex){
+            //loop
+            keyIndex = regTa.key[keyIndex].next; //move to next one
+        }
+        int32_t nextIndex = regTa.key[targetKeyIndex].next;
+        regTa.key[keyIndex].next = nextIndex;
+        if(nextIndex == END_NULL){
+            regTa.tail = keyIndex;
+        }
+    }
+    cache.ta[targetTaIndex] = regTa;
+
+    //TODO:send request of delete key to KCMS
+    bool res = generateKcmRequest(params); //生成请求成功或失败的结果存放到params[3]的值中
+    if (res) {
+        params[3].value.b = 1;
+        return TEE_SUCCESS;
+    }
+    params[3].value.b = 0;
+    return TEE_ERROR_OVERFLOW;
 }
 
 //----------------------------GetKcmReply------------------------------------------------
