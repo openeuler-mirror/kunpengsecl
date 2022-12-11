@@ -20,7 +20,7 @@ Description: ta authenticating module in kta.
 #include <string.h>
 extern Cache cache;
 extern CmdQueue cmdqueue;
-extern CmdQueue replyqueue;
+extern ReplyCache replycache;
 //check the id1 and the id2 equal
 bool CheckUUID(TEE_UUID id1,TEE_UUID id2)
 {

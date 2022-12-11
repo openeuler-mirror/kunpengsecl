@@ -29,7 +29,7 @@ Description: initialize module in kta.
 
 extern Cache cache;
 extern CmdQueue cmdqueue;
-extern ReplyQueue replyqueue;
+extern ReplyCache replycache;
 
 // TEE_Result GenerateKeyPair(uint32_t keytype, uint32_t keysize, void *pubkey, void *privkey) {
 //     //todo: generate a pair of key according to keytype and keysize
@@ -175,9 +175,12 @@ TEE_Result initStructure(){
     //init cmdqueue
     cmdqueue.head = 0;
     cmdqueue.tail = 0;
-    //init replyqueue
-    replyqueue.head = 0;
-    replyqueue.tail = 0;
+    //init replycache
+    replycache.head = -1;
+    replycache.tail = -1;
+    for(int i=0;i<MAX_QUEUE_SIZE;i++){
+        replycache.list[i].next = -1;
+    }
     return TEE_SUCCESS;
 }
 

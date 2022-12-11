@@ -27,7 +27,7 @@ Description: key managing module in kta.
 
 extern Cache cache;
 extern CmdQueue cmdqueue;
-extern ReplyQueue replyqueue;
+extern ReplyCache replycache;
 // ===================Communication with kcm====================================
 
 //--------------------------1、SendRequest---------------------------------------------
@@ -67,7 +67,6 @@ void generaterFinalRequest(){
 }
 
 TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: send request to ka when ka polls, and answer ta trusted state which ka asks
     TEE_Result ret;
     void *buffer; //the buffer is to be specified
     int queue_empty;
@@ -365,17 +364,34 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
+    CmdNode *n = params[0].memref.buffer;
+    if (!verifyTApasswd(n->taId, n->account, n->password)) {
+        params[1].value.b = 0;
+        return TEE_ERROR_ACCESS_DENIED;
+    }
     //params[0].memref.buffer内为输入的cmd结构体
-    if (replyqueue.head == replyqueue.tail) {
-        tloge("get kcm reply error: reply queue is empty\n");
+    if (replycache.head == -1 && replycache.tail == -1) {
+        tloge("get kcm reply error: reply cache is empty\n");
         return TEE_ERROR_ITEM_NOT_FOUND;
     }
-    int32_t first = replyqueue.head;
-    params[1].memref.size = sizeof(replyqueue.queue[first]);
-    params[1].memref.buffer = (void*)malloc(params[1].memref.size);
-    params[1].memref.buffer = &replyqueue.queue[first];
-    replyqueue.head = (replyqueue.head + 1) % MAX_QUEUE_SIZE;
-    return TEE_SUCCESS;
+    int32_t cur = replycache.head;
+    int32_t pre = -2;
+    while (cur != -1) {
+        if (CheckUUID(replycache.list[cur].taId, n->taId)) {
+            params[1].memref.size = sizeof(ReplyNode);
+            params[1].memref.buffer = &replycache.list[cur];
+            if (pre == -2) {
+                replycache.head = replycache.list[cur].next;
+            } else {
+                replycache.list[pre].next = replycache.list[cur].next;
+            }
+            return TEE_SUCCESS;
+        }
+        pre = cur;
+        cur = replycache.list[cur].next;
+    }
+    tloge("get kcm reply error: reply to ta is not found");
+    return TEE_ERROR_ITEM_NOT_FOUND;
 }
 
 //----------------------------ClearCache------------------------------------------------

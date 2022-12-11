@@ -6,11 +6,19 @@
 
 #define VALUE_INIT 0x8fffffff
 #define TIMEOUT 0x00000BB8
+#define KEY_SIZE 8192
 
 static const TEE_UUID ktauuid = {0x435dcafa, 0x0029, 0x4d53, {0x97, 0xe8, 0xa7, 0xa1, 0x3a, 0x80, 0xc8, 0x2e}};
 
 static const session_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);
+
+typedef struct _tagReplyData{
+    TEE_UUID    taId;
+    TEE_UUID    keyId;
+    uint8_t keyvalue[KEY_SIZE];
+    int32_t next;   // -1: empty; 0~MAX_TA_NUM: next reply for search operation.
+} ReplyNode;
 
 void cmd_copy(CmdNode *cmdnode, TEE_UUID *uuid, uint8_t *account,
         uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey) {
@@ -197,7 +205,8 @@ TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password) {
 TEE_Result get_key_reply(TEE_UUID *uuid, uint8_t *account,
         uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey, uint8_t *keyvalue) {
     TEE_Result ret;
-    CmdNode *cmdnode;
+    CmdNode *cmdnode = NULL;
+    ReplyNode *replynode = NULL;
     TEE_TASessionHandle session = {0};
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
@@ -215,14 +224,16 @@ TEE_Result get_key_reply(TEE_UUID *uuid, uint8_t *account,
         TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
     params[PARAMETER_FRIST].memref.size = sizeof(cmdnode);
-    params[PARAMETER_SECOND].memref.buffer = keyvalue;
-    params[PARAMETER_SECOND].memref.size = KEY_SIZE * sizeof(keyvalue);
+    params[PARAMETER_SECOND].memref.buffer = replynode;
+    params[PARAMETER_SECOND].memref.size = sizeof(replynode);
     ret = TEE_InvokeTACommand(&session, TIMEOUT, CMD_KCM_REPLY, command_param_type, params, retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("invoke command get kcm reply failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
         TEE_CloseTASession(&session);
         return ret;
     }
+    memcpy_s(keyid, sizeof(TEE_UUID), &replynode->keyId, sizeof(TEE_UUID));
+    memcpy_s(keyvalue, KEY_SIZE, replynode->keyvalue, KEY_SIZE);
     tlogd("success to get key generation reply");
     return TEE_SUCCESS;
 }
