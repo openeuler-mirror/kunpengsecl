@@ -72,79 +72,6 @@ cat $1 | awk '/open files/ { print $4 }'`
 )
 
 const (
-	kcmPrivateKey = `
-MIIEpAIBAAKCAQEAz+VymIVGNFRR/r30P3okV0Q2dgJ1Cv+/4sSPb1BU0m06E/oX
-9xvfm28qIj+ypK23vGQ2+2nsFVKxurdsLFuJK1A7Hb6nT5EZ0m5JR2tF8n2clPr1
-2IbmNwSOqgYePuKVJ5v39eY01y8eRr2Qib5DDc/EkRmAJpU8H/G9IwHDUJJpGgfC
-5q8HR/6iQQQcmsrtXfy0k3LA7lhbKuiB5nyu0U7QWRTq9k+8AeQ5rxvbBQHDstol
-9IYQ2ZKBquXW/QmoPOPQN9+p3ltlfPaQfP8bg2dHpT+VHz5DcCDVKQswJPuowWxE
-mWnBSr9ltoO/81wzQxHbY+oBhU5q5SYgdV55IwIDAQABAoIBAQCO4QF2IzpRopXL
-vt8LdTVeqGnJhvzLt2M4RaDSfuIc0Ka2rg4kbYqrN6Y8bYyoMx/woOtMtMplCTVO
-vtrgTXSjSPuoAKzaOT4G6ncAV5B2DLA9j5DA5E16CG7IGXZV/8FEvKOY40LzlNV5
-BrU8hX9uEZnloyH44l21Ep3LXl3Ok+P+A5itDBRscPhLzZG+6kdKJCB9yyEJminj
-KGWbFb4HvUF5ZsSqKhPBzw54SvMjpxbNJRc1AJgkqWKzYgBjTXmB51ACGDFtLH5b
-wNu2CijK6bJi1UBpr8bFa+g1JQzMOSMOozXZqZJykU9gJlBeZto2WszcZoevvOxW
-J4IvvFfZAoGBAOf8/B3Jmg3TznxAuXykVXfyXd+XE2WW8cCOahF/Qc2PANRIqP+y
-4RdUt+SF6GUuVHbr8LoJRWSMXybkXA/on2LanX56NTM77hAE9mD4YmrgTzeDnr/+
-I/deSDUYUnmhHH6mbMUEfS9n0SHXRP9Dx7xYFoJO84laNx71Efk1z0UlAoGBAOVq
-GKDaVAEMzgmoY1Qt1zwATFogkBWO72h3wLZlOL90ipPTrDUCivFibA0YXoGbKs4V
-9K3SMEfIoAOCWMM8X1S6ThVwqW0Pn3vgu7SkeFIlHhGptyPDh914Ic+RySgADjT6
-zF1sYTo25FGnBgyNu3CegeclJF7c6HlLGq6U64anAoGBAN9oYT8qa8JPLHW6OybO
-d0SI0mBFdDeMMoo2W+03uR4FTk4hHycHk/9M5b8cOd5ezJatxujRjtMy31tr5UCo
-y/19/NfVRrBtUWh57u8ZpGW6WG9kwJeyXd6WHEGNh7d8MR3CldLx7MCfYOYPEnIl
-Sw+VYS/iamPmzlhwt/tgF5hFAoGAHX+9+Pj58kSePbmsRAe89FcpejFTtaHygOFd
-I1byrBOlOgruysYv7Yf1Ut2+UTYNlABYvP0Y/jH6+ViKZ1hc/b0TC0i4UHDA1iH4
-oOrBGfbx3d2P0gZzcvPejR0223DeYsuY+a5U9jJWu3UZnwWeg4WuOHWbLqODNQ2G
-OcqmWmMCgYA4OmS/jMwek5ybLF4ng+Sr/sjKSd0qT+nPmQIK6BVkxI6LFllFm2hw
-VVNXxBuJ0py/RNIwYCUqoPNpvI+VTah0Ou1GhvnMuuUIcW1HTOJOljRnlLdbX1KJ
-WIqAuPlDlH/Zz6NxE0vJoFuZad7ExLWwP36MFuDGYJrT+vor4yhZuA==`
-)
-
-const (
-	kcmPrivateKey1 = `
------BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEAz+VymIVGNFRR/r30P3okV0Q2dgJ1Cv+/4sSPb1BU0m06E/oX
-9xvfm28qIj+ypK23vGQ2+2nsFVKxurdsLFuJK1A7Hb6nT5EZ0m5JR2tF8n2clPr1
-2IbmNwSOqgYePuKVJ5v39eY01y8eRr2Qib5DDc/EkRmAJpU8H/G9IwHDUJJpGgfC
-5q8HR/6iQQQcmsrtXfy0k3LA7lhbKuiB5nyu0U7QWRTq9k+8AeQ5rxvbBQHDstol
-9IYQ2ZKBquXW/QmoPOPQN9+p3ltlfPaQfP8bg2dHpT+VHz5DcCDVKQswJPuowWxE
-mWnBSr9ltoO/81wzQxHbY+oBhU5q5SYgdV55IwIDAQABAoIBAQCO4QF2IzpRopXL
-vt8LdTVeqGnJhvzLt2M4RaDSfuIc0Ka2rg4kbYqrN6Y8bYyoMx/woOtMtMplCTVO
-vtrgTXSjSPuoAKzaOT4G6ncAV5B2DLA9j5DA5E16CG7IGXZV/8FEvKOY40LzlNV5
-BrU8hX9uEZnloyH44l21Ep3LXl3Ok+P+A5itDBRscPhLzZG+6kdKJCB9yyEJminj
-KGWbFb4HvUF5ZsSqKhPBzw54SvMjpxbNJRc1AJgkqWKzYgBjTXmB51ACGDFtLH5b
-wNu2CijK6bJi1UBpr8bFa+g1JQzMOSMOozXZqZJykU9gJlBeZto2WszcZoevvOxW
-J4IvvFfZAoGBAOf8/B3Jmg3TznxAuXykVXfyXd+XE2WW8cCOahF/Qc2PANRIqP+y
-4RdUt+SF6GUuVHbr8LoJRWSMXybkXA/on2LanX56NTM77hAE9mD4YmrgTzeDnr/+
-I/deSDUYUnmhHH6mbMUEfS9n0SHXRP9Dx7xYFoJO84laNx71Efk1z0UlAoGBAOVq
-GKDaVAEMzgmoY1Qt1zwATFogkBWO72h3wLZlOL90ipPTrDUCivFibA0YXoGbKs4V
-9K3SMEfIoAOCWMM8X1S6ThVwqW0Pn3vgu7SkeFIlHhGptyPDh914Ic+RySgADjT6
-zF1sYTo25FGnBgyNu3CegeclJF7c6HlLGq6U64anAoGBAN9oYT8qa8JPLHW6OybO
-d0SI0mBFdDeMMoo2W+03uR4FTk4hHycHk/9M5b8cOd5ezJatxujRjtMy31tr5UCo
-y/19/NfVRrBtUWh57u8ZpGW6WG9kwJeyXd6WHEGNh7d8MR3CldLx7MCfYOYPEnIl
-Sw+VYS/iamPmzlhwt/tgF5hFAoGAHX+9+Pj58kSePbmsRAe89FcpejFTtaHygOFd
-I1byrBOlOgruysYv7Yf1Ut2+UTYNlABYvP0Y/jH6+ViKZ1hc/b0TC0i4UHDA1iH4
-oOrBGfbx3d2P0gZzcvPejR0223DeYsuY+a5U9jJWu3UZnwWeg4WuOHWbLqODNQ2G
-OcqmWmMCgYA4OmS/jMwek5ybLF4ng+Sr/sjKSd0qT+nPmQIK6BVkxI6LFllFm2hw
-VVNXxBuJ0py/RNIwYCUqoPNpvI+VTah0Ou1GhvnMuuUIcW1HTOJOljRnlLdbX1KJ
-WIqAuPlDlH/Zz6NxE0vJoFuZad7ExLWwP36MFuDGYJrT+vor4yhZuA==
------END RSA PRIVATE KEY-----`
-)
-
-const (
-	kcmPrivateKey2 = `
------BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjNq/p49Xwi8UTqq+e+wr
-nsXeDfHJjVrtjmAJZvIgrkuYkItllkIINnjPYxKll56kuYVQZoKmQYDMNXN4zWON
-BQEko2azkwBdZnkkyFefTpfLY3t6njmO0go318vvrZ2EuPCOBAtWQ1YuxbdD0f+C
-haCjLbpGAJJwfpvQnLWLriYstxISEMUoeY6j5XYl4rR84Y3EvNsTDTK/omnUUWUF
-TLa9wCAmgcwTZQXakgvsyv/+v1c4yU3rxgn71XqhzYMK3wwzYzxUp5GEg9I5u6Vd
-+F5Uys+gK4X5pByIIYwyc/HJYr7yYLTWIeN8Ovg+XOLq/X33CpwNXvf3LMoJCjBH
-JwIDAQAB
------END PUBLIC KEY-----`
-)
-
-const (
 	constDB = "postgres"
 )
 
@@ -505,10 +432,7 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 }
 
 func (s *rasService) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
-	err := kcmstools.SaveCert([]byte(kcmCert), certPath, kcmFileName)
-	if err != nil {
-		logger.L.Sugar().Errorf("save KCM Cert failed, error: %v", err)
-	}
+	
 	kcmPubKeyCert, err := kcmstools.SendKCMPubKeyCert()
 	if err != nil{
 		logger.L.Sugar().Errorf("Send KCM public key cert error, %v", err)
