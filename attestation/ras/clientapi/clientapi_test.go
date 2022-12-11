@@ -736,6 +736,10 @@ func TestClientapiInitKTA(t *testing.T) {
 	// generate public key and priate key of KCM
 	privKey, kcmPublicKey = GenRsaKey()
 
+	err = kcmstools.SaveCert([]byte(kcmCert), certPath, kcmFileName)
+	if err != nil {
+		t.Errorf("save KCM Cert failed, error, %v", err)
+	}
 	// test SendKCMPubKeyCert
 	_, err = ras.c.SendKCMPubKeyCert(ctx, &SendKCMPubKeyCertRequest{})
 	if err != nil {
@@ -984,7 +988,11 @@ func TestDoClientapiInitKTA(t *testing.T) {
 	privKey, kcmPublicKey = GenRsaKey()
 
 	// test SendKCMPubKeyCert
-	_, err := DoSendKCMPubKeyCert(server, &SendKCMPubKeyCertRequest{})
+	err := kcmstools.SaveCert([]byte(kcmCert), certPath, kcmFileName)
+	if err != nil {
+		t.Errorf("save KCM Cert failed, error: %v", err)
+	}
+	_, err = DoSendKCMPubKeyCert(server, &SendKCMPubKeyCertRequest{})
 	if err != nil {
 		t.Errorf("test SendKCMPubKeyCert failed %v", err)
 	}
@@ -1243,7 +1251,12 @@ func TestClientapiWithConnInitKTA(t *testing.T) {
 	// generate public key and priate key of KCM
 	privKey, kcmPublicKey = GenRsaKey()
 
+	
 	// test SendKCMPubKeyCert
+	err = kcmstools.SaveCert([]byte(kcmCert), certPath, kcmFileName)
+	if err != nil {
+		t.Errorf("save KCM Cert failed, error: %v", err)
+	}
 	_, err = DoSendKCMPubKeyCertWithConn(ras, &SendKCMPubKeyCertRequest{})
 	if err != nil {
 		t.Errorf("test SendKCMPubKeyCert failed %v", err)
