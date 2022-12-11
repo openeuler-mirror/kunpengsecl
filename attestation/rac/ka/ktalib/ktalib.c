@@ -28,7 +28,7 @@ TEEC_Session session = {0};
 */
 
 // 初始化上下文和会话
-TEEC_Result InitContextSession() {
+TEEC_Result InitContextSession(uint8_t* ktapath) {
     TEEC_Operation operation = {0};
     uint32_t origin = 0;
     TEEC_Result ret;
@@ -37,7 +37,7 @@ TEEC_Result InitContextSession() {
     if (ret != TEEC_SUCCESS) {
         return ret;
     }
-    context.ta_path = "/root/data/bbb2d138-ee21-43af-8796-40c20d7b45fa.sec"; //to be set, the path of kta mirror
+    context.ta_path = ktapath;
     operation.started = OPERATION_START_FLAG;
     operation.paramTypes = TEEC_PARAM_TYPES(
         TEEC_NONE,

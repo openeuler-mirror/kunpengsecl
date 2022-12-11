@@ -35,7 +35,9 @@ const (
 func KaMain(addr string, id int64) {
 	logger.L.Debug("start ka...")
 	loadConfigs()
-	err := getContextSession()
+	c_kta_path := C.CString(getKtaPath())
+	defer C.free(unsafe.Pointer(c_kta_path))
+	err := getContextSession(c_kta_path)
 	if err != nil {
 		logger.L.Sugar().Errorf("open session failed, %s", err)
 		return
@@ -85,7 +87,7 @@ func kaInitialize(ras *clientapi.RasConn, id int64) error {
 		logger.L.Sugar().Errorf("get send kta data fail, %s", err)
 		return err
 	}
-	ktaCert, err := initialKTA(kcmPubkey, ktaPrivKey, ktaPubCert)
+	ktaCert, err := initialKTA(kcmPubkey, ktaPubCert, ktaPrivKey)
 	if err != nil {
 		logger.L.Sugar().Errorf("init kta fail, %s", err)
 		terminateKTA()
@@ -93,10 +95,9 @@ func kaInitialize(ras *clientapi.RasConn, id int64) error {
 	}
 	// 删除密钥文件
 	removeKeyFile()
-	ktaPubBlock, _ := pem.Decode(ktaCert)
 	req := clientapi.VerifyKTAPubKeyCertRequest{
 		ClientId:      id,
-		KtaPubKeyCert: ktaPubBlock.Bytes,
+		KtaPubKeyCert: ktaCert,
 	}
 	//向clientapi发送证书和设备id
 	rpy, err := clientapi.DoVerifyKTAPubKeyCertWithConn(ras, &req)
@@ -166,8 +167,9 @@ func kaLoop(ras *clientapi.RasConn, askDuration time.Duration) {
 }
 
 // 建立上下文和会话
-func getContextSession() error {
-	teec_result := C.InitContextSession()
+func getContextSession(c_path *C.char) error {
+	c_kta_path := (*C.uchar)(unsafe.Pointer((*C.uchar)(unsafe.Pointer(c_path))))
+	teec_result := C.InitContextSession(c_kta_path)
 	if int(teec_result) != 0 {
 		return errors.New("get session failed")
 	}
