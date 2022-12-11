@@ -55,17 +55,17 @@ TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         tloge("Bad expected parameter.\n");
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    ret = saveKeyPair("sec_storage_data/kcmpub.txt", params[0].memref.buffer, params[0].memref.size, TEE_TYPE_RSA_PUBLIC_KEY);
+    ret = saveKeyandCert("sec_storage_data/kcmpub.txt", params[0].memref.buffer, params[0].memref.size);
     if (ret != TEE_SUCCESS){
         tloge("save kcmpub failed\n");
         return ret;
     }
-    ret = saveCert("sec_storage_data/ktacert.txt", params[1].memref.buffer, params[1].memref.size);
+    ret = saveKeyandCert("sec_storage_data/ktacert.txt", params[1].memref.buffer, params[1].memref.size);
     if (ret != TEE_SUCCESS){
         tloge("save kta cert failed\n");
         return ret;
     }
-    ret = saveKeyPair("sec_storage_data/ktakey.txt", params[2].memref.buffer, params[2].memref.size, TEE_TYPE_RSA_KEYPAIR);
+    ret = saveKeyandCert("sec_storage_data/ktakey.txt", params[2].memref.buffer, params[2].memref.size);
     if (ret != TEE_SUCCESS){
         tloge("save ktakey failed\n");
         return ret;
@@ -76,7 +76,7 @@ TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         return ret;
     }
 
-    ret = restoreCert("sec_storage_data/ktacert.txt",params[3].memref.buffer, &params[3].memref.size);
+    ret = restoreKeyandCert("sec_storage_data/ktacert.txt",params[3].memref.buffer, &params[3].memref.size);
     if (ret != TEE_SUCCESS){
         tloge("restore kta cert failed\n");
         return ret;
@@ -106,12 +106,6 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
 
     //input: TA_uuid, keyid, cache
     //output: cache, keyvalue
-}
-
-TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: delete a certain key in the cache
-    //input: TA_uuid, keyid, cache
-    //output: cache
 }
 
 TEE_Result DestoryKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {

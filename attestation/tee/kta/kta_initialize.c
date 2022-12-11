@@ -58,6 +58,7 @@ extern ReplyQueue replyqueue;
 //     //output: signedpubkey
 // }
 
+/*
 TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, size_t keysize, uint32_t keytype) {
     //todo: save a certain kind ok key into the physical media
     //TEE_TYPE_RSA_PUBLIC_KEY
@@ -73,6 +74,7 @@ TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, size_t keysize, uint32_
     ret = TEE_AllocateTransientObject(keytype, 0x00001000, (&transient_key));
     transient_key->Attribute->content.ref.length = keysize;
     transient_key->Attribute->content.ref.buffer = keyvalue;
+    
     ret = TEE_CreatePersistentObject(storageID, objectID, strlen(objectID), w_flags, transient_key, NULL, keysize+1,(&persistent_key));
     if (ret != TEE_SUCCESS) {
         tloge("Failed to create object:ret = 0x%x\n", ret);
@@ -83,22 +85,22 @@ TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, size_t keysize, uint32_
     TEE_FreeTransientObject(transient_key);
     return TEE_SUCCESS;
 }
-
-TEE_Result saveCert(char *certname, uint8_t *certvalue, size_t certsize) {
+*/
+TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size) {
     //todo: save a certain kind ok key into the physical media
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
     uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
-    void *create_objectID = certname;
+    void *create_objectID = name;
     TEE_ObjectHandle persistent_data = NULL;
     TEE_Result ret;
-    uint8_t *write_buffer = certvalue;
+    uint8_t *write_buffer = value;
     ret = TEE_CreatePersistentObject(storageID, create_objectID, strlen(create_objectID), w_flags, TEE_HANDLE_NULL, NULL, 0, (&persistent_data));
     if (ret != TEE_SUCCESS) {
         tloge("Failed to create file: ret = 0x%x\n", ret);
         return ret;
     }
 
-    ret = TEE_WriteObjectData(persistent_data, write_buffer, certsize);
+    ret = TEE_WriteObjectData(persistent_data, write_buffer, size);
     if (ret != TEE_SUCCESS) {
         tloge("Failed to write file: ret = 0x%x\n", ret);
         /* 打开或创建文件之后异常分支需要关闭文件，否则会产生内存泄漏 */
@@ -109,11 +111,11 @@ TEE_Result saveCert(char *certname, uint8_t *certvalue, size_t certsize) {
     return TEE_SUCCESS;
 }
 
-TEE_Result restoreCert(char *certname, uint8_t *buffer, size_t *buf_len) {
+TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t *buf_len) {
     TEE_Result ret;
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
     uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
-    void *create_objectID = certname;
+    void *create_objectID = name;
     TEE_ObjectHandle persistent_data = NULL;
     uint32_t pos = 0;
     uint32_t len = 0;

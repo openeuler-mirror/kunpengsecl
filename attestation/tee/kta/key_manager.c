@@ -271,22 +271,6 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     return TEE_ERROR_OVERFLOW;
 }
 
-//---------------------------DeleteTAKey------------------------------------------------
-
-TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: delete a certain key in the cache
-    TEE_Result ret;
-    if (!check_param_type(param_type,
-        TEE_PARAM_TYPE_MEMREF_INPUT,  
-        TEE_PARAM_TYPE_MEMREF_OUTPUT,
-        TEE_PARAM_TYPE_VALUE_OUTPUT,  
-        TEE_PARAM_TYPE_NONE )) {
-        tloge("Bad expected parameter types, 0x%x.\n", param_type);
-        return TEE_ERROR_BAD_PARAMETERS;
-    }
-    //params[0].memref.buffer内为输入的cmd结构体
-}
-
 //----------------------------DestoryKey------------------------------------------------
 
 TEE_Result DestoryKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {

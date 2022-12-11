@@ -17,6 +17,7 @@ Description: kta manages the TA's key cache in the TEE.
 
 #include <tee_ext_api.h>
 #include <tee_log.h>
+#include <tee_core_api.h>
 #include <kta_command.h>
 
 #define PARAM_COUNT 4
@@ -26,17 +27,17 @@ enum {
     CMD_SEND_REQUEST        = 0x00000002,
     CMD_RESPOND_REQUEST     = 0x00000003,
     CMD_RESET_ALL           = 0x00000004,
+    CMD_KILL                = 0x00000005,
     CMD_KEY_GENETARE        = 0x80000001,
     CMD_KEY_SEARCH          = 0x80000002,
     CMD_KEY_DELETE          = 0x80000003,
-    CMD_KEY_DESTORY         = 0x80000004,
-    CMD_KCM_REPLY           = 0x80000005,
-    CMD_CLEAR_CACHE         = 0x80000006
+    CMD_KCM_REPLY           = 0x80000004,
+    CMD_CLEAR_CACHE         = 0x80000005
 };
 
 Cache cache;
 CmdQueue cmdqueue;
-CmdQueue ReplyQueue;
+ReplyQueue replyQueue;
 
 TEE_Result TA_CreateEntryPoint(void)
 {
@@ -80,11 +81,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
     uint32_t param_type, TEE_Param params[PARAM_COUNT])
 {
     TEE_Result ret;
-    TEE_UUID uuid ;
     caller_info caller_info ;
-    void *teepubkey ;
-    void *keyvalue ;
-    char keyid[32] ;
 
     (void)session_context;
 
@@ -116,6 +113,9 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
                 tloge("reset failed\n");
             return ret;
             break;
+        case CMD_KILL:
+            TEE_Panic(TEE_FAIL);
+            break;
         default:
             tloge("Unknown cmd is %u", cmd);
             ret = TEE_ERROR_BAD_PARAMETERS;
@@ -135,12 +135,6 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
             return ret;
             break;
         case CMD_KEY_DELETE:
-            ret = DeleteTAKey(param_type, params);
-            if (ret != TEE_SUCCESS)
-                tloge("delete ta key failed\n");
-            return ret;
-            break;
-        case CMD_KEY_DESTORY:
             ret = DestoryTAKey(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("destory ta key failed\n");

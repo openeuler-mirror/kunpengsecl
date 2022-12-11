@@ -16,27 +16,74 @@ enum {
     CMD_KEY_GENETARE        = 0x80000001,
     CMD_KEY_SEARCH          = 0x80000002,
     CMD_KEY_DELETE          = 0x80000003,
-    CMD_KEY_DESTORY         = 0x80000004,
-    CMD_KCM_REPLY           = 0x80000005,
-    CMD_CLEAR_CACHE         = 0x80000006
+    CMD_KCM_REPLY           = 0x80000004,
+    CMD_CLEAR_CACHE         = 0x80000005
 };
 
-typedef struct _tagCmdData{
+typedef struct _tagCmdNode{
     int32_t     cmd;
     TEE_UUID    taId;
     TEE_UUID    keyId;
     TEE_UUID    masterkey;
     uint8_t account[MAX_STR_LEN];
     uint8_t password[MAX_STR_LEN];
-}CmdData;
+}CmdNode;
 
+/*
+ * Generate a key using KCMS
+ *
+ * @param uuid [IN] the uuid of ta which needs the key
+ * @param account [IN] ta's account in KMS
+ * @param password [IN] ta's password in KMS
+ * @param masterkey [IN] the uuid of ta's master key in KMS
+ */
 TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *masterkey, uint8_t *keyvalue);
+        uint8_t *password, TEE_UUID *masterkey);
+
+/*
+ * Search the key corresponding to the keyid using KCMS
+ *
+ * @param uuid [IN] the uuid of ta which needs the key
+ * @param account [IN] ta's account in KMS
+ * @param password [IN] ta's password in KMS
+ * @param keyid [OUT] the id of the key to be searched for
+ * @param masterkey [IN] the uuid of ta's master key in KMS
+ * @param keyvalue [OUT] the value of the key
+ * @param flag [OUT] a flag, whether need to search again
+ */
 TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey, uint8_t *keyvalue);
+        uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey, uint8_t *keyvalue, uint32_t *flag);
+
+/*
+ * Delete the key corresponding to the keyid in KMS using KCMS
+ *
+ * @param uuid [IN] the uuid of ta which needs the key
+ * @param account [IN] ta's account in KMS
+ * @param password [IN] ta's password in KMS
+ * @param keyid [IN] the id of the key to be searched for
+ */
 TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *keyid);
-TEE_Result destory_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *keyid);
+
+/*
+ * Clear all of current ta's data in KTA
+ *
+ * @param uuid [IN] the uuid of ta which needs the key
+ * @param account [IN] ta's account in KMS
+ * @param password [IN] ta's password in KMS
+ */
 TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password);
-//TEE_Result get_key_reply(uint8_t *keyvalue);
+
+/*
+ * Get the reply of generating a key using KCMS
+ *
+ * @param uuid [IN] the uuid of ta which needs the key
+ * @param account [IN] ta's account in KMS
+ * @param password [IN] ta's password in KMS
+ * @param keyid [IN] the id of the key to be searched for
+ * @param masterkey [IN] the uuid of ta's master key in KMS
+ * @param keyvalue [OUT] the value of the key generated
+ */
+TEE_Result get_key_reply(TEE_UUID *uuid, uint8_t *account,
+        uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey, uint8_t *keyvalue);
 
 #endif // __KCML_H__

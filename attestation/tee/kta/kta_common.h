@@ -61,7 +61,7 @@ typedef struct _tagCache{
 
 /* command queue to store the commands */
 
-typedef struct _tagCmdData{
+typedef struct _tagCmdNode{
     int32_t     cmd;
     TEE_UUID    taId;
     TEE_UUID    keyId;
@@ -82,7 +82,7 @@ typedef struct _tagReplyData{
     uint8_t keyvalue[KEY_SIZE];
 } ReplyNode;
 
-typedef struct _tagCmdQueue{
+typedef struct _tagReplyQueue{
     ReplyNode queue[MAX_QUEUE_SIZE];
     int32_t head;   // 0~MAX_TA_NUM: first cmd for dequeue operation.
     int32_t tail;   // 0~MAX_TA_NUM: last cmd for enqueue operation.
@@ -109,11 +109,9 @@ typedef struct _tagRequest{
 
 //for initializition
 
-TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, size_t keysize, uint32_t keytype);
+TEE_Result saveKeyandCert(char *certname, uint8_t *certvalue, size_t certsize);
 
-TEE_Result saveCert(char *certname, uint8_t *certvalue, size_t certsize);
-
-TEE_Result restoreCert(char *certname, uint8_t *buffer, size_t *buf_len);
+TEE_Result restoreKeyandCert(char *certname, uint8_t *buffer, size_t *buf_len);
 
 TEE_Result initStructure();
 
