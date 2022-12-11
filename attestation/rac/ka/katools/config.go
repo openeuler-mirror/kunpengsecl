@@ -19,6 +19,7 @@ const (
 	confCKeyCert       = "kaconfig.ccFile" //ca cert
 	confKKeyCert       = "kaconfig.kcFile"
 	confKKeyFile       = "kaconfig.kKeyFile"
+	confKtaPath        = "kaconfig.ktapath"
 	nullString         = ""
 
 	// default values
@@ -36,6 +37,7 @@ type (
 		ccFile       string
 		kcFile       string
 		kKeyFile     string
+		ktaPath      string
 	}
 )
 
@@ -70,6 +72,7 @@ func loadConfigs() {
 	kaCfg.ccFile = viper.GetString(confCKeyCert)
 	kaCfg.kcFile = viper.GetString(confKKeyCert)
 	kaCfg.kKeyFile = viper.GetString(confKKeyFile)
+	kaCfg.ktaPath = viper.GetString(confKtaPath)
 }
 
 func getPollDuration() time.Duration {
@@ -111,4 +114,10 @@ func getKtaKeyFile() string {
 		kaCfg.kKeyFile = ktaKey + crtExt
 	}
 	return kaCfg.kKeyFile
+}
+func getKtaPath() string {
+	if kaCfg == nil {
+		return nullString
+	}
+	return kaCfg.ktaPath
 }

@@ -24,7 +24,7 @@ struct buffer_data{
 #define TAG_ERROR "[error]"
 #define tloge(fmt, args...) printf("[%s] %s %d:" fmt " ", LIBKTA_PREFIX, TAG_ERROR, __LINE__, ##args)
 
-TEEC_Result InitContextSession();
+TEEC_Result InitContextSession(uint8_t* ktapath);
 
 TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey, struct buffer_data* ktaPubCert, struct buffer_data* ktaPrivKey, struct buffer_data *out_data);
 

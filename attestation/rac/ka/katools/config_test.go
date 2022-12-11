@@ -16,6 +16,7 @@ kaconfig:
   ccFile: ./cert/ca.crt
   kcFile: ./cert/kta.crt
   kKeyFile: ./cert/kta.key
+  ktapath: /root/data/bbb2d138-ee21-43af-8796-40c20d7b45fa.sec
 `
 )
 
@@ -83,4 +84,15 @@ func TestGetKtaKeyFile(t *testing.T) {
 		t.Errorf("Get kta key file error\n")
 	}
 	t.Logf("ktaCert=%v\n", ktaKey)
+}
+func TestGetKtaPath(t *testing.T) {
+	CreateClientConfigFile()
+	defer RemoveConfigFile()
+	PrepareConfig()
+	loadConfigs()
+	ktaPath := getKtaPath()
+	if ktaPath == nullString {
+		t.Errorf("Get kta path error\n")
+	}
+	t.Logf("ktaPath=%v\n", ktaPath)
 }
