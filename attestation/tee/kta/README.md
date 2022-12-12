@@ -24,7 +24,7 @@ parm_type = TEE_PARAM_TYPES(
 cmd CMD_SEND_REQUEST
 parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放请求
-        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放队列中的请求数量
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE
         );

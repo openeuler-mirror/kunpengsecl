@@ -6,7 +6,7 @@
 #define OPERATION_START_FLAG 1
 #define MAX_STR_LEN 64
 #define SYMBOL_PARAM 3
-#define VALUE_INIT 0x8fffffff
+#define VALUE_INIT 0x7fffffff
 
 static const TEEC_UUID Uuid = {
     0xbbb2d138, 0xee21, 0x43af, { 0x87, 0x96, 0x40, 0xc2, 0x0d, 0x7b, 0x45, 0xfa }
