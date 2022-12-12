@@ -108,7 +108,7 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    if (params[PARAMETER_FOURTH].value.a != 0x8fffffff) {
+    if (params[PARAMETER_FOURTH].value.a != 0x7fffffff) {
         tloge("Bad expected parameter value");
         return TEE_ERROR_BAD_PARAMETERS;
     }

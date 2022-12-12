@@ -18,9 +18,10 @@ Description: key managing module in kta.
 */
 
 #include <tee_defines.h>
-#include <kta_common.h>
 #include <tee_object_api.h>
 #include <tee_crypto_api.h>
+#include <securec.h>
+#include <kta_common.h>
 //#include <cJSON.h>
 
 #define PARAM_COUNT 4
@@ -31,14 +32,19 @@ extern ReplyCache replycache;
 // ===================Communication with kcm====================================
 
 //--------------------------1、SendRequest---------------------------------------------
-bool isQueueEmpty(CmdQueue cmdQueue){
+bool isQueueEmpty(){
     // 1=empty,0=not empty
-    if (cmdQueue.head == cmdQueue.tail){
-        tlogd("cmdQueue is empty,nothing should be sent.\n");
-        return 1;
+    if (cmdqueue.head == cmdqueue.tail){
+        tlogd("cmdqueue is empty,nothing should be sent.\n");
+        return true;
     }
-    return 0;
+    return false;
 }
+
+void dequeue(CmdNode *cmdnode){
+    cmdnode = &cmdqueue.queue[cmdqueue.head];
+    cmdqueue.head = (cmdqueue.head + 1) % MAX_QUEUE_SIZE;
+};
 
 //generate Data encryption symmetric key kcm-pub key
 TEE_Result generaterCmdDataKey(CmdRequest *intermediateRequest){
@@ -54,12 +60,12 @@ void encryption(char *pubkeyname, CmdRequest *intermediateRequest,
    
 };
 
-void generaterFinalRequest(){
+void generaterFinalRequest(CmdNode cmdnode, CmdRequest *request){
     /* get request data from cmdqueue,and generate final request*/
     //申请IntermediateRequest临时内存
     TEE_AllocateTransientObject();
     generaterCmdDataKey();
-    json();//cmdQueue.queue[cmdQueue.head]
+    json();//cmdqueue.queue[cmdqueue.head]
     encryption();
     json();
     //释放IntermediateRequest
@@ -68,43 +74,40 @@ void generaterFinalRequest(){
 
 TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
-    void *buffer; //the buffer is to be specified
-    int queue_empty;
+    CmdNode curNode;
+    CmdRequest finalrequest;
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_OUTPUT,
-        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_VALUE_OUTPUT,
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    //Judge whether cmd queue is empty 
-    queue_empty = isQueueEmpty(cmdqueue);
-    if (!queue_empty){
-        return TEE_ERROR_ITEM_NOT_FOUND;
+    if (params[0].memref.buffer == NULL ||
+        params[0].memref.size < sizeof(CmdRequest)) {
+        tloge("Bad expected parameter value");
+        return TEE_ERROR_BAD_PARAMETERS;
     }
+    //Judge whether cmd queue is empty 
+    if (isQueueEmpty()){
+        params[1].value.a = 0;
+        tlogd("cmd queue is empty");
+        return TEE_SUCCESS;
+    }
+    //if is not empty, dequeue a request from the queue
+    params[1].value.a = (cmdqueue.tail + MAX_QUEUE_SIZE - cmdqueue.head) % MAX_QUEUE_SIZE;
+    dequeue(&curNode);
+
     //generater Request Return value for ka
-    CmdRequest finalrequest;
-    generaterFinalRequest(finalrequest);
-    params[0].memref.buffer = buffer;
+    generaterFinalRequest(curNode, &finalrequest);
+    memcpy_s(params[0].memref.buffer, sizeof(finalrequest), &finalrequest, sizeof(finalrequest));
     return TEE_SUCCESS;
 }
-
-int dequeue(CmdQueue cmdQueue){
-    //1=failed ;0=success
-    int rtn;
-    rtn = isQueueEmpty(cmdqueue);
-    if (rtn){
-        return rtn;
-    }
-    cmdQueue.head = (cmdQueue.head + 1) % MAX_QUEUE_SIZE;
-    return 0;
-};
 
 //--------------------------2、GetResponse---------------------------------------------
 
 TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: Get Response from ka when kta had sent request to kcm before
     TEE_Result ret;
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,

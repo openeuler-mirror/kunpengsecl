@@ -4,7 +4,7 @@
 #include <securec.h>
 #include "kcml.h"
 
-#define VALUE_INIT 0x8fffffff
+#define VALUE_INIT 0x7fffffff
 #define TIMEOUT 0x00000BB8
 #define KEY_SIZE 8192
 
