@@ -5,14 +5,15 @@
 #define PARAMETER_SECOND 1
 #define PARAMETER_THIRD 2
 #define PARAMETER_FOURTH 3
-
 static const TEEC_UUID Uuid = {
     0x435dcafa, 0x0029, 0x4d53, { 0x97, 0xe8, 0xa7, 0xa1, 0x3a, 0x80, 0xc8, 0x2e }
 };
 enum TEEC_Return{
     TEEC_ERROR_BAD_BUFFER_DATA = 0xFFFF0006
 };
-
+enum{
+    INITIAL_CMD_NUM = 0x7FFFFFFF
+};
 enum {
     CMD_KTA_INITIALIZE      = 0x00000001, //send request to kta for setup snd initialization, get parameters kta generated during initialization
     CMD_GET_REQUEST         = 0x00000002, //ask kta for commands in its cmdqueue, and send ta identification whose trusted status needs to update
@@ -78,33 +79,33 @@ TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey, struct buffer_data* kta
 
     ret = TEEC_InvokeCommand(&session, CMD_KTA_INITIALIZE, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
-        printf("kta initialize failed, codes=0x%x, origin=0x%x", ret, origin);
         return ret;
     }
 
     return TEEC_SUCCESS;
 }
 // 从KTA拿取密钥请求
-TEEC_Result KTAgetCommand(struct buffer_data* out_data){
+TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum){
     TEEC_Operation operation = {0};
+    TEEC_Value cmdnum = {0};
     uint32_t origin = 0;
     TEEC_Result ret;
-
+    cmdnum.a = INITIAL_CMD_NUM;
     operation.started = OPERATION_START_FLAG;
     operation.paramTypes = TEEC_PARAM_TYPES(
         TEEC_MEMREF_TEMP_OUTPUT, //存放请求
-        TEEC_NONE,
+        TEEC_VALUE_OUTPUT, //存放剩余请求数量(包含此次得到的的请求在内)
         TEEC_NONE,
         TEEC_NONE
     );
     operation.params[PARAMETER_FRIST].tmpref.buffer = out_data->buf;
     operation.params[PARAMETER_FRIST].tmpref.size = out_data->size;
+    operation.params[PARAMETER_SECOND].value = cmdnum;
     ret = TEEC_InvokeCommand(&session, CMD_GET_REQUEST, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
-        printf("get kta requests failed, codes=0x%x, origin=0x%x", ret, origin);
         return ret;
     }
-
+    *retnum = cmdnum.a;
     return TEEC_SUCCESS;
 }
 
@@ -127,7 +128,6 @@ TEEC_Result KTAsendCommandreply(struct buffer_data* in_data){
     operation.params[PARAMETER_SECOND].value = ktares;
     ret = TEEC_InvokeCommand(&session, CMD_RESPOND_REQUEST, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
-        printf("respond kta requests failed, codes=0x%x, origin=0x%x", ret, origin);
         return ret;
     }
     if (ktares.a == 0){

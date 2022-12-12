@@ -140,12 +140,16 @@ func removeKeyFile() {
 func kaLoop(ras *clientapi.RasConn, askDuration time.Duration) {
 	logger.L.Debug("start ka loop...")
 	for {
-		nextCmd, err := getKTACmd()
+		nextCmd, cmdnum, err := getKTACmd()
 		if err != nil {
 			logger.L.Sugar().Errorf("get kta command error, %s", err)
 			break
 			// time.Sleep(askDuration)
 			// continue
+		}
+		if cmdnum == 0 {
+			time.Sleep(3 * time.Second)
+			continue
 		}
 		req := clientapi.KeyOperationRequest{
 			EncMessage: nextCmd,
@@ -160,6 +164,10 @@ func kaLoop(ras *clientapi.RasConn, askDuration time.Duration) {
 		if err1 != nil {
 			logger.L.Sugar().Errorf("send rpy to kta error, %s", err)
 			break
+		}
+		if cmdnum == 1 {
+			time.Sleep(3 * time.Second)
+			continue
 		}
 		time.Sleep(askDuration)
 	}
@@ -206,18 +214,20 @@ func initialKTA(kcmPubkey []byte, ktaPubCert []byte, ktaPrivKey []byte) ([]byte,
 }
 
 // 从KTA拿取密钥请求
-func getKTACmd() ([]byte, error) {
+func getKTACmd() ([]byte, uint32, error) {
 	c_cmd_data := C.struct_buffer_data{}
+	c_cmd_num := C.uint(0)
 	// malloc大小待设置
 	c_cmd_data.size = C.__uint32_t(CMD_DATA_SZIE)
 	c_cmd_data.buf = (*C.uint8_t)(C.malloc(C.ulong(c_cmd_data.size)))
-	teec_result := C.KTAgetCommand(&c_cmd_data)
+	teec_result := C.KTAgetCommand(&c_cmd_data, &c_cmd_num)
 	if int(teec_result) != 0 {
-		return nil, errors.New("get kta commmand failed")
+		return nil, 0, errors.New("get kta commmand failed")
 	}
 	bk := C.GoBytes(unsafe.Pointer(c_cmd_data.buf), C.int(c_cmd_data.size))
+	cmd_num := uint32(c_cmd_num)
 
-	return bk, nil
+	return bk, cmd_num, nil
 }
 
 // 向KTA返发送密钥请求返回值
