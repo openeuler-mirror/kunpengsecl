@@ -74,14 +74,41 @@ int main(){
                 TEEC_NONE,
                 TEEC_NONE,
                 TEEC_NONE,
-                TEEC_NONE
+                TEEC_VALUE_OUTPUT //we need one parameter to identify whether needs ca to call back
             );
+            operation.params[SYMBOL_PARAM].value.a = VALUE_INIT; //a marks whether ta needs needs to be called back, a=0 means not need
             result = TEEC_InvokeCommand(&session, CMD_TA_CALLBACK, &operation, &origin);
             if(result != TEEC_SUCCESS) {
                 printf("ta call back failed, codes=0x%x, origin=0x%x", result, origin);
                 goto end3;
             }
-            printf("ta call back success");
+            if(operation.params[SYMBOL_PARAM].value.a == 0) {
+                printf("encrypt data process succeeded");
+                goto else_options;
+            } else if (operation.params[SYMBOL_PARAM].value.a != 1) {
+                printf("encrypt data process failed, parameter is wrong");
+                goto end3;
+            } else {
+                printf("ta needs to be called back, wait 2s");
+                sleep(2);
+                operation.started = OPERATION_START_FLAG;
+                operation.paramTypes = TEEC_PARAM_TYPES(
+                    TEEC_NONE,
+                    TEEC_NONE,
+                    TEEC_NONE,
+                    TEEC_VALUE_OUTPUT //we need one parameter to identify whether needs ca to call back
+                );
+                operation.params[SYMBOL_PARAM].value.a = VALUE_INIT; //a marks whether ta needs needs to be called back, a=0 means not need
+                result = TEEC_InvokeCommand(&session, CMD_TA_CALLBACK, &operation, &origin);
+                if(result != TEEC_SUCCESS) {
+                    printf("ta call back failed, codes=0x%x, origin=0x%x", result, origin);
+                    goto end3;
+                }
+                if(operation.params[SYMBOL_PARAM].value.a == 0) {
+                    printf("encrypt data process succeeded");
+                    goto else_options;
+                } else printf("encrypt data process failed");
+            }
         }
     }
 

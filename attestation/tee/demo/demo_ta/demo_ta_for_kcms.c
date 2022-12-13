@@ -38,6 +38,7 @@ typedef struct _StatusFlag {
     //0 means no need to reply
     //1 means get key generation reply
     //2 means get key search reply
+    //3 means get key delete reply
     uint32_t symbol;
 } StatusFlag;
 
@@ -190,7 +191,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     uint32_t twice_search_flag;
     switch(flag.symbol) {
     case 1:
-        ret = get_key_reply(&localUuid, account, password, &keyid, &masterkey, keyvalue);
+        ret = get_kcm_reply(&localUuid, account, password, &keyid, keyvalue);
         if (ret != TEE_SUCCESS) {
             tloge("get generate key reply failed");
             return ret;
@@ -223,6 +224,12 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
             return TEE_ERROR_TIMEOUT;
         }
         break;
+    case 3:
+        ret = get_kcm_reply(&localUuid, account, password, &keyid, NULL);
+        if (ret != TEE_SUCCESS) {
+            tloge("delete key failed");
+            return ret;
+        } else return TEE_SUCCESS;
     default:
         tloge("parameter symbol is wrong");
         return TEE_ERROR_BAD_PARAMETERS;
@@ -255,6 +262,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
             tloge("delete key failed");
             return ret;
         }
+        params[PARAM_COUNT].value.a = 1;
     }
     tlogd("execute call back success");
     return TEE_SUCCESS;

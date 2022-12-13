@@ -29,6 +29,17 @@ typedef struct _tagCmdNode{
     uint8_t password[MAX_STR_LEN];
 }CmdNode;
 
+typedef struct _tagReplyNode{
+    int32_t tag;    //a tag to identify reply: 1 for generate reply, 2 for delete reply
+    TEE_UUID    taId;
+    TEE_UUID    keyId;
+    union {
+        uint8_t keyvalue[KEY_SIZE];
+        int32_t flag;   //a flag to identify if the key is deleted successfully: 1 for deleted, 0 for not
+    };
+    int32_t next;   // -1: empty; 0~MAX_TA_NUM: next reply for search operation.
+} ReplyNode;
+
 /*
  * Generate a key using KCMS
  *
@@ -80,10 +91,9 @@ TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password);
  * @param account [IN] ta's account in KMS
  * @param password [IN] ta's password in KMS
  * @param keyid [IN] the id of the key to be searched for
- * @param masterkey [IN] the uuid of ta's master key in KMS
  * @param keyvalue [OUT] the value of the key generated
  */
-TEE_Result get_key_reply(TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey, uint8_t *keyvalue);
+TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
+        uint8_t *password, TEE_UUID *keyid, uint8_t *keyvalue);
 
 #endif // __KCML_H__

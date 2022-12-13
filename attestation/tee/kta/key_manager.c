@@ -107,30 +107,17 @@ TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
 
 //--------------------------2、GetResponse---------------------------------------------
 
-TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    TEE_Result ret;
-    if (!check_param_type(param_type,
-        TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE)) {
-        tloge("Bad expected parameter types, 0x%x.\n", param_type);
-        return TEE_ERROR_BAD_PARAMETERS;
-    }
-    decryption();
-    parsejson();
-    switch(cmd);//saveinfo?savetakey?
-    //put it to cmd
-}
-
 void decryption(){
     /*
     todo:
     1 decrypt symmetric key by kta-priv key
     2 decrypt cmd_data by symmetric key
     */
-};
+}
 
+void parsejson(){
+
+}
 
 void saveTaInfo(TEE_UUID TA_uuid, char *account, char *password) {
     /*
@@ -144,6 +131,36 @@ void saveTaInfo(TEE_UUID TA_uuid, char *account, char *password) {
 
 void saveTaKey(TEE_UUID TA_uuid, uint32_t keyid, char *keyvalue) {
     //todo: options to save a certain key in cache, Same as the above example
+}
+
+void saveReplyCache() {
+    //todo: save a reply in replycache
+}
+
+TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
+    TEE_Result ret;
+    if (!check_param_type(param_type,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE)) {
+        tloge("Bad expected parameter types, 0x%x.\n", param_type);
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    decryption();
+    parsejson();
+    switch(cmd) {
+    case saveinfo:
+        saveTaInfo();
+    case generate_reply:
+        saveTaKey();
+        saveReplyCache();
+    case search_reply:
+        saveTaKey();
+    case delete_key:
+        saveReplyCache();
+    }
+
 }
 
 // ===================Communication with kcm from ta====================================

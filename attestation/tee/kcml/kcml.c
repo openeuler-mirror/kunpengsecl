@@ -13,13 +13,6 @@ static const TEE_UUID ktauuid = {0x435dcafa, 0x0029, 0x4d53, {0x97, 0xe8, 0xa7, 
 static const session_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);
 
-typedef struct _tagReplyData{
-    TEE_UUID    taId;
-    TEE_UUID    keyId;
-    uint8_t keyvalue[KEY_SIZE];
-    int32_t next;   // -1: empty; 0~MAX_TA_NUM: next reply for search operation.
-} ReplyNode;
-
 void cmd_copy(CmdNode *cmdnode, TEE_UUID *uuid, uint8_t *account,
         uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey) {
     strncpy_s((char*)cmdnode->account, MAX_STR_LEN, (char*)account, MAX_STR_LEN);
@@ -197,13 +190,13 @@ TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password) {
         return TEE_ERROR_CANCEL;
     }
 
-    tlogd("success to destory cache");
+    tlogd("success to clear cache");
     TEE_CloseTASession(&session);
     return TEE_SUCCESS;
 }
 
-TEE_Result get_key_reply(TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey, uint8_t *keyvalue) {
+TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
+        uint8_t *password, TEE_UUID *keyid, uint8_t *keyvalue) {
     TEE_Result ret;
     CmdNode *cmdnode = NULL;
     ReplyNode *replynode = NULL;
@@ -232,8 +225,20 @@ TEE_Result get_key_reply(TEE_UUID *uuid, uint8_t *account,
         TEE_CloseTASession(&session);
         return ret;
     }
-    memcpy_s(keyid, sizeof(TEE_UUID), &replynode->keyId, sizeof(TEE_UUID));
-    memcpy_s(keyvalue, KEY_SIZE, replynode->keyvalue, KEY_SIZE);
-    tlogd("success to get key generation reply");
-    return TEE_SUCCESS;
+    switch(replynode->tag) {
+        case 1:
+        memcpy_s(keyid, sizeof(TEE_UUID), &replynode->keyId, sizeof(TEE_UUID));
+        memcpy_s(keyvalue, KEY_SIZE, replynode->keyvalue, KEY_SIZE);
+        tlogd("get a key generate reply");
+        return TEE_SUCCESS;
+        case 2:
+        tlogd("get a key delete reply");
+        if(replynode->flag) {
+            return TEE_SUCCESS;
+        } else {
+            return TEE_ERROR_NOT_IMPLEMENTED;
+        }
+    }
+
+
 }
