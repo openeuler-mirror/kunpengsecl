@@ -76,10 +76,14 @@ typedef struct _tagCmdQueue{
     int32_t tail;   // 0~MAX_TA_NUM: last cmd for enqueue operation.
 } CmdQueue;
 
-typedef struct _tagReplyData{
+typedef struct _tagReplyNode{
+    int32_t tag;    //a tag to identify reply: 1 for generate reply, 2 for delete reply
     TEE_UUID    taId;
     TEE_UUID    keyId;
-    uint8_t keyvalue[KEY_SIZE];
+    union {
+        uint8_t keyvalue[KEY_SIZE];
+        int32_t flag;   //a flag to identify if the key is deleted successfully: 1 for deleted, 0 for not
+    };
     int32_t next;   // -1: empty; 0~MAX_TA_NUM: next reply for search operation.
 } ReplyNode;
 
