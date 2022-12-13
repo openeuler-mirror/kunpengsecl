@@ -24,6 +24,24 @@
               - [原理图](#原理图-1)
               - [安装部署](#安装部署-1)
               - [程序启动](#程序启动-1)
+      - [密钥缓存管理特性](#密钥缓存管理特性)
+          - [实体介绍](#实体介绍-1)
+              - [KTA介绍](#kta介绍)
+              - [KA介绍](#ka介绍)
+              - [KCMS介绍](#kcms介绍)
+          - [数据定义](#数据定义)
+              - [KTA关键常量](#kta关键常量)
+              - [KTA参数声明](#kta参数声明)
+              - [KTA关键数据结构](#kta关键数据结构)
+              - [KA关键常量](#ka关键常量)
+              - [KA关键数据结构](#ka关键数据结构)
+              - [KCMS关键常量](#kcms关键常量)
+              - [KCMS关键数据结构](#kcms关键数据结构)
+          - [接口描述](#接口描述)
+              - [KTA接口](#kta接口)
+              - [KA接口](#ka接口)
+              - [KCMS接口](#kcms接口)
+          - [流程图](#流程图)
 
 <!-- TOC -->
 
@@ -422,3 +440,292 @@ $ cd kunpengsecl/attestation/tee/demo/attester_demo/cmd
 $ go run main.go -T -B ./basevalue2.txt
 
 >注：在有AK_Service环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问AK_Service以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有AK_Service签发的证书保存于本地，若成功读取证书，则无需访问AK_Service，若读取证书失败，则需要访问AK_Service，并将AK_Service返回的证书保存于本地。
+
+
+## 密钥缓存管理特性
+
+TEE密钥缓存管理是基于TEE远程证明的一个应用扩展特性，尝试将平台的可信和TEE的可信应用到实际的应用场景中。  
+当用户TA希望获取KMS中指定密钥时， 需要触发TEE密钥缓存管理特性的功能。  
+用户TA需要使用KMS中指定密钥时，可通过集成在鲲鹏安全库中的密钥管理TA，密钥代理，以及密钥管理模块提供的基于远程证明加固的方式安全获取密钥，并在TEE内进行安全的密钥缓存，减少密钥泄露风险。  
+
+### <a id="实体介绍-1"></a>实体介绍
+
+#### KTA介绍
+
+KTA(Key Caching Trusted Application)提供TKML所需的跨TA接口，在授予用户TA指定密钥访问权限前通过本地证明验证用户TA的完整性，根据给定密钥标识管理其缓存状态（加密缓存），使用用户TA给定的封装密钥来封装返回所需密钥。
+
+#### KA介绍
+
+KA(Key Agent)负责在REE侧辅助建立KTA和KCM Service之间的通信通路。
+
+#### KCMS介绍
+
+KCMS(Key Caching Management Service)向外支持对接KMIP兼容KMS服务，向内提供密钥安全缓冲协议接口。KCMS中的KeyMgr需要具备借助TEE远程证明特性验证KTA完整性的能力，也可支持用户TA完整性验证。
+
+### 数据定义
+
+#### KTA关键常量
+
+```c
+#define MAX_TA_NUM          16      // TA最大数量
+#define MAX_KEY_NUM         16      // 密钥最大数量
+#define MAX_STR_LEN         64      // 字符串最大长度
+#define KEY_SIZE            128     // 密钥大小
+#define MAX_QUEUE_SIZE      16      // 队列大小
+#define MAX_DATA_LEN        1024    // 数据最大长度
+#define PARAM_COUNT         4       // 指令接口所使用的参数数量
+```
+
+#### KTA参数声明
+
+1、描述：KTA初始化
+```C
+cmd CMD_KTA_INITIALIZE
+param_type = TEE_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_INPUT,   //存放KCM公钥
+        TEE_PARAM_TYPE_MEMREF_INPUT,   //存放KTA公钥证书
+        TEE_PARAM_TYPE_MEMREF_INPUT,   //存放KTA私钥
+        TEE_PARAM_TYPE_VALUE_OUTPUT    //存放KTA公钥证书（返回）
+        );
+```
+
+2、描述：KTA请求函数
+```C
+cmd CMD_SEND_REQUEST
+param_type = TEE_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放请求
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE
+        );
+```
+
+3、描述：KA请求返回
+```C
+cmd CMD_RESPOND_REQUEST
+param_type = TEE_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_INPUT, //存放请求结果
+        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放KTA处理结果
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE
+        );
+```
+
+4、描述：TA请求生成密钥
+```C
+cmd CMD_TA_GENERATE
+param_type = TEE_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放是否需要向kcm生成请求：固定为1（需要）
+                                      //b为0表示生成请求结果失败，1表示生成请求结果成功（详见数据结构TEE_Param）
+        TEE_PARAM_TYPE_NONE
+        );
+```
+
+5、描述：TA请求查询密钥
+```C
+cmd CMD_KEY_SEARCH
+param_type = TEE_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放返回密钥明文
+        TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放是否需要向kcm生成请求：a为0表示不需要向kcm生成请求，1表示需要向kcm生成请求
+                                      //b为0表示生成请求结果失败，1表示生成请求结果成功（详见数据结构TEE_Param）
+        TEE_PARAM_TYPE_NONE
+        );
+```
+
+6、描述：TA请求删除密钥缓存
+```C
+cmd CMD_KEY_DELETE
+param_type = TEE_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_INPUT, //存放cmd结构体
+        TEE_PARAM_TYPE_VALUE_OUTPUT, //返回删除结果
+        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放是否需要向kcm生成请求：固定为0（不需要）
+        TEE_PARAM_TYPE_NONE
+        );
+```
+
+7、描述：KTA向TA返回结果
+```C
+cmd CMD_KCM_REPLY
+param_type = TEE_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, //返回请求结果
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE
+        );
+```
+
+8、描述：TA删除所有kta内部保存的信息
+```C
+cmd CMD_CLEAR_CACHE
+param_type = TEE_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
+        TEE_PARAM_TYPE_VALUE_OUTPUT,  //返回请求结果：0表示失败，1表示成功
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE
+        );
+```
+
+#### KTA关键数据结构
+
+1、描述：密钥信息结构
+```c
+typedef struct _tagKeyInfo{
+    TEE_UUID    id;             // 密钥ID
+    uint8_t value[KEY_SIZE];    // 指定大小的密钥值
+    int32_t next;               // 用于下一个密钥的查询操作，-1表示空
+} KeyInfo;
+
+typedef struct _tagTaInfo{
+    TEE_UUID    id;                 // 可信应用ID
+    TEE_UUID    masterkey;          // 主密钥ID
+    uint8_t account[MAX_STR_LEN];   // 账户名
+    uint8_t password[MAX_STR_LEN];  // 账户密码
+    int32_t next;                   // 用于下一个TA的查询操作，-1表示空
+    KeyInfo key[MAX_KEY_NUM];       // 密钥数组
+    int32_t head;                   // 指定第一个密钥的索引位置，-1表示空
+    int32_t tail;                   // 指定最后一个密钥的索引位置，-1表示空
+} TaInfo;
+
+
+typedef struct _tagCache{
+    TaInfo  ta[MAX_TA_NUM];     // 可信应用数组
+    int32_t head;               // 指定第一个TA的索引位置，-1表示空
+    int32_t tail;               // 指定最后一个TA的索引位置，-1表示空
+} Cache;
+
+/* command queue to store the commands */
+
+typedef struct _tagCmdData{
+    int32_t     cmd;                // 操作指令
+    TEE_UUID    taId;               // 可信应用ID
+    TEE_UUID    keyId;              // 密钥ID
+    TEE_UUID    masterkey;          // 主密钥ID
+    uint8_t account[MAX_STR_LEN];   // 账户名
+    uint8_t password[MAX_STR_LEN];  // 账户密码
+} CmdNode;
+
+typedef struct _tagCmdQueue{
+    CmdNode queue[MAX_QUEUE_SIZE];  // 指令队列
+    int32_t head;                   // 指定第一条指令的索引位置
+    int32_t tail;                   // 指定最后一条指令的索引位置
+} CmdQueue;
+
+typedef struct _tagReplyData{
+    TEE_UUID    taId;               // 可信应用ID
+    TEE_UUID    keyId;              // 密钥ID
+    uint8_t keyvalue[KEY_SIZE];     // 指定大小的密钥值
+} ReplyNode;
+
+typedef struct _tagCmdQueue{
+    ReplyNode queue[MAX_QUEUE_SIZE];    // 响应队列
+    int32_t head;                       // 指定第一条响应的索引位置
+    int32_t tail;                       // 指定最后一条响应的索引位置
+} ReplyQueue;
+
+typedef struct _tagRequest{
+    /*
+    when using as Intermediate Request:
+    Symmetric key plaintext and CmdData (json) plaintext
+    ====================================================
+    when using as final request:
+    json:  key:*****;cmdData:*****； 
+    key has been encrypted by the kcm-pub
+    cmddata has been encrypted by the key
+    */
+    uint8_t key[KEY_SIZE];          // 由KCM公钥加密的会话密钥
+    uint32_t key_size;              // 会话密钥大小
+    uint8_t cmddata[MAX_DATA_LEN];  // 由会话密钥加密的数据信息
+    uint32_t data_size;             // 数据信息大小
+} CmdRequest;
+
+typedef union {
+    struct {
+        void *buffer;
+        size_t size;
+    } memref;   // 用于存储内存占用大的数据
+    struct {
+        unsigned int a;
+        unsigned int b;
+    } value;    // 用于存储内存占用小的数据
+} TEE_Param;
+```
+
+#### KA关键常量
+
+#### KA关键数据结构
+
+#### KCMS关键常量
+
+#### KCMS关键数据结构
+
+### 接口描述
+
+#### KTA接口
+
+**用于KCM：**
+```c
+TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[PARAM_COUNT]);
+```
+接口描述：用于初始化进程中KTA的初始化操作。  
+参数1：对应CMD_KTA_INITIALIZE的参数类型。  
+参数2：各参数类型所对应的参数值。  
+***
+```c
+TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
+```
+接口描述：当KA轮询时向KA发送请求，并在需要时向KA传递TA的可信状态。  
+参数1：对应CMD_SEND_REQUEST的参数类型。  
+参数2：各参数类型所对应的参数值。  
+***
+```c
+TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
+```
+接口描述：当KTA此前向KCM发送过访问请求，则获取KA所返回的响应，并将结果存入响应队列。  
+参数1：对应CMD_RESPOND_REQUEST的参数类型。  
+参数2：各参数类型所对应的参数值。  
+***
+**用于TA：**
+```c
+TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
+```
+接口描述：向KCM请求生成新密钥，将请求放入请求队列等待KA轮询。  
+参数1：对应CMD_TA_GENERATE的参数类型。  
+参数2：各参数类型所对应的参数值。  
+***
+```c
+TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
+```
+接口描述：查询指定TA密钥，若缓存查询失败，则向KCM请求查询密钥，将请求放入请求队列等待KA轮询。  
+参数1：对应CMD_KEY_SEARCH的参数类型。  
+参数2：各参数类型所对应的参数值。  
+***
+```c
+TEE_Result DestoryTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]); 
+```
+接口描述：删除缓存中指定密钥，并向KCM生成一个删除密钥请求。  
+参数1：对应CMD_KEY_DELETE的参数类型。  
+参数2：各参数类型所对应的参数值。  
+***
+```c
+TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
+```
+接口描述：从响应队列中获取一个KCM响应结果。  
+参数1：对应CMD_KCM_REPLY的参数类型。  
+参数2：各参数类型所对应的参数值。  
+***
+```c
+TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) ;
+```
+接口描述：删除指定TA的缓存。  
+参数1：对应CMD_CLEAR_CACHE的参数类型。  
+参数2：各参数类型所对应的参数值。  
+***
+
+#### KA接口
+
+#### KCMS接口
+
+### 流程图
