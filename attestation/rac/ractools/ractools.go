@@ -18,6 +18,7 @@ package ractools
 import (
 	"bytes"
 	"crypto"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -114,6 +115,7 @@ System Information
 	Family: Not Applicable`
 
 	emptyPassword   = ""
+	talistpath      = "./talist"
 	TestImaLogPath  = "./ascii_runtime_measurements"
 	TestBiosLogPath = "./binary_bios_measurements"
 	TestSeedPath    = "./simulator_seed"
@@ -125,6 +127,7 @@ System Information
 	algSHA384Str    = "sha384"
 	algSHA512Str    = "sha512"
 	algSM3Str       = "sm3"
+	strfalse        = "false"
 )
 
 var (
@@ -836,7 +839,7 @@ func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {
 }
 
 // GetTrustReport takes a nonce input, generates the current trust report
-func GetTrustReport(clientID int64, nonce uint64, algStr string, taInputs map[string]TaReportInput, taTestMode bool, qcaserver string) (*typdefs.TrustReport, error) {
+func GetTrustReport(clientID int64, nonce uint64, algStr string, taTestMode bool, qcaserver string) (*typdefs.TrustReport, error) {
 	if tpmRef == nil {
 		return nil, ErrFailTPMInit
 	}
@@ -889,28 +892,51 @@ func GetTrustReport(clientID int64, nonce uint64, algStr string, taInputs map[st
 		},
 	}
 
-	report.TaReports = make(map[string][]byte)
-	if !taTestMode {
-		for uuid, taReportInput := range taInputs {
-			taReport, err := getTaReport(taReportInput, qcaserver)
-			if err != nil {
-				return nil, err
-			}
-			report.TaReports[uuid] = taReport
-		}
-	} else {
-		report.TaReports[uuid1] = taReport1
+	taReports, err := buildTaReport(nonce, qcaserver, taTestMode)
+	if err != nil {
+		return nil, err
 	}
+	report.TaReports = taReports
 
 	return &report, nil
 }
 
+func buildTaReport(nonce uint64, qcaserver string, taTestMode bool) (map[string][]byte, error) {
+	taReports := map[string][]byte{}
+	if !taTestMode {
+		talist, err := ioutil.ReadFile(talistpath)
+		if err != nil {
+			return nil, err
+		}
+		lines := bytes.Split(talist, typdefs.NewLine)
+		for _, ln := range lines {
+			//words[0]是uuid words[1]是with_tcb
+			words := bytes.Split(ln, typdefs.Space)
+			with_tcb := true
+			if string(words[1]) == strfalse {
+				with_tcb = false
+			}
+			//convert uint64 to []byte
+			bytesBuffer := bytes.NewBuffer([]byte{})
+			binary.Write(bytesBuffer, binary.LittleEndian, nonce)
+			taReport, err := getTaReport(words[0], bytesBuffer.Bytes(), with_tcb, qcaserver)
+			if err != nil {
+				return nil, err
+			}
+			taReports[string(words[0])] = taReport
+		}
+	} else {
+		taReports[uuid1] = taReport1
+	}
+	return taReports, nil
+}
+
 // remote invoke qca api to get the TA's info
-func getTaReport(tain TaReportInput, server string) ([]byte, error) {
+func getTaReport(uuid []byte, nonce []byte, with_tcb bool, server string) ([]byte, error) {
 	reqID := qapi.GetReportRequest{
-		Uuid:    []byte(tain.Uuid),
-		Nonce:   tain.UserData,
-		WithTcb: tain.WithTcb,
+		Uuid:    uuid,
+		Nonce:   nonce,
+		WithTcb: with_tcb,
 	}
 
 	rpyID, err := qapi.DoGetTeeReport(server, &reqID)

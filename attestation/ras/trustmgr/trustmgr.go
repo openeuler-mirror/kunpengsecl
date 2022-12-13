@@ -39,7 +39,16 @@ base_value* build_basevalue(uint8_t *uuid,uint8_t *data){
 	base_value *baseval = NULL;
 	baseval = (base_value *)calloc(1, sizeof(base_value));
 	for(int i=0;i<16;i++){
-		baseval->uuid[i]=*(uuid+i);
+		//参考basevalue.txt 和 veridy_test的基准值uuid的处理规则
+		if(i<4){
+			baseval->uuid[3-i]=*(uuid+i);
+		}else if(i<6){
+			baseval->uuid[9-i]=*(uuid+i);
+		}else if(i<8){
+			baseval->uuid[13-i]=*(uuid+i);
+		}else{
+			baseval->uuid[i]=*(uuid+i);
+		}
 	}
 	for(int i=0;i<32;i++){
 		baseval->valueinfo[0][i]=*(data+i);
@@ -60,6 +69,7 @@ import (
 
 	"database/sql"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -1033,24 +1043,35 @@ func handleFirstReport(report *typdefs.TrustReport) error {
 		SaveBaseValue(&baseValue)
 		c.Bases = append(c.Bases, &baseValue)
 
-		taBases := map[string]*typdefs.TaBaseRow{}
-		for uuid, taReport := range report.TaReports {
-			valueinfo := taReport[104:168] // refer to struct TaReport
-			base := typdefs.TaBaseRow{
-				ClientID:   report.ClientID,
-				Uuid:       uuid,
-				CreateTime: time.Now(),
-				Valueinfo:  valueinfo,
-			}
-			tmgr.cache[report.ClientID].SetTaTrusted(uuid, cache.StrTrusted)
-			taBases[uuid] = &base
-			SaveTaBaseValue(&base)
-		}
+		c.TaBases = extarcAndSaveTABase(report)
+		c.SetTrusted(cache.StrTrusted)
+
 	} else {
 		verifyReport(report)
 		VerifyTaReport(report)
 	}
 	return nil
+}
+
+func extarcAndSaveTABase(report *typdefs.TrustReport) map[string]*typdefs.TaBaseRow {
+	taBases := map[string]*typdefs.TaBaseRow{}
+	for uuid, taReport := range report.TaReports {
+		// refer to struct report_get
+		param_count := taReport[96:100]
+		count := binary.LittleEndian.Uint32(param_count)
+		start := 100 + count*12 //100是固定偏移，count表示固定偏移后面跟着多少个结构体，再后面就是image hash和hash
+		end := start + 64
+		valueinfo := taReport[start:end]
+		base := typdefs.TaBaseRow{
+			ClientID:   report.ClientID,
+			Uuid:       uuid,
+			CreateTime: time.Now(),
+			Valueinfo:  valueinfo,
+		}
+		taBases[uuid] = &base
+		SaveTaBaseValue(&base)
+	}
+	return taBases
 }
 
 // Traverse the base values ​​in the cache and compare with report,
@@ -1120,19 +1141,8 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	// the extraction template is consistent with the old.
 	// Otherwise, read extraction template from config.
 	extractFromOldBases(bases, &newBase, report)
-	taBases := map[string]*typdefs.TaBaseRow{}
-	for uuid, taReport := range report.TaReports {
-		valueinfo := taReport[104:168] // refer to struct TaReport
-		base := typdefs.TaBaseRow{
-			ClientID:   report.ClientID,
-			Uuid:       uuid,
-			CreateTime: time.Now(),
-			Valueinfo:  valueinfo,
-		}
-		taBases[uuid] = &base
-		SaveTaBaseValue(&base)
-	}
-	c.TaBases = taBases
+
+	c.TaBases = extarcAndSaveTABase(report)
 	c.SetTrusted(cache.StrTrusted)
 
 	return nil

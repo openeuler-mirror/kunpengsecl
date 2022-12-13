@@ -308,7 +308,7 @@ func setNewConf(rpy *clientapi.SendHeartbeatReply) {
 // sendTrustReport sneds a new trust report to RAS.
 func sendTrustReport(ras *clientapi.RasConn, rpy *clientapi.SendHeartbeatReply) {
 	tRep, err := ractools.GetTrustReport(GetClientId(),
-		rpy.GetClientConfig().GetNonce(), GetDigestAlgorithm(), GetTaInputs(), GetTaTestMode(), GetQCAServer())
+		rpy.GetClientConfig().GetNonce(), GetDigestAlgorithm(), GetTaTestMode(), GetQCAServer())
 	if err != nil {
 		logger.L.Sugar().Errorf("prepare trust report failed, %v", err)
 		return

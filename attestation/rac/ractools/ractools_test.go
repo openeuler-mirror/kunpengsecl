@@ -158,14 +158,14 @@ func TestSetDigestAlg(t *testing.T) {
 	if err != nil {
 		t.Errorf(str1, strCreateIkFailed, err)
 	}
-	tr1, err := GetTrustReport(clientId, nonce, algSHA256Str, nil, true, "")
+	tr1, err := GetTrustReport(clientId, nonce, algSHA256Str, true, "")
 	if err != nil {
 		t.Errorf(str1, strCreateTrustReportFailed, err)
 	}
 
 	err = SetDigestAlg(algSHA256Str)
 	assert.NoError(t, err)
-	tr2, err := GetTrustReport(clientId, nonce, algSHA256Str, nil, true, "")
+	tr2, err := GetTrustReport(clientId, nonce, algSHA256Str, true, "")
 	if err != nil {
 		t.Errorf(str1, strCreateTrustReportFailed, err)
 	}
@@ -209,7 +209,7 @@ func TestCreateTrustReport(t *testing.T) {
 	if err != nil {
 		t.Errorf(str1, strCreateIkFailed, err)
 	}
-	got, err := GetTrustReport(clientId, nonce, algSHA1Str, nil, true, "")
+	got, err := GetTrustReport(clientId, nonce, algSHA1Str, true, "")
 	if err != nil {
 		t.Errorf(str1, strCreateTrustReportFailed, err)
 	}
