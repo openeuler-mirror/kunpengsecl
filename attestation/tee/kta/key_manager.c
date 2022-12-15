@@ -22,7 +22,7 @@ Description: key managing module in kta.
 #include <tee_crypto_api.h>
 #include <securec.h>
 #include <kta_common.h>
-//#include <cJSON.h>
+#include <cJSON.h>
 
 #define PARAM_COUNT 4
 
@@ -72,6 +72,51 @@ void generaterFinalRequest(CmdNode cmdnode, CmdRequest *request){
     return;
 }
 
+// transfer struct TEE_UUID to cJSON format
+void uuid2cjson(TEE_UUID id, cJSON *cj) {
+    cJSON_AddNumberToObject(cj, "timeLow", id.timeLow);
+    cJSON_AddNumberToObject(cj, "timeMid", id.timeMid);
+    cJSON_AddNumberToObject(cj, "timeHiAndVersion", id.timeHiAndVersion);
+    cJSON_AddStringToObject(cj, "clockSeqAndNode", id.clockSeqAndNode);
+}
+
+// transfer struct CmdNode to cJSON format
+void cmdNode2cjson(CmdNode cmdnode, cJSON *cj) {
+    cJSON *taid = NULL;
+    cJSON *keyid = NULL;
+    cJSON *masterkey = NULL;
+    // translate cmd
+    cJSON_AddNumberToObject(cj, "cmd", cmdnode.cmd);
+    // translate taid
+    taid = cJSON_CreateObject();
+    uuid2cjson(cmdnode.taId, taid);
+    cJSON_AddItemToObject(cj, "taid", taid);
+    // translate keyid
+    keyid = cJSON_CreateObject();
+    uuid2cjson(cmdnode.keyId, keyid);
+    cJSON_AddItemToObject(cj, "keyid", keyid);
+    // translate masterkey
+    masterkey = cJSON_CreateObject();
+    uuid2cjson(cmdnode.masterkey, masterkey);
+    cJSON_AddItemToObject(cj, "masterkey", masterkey);
+    // translate account
+    cJSON_AddStringToObject(cj, "account", cmdnode.account);
+    // translate password
+    cJSON_AddStringToObject(cj, "password", cmdnode.password);
+}
+
+// transfer struct CmdRequest to cJSON format
+void cmdRequest2cjson(CmdRequest req, cJSON *cj) {
+    // translate key
+    cJSON_AddStringToObject(cj, "key", req.key);
+    // translate key_size
+    cJSON_AddNumberToObject(cj, "key_size", req.key_size);
+    // translate cmddata
+    cJSON_AddStringToObject(cj, "cmddata", req.cmddata);
+    // translate data_size
+    cJSON_AddNumberToObject(cj, "data_size", req.data_size);
+}
+
 TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     CmdNode curNode;
@@ -115,8 +160,83 @@ void decryption(){
     */
 }
 
-void parsejson(){
+// transfer cJSON format to struct TEE_UUID
+void cjson2uuid(cJSON *cj, TEE_UUID *id) {
+    cJSON *cjson_id_tl = NULL;
+    cJSON *cjson_id_tm = NULL;
+    cJSON *cjson_id_thav = NULL;
+    cJSON *cjson_id_csan = NULL;
+    cjson_id_tl = cJSON_GetObjectItem(cj, "timeLow");
+    cjson_id_tm = cJSON_GetObjectItem(cj, "timeMid");
+    cjson_id_thav = cJSON_GetObjectItem(cj, "timeHiAndVersion");
+    cjson_id_csan = cJSON_GetObjectItem(cj, "clockSeqAndNode");
+    id->timeLow = cJSON_GetNumberValue(cjson_id_tl);
+    id->timeMid= cJSON_GetNumberValue(cjson_id_tm);
+    id->timeHiAndVersion = cJSON_GetNumberValue(cjson_id_thav);
+    char *csan = cJSON_GetStringValue(cjson_id_csan);
+    for (int i=0; i<NODE_LEN; i++) {
+        id->clockSeqAndNode[i] = csan[i];
+    }
+}
 
+// transfer cJSON format to struct CmdNode
+void cjson2cmdNode(cJSON *cj, CmdNode *cmdnode) {
+    cJSON *cjson_cmd = NULL;
+    cJSON *cjson_taid = NULL;
+    cJSON *cjson_keyid = NULL;
+    cJSON *cjson_masterkey = NULL;
+    cJSON *cjson_account = NULL;
+    cJSON *cjson_password = NULL;
+    // translate cmd
+    cjson_cmd = cJSON_GetObjectItem(cj, "cmd");
+    cmdnode->cmd = cJSON_GetNumberValue(cjson_cmd);
+    // translate taid
+    cjson_taid = cJSON_GetObjectItem(cj, "taid");
+    cjson2uuid(cjson_taid, &cmdnode->taId);
+    // translate keyid
+    cjson_keyid = cJSON_GetObjectItem(cj, "keyid");
+    cjson2uuid(cjson_keyid, &cmdnode->keyId);
+    // translate masterkey
+    cjson_masterkey = cJSON_GetObjectItem(cj, "masterkey");
+    cjson2uuid(cjson_masterkey, &cmdnode->masterkey);
+    // translate account
+    cjson_account = cJSON_GetObjectItem(cj, "account");
+    char *ac = cJSON_GetStringValue(cjson_account);
+    for (int i=0; i<MAX_STR_LEN; i++) {
+        cmdnode->account[i] = ac[i];
+    }
+    // translate password
+    cjson_password = cJSON_GetObjectItem(cj, "password");
+    char *pw = cJSON_GetStringValue(cjson_password);
+    for (int i=0; i<MAX_STR_LEN; i++) {
+        cmdnode->password[i] = pw[i];
+    }
+}
+
+// transfer cJSON format to struct CmdRequest
+void cjson2cmdRequest(cJSON *cj, CmdRequest *req) {
+    cJSON *cjson_key = NULL;
+    cJSON *cjson_keysize = NULL;
+    cJSON *cjson_data = NULL;
+    cJSON *cjson_datasize = NULL;
+    // translate key
+    cjson_key = cJSON_GetObjectItem(cj, "key");
+    char *key = cJSON_GetStringValue(cjson_key);
+    for (int i=0; i<KEY_SIZE; i++) {
+        req->key[i] = key[i];
+    }
+    // translate key_size
+    cjson_keysize = cJSON_GetObjectItem(cj, "keysize");
+    req->key_size = cJSON_GetNumberValue(cjson_keysize);
+    // translate cmddata
+    cjson_data = cJSON_GetObjectItem(cj, "cmddata");
+    char *data = cJSON_GetStringValue(cjson_data);
+    for (int i=0; i<MAX_DATA_LEN; i++) {
+        req->cmddata[i] = data[i];
+    }
+    // translate data_size
+    cjson_datasize = cJSON_GetObjectItem(cj, "datasize");
+    req->data_size = cJSON_GetNumberValue(cjson_datasize);
 }
 
 void saveTaInfo(TEE_UUID TA_uuid, char *account, char *password) {
