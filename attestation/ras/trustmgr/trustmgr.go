@@ -25,6 +25,42 @@ Description: manage the client trust status.
 // and supports rest api to show all information.
 package trustmgr
 
+/*
+#cgo CFLAGS: -I../../tee/tverlib/verifier
+#cgo LDFLAGS: -L${SRCDIR}/../../tee/tverlib/verifier -lteeverifier -Wl,-rpath=${SRCDIR}/../../tee/tverlib/verifier
+
+#include "teeverifier.h"
+#include "common.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+base_value* build_basevalue(uint8_t *uuid,uint8_t *data){
+	base_value *baseval = NULL;
+	baseval = (base_value *)calloc(1, sizeof(base_value));
+	for(int i=0;i<16;i++){
+		//参考basevalue.txt 和 veridy_test的基准值uuid的处理规则
+		if(i<4){
+			baseval->uuid[3-i]=*(uuid+i);
+		}else if(i<6){
+			baseval->uuid[9-i]=*(uuid+i);
+		}else if(i<8){
+			baseval->uuid[13-i]=*(uuid+i);
+		}else{
+			baseval->uuid[i]=*(uuid+i);
+		}
+	}
+	for(int i=0;i<32;i++){
+		baseval->valueinfo[0][i]=*(data+i);
+	}
+	for(int i=0;i<32;i++){
+		baseval->valueinfo[1][i]=*(data+32+i);
+	}
+	return baseval;
+}
+*/
+import "C"
+
 import (
 	"bytes"
 	"crypto"
@@ -32,6 +68,8 @@ import (
 	"crypto/sha256"
 
 	"database/sql"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -52,7 +90,7 @@ import (
 
 const (
 	constRacDefault = 5000
-
+	defaultBaseRows = 20
 	// for database management sql
 	sqlRegisterClientByIK                = `INSERT INTO client(regtime, registered, info, ikcert) VALUES ($1, $2, $3, $4) RETURNING id`
 	sqlFindAllClients                    = `SELECT id, regtime FROM client WHERE 1=1`
@@ -63,23 +101,35 @@ const (
 	sqlFindClientsByInfo                 = `SELECT id, regtime, registered, info, ikcert FROM client WHERE info @> $1`
 	sqlFindReportsByClientID             = `SELECT id, clientid, createtime, validated, trusted FROM report WHERE clientid=$1 ORDER BY createtime ASC`
 	sqlFindReportByID                    = `SELECT id, clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog FROM report WHERE id=$1`
+	sqlFindTaReportsByUuid               = `SELECT id, clientid, uuid, createtime, validated, trusted FROM tareport WHERE clientid=$1 AND uuid=$2 ORDER BY createtime ASC`
+	sqlFindTaReportByID                  = `SELECT id, clientid, uuid, createtime, validated, trusted FROM tareport WHERE id=$1`
 	sqlFindBaseValuesByClientID          = `SELECT id, basetype, uuid, createtime, name, enabled FROM base WHERE clientid=$1 ORDER BY createtime ASC`
 	sqlFindHostBaseValuesByClientID      = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='host' ORDER BY createtime ASC`
 	sqlFindContainerBaseValuesByClientID = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='container' ORDER BY createtime ASC`
 	sqlFindDeviceBaseValuesByClientID    = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE clientid=$1 AND basetype='device' ORDER BY createtime ASC`
 	sqlFindBaseValueByID                 = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE id=$1 ORDER BY createtime ASC`
 	sqlFindBaseValueByUuid               = `SELECT id, clientid, basetype, uuid, createtime, name, enabled, pcr, bios, ima FROM base WHERE uuid=$1`
+	sqlFindTaBaseValuesByUuid            = `SELECT id, clientid, uuid, createtime, name, valueinfo FROM tabase WHERE clientid=$1 AND uuid=$2 ORDER BY createtime ASC`
+	sqlFindAllEnabledTaBaseValuesByCid   = `SELECT id, clientid, uuid, createtime, name, valueinfo FROM tabase WHERE clientid=$1 AND enabled=true ORDER BY createtime ASC`
+	sqlFindTaBaseValueByID               = `SELECT id, clientid, uuid, createtime, name, valueinfo FROM tabase WHERE id=$1 ORDER BY createtime ASC`
 	sqlDeleteReportByID                  = `DELETE FROM report WHERE id=$1`
+	sqlDeleteTaReportByID                = `DELETE FROM tareport WHERE id=$1`
 	sqlDeleteBaseValueByID               = `DELETE FROM base WHERE id=$1`
+	sqlDeleteTaBaseValueByID             = `DELETE FROM tabase WHERE id=$1`
 	sqlDeleteClientByID                  = `DELETE FROM client WHERE id=$1`
 	sqlRegisterClientByID                = `UPDATE client SET registered=true WHERE id=$1`
 	sqlUnRegisterClientByID              = `UPDATE client SET registered=false WHERE id=$1`
 	sqlUpdateClientByID                  = `UPDATE client SET info=$2 WHERE id=$1`
 	sqlInsertTrustReport                 = `INSERT INTO report(clientid, createtime, validated, trusted, quoted, signature, pcrlog, bioslog, imalog) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlInsertTaReport                    = `INSERT INTO tareport(clientid, createtime, validated, trusted, uuid, value) VALUES ($1, $2, $3, $4, $5, $6)`
 	sqlInsertBase                        = `INSERT INTO base(clientid, basetype, uuid, createtime, enabled, name, pcr, bios, ima) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlInsertTaBase                      = `INSERT INTO tabase(clientid, uuid, createtime,enabled, name, valueinfo) VALUES ($1, $2, $3, $4, $5,$6)`
 	sqlDisableBaseValuesByClientID       = `UPDATE base set enabled=false WHERE clientid=$1 AND basetype='host'`
+	sqlDisableTaBaseValuesByUuid         = `UPDATE tabase set enabled=false WHERE clientid=$1 AND uuid=$2`
 	sqlEnableBaseValueByid               = `UPDATE base set enabled=true WHERE id=$1`
 	sqlDisableBaseValueByid              = `UPDATE base set enabled=false WHERE id=$1`
+	sqlEnableTaBaseValueByid             = `UPDATE tabase set enabled=true WHERE id=$1`
+	sqlDisableTaBaseValueByid            = `UPDATE tabase set enabled=false WHERE id=$1`
 )
 
 type (
@@ -137,10 +187,21 @@ func CreateTrustManager(dbType, dbConfig string) {
 			if err == nil {
 				c.Bases = bases
 			}
+			initTaBases(c, id)
 			tmgr.cache[id] = c
 		}
 	}
 	createStorePipe(dbType, dbConfig)
+}
+
+func initTaBases(c *cache.Cache, cid int64) {
+	bases, err := FindTaBaseValuesByCid(cid)
+	if err != nil {
+		logger.L.Sugar().Errorf("client(%d) initTaBases error, %v", cid, err)
+	}
+	for _, base := range bases {
+		c.TaBases[base.Uuid] = base
+	}
 }
 
 // ReleaseTrustManager releases the manager database connection.
@@ -171,6 +232,18 @@ func DisableBaseByClientID(id int64) error {
 	return nil
 }
 
+// DisableTaBaseByClientID modify all base enabled=false of a ta
+func DisableTaBaseByUuid(cid int64, taid string) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Query(sqlDisableTaBaseValuesByUuid, cid, taid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // ModifyEnabledByID modify base enabled flag
 func ModifyEnabledByID(id int64, enabled bool) error {
 	if tmgr == nil {
@@ -181,6 +254,25 @@ func ModifyEnabledByID(id int64, enabled bool) error {
 		sql = sqlEnableBaseValueByid
 	} else {
 		sql = sqlDisableBaseValueByid
+	}
+	_, err := tmgr.db.Query(sql, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ModifyTaEnabledByID modify ta base enabled flag
+func ModifyTaEnabledByID(id int64, enabled bool) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	var sql string
+	if enabled {
+		sql = sqlEnableTaBaseValueByid
+	} else {
+		sql = sqlDisableTaBaseValueByid
 	}
 	_, err := tmgr.db.Query(sql, id)
 	if err != nil {
@@ -440,7 +532,7 @@ func FindBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	basevalues := make([]*typdefs.BaseRow, 0, 20)
+	basevalues := make([]*typdefs.BaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
 		err2 := rows.Scan(&res.ID, &res.BaseType, &res.Uuid,
@@ -462,7 +554,7 @@ func FindHostBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	basevalues := make([]*typdefs.BaseRow, 0, 20)
+	basevalues := make([]*typdefs.BaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
 		err2 := rows.Scan(&res.ID, &res.ClientID, &res.BaseType, &res.Uuid,
@@ -484,7 +576,7 @@ func FindContainerBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	basevalues := make([]*typdefs.BaseRow, 0, 20)
+	basevalues := make([]*typdefs.BaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
 		err2 := rows.Scan(&res.ID, &res.ClientID, &res.BaseType, &res.Uuid,
@@ -506,7 +598,7 @@ func FindDeviceBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	basevalues := make([]*typdefs.BaseRow, 0, 20)
+	basevalues := make([]*typdefs.BaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
 		err2 := rows.Scan(&res.ID, &res.ClientID, &res.BaseType, &res.Uuid,
@@ -547,6 +639,130 @@ func FindBaseValueByUuid(uuid string) (*typdefs.BaseRow, error) {
 		return nil, err
 	}
 	return basevalue, nil
+}
+
+// FindTaReportByID returns the ta report by a specific ta report id.
+func FindTaReportByID(id int64) (*typdefs.TaReportRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	tareport := &typdefs.TaReportRow{}
+	err := tmgr.db.QueryRow(sqlFindTaReportByID, id).Scan(&tareport.ID, &tareport.ClientID,
+		&tareport.Uuid, &tareport.CreateTime, &tareport.Validated, &tareport.Trusted)
+	if err != nil {
+		return nil, err
+	}
+	return tareport, nil
+}
+
+// FindTaReportsByUuid returns all reports by a specific ta uuid.
+func FindTaReportsByUuid(cid int64, taid string) ([]typdefs.TaReportRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindTaReportsByUuid, cid, taid)
+	if err != nil {
+		return nil, err
+	}
+	tareports := make([]typdefs.TaReportRow, 0, 100)
+	for rows.Next() {
+		res := typdefs.TaReportRow{}
+		err2 := rows.Scan(&res.ID, &res.ClientID, &res.Uuid,
+			&res.CreateTime, &res.Validated, &res.Trusted)
+		if err2 != nil {
+			return nil, err2
+		}
+		tareports = append(tareports, res)
+	}
+	return tareports, nil
+}
+
+// DeleteTaReportByID deletes a specific ta report by ta report id.
+func DeleteTaReportByID(id int64) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Exec(sqlDeleteTaReportByID, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// FindTaBaseValueByID returns a specific ta base value by ta base value id.
+func FindTaBaseValueByID(id int64) (*typdefs.TaBaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	tabasevalue := &typdefs.TaBaseRow{}
+	var vi string
+	err := tmgr.db.QueryRow(sqlFindTaBaseValueByID, id).Scan(&tabasevalue.ID,
+		&tabasevalue.ClientID, &tabasevalue.Uuid, &tabasevalue.CreateTime, &tabasevalue.Name, &vi)
+	if err != nil {
+		return nil, err
+	}
+	tabasevalue.Valueinfo, _ = base64.StdEncoding.DecodeString(vi)
+	return tabasevalue, nil
+}
+
+// FindTaBaseValuesByUuid returns all enabled taBasevalue by clientid.
+func FindTaBaseValuesByCid(cid int64) ([]*typdefs.TaBaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindAllEnabledTaBaseValuesByCid, cid)
+	if err != nil {
+		return nil, err
+	}
+	tabasevalues := make([]*typdefs.TaBaseRow, 0, defaultBaseRows)
+	for rows.Next() {
+		res := typdefs.TaBaseRow{}
+		var vi string
+		err2 := rows.Scan(&res.ID, &res.ClientID, &res.Uuid,
+			&res.CreateTime, &res.Name, &vi)
+		if err2 != nil {
+			return nil, err2
+		}
+		res.Valueinfo, _ = base64.StdEncoding.DecodeString(vi)
+		tabasevalues = append(tabasevalues, &res)
+	}
+	return tabasevalues, nil
+}
+
+// FindTaBaseValuesByUuid returns a specific base value by a ta uuid.
+func FindTaBaseValuesByUuid(cid int64, taid string) ([]*typdefs.TaBaseRow, error) {
+	if tmgr == nil {
+		return nil, typdefs.ErrParameterWrong
+	}
+	rows, err := tmgr.db.Query(sqlFindTaBaseValuesByUuid, cid, taid)
+	if err != nil {
+		return nil, err
+	}
+	tabasevalues := make([]*typdefs.TaBaseRow, 0, defaultBaseRows)
+	for rows.Next() {
+		res := typdefs.TaBaseRow{}
+		var vi string
+		err2 := rows.Scan(&res.ID, &res.ClientID, &res.Uuid,
+			&res.CreateTime, &res.Name, &vi)
+		if err2 != nil {
+			return nil, err2
+		}
+		res.Valueinfo, _ = base64.StdEncoding.DecodeString(vi)
+		tabasevalues = append(tabasevalues, &res)
+	}
+	return tabasevalues, nil
+}
+
+// DeleteTaBaseValueByID deletes a specific ta base value by ta base value id.
+func DeleteTaBaseValueByID(id int64) error {
+	if tmgr == nil {
+		return typdefs.ErrParameterWrong
+	}
+	_, err := tmgr.db.Exec(sqlDeleteTaBaseValueByID, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // DeleteBaseValueByID deletes a specific base value by base value id.
@@ -611,9 +827,39 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 	}
 	row.Validated = true
 	row.Trusted = true
-	c.SetTrusted(cache.StrTrusted)
+	c.SetTrusted(cache.StrUnknown)
 	c.UpdateTrustReport(config.GetTrustDuration())
 	go pushToStorePipe(row)
+
+	mp := config.GetTaInputs()
+	for uuid, taReport := range report.TaReports {
+		buf_data := C.buffer_data{}
+		nonce := C.buffer_data{}
+		buf_data.size = C.__uint32_t(len(taReport))
+		up_buf_data_buf := C.CBytes(taReport)
+		buf_data.buf = (*C.uchar)(up_buf_data_buf)
+		nonce.size = C.__uint32_t(len(mp[uuid].UserData))
+		up_nonce_buf := C.CBytes(mp[uuid].UserData)
+		nonce.buf = (*C.uchar)(up_nonce_buf)
+
+		ans := C.tee_validate_report(&buf_data, &nonce)
+		if ans != 0 {
+			if ans == -1 {
+				return false, fmt.Errorf("nonce err")
+			} else if ans == -2 {
+				return false, fmt.Errorf("signature err")
+			}
+		}
+		row := &typdefs.TaReportRow{
+			ClientID:   report.ClientID,
+			CreateTime: time.Now(),
+			Validated:  true,
+			Trusted:    true,
+			Uuid:       uuid,
+			Value:      taReport,
+		}
+		go pushToStorePipe(row)
+	}
 	return true, nil
 }
 
@@ -764,6 +1010,7 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 			}
 		case config.ManualStrategy:
 			verifyReport(report)
+			VerifyTaReport(report)
 		}
 	}
 	return nil
@@ -775,6 +1022,10 @@ func handleFirstReport(report *typdefs.TrustReport) error {
 		return err
 	}
 	if isFR {
+		c, err := GetCache(report.ClientID)
+		if err != nil {
+			return err
+		}
 		// this is first report, so oldBase is nil
 		baseValue := typdefs.BaseRow{
 			ClientID: report.ClientID,
@@ -790,10 +1041,37 @@ func handleFirstReport(report *typdefs.TrustReport) error {
 		baseValue.CreateTime = time.Now()
 		baseValue.BaseType = typdefs.StrHost
 		SaveBaseValue(&baseValue)
+		c.Bases = append(c.Bases, &baseValue)
+
+		c.TaBases = extarcAndSaveTABase(report)
+		c.SetTrusted(cache.StrTrusted)
+
 	} else {
 		verifyReport(report)
+		VerifyTaReport(report)
 	}
 	return nil
+}
+
+func extarcAndSaveTABase(report *typdefs.TrustReport) map[string]*typdefs.TaBaseRow {
+	taBases := map[string]*typdefs.TaBaseRow{}
+	for uuid, taReport := range report.TaReports {
+		// refer to struct report_get
+		param_count := taReport[96:100]
+		count := binary.LittleEndian.Uint32(param_count)
+		start := 100 + count*12 //100是固定偏移，count表示固定偏移后面跟着多少个结构体，再后面就是image hash和hash
+		end := start + 64
+		valueinfo := taReport[start:end]
+		base := typdefs.TaBaseRow{
+			ClientID:   report.ClientID,
+			Uuid:       uuid,
+			CreateTime: time.Now(),
+			Valueinfo:  valueinfo,
+		}
+		taBases[uuid] = &base
+		SaveTaBaseValue(&base)
+	}
+	return taBases
 }
 
 // Traverse the base values ​​in the cache and compare with report,
@@ -821,6 +1099,29 @@ func verifyReport(report *typdefs.TrustReport) {
 	tmgr.cache[report.ClientID].SetTrusted(trusted)
 }
 
+func VerifyTaReport(report *typdefs.TrustReport) {
+
+	for uuid, taReport := range report.TaReports {
+		buf_data := C.buffer_data{}
+		buf_data.size = C.__uint32_t(len(taReport))
+		up_buf_data_buf := C.CBytes(taReport)
+		buf_data.buf = (*C.uchar)(up_buf_data_buf)
+
+		c, _ := GetCache(report.ClientID)
+		basevalue := C.build_basevalue((*C.uchar)(C.CBytes(taReport[76:92])), (*C.uchar)(C.CBytes(c.TaBases[uuid].Valueinfo)))
+		ans := C.tee_verify_report2(&buf_data, C.int(config.GetTaVerifyType()), basevalue)
+		var trusted string
+		if ans == 0 {
+			trusted = cache.StrTrusted
+		} else if ans == -3 {
+			trusted = cache.StrUntrusted
+		} else {
+			trusted = cache.StrUnknown
+		}
+		tmgr.cache[report.ClientID].SetTaTrusted(uuid, trusted)
+	}
+}
+
 func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 
 	c, err := GetCache(report.ClientID)
@@ -840,6 +1141,8 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	// the extraction template is consistent with the old.
 	// Otherwise, read extraction template from config.
 	extractFromOldBases(bases, &newBase, report)
+
+	c.TaBases = extarcAndSaveTABase(report)
 	c.SetTrusted(cache.StrTrusted)
 
 	return nil
@@ -1311,6 +1614,10 @@ func SaveBaseValue(row *typdefs.BaseRow) {
 	go pushToStorePipe(row)
 }
 
+func SaveTaBaseValue(row *typdefs.TaBaseRow) {
+	go pushToStorePipe(row)
+}
+
 func handleStorePipe(i int) {
 	for {
 		if chDb == nil {
@@ -1325,6 +1632,10 @@ func handleStorePipe(i int) {
 			handleReportStore(v)
 		case *typdefs.BaseRow:
 			handleBaseStore(v)
+		case *typdefs.TaReportRow:
+			handleTaReportStore(v)
+		case *typdefs.TaBaseRow:
+			handleTaBaseStore(v)
 		}
 	}
 }
@@ -1338,6 +1649,15 @@ func handleReportStore(v *typdefs.ReportRow) {
 	}
 }
 
+func handleTaReportStore(v *typdefs.TaReportRow) {
+	res, err := storeDb.Exec(sqlInsertTaReport,
+		v.ClientID, v.CreateTime, v.Validated, v.Trusted,
+		v.Uuid, base64.StdEncoding.EncodeToString(v.Value))
+	if err != nil {
+		logger.L.Sugar().Errorf("insert taReport error, result %v, %v", res, err)
+	}
+}
+
 func handleBaseStore(v *typdefs.BaseRow) {
 	res, err := storeDb.Exec(sqlInsertBase, v.ClientID, v.BaseType, v.Uuid, v.CreateTime,
 		v.Enabled, v.Name, v.Pcr, v.Bios, v.Ima)
@@ -1348,4 +1668,16 @@ func handleBaseStore(v *typdefs.BaseRow) {
 		return
 	}
 	tmgr.cache[v.ClientID].Bases = append(tmgr.cache[v.ClientID].Bases, v)
+}
+
+func handleTaBaseStore(v *typdefs.TaBaseRow) {
+	res, err := storeDb.Exec(sqlInsertTaBase, v.ClientID, v.Uuid, v.CreateTime, true,
+		v.Name, base64.StdEncoding.EncodeToString(v.Valueinfo))
+	if err != nil {
+		logger.L.Sugar().Errorf("insert taBase error, result %v, %v", res, err)
+	}
+	if tmgr.cache[v.ClientID] == nil {
+		return
+	}
+	tmgr.cache[v.ClientID].TaBases[v.Uuid] = v
 }

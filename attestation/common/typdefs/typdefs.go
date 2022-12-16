@@ -60,6 +60,7 @@ const (
 	PcrMaxNum       = 24
 	StrTimeFormat   = `2006-01-02 15:04:05.999 -07:00`
 	DigestAlgStr    = "digestAlg"
+	TaBaseLen       = 64
 )
 
 // definitions for BIOS/IMA log parse used only in this package.
@@ -96,6 +97,7 @@ type (
 		Quoted     []byte
 		Signature  []byte
 		Manifests  []Manifest
+		TaReports  map[string][]byte //map[uuid]TaReport
 	}
 
 	// Manifest stores the pcr/bios/ima log part of trust report.
@@ -129,6 +131,16 @@ type (
 		ImaLog     string // original text format of ima log
 	}
 
+	TaReportRow struct {
+		ID         int64
+		ClientID   int64
+		CreateTime time.Time
+		Validated  bool
+		Trusted    bool
+		Uuid       string
+		Value      []byte
+	}
+
 	// BaseRow stores one record of the base information in database
 	// table `base`, which is specified by customer and will be used
 	// to verify trust report.
@@ -145,6 +157,15 @@ type (
 		Ima        string
 		Verified   bool
 		Trusted    bool
+	}
+
+	TaBaseRow struct {
+		ID         int64
+		ClientID   int64
+		Uuid       string
+		CreateTime time.Time
+		Name       string
+		Valueinfo  []byte
 	}
 )
 

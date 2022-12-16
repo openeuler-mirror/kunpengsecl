@@ -20,6 +20,7 @@ import (
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
+	"gitee.com/openeuler/kunpengsecl/attestation/rac/ractools"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -37,6 +38,7 @@ const (
 	// raagent config key
 	confClientID        = "racconfig.clientid"
 	confServer          = "racconfig.server"
+	confQCAServer       = "racconfig.qcaserver"
 	confHbDuration      = "racconfig.hbduration"
 	confTrustDuration   = "racconfig.trustduration"
 	confPassword        = "racconfig.password"
@@ -57,6 +59,7 @@ const (
 	ikCertTest         = "./ictest"
 	confNullSeed       = -1
 	defaultTestMode    = false
+	defaultTaTestMode  = false
 	defaultVerboseMode = false
 	defaultDigestAlg   = "sha1"
 	defaultImaLog      = "./ascii_runtime_measurements"
@@ -69,6 +72,10 @@ const (
 	lflagTest = "test"
 	sflagTest = "t"
 	helpTest  = "run in test mode[true] or not[false/default]"
+	// test mode switcher
+	lflagTaTest = "tatest"
+	sflagTaTest = "T"
+	helpTaTest  = "use tareport testdata for test integrated implantation"
 	// version output
 	lflagVersion = "version"
 	sflagVersion = "V"
@@ -100,8 +107,10 @@ type (
 		logPath       string
 		digest        string
 		testMode      bool
+		taTestMode    bool
 		eKeyCert      []byte
 		iKeyCert      []byte
+		qcaserver     string
 
 		// for TPM chip
 		password string
@@ -125,6 +134,7 @@ var (
 	racCfg      *racConfig
 	server      *string = nil
 	testMode    *bool   = nil
+	taTestMode  *bool   = nil
 	versionFlag *bool   = nil
 	verboseFlag *bool   = nil
 	//algDigest   *string = nil
@@ -136,6 +146,7 @@ var (
 func initFlags() {
 	server = pflag.StringP(lflagServer, sflagServer, nullString, helpServer)
 	testMode = pflag.BoolP(lflagTest, sflagTest, defaultTestMode, helpTest)
+	taTestMode = pflag.BoolP(lflagTaTest, sflagTaTest, defaultTaTestMode, helpTaTest)
 	versionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
 	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, defaultVerboseMode, helpVerbose)
 	//algDigest = pflag.StringP(lflagAlg, sflagAlg, defaultDigestAlg, helpAlg)
@@ -173,6 +184,9 @@ func handleFlags() {
 	/*if algDigest != nil && *algDigest != nullString {
 		SetDigestAlgorithm(*algDigest)
 	}*/
+	if taTestMode != nil && *taTestMode {
+		SetTaTestMode(*taTestMode)
+	}
 	if testMode != nil && *testMode {
 		// in test mode, load EK/IK and their certificate from files
 		// because simulator couldn't save them after restart.
@@ -283,6 +297,7 @@ func loadConfigs() {
 	racCfg.password = viper.GetString(confPassword)
 	racCfg.digest = viper.GetString(confDigestAlgorithm)
 	racCfg.seed = viper.GetInt64(confSeed)
+	racCfg.qcaserver = viper.GetString(confQCAServer)
 }
 
 // saveConfigs saves all config variables to the config.yaml file.
@@ -419,6 +434,22 @@ func SetServer(s string) {
 	racCfg.server = s
 }
 
+// GetQCAServer returns the qca server listening ip:port configuration.
+func GetQCAServer() string {
+	if racCfg == nil {
+		return ""
+	}
+	return racCfg.qcaserver
+}
+
+// SetQCAServer sets the qca server listening ip:port configuration.
+func SetQCAServer(s string) {
+	if racCfg == nil {
+		return
+	}
+	racCfg.qcaserver = s
+}
+
 // GetTestMode returns the test mode configuration.
 func GetTestMode() bool {
 	if racCfg == nil {
@@ -433,6 +464,22 @@ func SetTestMode(m bool) {
 		return
 	}
 	racCfg.testMode = m
+}
+
+// GetTaTestMode returns the taTest mode configuration.
+func GetTaTestMode() bool {
+	if racCfg == nil {
+		return false
+	}
+	return racCfg.taTestMode
+}
+
+// SetTaTestMode sets the taTest mode configuration.
+func SetTaTestMode(m bool) {
+	if racCfg == nil {
+		return
+	}
+	racCfg.taTestMode = m
 }
 
 // GetHBDuration returns the heart beat duration configuration.
@@ -513,4 +560,9 @@ func GetBiosLogPath() string {
 		return ""
 	}
 	return *biosLogPath
+}
+
+func GetTaInputs() map[string]ractools.TaReportInput {
+	taInputs := map[string]ractools.TaReportInput{}
+	return taInputs
 }

@@ -12,3 +12,4 @@ racconfig:
   seed: -1
   server: 127.0.0.1:40001
   trustduration: 2m0s
+  qcaserver: 127.0.0.1:40007

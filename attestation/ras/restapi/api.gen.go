@@ -62,6 +62,27 @@ type ServerInfo struct {
 	Trusted      bool   `json:"trusted"`
 }
 
+// TaBaseValueInfo defines model for TaBaseValueInfo.
+type TaBaseValueInfo struct {
+	Clientid   int64  `json:"clientid"`
+	Createtime string `json:"createtime"`
+	Enabled    bool   `json:"enabled"`
+	Id         int64  `json:"id"`
+	Name       string `json:"name"`
+	Uuid       string `json:"uuid"`
+	Valueinfo  string `json:"valueinfo"`
+}
+
+// TaReportInfo defines model for TaReportInfo.
+type TaReportInfo struct {
+	Createtime string `json:"createtime"`
+	Id         int64  `json:"id"`
+	Trusted    bool   `json:"trusted"`
+	Uuid       string `json:"uuid"`
+	Validated  bool   `json:"validated"`
+	Value      string `json:"value"`
+}
+
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
 
@@ -194,6 +215,36 @@ type ClientInterface interface {
 
 	// GetIdReportsReportid request
 	GetIdReportsReportid(ctx context.Context, id int64, reportid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIdTaTauuidNewtabasevalue request
+	GetIdTaTauuidNewtabasevalue(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostIdTaTauuidNewtabasevalue request
+	PostIdTaTauuidNewtabasevalue(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIdTaTauuidStatus request
+	GetIdTaTauuidStatus(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIdTaTauuidTabasevalues request
+	GetIdTaTauuidTabasevalues(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteIdTaTauuidTabasevaluesTabasevalueid request
+	DeleteIdTaTauuidTabasevaluesTabasevalueid(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIdTaTauuidTabasevaluesTabasevalueid request
+	GetIdTaTauuidTabasevaluesTabasevalueid(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostIdTaTauuidTabasevaluesTabasevalueid request
+	PostIdTaTauuidTabasevaluesTabasevalueid(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIdTaTauuidTareports request
+	GetIdTaTauuidTareports(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteIdTaTauuidTareportsTareportid request
+	DeleteIdTaTauuidTareportsTareportid(ctx context.Context, id int64, tauuid string, tareportid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIdTaTauuidTareportsTareportid request
+	GetIdTaTauuidTareportsTareportid(ctx context.Context, id int64, tauuid string, tareportid int64, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) Get(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -426,6 +477,126 @@ func (c *Client) DeleteIdReportsReportid(ctx context.Context, id int64, reportid
 
 func (c *Client) GetIdReportsReportid(ctx context.Context, id int64, reportid int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetIdReportsReportidRequest(c.Server, id, reportid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIdTaTauuidNewtabasevalue(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIdTaTauuidNewtabasevalueRequest(c.Server, id, tauuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostIdTaTauuidNewtabasevalue(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostIdTaTauuidNewtabasevalueRequest(c.Server, id, tauuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIdTaTauuidStatus(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIdTaTauuidStatusRequest(c.Server, id, tauuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIdTaTauuidTabasevalues(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIdTaTauuidTabasevaluesRequest(c.Server, id, tauuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteIdTaTauuidTabasevaluesTabasevalueid(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteIdTaTauuidTabasevaluesTabasevalueidRequest(c.Server, id, tauuid, tabasevalueid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIdTaTauuidTabasevaluesTabasevalueid(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIdTaTauuidTabasevaluesTabasevalueidRequest(c.Server, id, tauuid, tabasevalueid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostIdTaTauuidTabasevaluesTabasevalueid(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostIdTaTauuidTabasevaluesTabasevalueidRequest(c.Server, id, tauuid, tabasevalueid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIdTaTauuidTareports(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIdTaTauuidTareportsRequest(c.Server, id, tauuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteIdTaTauuidTareportsTareportid(ctx context.Context, id int64, tauuid string, tareportid int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteIdTaTauuidTareportsTareportidRequest(c.Server, id, tauuid, tareportid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIdTaTauuidTareportsTareportid(ctx context.Context, id int64, tauuid string, tareportid int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIdTaTauuidTareportsTareportidRequest(c.Server, id, tauuid, tareportid)
 	if err != nil {
 		return nil, err
 	}
@@ -1123,6 +1294,451 @@ func NewGetIdReportsReportidRequest(server string, id int64, reportid int64) (*h
 	return req, nil
 }
 
+// NewGetIdTaTauuidNewtabasevalueRequest generates requests for GetIdTaTauuidNewtabasevalue
+func NewGetIdTaTauuidNewtabasevalueRequest(server string, id int64, tauuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/newtabasevalue", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostIdTaTauuidNewtabasevalueRequest generates requests for PostIdTaTauuidNewtabasevalue
+func NewPostIdTaTauuidNewtabasevalueRequest(server string, id int64, tauuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/newtabasevalue", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIdTaTauuidStatusRequest generates requests for GetIdTaTauuidStatus
+func NewGetIdTaTauuidStatusRequest(server string, id int64, tauuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/status", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIdTaTauuidTabasevaluesRequest generates requests for GetIdTaTauuidTabasevalues
+func NewGetIdTaTauuidTabasevaluesRequest(server string, id int64, tauuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/tabasevalues", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteIdTaTauuidTabasevaluesTabasevalueidRequest generates requests for DeleteIdTaTauuidTabasevaluesTabasevalueid
+func NewDeleteIdTaTauuidTabasevaluesTabasevalueidRequest(server string, id int64, tauuid string, tabasevalueid int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "tabasevalueid", runtime.ParamLocationPath, tabasevalueid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/tabasevalues/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIdTaTauuidTabasevaluesTabasevalueidRequest generates requests for GetIdTaTauuidTabasevaluesTabasevalueid
+func NewGetIdTaTauuidTabasevaluesTabasevalueidRequest(server string, id int64, tauuid string, tabasevalueid int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "tabasevalueid", runtime.ParamLocationPath, tabasevalueid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/tabasevalues/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostIdTaTauuidTabasevaluesTabasevalueidRequest generates requests for PostIdTaTauuidTabasevaluesTabasevalueid
+func NewPostIdTaTauuidTabasevaluesTabasevalueidRequest(server string, id int64, tauuid string, tabasevalueid int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "tabasevalueid", runtime.ParamLocationPath, tabasevalueid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/tabasevalues/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIdTaTauuidTareportsRequest generates requests for GetIdTaTauuidTareports
+func NewGetIdTaTauuidTareportsRequest(server string, id int64, tauuid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/tareports", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteIdTaTauuidTareportsTareportidRequest generates requests for DeleteIdTaTauuidTareportsTareportid
+func NewDeleteIdTaTauuidTareportsTareportidRequest(server string, id int64, tauuid string, tareportid int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "tareportid", runtime.ParamLocationPath, tareportid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/tareports/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIdTaTauuidTareportsTareportidRequest generates requests for GetIdTaTauuidTareportsTareportid
+func NewGetIdTaTauuidTareportsTareportidRequest(server string, id int64, tauuid string, tareportid int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, tauuid)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "tareportid", runtime.ParamLocationPath, tareportid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/%s/ta/%s/tareports/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = operationPath[1:]
+	}
+	operationURL := url.URL{
+		Path: operationPath,
+	}
+
+	queryURL := serverURL.ResolveReference(&operationURL)
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1225,6 +1841,36 @@ type ClientWithResponsesInterface interface {
 
 	// GetIdReportsReportid request
 	GetIdReportsReportidWithResponse(ctx context.Context, id int64, reportid int64, reqEditors ...RequestEditorFn) (*GetIdReportsReportidResponse, error)
+
+	// GetIdTaTauuidNewtabasevalue request
+	GetIdTaTauuidNewtabasevalueWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*GetIdTaTauuidNewtabasevalueResponse, error)
+
+	// PostIdTaTauuidNewtabasevalue request
+	PostIdTaTauuidNewtabasevalueWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*PostIdTaTauuidNewtabasevalueResponse, error)
+
+	// GetIdTaTauuidStatus request
+	GetIdTaTauuidStatusWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*GetIdTaTauuidStatusResponse, error)
+
+	// GetIdTaTauuidTabasevalues request
+	GetIdTaTauuidTabasevaluesWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*GetIdTaTauuidTabasevaluesResponse, error)
+
+	// DeleteIdTaTauuidTabasevaluesTabasevalueid request
+	DeleteIdTaTauuidTabasevaluesTabasevalueidWithResponse(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*DeleteIdTaTauuidTabasevaluesTabasevalueidResponse, error)
+
+	// GetIdTaTauuidTabasevaluesTabasevalueid request
+	GetIdTaTauuidTabasevaluesTabasevalueidWithResponse(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*GetIdTaTauuidTabasevaluesTabasevalueidResponse, error)
+
+	// PostIdTaTauuidTabasevaluesTabasevalueid request
+	PostIdTaTauuidTabasevaluesTabasevalueidWithResponse(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*PostIdTaTauuidTabasevaluesTabasevalueidResponse, error)
+
+	// GetIdTaTauuidTareports request
+	GetIdTaTauuidTareportsWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*GetIdTaTauuidTareportsResponse, error)
+
+	// DeleteIdTaTauuidTareportsTareportid request
+	DeleteIdTaTauuidTareportsTareportidWithResponse(ctx context.Context, id int64, tauuid string, tareportid int64, reqEditors ...RequestEditorFn) (*DeleteIdTaTauuidTareportsTareportidResponse, error)
+
+	// GetIdTaTauuidTareportsTareportid request
+	GetIdTaTauuidTareportsTareportidWithResponse(ctx context.Context, id int64, tauuid string, tareportid int64, reqEditors ...RequestEditorFn) (*GetIdTaTauuidTareportsTareportidResponse, error)
 }
 
 type GetResponse struct {
@@ -1657,6 +2303,221 @@ func (r GetIdReportsReportidResponse) StatusCode() int {
 	return 0
 }
 
+type GetIdTaTauuidNewtabasevalueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]TaBaseValueInfo
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIdTaTauuidNewtabasevalueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIdTaTauuidNewtabasevalueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostIdTaTauuidNewtabasevalueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostIdTaTauuidNewtabasevalueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostIdTaTauuidNewtabasevalueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetIdTaTauuidStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIdTaTauuidStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIdTaTauuidStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetIdTaTauuidTabasevaluesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]TaBaseValueInfo
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIdTaTauuidTabasevaluesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIdTaTauuidTabasevaluesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteIdTaTauuidTabasevaluesTabasevalueidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteIdTaTauuidTabasevaluesTabasevalueidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteIdTaTauuidTabasevaluesTabasevalueidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetIdTaTauuidTabasevaluesTabasevalueidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *map[string]interface{}
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIdTaTauuidTabasevaluesTabasevalueidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIdTaTauuidTabasevaluesTabasevalueidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostIdTaTauuidTabasevaluesTabasevalueidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostIdTaTauuidTabasevaluesTabasevalueidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostIdTaTauuidTabasevaluesTabasevalueidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetIdTaTauuidTareportsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]TaReportInfo
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIdTaTauuidTareportsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIdTaTauuidTareportsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteIdTaTauuidTareportsTareportidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteIdTaTauuidTareportsTareportidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteIdTaTauuidTareportsTareportidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetIdTaTauuidTareportsTareportidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *map[string]interface{}
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIdTaTauuidTareportsTareportidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIdTaTauuidTareportsTareportidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // GetWithResponse request returning *GetResponse
 func (c *ClientWithResponses) GetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetResponse, error) {
 	rsp, err := c.Get(ctx, reqEditors...)
@@ -1835,6 +2696,96 @@ func (c *ClientWithResponses) GetIdReportsReportidWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseGetIdReportsReportidResponse(rsp)
+}
+
+// GetIdTaTauuidNewtabasevalueWithResponse request returning *GetIdTaTauuidNewtabasevalueResponse
+func (c *ClientWithResponses) GetIdTaTauuidNewtabasevalueWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*GetIdTaTauuidNewtabasevalueResponse, error) {
+	rsp, err := c.GetIdTaTauuidNewtabasevalue(ctx, id, tauuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIdTaTauuidNewtabasevalueResponse(rsp)
+}
+
+// PostIdTaTauuidNewtabasevalueWithResponse request returning *PostIdTaTauuidNewtabasevalueResponse
+func (c *ClientWithResponses) PostIdTaTauuidNewtabasevalueWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*PostIdTaTauuidNewtabasevalueResponse, error) {
+	rsp, err := c.PostIdTaTauuidNewtabasevalue(ctx, id, tauuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostIdTaTauuidNewtabasevalueResponse(rsp)
+}
+
+// GetIdTaTauuidStatusWithResponse request returning *GetIdTaTauuidStatusResponse
+func (c *ClientWithResponses) GetIdTaTauuidStatusWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*GetIdTaTauuidStatusResponse, error) {
+	rsp, err := c.GetIdTaTauuidStatus(ctx, id, tauuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIdTaTauuidStatusResponse(rsp)
+}
+
+// GetIdTaTauuidTabasevaluesWithResponse request returning *GetIdTaTauuidTabasevaluesResponse
+func (c *ClientWithResponses) GetIdTaTauuidTabasevaluesWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*GetIdTaTauuidTabasevaluesResponse, error) {
+	rsp, err := c.GetIdTaTauuidTabasevalues(ctx, id, tauuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIdTaTauuidTabasevaluesResponse(rsp)
+}
+
+// DeleteIdTaTauuidTabasevaluesTabasevalueidWithResponse request returning *DeleteIdTaTauuidTabasevaluesTabasevalueidResponse
+func (c *ClientWithResponses) DeleteIdTaTauuidTabasevaluesTabasevalueidWithResponse(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*DeleteIdTaTauuidTabasevaluesTabasevalueidResponse, error) {
+	rsp, err := c.DeleteIdTaTauuidTabasevaluesTabasevalueid(ctx, id, tauuid, tabasevalueid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteIdTaTauuidTabasevaluesTabasevalueidResponse(rsp)
+}
+
+// GetIdTaTauuidTabasevaluesTabasevalueidWithResponse request returning *GetIdTaTauuidTabasevaluesTabasevalueidResponse
+func (c *ClientWithResponses) GetIdTaTauuidTabasevaluesTabasevalueidWithResponse(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*GetIdTaTauuidTabasevaluesTabasevalueidResponse, error) {
+	rsp, err := c.GetIdTaTauuidTabasevaluesTabasevalueid(ctx, id, tauuid, tabasevalueid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIdTaTauuidTabasevaluesTabasevalueidResponse(rsp)
+}
+
+// PostIdTaTauuidTabasevaluesTabasevalueidWithResponse request returning *PostIdTaTauuidTabasevaluesTabasevalueidResponse
+func (c *ClientWithResponses) PostIdTaTauuidTabasevaluesTabasevalueidWithResponse(ctx context.Context, id int64, tauuid string, tabasevalueid int64, reqEditors ...RequestEditorFn) (*PostIdTaTauuidTabasevaluesTabasevalueidResponse, error) {
+	rsp, err := c.PostIdTaTauuidTabasevaluesTabasevalueid(ctx, id, tauuid, tabasevalueid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostIdTaTauuidTabasevaluesTabasevalueidResponse(rsp)
+}
+
+// GetIdTaTauuidTareportsWithResponse request returning *GetIdTaTauuidTareportsResponse
+func (c *ClientWithResponses) GetIdTaTauuidTareportsWithResponse(ctx context.Context, id int64, tauuid string, reqEditors ...RequestEditorFn) (*GetIdTaTauuidTareportsResponse, error) {
+	rsp, err := c.GetIdTaTauuidTareports(ctx, id, tauuid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIdTaTauuidTareportsResponse(rsp)
+}
+
+// DeleteIdTaTauuidTareportsTareportidWithResponse request returning *DeleteIdTaTauuidTareportsTareportidResponse
+func (c *ClientWithResponses) DeleteIdTaTauuidTareportsTareportidWithResponse(ctx context.Context, id int64, tauuid string, tareportid int64, reqEditors ...RequestEditorFn) (*DeleteIdTaTauuidTareportsTareportidResponse, error) {
+	rsp, err := c.DeleteIdTaTauuidTareportsTareportid(ctx, id, tauuid, tareportid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteIdTaTauuidTareportsTareportidResponse(rsp)
+}
+
+// GetIdTaTauuidTareportsTareportidWithResponse request returning *GetIdTaTauuidTareportsTareportidResponse
+func (c *ClientWithResponses) GetIdTaTauuidTareportsTareportidWithResponse(ctx context.Context, id int64, tauuid string, tareportid int64, reqEditors ...RequestEditorFn) (*GetIdTaTauuidTareportsTareportidResponse, error) {
+	rsp, err := c.GetIdTaTauuidTareportsTareportid(ctx, id, tauuid, tareportid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIdTaTauuidTareportsTareportidResponse(rsp)
 }
 
 // ParseGetResponse parses an HTTP response from a GetWithResponse call
@@ -2317,6 +3268,246 @@ func ParseGetIdReportsReportidResponse(rsp *http.Response) (*GetIdReportsReporti
 	return response, nil
 }
 
+// ParseGetIdTaTauuidNewtabasevalueResponse parses an HTTP response from a GetIdTaTauuidNewtabasevalueWithResponse call
+func ParseGetIdTaTauuidNewtabasevalueResponse(rsp *http.Response) (*GetIdTaTauuidNewtabasevalueResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIdTaTauuidNewtabasevalueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []TaBaseValueInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/plain) unsupported
+
+	}
+
+	return response, nil
+}
+
+// ParsePostIdTaTauuidNewtabasevalueResponse parses an HTTP response from a PostIdTaTauuidNewtabasevalueWithResponse call
+func ParsePostIdTaTauuidNewtabasevalueResponse(rsp *http.Response) (*PostIdTaTauuidNewtabasevalueResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostIdTaTauuidNewtabasevalueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetIdTaTauuidStatusResponse parses an HTTP response from a GetIdTaTauuidStatusWithResponse call
+func ParseGetIdTaTauuidStatusResponse(rsp *http.Response) (*GetIdTaTauuidStatusResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIdTaTauuidStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetIdTaTauuidTabasevaluesResponse parses an HTTP response from a GetIdTaTauuidTabasevaluesWithResponse call
+func ParseGetIdTaTauuidTabasevaluesResponse(rsp *http.Response) (*GetIdTaTauuidTabasevaluesResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIdTaTauuidTabasevaluesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []TaBaseValueInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/plain) unsupported
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteIdTaTauuidTabasevaluesTabasevalueidResponse parses an HTTP response from a DeleteIdTaTauuidTabasevaluesTabasevalueidWithResponse call
+func ParseDeleteIdTaTauuidTabasevaluesTabasevalueidResponse(rsp *http.Response) (*DeleteIdTaTauuidTabasevaluesTabasevalueidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteIdTaTauuidTabasevaluesTabasevalueidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetIdTaTauuidTabasevaluesTabasevalueidResponse parses an HTTP response from a GetIdTaTauuidTabasevaluesTabasevalueidWithResponse call
+func ParseGetIdTaTauuidTabasevaluesTabasevalueidResponse(rsp *http.Response) (*GetIdTaTauuidTabasevaluesTabasevalueidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIdTaTauuidTabasevaluesTabasevalueidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/plain) unsupported
+
+	}
+
+	return response, nil
+}
+
+// ParsePostIdTaTauuidTabasevaluesTabasevalueidResponse parses an HTTP response from a PostIdTaTauuidTabasevaluesTabasevalueidWithResponse call
+func ParsePostIdTaTauuidTabasevaluesTabasevalueidResponse(rsp *http.Response) (*PostIdTaTauuidTabasevaluesTabasevalueidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostIdTaTauuidTabasevaluesTabasevalueidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetIdTaTauuidTareportsResponse parses an HTTP response from a GetIdTaTauuidTareportsWithResponse call
+func ParseGetIdTaTauuidTareportsResponse(rsp *http.Response) (*GetIdTaTauuidTareportsResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIdTaTauuidTareportsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []TaReportInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/plain) unsupported
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteIdTaTauuidTareportsTareportidResponse parses an HTTP response from a DeleteIdTaTauuidTareportsTareportidWithResponse call
+func ParseDeleteIdTaTauuidTareportsTareportidResponse(rsp *http.Response) (*DeleteIdTaTauuidTareportsTareportidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteIdTaTauuidTareportsTareportidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	}
+
+	return response, nil
+}
+
+// ParseGetIdTaTauuidTareportsTareportidResponse parses an HTTP response from a GetIdTaTauuidTareportsTareportidWithResponse call
+func ParseGetIdTaTauuidTareportsTareportidResponse(rsp *http.Response) (*GetIdTaTauuidTareportsTareportidResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIdTaTauuidTareportsTareportidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/plain) unsupported
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -2379,6 +3570,36 @@ type ServerInterface interface {
 
 	// (GET /{id}/reports/{reportid})
 	GetIdReportsReportid(ctx echo.Context, id int64, reportid int64) error
+
+	// (GET /{id}/ta/{tauuid}/newtabasevalue)
+	GetIdTaTauuidNewtabasevalue(ctx echo.Context, id int64, tauuid string) error
+
+	// (POST /{id}/ta/{tauuid}/newtabasevalue)
+	PostIdTaTauuidNewtabasevalue(ctx echo.Context, id int64, tauuid string) error
+	// Return the trust status for a specific TA of a given client
+	// (GET /{id}/ta/{tauuid}/status)
+	GetIdTaTauuidStatus(ctx echo.Context, id int64, tauuid string) error
+
+	// (GET /{id}/ta/{tauuid}/tabasevalues)
+	GetIdTaTauuidTabasevalues(ctx echo.Context, id int64, tauuid string) error
+
+	// (DELETE /{id}/ta/{tauuid}/tabasevalues/{tabasevalueid})
+	DeleteIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context, id int64, tauuid string, tabasevalueid int64) error
+
+	// (GET /{id}/ta/{tauuid}/tabasevalues/{tabasevalueid})
+	GetIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context, id int64, tauuid string, tabasevalueid int64) error
+
+	// (POST /{id}/ta/{tauuid}/tabasevalues/{tabasevalueid})
+	PostIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context, id int64, tauuid string, tabasevalueid int64) error
+
+	// (GET /{id}/ta/{tauuid}/tareports)
+	GetIdTaTauuidTareports(ctx echo.Context, id int64, tauuid string) error
+
+	// (DELETE /{id}/ta/{tauuid}/tareports/{tareportid})
+	DeleteIdTaTauuidTareportsTareportid(ctx echo.Context, id int64, tauuid string, tareportid int64) error
+
+	// (GET /{id}/ta/{tauuid}/tareports/{tareportid})
+	GetIdTaTauuidTareportsTareportid(ctx echo.Context, id int64, tauuid string, tareportid int64) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -2737,6 +3958,296 @@ func (w *ServerInterfaceWrapper) GetIdReportsReportid(ctx echo.Context) error {
 	return err
 }
 
+// GetIdTaTauuidNewtabasevalue converts echo context to params.
+func (w *ServerInterfaceWrapper) GetIdTaTauuidNewtabasevalue(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetIdTaTauuidNewtabasevalue(ctx, id, tauuid)
+	return err
+}
+
+// PostIdTaTauuidNewtabasevalue converts echo context to params.
+func (w *ServerInterfaceWrapper) PostIdTaTauuidNewtabasevalue(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostIdTaTauuidNewtabasevalue(ctx, id, tauuid)
+	return err
+}
+
+// GetIdTaTauuidStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) GetIdTaTauuidStatus(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetIdTaTauuidStatus(ctx, id, tauuid)
+	return err
+}
+
+// GetIdTaTauuidTabasevalues converts echo context to params.
+func (w *ServerInterfaceWrapper) GetIdTaTauuidTabasevalues(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetIdTaTauuidTabasevalues(ctx, id, tauuid)
+	return err
+}
+
+// DeleteIdTaTauuidTabasevaluesTabasevalueid converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	// ------------- Path parameter "tabasevalueid" -------------
+	var tabasevalueid int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tabasevalueid", runtime.ParamLocationPath, ctx.Param("tabasevalueid"), &tabasevalueid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tabasevalueid: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.DeleteIdTaTauuidTabasevaluesTabasevalueid(ctx, id, tauuid, tabasevalueid)
+	return err
+}
+
+// GetIdTaTauuidTabasevaluesTabasevalueid converts echo context to params.
+func (w *ServerInterfaceWrapper) GetIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	// ------------- Path parameter "tabasevalueid" -------------
+	var tabasevalueid int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tabasevalueid", runtime.ParamLocationPath, ctx.Param("tabasevalueid"), &tabasevalueid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tabasevalueid: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetIdTaTauuidTabasevaluesTabasevalueid(ctx, id, tauuid, tabasevalueid)
+	return err
+}
+
+// PostIdTaTauuidTabasevaluesTabasevalueid converts echo context to params.
+func (w *ServerInterfaceWrapper) PostIdTaTauuidTabasevaluesTabasevalueid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	// ------------- Path parameter "tabasevalueid" -------------
+	var tabasevalueid int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tabasevalueid", runtime.ParamLocationPath, ctx.Param("tabasevalueid"), &tabasevalueid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tabasevalueid: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostIdTaTauuidTabasevaluesTabasevalueid(ctx, id, tauuid, tabasevalueid)
+	return err
+}
+
+// GetIdTaTauuidTareports converts echo context to params.
+func (w *ServerInterfaceWrapper) GetIdTaTauuidTareports(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetIdTaTauuidTareports(ctx, id, tauuid)
+	return err
+}
+
+// DeleteIdTaTauuidTareportsTareportid converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteIdTaTauuidTareportsTareportid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	// ------------- Path parameter "tareportid" -------------
+	var tareportid int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tareportid", runtime.ParamLocationPath, ctx.Param("tareportid"), &tareportid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tareportid: %s", err))
+	}
+
+	ctx.Set(Servermgt_oauth2Scopes, []string{"write:servers"})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.DeleteIdTaTauuidTareportsTareportid(ctx, id, tauuid, tareportid)
+	return err
+}
+
+// GetIdTaTauuidTareportsTareportid converts echo context to params.
+func (w *ServerInterfaceWrapper) GetIdTaTauuidTareportsTareportid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "tauuid" -------------
+	var tauuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tauuid", runtime.ParamLocationPath, ctx.Param("tauuid"), &tauuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tauuid: %s", err))
+	}
+
+	// ------------- Path parameter "tareportid" -------------
+	var tareportid int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "tareportid", runtime.ParamLocationPath, ctx.Param("tareportid"), &tareportid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tareportid: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetIdTaTauuidTareportsTareportid(ctx, id, tauuid, tareportid)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -2785,39 +4296,55 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/:id/reports", wrapper.GetIdReports)
 	router.DELETE(baseURL+"/:id/reports/:reportid", wrapper.DeleteIdReportsReportid)
 	router.GET(baseURL+"/:id/reports/:reportid", wrapper.GetIdReportsReportid)
+	router.GET(baseURL+"/:id/ta/:tauuid/newtabasevalue", wrapper.GetIdTaTauuidNewtabasevalue)
+	router.POST(baseURL+"/:id/ta/:tauuid/newtabasevalue", wrapper.PostIdTaTauuidNewtabasevalue)
+	router.GET(baseURL+"/:id/ta/:tauuid/status", wrapper.GetIdTaTauuidStatus)
+	router.GET(baseURL+"/:id/ta/:tauuid/tabasevalues", wrapper.GetIdTaTauuidTabasevalues)
+	router.DELETE(baseURL+"/:id/ta/:tauuid/tabasevalues/:tabasevalueid", wrapper.DeleteIdTaTauuidTabasevaluesTabasevalueid)
+	router.GET(baseURL+"/:id/ta/:tauuid/tabasevalues/:tabasevalueid", wrapper.GetIdTaTauuidTabasevaluesTabasevalueid)
+	router.POST(baseURL+"/:id/ta/:tauuid/tabasevalues/:tabasevalueid", wrapper.PostIdTaTauuidTabasevaluesTabasevalueid)
+	router.GET(baseURL+"/:id/ta/:tauuid/tareports", wrapper.GetIdTaTauuidTareports)
+	router.DELETE(baseURL+"/:id/ta/:tauuid/tareports/:tareportid", wrapper.DeleteIdTaTauuidTareportsTareportid)
+	router.GET(baseURL+"/:id/ta/:tauuid/tareports/:tareportid", wrapper.GetIdTaTauuidTareportsTareportid)
 
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"+rL+NwAA///6hAZItCkAAA==",
+	"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",
+	"Xl+v/w8AAP//qDNYZJpDAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
@@ -2891,3 +4418,4 @@ func GetSwagger() (swagger *openapi3.T, err error) {
 	}
 	return
 }
+

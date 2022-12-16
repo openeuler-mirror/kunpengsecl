@@ -35,6 +35,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
+	"gitee.com/openeuler/kunpengsecl/attestation/rac/ractools"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -82,6 +83,7 @@ const (
 	confTrustDuration    = "racconfig.trustduration"
 	confDigestAlgorithm  = "racconfig.digestalgorithm"
 	confMgrStrategy      = "rasconfig.mgrstrategy"
+	confTaVerifyType     = "rasconfig.taverifytype"
 	confChangeTime       = "rasconfig.changetime"
 	confExtRules         = "rasconfig.basevalue-extract-rules"
 	// RAS config default value
@@ -171,6 +173,7 @@ type (
 		isallupdate      bool
 		extractRules     typdefs.ExtractRules
 		onlineDuration   time.Duration
+		taVerifyType     int
 		// rac configuration
 		hbDuration      time.Duration // heartbeat duration
 		trustDuration   time.Duration // trust state duration
@@ -262,6 +265,7 @@ func getConfigs() {
 	rasCfg.trustDuration = viper.GetDuration(confTrustDuration)
 	rasCfg.digestAlgorithm = viper.GetString(confDigestAlgorithm)
 	rasCfg.mgrStrategy = viper.GetString(confMgrStrategy)
+	rasCfg.taVerifyType = viper.GetInt(confTaVerifyType)
 	var ers typdefs.ExtractRules
 	if viper.UnmarshalKey(confExtRules, &ers) == nil {
 		rasCfg.extractRules = ers
@@ -597,6 +601,7 @@ func SaveConfigs() {
 	viper.Set(confTrustDuration, rasCfg.trustDuration)
 	viper.Set(confDigestAlgorithm, rasCfg.digestAlgorithm)
 	viper.Set(confMgrStrategy, rasCfg.mgrStrategy)
+	viper.Set(confTaVerifyType, rasCfg.taVerifyType)
 	err := viper.WriteConfig()
 	if err != nil {
 		_ = viper.SafeWriteConfig()
@@ -1005,4 +1010,18 @@ func SetExtractRules(val string) {
 		return
 	}
 	rasCfg.extractRules = extractRules
+}
+
+func GetTaInputs() map[string]ractools.TaReportInput {
+	taInputs := map[string]ractools.TaReportInput{}
+	return taInputs
+}
+
+//vtype shuold be 1/2/3
+func SetTaVerifyType(vtype int) {
+	rasCfg.taVerifyType = vtype
+}
+
+func GetTaVerifyType() int {
+	return rasCfg.taVerifyType
 }
