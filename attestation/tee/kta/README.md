@@ -22,19 +22,20 @@ parm_type = TEE_PARAM_TYPES(
 2、描述：KTA请求函数
 ```C
 cmd CMD_SEND_REQUEST
-parm_type = TEE_PARAM_TYPES(
-        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放请求
-        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放队列中的请求数量
+param_type = TEE_PARAM_TYPES(
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放一个请求
+        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放当前请求队列中的请求数量
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE
         );
 ```
+
 3、描述：KA请求返回
 ```C
 cmd CMD_RESPOND_REQUEST
-parm_type = TEE_PARAM_TYPES(
+param_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT, //存放请求结果
-        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放KTA处理结果
+        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放KTA处理结果, 0表示失败，1表示成功
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE
         );

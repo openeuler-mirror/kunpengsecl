@@ -26,6 +26,10 @@ Description: key managing module in kta.
 
 #define PARAM_COUNT 4
 
+const TEE_UUID ktaUuid = {
+    0x435dcafa, 0x0029, 0x4d53, { 0x97, 0xe8, 0xa7, 0xa1, 0x3a, 0x80, 0xc8, 0x2e }
+};
+
 extern Cache cache;
 extern CmdQueue cmdqueue;
 extern ReplyCache replycache;
@@ -72,37 +76,53 @@ void generaterFinalRequest(CmdNode cmdnode, CmdRequest *request){
     return;
 }
 
-// transfer struct TEE_UUID to cJSON format
-void uuid2cjson(TEE_UUID id, cJSON *cj) {
-    cJSON_AddNumberToObject(cj, "timeLow", id.timeLow);
-    cJSON_AddNumberToObject(cj, "timeMid", id.timeMid);
-    cJSON_AddNumberToObject(cj, "timeHiAndVersion", id.timeHiAndVersion);
-    cJSON_AddStringToObject(cj, "clockSeqAndNode", id.clockSeqAndNode);
+void hex2char(uint32_t hex, int8_t *hexchar, int32_t i) {
+    for(i--; i >= 0; i--, hex >>= 4) {
+        if ((hex & 0xf) <= 9)
+            *(hexchar + i) = (hex & 0xf) + '0';
+        else
+            *(hexchar + i) = (hex & 0xf) + 'A' - 0x0a;
+    }
+}
+
+void uuid2char(TEE_UUID uuid, int8_t charuuid[33]) {
+    int32_t i = 0;
+
+    hex2char(uuid.timeLow, charuuid, 8);
+    hex2char(uuid.timeMid, charuuid + 8, 4);
+    hex2char(uuid.timeHiAndVersion, charuuid + 12, 4);
+    for(i = 0; i < 2; i++){
+        hex2char(uuid.clockSeqAndNode[i], charuuid + 16 + i * 2, 2);
+    }
+    for(i = 0; i < 6; i++){
+        hex2char(uuid.clockSeqAndNode[i+2], charuuid + 20 + i * 2, 2);
+    }
 }
 
 // transfer struct CmdNode to cJSON format
 void cmdNode2cjson(CmdNode cmdnode, cJSON *cj) {
-    cJSON *taid = NULL;
-    cJSON *keyid = NULL;
-    cJSON *masterkey = NULL;
+    int8_t taid[33] = {0};
+    int8_t keyid[33] = {0};
+    int8_t masterkey[33] = {0};
+    int8_t ktauuid[33] = {0};
     // translate cmd
     cJSON_AddNumberToObject(cj, "cmd", cmdnode.cmd);
     // translate taid
-    taid = cJSON_CreateObject();
-    uuid2cjson(cmdnode.taId, taid);
-    cJSON_AddItemToObject(cj, "taid", taid);
+    uuid2char(cmdnode.taId, taid[33]);
+    cJSON_AddStringToObject(cj, "taid", taid[33]);
     // translate keyid
-    keyid = cJSON_CreateObject();
-    uuid2cjson(cmdnode.keyId, keyid);
-    cJSON_AddItemToObject(cj, "keyid", keyid);
+    uuid2char(cmdnode.keyId, keyid[33]);
+    cJSON_AddStringToObject(cj, "keyid", keyid[33]);
     // translate masterkey
-    masterkey = cJSON_CreateObject();
-    uuid2cjson(cmdnode.masterkey, masterkey);
-    cJSON_AddItemToObject(cj, "masterkey", masterkey);
+    uuid2char(cmdnode.masterkey, masterkey[33]);
+    cJSON_AddStringToObject(cj, "masterkey", masterkey[33]);
     // translate account
     cJSON_AddStringToObject(cj, "account", cmdnode.account);
     // translate password
     cJSON_AddStringToObject(cj, "password", cmdnode.password);
+    // translate kta uuid
+    uuid2char(ktaUuid, ktauuid[33]);
+    cJSON_AddStringToObject(cj, "ktauuid", ktauuid[33]);
 }
 
 // transfer struct CmdRequest to cJSON format
@@ -160,22 +180,20 @@ void decryption(){
     */
 }
 
-// transfer cJSON format to struct TEE_UUID
-void cjson2uuid(cJSON *cj, TEE_UUID *id) {
-    cJSON *cjson_id_tl = NULL;
-    cJSON *cjson_id_tm = NULL;
-    cJSON *cjson_id_thav = NULL;
-    cJSON *cjson_id_csan = NULL;
-    cjson_id_tl = cJSON_GetObjectItem(cj, "timeLow");
-    cjson_id_tm = cJSON_GetObjectItem(cj, "timeMid");
-    cjson_id_thav = cJSON_GetObjectItem(cj, "timeHiAndVersion");
-    cjson_id_csan = cJSON_GetObjectItem(cj, "clockSeqAndNode");
-    id->timeLow = cJSON_GetNumberValue(cjson_id_tl);
-    id->timeMid= cJSON_GetNumberValue(cjson_id_tm);
-    id->timeHiAndVersion = cJSON_GetNumberValue(cjson_id_thav);
-    char *csan = cJSON_GetStringValue(cjson_id_csan);
-    for (int i=0; i<NODE_LEN; i++) {
-        id->clockSeqAndNode[i] = csan[i];
+void char2uuid(int8_t charuuid[33], TEE_UUID *uuid) {
+    int32_t i = 0;
+    int8_t *stop = NULL;
+    int8_t buffer[3] = {0};
+    uuid->timeLow = strtoul(charuuid, &stop, 16);
+    uuid->timeMid = strtoul(stop, &stop, 16);
+    uuid->timeHiAndVersion = strtoul(stop, &stop, 16);
+    for(i = 0; i < 2; i++) {
+        uuid->clockSeqAndNode[i] = strtoul(charuuid + 16 + i * 2, &stop, 16) >> (8 - i * 8);
+    }
+    for(i = 0; i < 6; i++) {
+        buffer[0] = *(charuuid + 20 + i * 2);
+        buffer[1] = *(charuuid + 21 + i * 2);
+        uuid->clockSeqAndNode[i + 2] = strtoul(buffer, &stop, 16);
     }
 }
 
@@ -192,13 +210,16 @@ void cjson2cmdNode(cJSON *cj, CmdNode *cmdnode) {
     cmdnode->cmd = cJSON_GetNumberValue(cjson_cmd);
     // translate taid
     cjson_taid = cJSON_GetObjectItem(cj, "taid");
-    cjson2uuid(cjson_taid, &cmdnode->taId);
+    char *taid = cJSON_GetStringValue(cjson_taid);
+    char2uuid(taid, &cmdnode->taId);
     // translate keyid
     cjson_keyid = cJSON_GetObjectItem(cj, "keyid");
-    cjson2uuid(cjson_keyid, &cmdnode->keyId);
+    char *keyid = cJSON_GetStringValue(cjson_keyid);
+    char2uuid(keyid, &cmdnode->keyId);
     // translate masterkey
     cjson_masterkey = cJSON_GetObjectItem(cj, "masterkey");
-    cjson2uuid(cjson_masterkey, &cmdnode->masterkey);
+    char *masterkey = cJSON_GetStringValue(cjson_masterkey);
+    char2uuid(masterkey, &cmdnode->masterkey);
     // translate account
     cjson_account = cJSON_GetObjectItem(cj, "account");
     char *ac = cJSON_GetStringValue(cjson_account);
@@ -261,7 +282,7 @@ TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_VALUE_OUTPUT,
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
