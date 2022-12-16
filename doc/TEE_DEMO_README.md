@@ -42,6 +42,11 @@
               - [KA接口](#ka接口)
               - [KCMS接口](#kcms接口)
           - [流程图](#流程图)
+              - [密钥缓存初始化](#密钥缓存初始化)
+              - [密钥访问鉴权&密钥获取](#密钥访问鉴权密钥获取)
+              - [密钥缓存清理](#密钥缓存清理)
+              - [本地证明&远程证明](#本地证明远程证明)
+              - [KMS支持](#kms支持)
 
 <!-- TOC -->
 
@@ -456,7 +461,7 @@ KTA(Key Caching Trusted Application)提供TKML所需的跨TA接口，在授予�
 
 #### KA介绍
 
-KA(Key Agent)负责在REE侧辅助建立KTA和KCM Service之间的通信通路。
+KA在本方案中担任了中间件的角色，KA负责帮助KTA进行初始化，并对KTA中请求队列进行定期轮询，判断KTA中是否有密钥相关请求。KA通过CGO调用KTALIB中的功能，以满足KCMS侧与KTA之间的信息交互。KA部分的开发包含由Go语言开发的katools模块以及由C语言开发的ktalib模块。KTALIB在本方案中担任库的角色，主要用于满足KA对KTA的调用，在TEE视角中KA属于一个CA，而KTALIB则属于类似于TEE内部的QCALIB，符合TEE的开发和要求，在使用TEE内部提供的唯一接口TEEC_InvokeCommand基础之上，在该lib库中实现对指定TA的调用过程，并实现了对TEE内部的函数调用。该lib库使用C语言进行开发，具备KTA初始化过程、KTA命令获取等过程。
 
 #### KCMS介绍
 
@@ -577,7 +582,10 @@ typedef struct _tagKeyInfo{
     uint8_t value[KEY_SIZE];    // 指定大小的密钥值
     int32_t next;               // 用于下一个密钥的查询操作，-1表示空
 } KeyInfo;
+```
 
+2、描述：可信应用信息结构
+```c
 typedef struct _tagTaInfo{
     TEE_UUID    id;                 // 可信应用ID
     TEE_UUID    masterkey;          // 主密钥ID
@@ -588,16 +596,19 @@ typedef struct _tagTaInfo{
     int32_t head;                   // 指定第一个密钥的索引位置，-1表示空
     int32_t tail;                   // 指定最后一个密钥的索引位置，-1表示空
 } TaInfo;
+```
 
-
+3、保存可信应用信息的缓存结构
+```c
 typedef struct _tagCache{
     TaInfo  ta[MAX_TA_NUM];     // 可信应用数组
     int32_t head;               // 指定第一个TA的索引位置，-1表示空
     int32_t tail;               // 指定最后一个TA的索引位置，-1表示空
 } Cache;
+```
 
-/* command queue to store the commands */
-
+4、指令信息结构
+```c
 typedef struct _tagCmdData{
     int32_t     cmd;                // 操作指令
     TEE_UUID    taId;               // 可信应用ID
@@ -606,25 +617,37 @@ typedef struct _tagCmdData{
     uint8_t account[MAX_STR_LEN];   // 账户名
     uint8_t password[MAX_STR_LEN];  // 账户密码
 } CmdNode;
+```
 
+5、指令队列结构，存储所有已生成尚待处理的指令信息
+```c
 typedef struct _tagCmdQueue{
     CmdNode queue[MAX_QUEUE_SIZE];  // 指令队列
     int32_t head;                   // 指定第一条指令的索引位置
     int32_t tail;                   // 指定最后一条指令的索引位置
 } CmdQueue;
+```
 
+6、响应信息结构
+```c
 typedef struct _tagReplyData{
     TEE_UUID    taId;               // 可信应用ID
     TEE_UUID    keyId;              // 密钥ID
     uint8_t keyvalue[KEY_SIZE];     // 指定大小的密钥值
 } ReplyNode;
+```
 
+7、响应队列结构，存储所有已返回尚待接收的响应信息
+```c
 typedef struct _tagCmdQueue{
     ReplyNode queue[MAX_QUEUE_SIZE];    // 响应队列
     int32_t head;                       // 指定第一条响应的索引位置
     int32_t tail;                       // 指定最后一条响应的索引位置
 } ReplyQueue;
+```
 
+8、请求信息结构
+```c
 typedef struct _tagRequest{
     /*
     when using as Intermediate Request:
@@ -640,7 +663,10 @@ typedef struct _tagRequest{
     uint8_t cmddata[MAX_DATA_LEN];  // 由会话密钥加密的数据信息
     uint32_t data_size;             // 数据信息大小
 } CmdRequest;
+```
 
+9、TEE内部所使用的参数结构
+```c
 typedef union {
     struct {
         void *buffer;
@@ -656,6 +682,14 @@ typedef union {
 #### KA关键常量
 
 #### KA关键数据结构
+
+1、描述：用于存储字节流的缓冲区
+```c
+struct buffer_data{
+    uint32_t size;  // 缓冲区大小
+    uint8_t *buf;   // 缓冲区指针
+};
+```
 
 #### KCMS关键常量
 
@@ -726,6 +760,79 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) ;
 
 #### KA接口
 
+**katools：**  
+KA作为一个TEE内部TA的CA，表示KTA的使能端，katools使用Go语言编写，接口函数主要有：
+```go
+func KaMain(addr string, id int64)
+```
+接口描述：使能KTA并对KTA请求进行轮询操作  
+参数1【传入】：服务端地址。  
+参数2【传入】：ka所属的ClientID。
+
+**ktalib：**  
+KTALIB中包含了对KTA的相关操作，包括与KTA建立会话、KTA初始化操作、KTA命令获取操作、KTA命令请求操作、与KTA断开连接操作：
+```c
+TEEC_Result InitContextSession(uint8_t* ktapath) 
+```
+接口描述：初始化上下文和会话  
+参数1【传入】：kta路径。
+
+```c
+TEEC_Result KTAinitialize(
+    struct buffer_data* kcmPubKey, 
+    struct buffer_data* ktaPubCert, 
+    struct buffer_data* ktaPrivKey, 
+    struct buffer_data *out_data)
+```
+接口描述：初始化KTA过程  
+参数1【传入】：KCM的公钥。  
+参数2【传入】：KTA公钥证书。  
+参数3【传入】：KTA私钥。  
+参数4【传出】：KTA公钥证书。
+
+```c
+TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum)
+```
+接口描述：从KTA侧获取命令请求  
+参数1【传出】：获取KTA侧的命令请求。  
+参数2【传出】：存放剩余请求数量。
+
+```c
+TEEC_Result KTAsendCommandreply(struct buffer_data* in_data)
+```
+接口描述：向KTA返回密钥请求结果  
+参数1【传入】：密钥请求参数。
+
+```c
+void KTAshutdown() 
+```
+接口描述：关闭KTA的连接
+
 #### KCMS接口
 
 ### 流程图
+
+#### 密钥缓存初始化
+
+管理员启动KTA时，进行全局密钥缓存初始化操作。用户启动用户TA时可调用KCML接口进行TA密钥缓存初始化。
+![img](./key_cache_manage/key_cache_manage_1.png "密钥缓存初始化")
+
+#### 密钥访问鉴权&密钥获取
+
+用户TA访问任何由KMS保存的指定密钥时，无论是否处于缓存状态，均需通过访问鉴权。用户TA获取任何由KMS保存的指定密钥时，如果不在缓存中则通过加密的缓存协议将加密的密钥缓存到TEE中，否则直接从TEE密钥缓存中获取封装过的密钥。
+![img](./key_cache_manage/key_cache_manage_2.png "密钥访问鉴权&密钥获取")
+
+#### 密钥缓存清理
+
+用户TA可以要求KTA清理与其相关的所有密钥缓存信息。
+![img](./key_cache_manage/key_cache_manage_3.png "密钥缓存清理")
+
+#### 本地证明&远程证明
+
+用户TA通过KTA获取缓存的密钥时， KTA需要对用户TA发起本地证明。KTA通过KA和KCM Service向KMS发起密钥获取请求时， KCM Service需要对KTA发起远程证明。
+![img](./key_cache_manage/key_cache_manage_4.png "本地证明&远程证明")
+
+#### KMS支持
+
+KCM Service收到密钥缓存请求时， 将实际请求转发到支持KMIP协议的KMS服务。
+![img](./key_cache_manage/key_cache_manage_5.png "KMS支持")
