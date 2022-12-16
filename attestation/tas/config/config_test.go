@@ -24,6 +24,10 @@ tasconfig:
   basevalue: ""
   authkeyfile: ../cmd/ecdsakey.pub
 `
+const (
+	serverport = "127.0.0.1:40008"
+	restport   = "127.0.0.1:40009"
+)
 
 const configFilePath = "./config.yaml"
 
@@ -57,10 +61,10 @@ func TestConfig(t *testing.T) {
 	if cfg := GetConfigs(); cfg == nil {
 		t.Error("get tas config error")
 	}
-	if serv := GetServerPort(); serv != "127.0.0.1:40008" {
+	if serv := GetServerPort(); serv != serverport {
 		t.Error("get clientapi addr error")
 	}
-	if rest := GetRestPort(); rest != "127.0.0.1:40009" {
+	if rest := GetRestPort(); rest != restport {
 		t.Error("get restapi addr error")
 	}
 	if acfile := GetASCertFile(); acfile != "../cmd/ascert.crt" {

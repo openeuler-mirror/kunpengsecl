@@ -31,3 +31,36 @@ CREATE TABLE base (
     bios TEXT,
     ima TEXT
 );
+
+CREATE TABLE tareport (
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    clientid BIGINT,
+    createtime TIMESTAMPTZ,
+    validated BOOLEAN,
+    trusted BOOLEAN,
+    uuid TEXT,
+    value TEXT
+);
+
+CREATE TABLE tabase(
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    clientid BIGINT,
+    uuid TEXT,
+    createtime TIMESTAMPTZ,
+    enabled BOOLEAN,
+    name TEXT,  
+    valueinfo TEXT
+);
+
+CREATE TABLE keyinfo (
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    taid CHAR(36),
+    keyid CHAR(36),
+    ciphertext TEXT
+);
+
+CREATE TABLE pubkeyinfo (
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    deviceid BIGINT,
+    pubkeycert TEXT
+);

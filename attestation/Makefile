@@ -1,5 +1,5 @@
 
-subdir=common ras rac tee
+subdir=common tee ras rac
 
 .PHONY: all build test clean install check
 all build test install check: vendor
