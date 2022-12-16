@@ -512,8 +512,8 @@ param_type = TEE_PARAM_TYPES(
 ```C
 cmd CMD_SEND_REQUEST
 param_type = TEE_PARAM_TYPES(
-        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放请求
-        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放一个请求
+        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放当前请求队列中的请求数量
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE
         );
@@ -524,7 +524,7 @@ param_type = TEE_PARAM_TYPES(
 cmd CMD_RESPOND_REQUEST
 param_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT, //存放请求结果
-        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放KTA处理结果
+        TEE_PARAM_TYPE_VALUE_OUTPUT, //存放KTA处理结果, 0表示失败，1表示成功
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE
         );
