@@ -51,3 +51,16 @@ CREATE TABLE tabase(
     name TEXT,  
     valueinfo TEXT
 );
+
+CREATE TABLE keyinfo (
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    taid CHAR(36),
+    keyid CHAR(36),
+    ciphertext TEXT
+);
+
+CREATE TABLE pubkeyinfo (
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    deviceid BIGINT,
+    pubkeycert TEXT
+);

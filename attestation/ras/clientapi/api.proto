@@ -9,6 +9,10 @@ service Ras {
   rpc UnregisterClient (UnregisterClientRequest) returns (UnregisterClientReply) {}
   rpc SendHeartbeat (SendHeartbeatRequest) returns (SendHeartbeatReply) {}
   rpc SendReport (SendReportRequest) returns (SendReportReply) {}
+
+  rpc SendKCMPubKeyCert (SendKCMPubKeyCertRequest) returns (SendKCMPubKeyCertReply) {}
+  rpc VerifyKTAPubKeyCert (VerifyKTAPubKeyCertRequest) returns (VerifyKTAPubKeyCertReply) {}
+  rpc KeyOperation (KeyOperationRequest) returns (KeyOperationReply) {}
 }
 
 message GenerateEKCertRequest {
@@ -86,3 +90,29 @@ message SendReportReply {
   bool result = 1;
 }
 
+message SendKCMPubKeyCertRequest {
+
+}
+
+message SendKCMPubKeyCertReply {
+  bool result = 1;
+  bytes kcmPubKeyCert = 2;
+}
+
+message VerifyKTAPubKeyCertRequest {
+  int64 clientId = 1;
+  bytes ktaPubKeyCert = 2;
+}
+
+message VerifyKTAPubKeyCertReply {
+  bool result = 1;
+}
+
+message KeyOperationRequest {
+  bytes encMessage = 1;
+}
+
+message KeyOperationReply {
+  bool result = 1;
+  bytes encRetMessage = 2;
+}

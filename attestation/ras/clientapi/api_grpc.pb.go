@@ -24,6 +24,9 @@ type RasClient interface {
 	UnregisterClient(ctx context.Context, in *UnregisterClientRequest, opts ...grpc.CallOption) (*UnregisterClientReply, error)
 	SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest, opts ...grpc.CallOption) (*SendHeartbeatReply, error)
 	SendReport(ctx context.Context, in *SendReportRequest, opts ...grpc.CallOption) (*SendReportReply, error)
+	SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest, opts ...grpc.CallOption) (*SendKCMPubKeyCertReply, error)
+	VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKeyCertRequest, opts ...grpc.CallOption) (*VerifyKTAPubKeyCertReply, error)
+	KeyOperation(ctx context.Context, in *KeyOperationRequest, opts ...grpc.CallOption) (*KeyOperationReply, error)
 }
 
 type rasClient struct {
@@ -88,6 +91,33 @@ func (c *rasClient) SendReport(ctx context.Context, in *SendReportRequest, opts 
 	return out, nil
 }
 
+func (c *rasClient) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest, opts ...grpc.CallOption) (*SendKCMPubKeyCertReply, error) {
+	out := new(SendKCMPubKeyCertReply)
+	err := c.cc.Invoke(ctx, "/Ras/SendKCMPubKeyCert", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rasClient) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKeyCertRequest, opts ...grpc.CallOption) (*VerifyKTAPubKeyCertReply, error) {
+	out := new(VerifyKTAPubKeyCertReply)
+	err := c.cc.Invoke(ctx, "/Ras/VerifyKTAPubKeyCert", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rasClient) KeyOperation(ctx context.Context, in *KeyOperationRequest, opts ...grpc.CallOption) (*KeyOperationReply, error) {
+	out := new(KeyOperationReply)
+	err := c.cc.Invoke(ctx, "/Ras/KeyOperation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RasServer is the server API for Ras service.
 // All implementations must embed UnimplementedRasServer
 // for forward compatibility
@@ -98,6 +128,9 @@ type RasServer interface {
 	UnregisterClient(context.Context, *UnregisterClientRequest) (*UnregisterClientReply, error)
 	SendHeartbeat(context.Context, *SendHeartbeatRequest) (*SendHeartbeatReply, error)
 	SendReport(context.Context, *SendReportRequest) (*SendReportReply, error)
+	SendKCMPubKeyCert(context.Context, *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error)
+	VerifyKTAPubKeyCert(context.Context, *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error)
+	KeyOperation(context.Context, *KeyOperationRequest) (*KeyOperationReply, error)
 	mustEmbedUnimplementedRasServer()
 }
 
@@ -122,6 +155,15 @@ func (UnimplementedRasServer) SendHeartbeat(context.Context, *SendHeartbeatReque
 }
 func (UnimplementedRasServer) SendReport(context.Context, *SendReportRequest) (*SendReportReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendReport not implemented")
+}
+func (UnimplementedRasServer) SendKCMPubKeyCert(context.Context, *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendKCMPubKeyCert not implemented")
+}
+func (UnimplementedRasServer) VerifyKTAPubKeyCert(context.Context, *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifyKTAPubKeyCert not implemented")
+}
+func (UnimplementedRasServer) KeyOperation(context.Context, *KeyOperationRequest) (*KeyOperationReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method KeyOperation not implemented")
 }
 func (UnimplementedRasServer) mustEmbedUnimplementedRasServer() {}
 
@@ -244,6 +286,60 @@ func _Ras_SendReport_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Ras_SendKCMPubKeyCert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendKCMPubKeyCertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RasServer).SendKCMPubKeyCert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Ras/SendKCMPubKeyCert",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RasServer).SendKCMPubKeyCert(ctx, req.(*SendKCMPubKeyCertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Ras_VerifyKTAPubKeyCert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyKTAPubKeyCertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RasServer).VerifyKTAPubKeyCert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Ras/VerifyKTAPubKeyCert",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RasServer).VerifyKTAPubKeyCert(ctx, req.(*VerifyKTAPubKeyCertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Ras_KeyOperation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyOperationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RasServer).KeyOperation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Ras/KeyOperation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RasServer).KeyOperation(ctx, req.(*KeyOperationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Ras_ServiceDesc is the grpc.ServiceDesc for Ras service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -274,6 +370,18 @@ var Ras_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendReport",
 			Handler:    _Ras_SendReport_Handler,
+		},
+		{
+			MethodName: "SendKCMPubKeyCert",
+			Handler:    _Ras_SendKCMPubKeyCert_Handler,
+		},
+		{
+			MethodName: "VerifyKTAPubKeyCert",
+			Handler:    _Ras_VerifyKTAPubKeyCert_Handler,
+		},
+		{
+			MethodName: "KeyOperation",
+			Handler:    _Ras_KeyOperation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

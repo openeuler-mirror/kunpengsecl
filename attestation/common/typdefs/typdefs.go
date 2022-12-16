@@ -167,6 +167,23 @@ type (
 		Name       string
 		Valueinfo  []byte
 	}
+
+	// KeyinfoRow stores one record of the key information in database
+	// table `keyinfo`.
+	KeyinfoRow struct {
+		ID         int64
+		TaID       string
+		KeyID      string
+		Ciphertext string
+	}
+
+	// PubKeyinfoRow stores one record of the public key cert information in database
+	// table `pubkeyinfo`.
+	PubKeyinfoRow struct {
+		ID         int64
+		DeviceID   int64
+		PubKeyCert string
+	}
 )
 
 type (
