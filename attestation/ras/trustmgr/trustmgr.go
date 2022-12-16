@@ -1664,6 +1664,9 @@ func handleBaseStore(v *typdefs.BaseRow) {
 	if err != nil {
 		logger.L.Sugar().Errorf("insert base error, result %v, %v", res, err)
 	}
+	if tmgr == nil || tmgr.cache == nil {
+		return
+	}
 	if tmgr.cache[v.ClientID] == nil {
 		return
 	}

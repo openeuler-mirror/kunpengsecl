@@ -17,10 +17,11 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
+	kmsServer "gitee.com/openeuler/kunpengsecl/attestation/kms"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kcmstools"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
-	kmsServer "gitee.com/openeuler/kunpengsecl/attestation/kms"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
 
@@ -95,10 +96,11 @@ const (
 )
 
 const (
-	command 				= 0x80000003
-	constDNS    			= "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
-	constSaveKTACertFailed 	= "save KTA Cert failed %v"
-	constsavekeyinfofailed  = "save key information fail %v"
+	command                = 0x80000003
+	constDNS               = "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
+	constSaveKTACertFailed = "save KTA Cert failed %v"
+	constsavekeyinfofailed = "save key information fail %v"
+	constgetcachefailed    = "get cache by deviceId failed :%v"
 )
 
 var (
@@ -106,13 +108,16 @@ var (
 		48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
 		80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108,
 		109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122}
-	taId = []byte("taId")
-	keyId = []byte("keyId")
-	hostKeyId = []byte("hostKeyId")
-	account = []byte("account")
-	password = []byte("password")
-	deviceId int64 = 1238263726351263121
-	cipherMessage = "89Kl9gkvWImjh5CUsADSbmFyDb7s5q+voUf2ym4u6dc="
+	taId                = []byte("taId")
+	keyId               = []byte("keyId")
+	hostKeyId           = []byte("hostKeyId")
+	account             = []byte("account")
+	password            = []byte("password")
+	deviceId      int64 = 1238263726351263121
+	cipherMessage       = "89Kl9gkvWImjh5CUsADSbmFyDb7s5q+voUf2ym4u6dc="
+	ktaId               = "ktaId"
+	ik                  = "IK"
+	testCases1          = []time.Duration{time.Second, time.Second * 3, time.Millisecond * 10}
 )
 
 var (
@@ -301,7 +306,7 @@ var (
 		0x68, 0x68, 0x73, 0x79, 0x72, 0x2f, 0x44, 0x55, 0x4e, 0x4d, 0x64, 0x78, 0x73, 0x39, 0x73, 0x53, 0x61,
 		0x36, 0x79, 0x57, 0x74, 0x75, 0x42, 0x33, 0x73, 0x48, 0x0a, 0x2d, 0x2d, 0x2d, 0x2d, 0x2d, 0x45, 0x4e,
 		0x44, 0x20, 0x43, 0x45, 0x52, 0x54, 0x49, 0x46, 0x49, 0x43, 0x41, 0x54, 0x45, 0x2d, 0x2d, 0x2d, 0x2d,
-		0x2d, 0x0a,}
+		0x2d, 0x0a}
 	ktacert = []byte{
 		0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x3a, 0x0a, 0x20, 0x20, 0x20, 0x20,
 		0x44, 0x61, 0x74, 0x61, 0x3a, 0x0a, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x56, 0x65, 0x72,
@@ -562,7 +567,7 @@ var (
 		0x35, 0x66, 0x37, 0x6d, 0x70, 0x36, 0x62, 0x0a, 0x73, 0x70, 0x69, 0x65, 0x64, 0x61, 0x34, 0x73, 0x62,
 		0x4e, 0x6f, 0x35, 0x6a, 0x58, 0x6d, 0x4a, 0x56, 0x77, 0x3d, 0x3d, 0x0a, 0x2d, 0x2d, 0x2d, 0x2d, 0x2d,
 		0x45, 0x4e, 0x44, 0x20, 0x43, 0x45, 0x52, 0x54, 0x49, 0x46, 0x49, 0x43, 0x41, 0x54, 0x45, 0x2d, 0x2d,
-		0x2d, 0x2d, 0x2d, 0x0a,}
+		0x2d, 0x2d, 0x2d, 0x0a}
 )
 
 var (
@@ -587,6 +592,7 @@ func RemoveConfigFile() {
 }
 
 func TestClientapi(t *testing.T) {
+	print("\nThis is in TestClientapi\n")
 	CreateServerConfigFile()
 	defer RemoveConfigFile()
 
@@ -626,18 +632,19 @@ func TestClientapi(t *testing.T) {
 	}
 
 	// test empty clientinfo
-	ci, err := json.Marshal(map[string]string{})
-	if err != nil {
-		t.Error(emptyClientInfoErr)
-	}
-	r1, err := ras.c.RegisterClient(ctx, &RegisterClientRequest{
-		Cert:       createCert(),
-		ClientInfo: string(ci),
-	})
-	if err != nil {
-		t.Errorf("test RegisterClient with empty clientinfo error %v", err)
-	}
-	defer trustmgr.DeleteClientByID(r1.GetClientId())
+	/*
+		ci, err := json.Marshal(map[string]string{})
+		if err != nil {
+			t.Error(emptyClientInfoErr)
+		}
+		r1, err := ras.c.RegisterClient(ctx, &RegisterClientRequest{
+			Cert:       createCert(),
+			ClientInfo: string(ci),
+		})
+		if err != nil {
+			t.Errorf("test RegisterClient with empty clientinfo error %v", err)
+		}
+		defer trustmgr.DeleteClientByID(r1.GetClientId())*/
 
 	// test empty request
 	_, err = ras.c.RegisterClient(ctx, &RegisterClientRequest{})
@@ -657,7 +664,7 @@ func TestClientapi(t *testing.T) {
 	ikCertDer, _ := cryptotools.GenerateCertificate(&template,
 		config.GetPcaKeyCert(), IKpubBlock.Bytes, config.GetPcaPrivateKey())
 
-	ci, err = json.Marshal(testClientInfo)
+	ci, err := json.Marshal(testClientInfo)
 	if err != nil {
 		t.Error(createClientInfoErr)
 	}
@@ -721,6 +728,7 @@ func TestClientapi(t *testing.T) {
 }
 
 func TestClientapiInitKTA(t *testing.T) {
+	print("\nThis is in TestClientapiInitKTA\n")
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
@@ -752,6 +760,10 @@ func TestClientapiInitKTA(t *testing.T) {
 		t.Errorf("test VerifyKTAPubKeyCert with empty deviceId failed %v", err)
 	}
 
+	dbConfig := GetdbConfig(strDbConfig)
+	kdb.CreateKdbManager(constDB, dbConfig)
+	defer kdb.ReleaseKdbManager()
+
 	err = kcmstools.SaveCert(ktacert, certPath, ktaFileName)
 	if err != nil {
 		t.Errorf(constSaveKTACertFailed, err)
@@ -762,24 +774,33 @@ func TestClientapiInitKTA(t *testing.T) {
 	}
 	defer os.RemoveAll(certPath)
 	_, err = ras.c.VerifyKTAPubKeyCert(ctx, &VerifyKTAPubKeyCertRequest{
-		ClientId:		deviceId,
-		KtaPubKeyCert: 	ktacert,
+		ClientId:      deviceId,
+		KtaPubKeyCert: ktacert,
 	})
 	if err != nil {
 		t.Errorf("test VerifyKTAPubKeyCert error: %v", err)
 	}
-	
-	// test empty taId
-	_, err = ras.c.KeyOperation(ctx, &KeyOperationRequest{})
-	if err != nil {
-		t.Errorf("test KeyOperation with empty taId failed %v", err)
-	}
+	//defer kdb.DeletePubKeyInfo(deviceId)
 }
 
 func TestClientapiKeyOp(t *testing.T) {
+	print("\nThis is in TestClientapiKeyOp\n")
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
+	trustmgr.CreateTrustManager(constDB, constDNS)
+	defer trustmgr.ReleaseTrustManager()
+	regtime := time.Time{}
+	trustmgr.RegisterClientByID(deviceId, regtime, ik)
+	defer trustmgr.DeleteClientByID(deviceId)
+
+	c, err := trustmgr.GetCache(deviceId)
+	if err != nil {
+		t.Errorf(constgetcachefailed, err)
+	}
+	c.UpdateHeartBeat(testCases1[0])
+	c.UpdateTrustReport(testCases1[0])
+	c.SetTaTrusted(ktaId, cache.StrTrusted)
 
 	ras, err := CreateConn(server)
 	if err != nil {
@@ -791,6 +812,12 @@ func TestClientapiKeyOp(t *testing.T) {
 
 	// generate public key and priate key of KCM
 	privKey, kcmPublicKey = GenRsaKey()
+
+	// test empty taId
+	_, err = ras.c.KeyOperation(ctx, &KeyOperationRequest{})
+	if err != nil {
+		t.Errorf("test KeyOperation with empty taId failed %v", err)
+	}
 
 	go kmsServer.ExampleServer()
 	defer kmsServer.StopServer()
@@ -810,21 +837,23 @@ func TestClientapiKeyOp(t *testing.T) {
 	}
 	defer kdb.DeletePubKeyInfo(deviceId)
 
-_	, err = kdb.SaveKeyInfo(string(taId), string(keyId), cipherMessage)
+	_, err = kdb.SaveKeyInfo(string(taId), string(keyId), cipherMessage)
 	if err != nil {
 		t.Errorf("save key in database failed, error %v", err)
 	}
 	defer kdb.DeleteKeyInfo(string(taId), string(keyId))
 
-	message := inKeyInfo {
-		TAId:		taId,
-		Account:	account,
-		Password:	password,
-		KeyId:		keyId,
-		HostKeyId:	hostKeyId,
-		Command:	command,
+	message := inKeyInfo{
+		TAId:      taId,
+		Account:   account,
+		Password:  password,
+		KeyId:     keyId,
+		HostKeyId: hostKeyId,
+		Command:   command,
+		KTAId:     ktaId,
+		DeviceId:  deviceId,
 	}
-	encMessage ,err := json.Marshal(message)
+	encMessage, err := json.Marshal(message)
 	if err != nil {
 		t.Errorf("Encode inside json of key operation error: %v", err)
 	}
@@ -838,18 +867,18 @@ _	, err = kdb.SaveKeyInfo(string(taId), string(keyId), cipherMessage)
 	// TODO: use kcm public key to encrypt decKey as key
 	key := RsaEncrypt(decKey, kcmPublicKey)
 
-	cmdData := tagCmdData {
-		Key:		key,
-		EncCmdData:	encCmdData,
+	cmdData := tagCmdData{
+		Key:        key,
+		EncCmdData: encCmdData,
 	}
-	outCmdData ,err := json.Marshal(cmdData)
+	outCmdData, err := json.Marshal(cmdData)
 	if err != nil {
 		t.Errorf("Encode outside json of key operation error: %v", err)
 	}
 
 	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
 	_, err = ras.c.KeyOperation(ctx, &KeyOperationRequest{
-		EncMessage:	outCmdData,
+		EncMessage: outCmdData,
 	})
 	if err != nil {
 		t.Errorf("test KeyOperation error %v", err)
@@ -857,8 +886,11 @@ _	, err = kdb.SaveKeyInfo(string(taId), string(keyId), cipherMessage)
 }
 
 func TestDoClientapi(t *testing.T) {
+	print("\nThis is in TestDoClientapi\n")
 	CreateServerConfigFile()
 	defer RemoveConfigFile()
+	trustmgr.CreateTrustManager(constDB, constDNS)
+	defer trustmgr.ReleaseTrustManager()
 
 	config.LoadConfigs()
 	defer RemoveFiles()
@@ -980,6 +1012,7 @@ func TestDoClientapi(t *testing.T) {
 }
 
 func TestDoClientapiInitKTA(t *testing.T) {
+	print("\nThis is in TestDoClientapiInitKTA\n")
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
@@ -1003,6 +1036,10 @@ func TestDoClientapiInitKTA(t *testing.T) {
 		t.Errorf("test DoVerifyKTAPubKeyCert with empty deviceId failed %v", err)
 	}
 
+	dbConfig := GetdbConfig(strDbConfig)
+	kdb.CreateKdbManager(constDB, dbConfig)
+	defer kdb.ReleaseKdbManager()
+
 	err = kcmstools.SaveCert(ktacert, certPath, ktaFileName)
 	if err != nil {
 		t.Errorf(constSaveKTACertFailed, err)
@@ -1013,24 +1050,39 @@ func TestDoClientapiInitKTA(t *testing.T) {
 	}
 	defer os.RemoveAll(certPath)
 	_, err = DoVerifyKTAPubKeyCert(server, &VerifyKTAPubKeyCertRequest{
-		ClientId:		deviceId,
-		KtaPubKeyCert: 	ktacert,
+		ClientId:      deviceId,
+		KtaPubKeyCert: ktacert,
 	})
 	if err != nil {
 		t.Errorf("test VerifyKTAPubKeyCert error %v", err)
 	}
+	//defer kdb.DeletePubKeyInfo(deviceId)
 }
 
 func TestDoClientapiKeyOp(t *testing.T) {
+	print("\nThis is in TestDoClientapiKeyOp\n")
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
+	trustmgr.CreateTrustManager(constDB, constDNS)
+	defer trustmgr.ReleaseTrustManager()
+	regtime := time.Time{}
+	trustmgr.RegisterClientByID(deviceId, regtime, ik)
+	defer trustmgr.DeleteClientByID(deviceId)
+
+	c, err := trustmgr.GetCache(deviceId)
+	if err != nil {
+		t.Errorf(constgetcachefailed, err)
+	}
+	c.UpdateHeartBeat(testCases1[0])
+	c.UpdateTrustReport(testCases1[0])
+	c.SetTaTrusted(ktaId, cache.StrTrusted)
 
 	// generate public key and priate key of KCM
 	privKey, kcmPublicKey = GenRsaKey()
 
 	// test empty taId
-	_, err := DoKeyOperation(server, &KeyOperationRequest{})
+	_, err = DoKeyOperation(server, &KeyOperationRequest{})
 	if err != nil {
 		t.Errorf("test DoKeyOperation with empty taId failed %v", err)
 	}
@@ -1053,21 +1105,23 @@ func TestDoClientapiKeyOp(t *testing.T) {
 	}
 	defer kdb.DeletePubKeyInfo(deviceId)
 
-_	, err = kdb.SaveKeyInfo(string(taId), string(keyId), cipherMessage)
+	_, err = kdb.SaveKeyInfo(string(taId), string(keyId), cipherMessage)
 	if err != nil {
 		t.Errorf("save key in database failed, error: %v", err)
 	}
 	defer kdb.DeleteKeyInfo(string(taId), string(keyId))
 
-	message := inKeyInfo {
-		TAId:		taId,
-		Account:	account,
-		Password:	password,
-		KeyId:		keyId,
-		HostKeyId:	hostKeyId,
-		Command:	command,
+	message := inKeyInfo{
+		TAId:      taId,
+		Account:   account,
+		Password:  password,
+		KeyId:     keyId,
+		HostKeyId: hostKeyId,
+		Command:   command,
+		KTAId:     ktaId,
+		DeviceId:  deviceId,
 	}
-	encMessage ,err := json.Marshal(message)
+	encMessage, err := json.Marshal(message)
 	if err != nil {
 		t.Errorf("Encode inside json of key operation error, %v", err)
 	}
@@ -1084,18 +1138,18 @@ _	, err = kdb.SaveKeyInfo(string(taId), string(keyId), cipherMessage)
 	// TODO: use kcm public key to encrypt decKey as key
 	key := RsaEncrypt(decKey, kcmPublicKey)
 
-	cmdData := tagCmdData {
-		Key:		key,
-		EncCmdData:	encCmdData,
+	cmdData := tagCmdData{
+		Key:        key,
+		EncCmdData: encCmdData,
 	}
-	outCmdData ,err := json.Marshal(cmdData)
+	outCmdData, err := json.Marshal(cmdData)
 	if err != nil {
 		t.Errorf("Encode outside json of key operation error:, %v", err)
 	}
 
 	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
 	_, err = DoKeyOperation(server, &KeyOperationRequest{
-		EncMessage:	outCmdData,
+		EncMessage: outCmdData,
 	})
 	if err != nil {
 		t.Errorf("test KeyOperation error %v", err)
@@ -1103,8 +1157,11 @@ _	, err = kdb.SaveKeyInfo(string(taId), string(keyId), cipherMessage)
 }
 
 func TestClientapiWithConn(t *testing.T) {
+	print("\nThis is in TestClientapiWithConn\n")
 	CreateServerConfigFile()
 	defer RemoveConfigFile()
+	trustmgr.CreateTrustManager(constDB, constDNS)
+	defer trustmgr.ReleaseTrustManager()
 
 	config.LoadConfigs()
 	defer RemoveFiles()
@@ -1238,6 +1295,7 @@ func TestClientapiWithConn(t *testing.T) {
 }
 
 func TestClientapiWithConnInitKTA(t *testing.T) {
+	print("\nThis is in TestClientapiWithConnInitKTA\n")
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
@@ -1251,7 +1309,6 @@ func TestClientapiWithConnInitKTA(t *testing.T) {
 	// generate public key and priate key of KCM
 	privKey, kcmPublicKey = GenRsaKey()
 
-	
 	// test SendKCMPubKeyCert
 	err = kcmstools.SaveCert([]byte(kcmCert), certPath, kcmFileName)
 	if err != nil {
@@ -1268,6 +1325,10 @@ func TestClientapiWithConnInitKTA(t *testing.T) {
 		t.Errorf("test DoVerifyKTAPubKeyCertWithConn with empty deviceId failed %v", err)
 	}
 
+	dbConfig := GetdbConfig(strDbConfig)
+	kdb.CreateKdbManager(constDB, dbConfig)
+	defer kdb.ReleaseKdbManager()
+
 	err = kcmstools.SaveCert(ktacert, certPath, ktaFileName)
 	if err != nil {
 		t.Errorf(constSaveKTACertFailed, err)
@@ -1278,18 +1339,33 @@ func TestClientapiWithConnInitKTA(t *testing.T) {
 	}
 	defer os.RemoveAll(certPath)
 	_, err = DoVerifyKTAPubKeyCertWithConn(ras, &VerifyKTAPubKeyCertRequest{
-		ClientId:		deviceId,
-		KtaPubKeyCert: 	ktacert,
+		ClientId:      deviceId,
+		KtaPubKeyCert: ktacert,
 	})
 	if err != nil {
 		t.Errorf("test VerifyKTAPubKeyCert error %v", err)
 	}
+	//defer kdb.DeletePubKeyInfo(deviceId)
 }
 
 func TestClientapiWithConnKeyOp(t *testing.T) {
+	print("\nThis is in TestClientapiWithConnKeyOp\n")
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
+	trustmgr.CreateTrustManager(constDB, constDNS)
+	defer trustmgr.ReleaseTrustManager()
+	regtime := time.Time{}
+	trustmgr.RegisterClientByID(deviceId, regtime, ik)
+	defer trustmgr.DeleteClientByID(deviceId)
+
+	c, err := trustmgr.GetCache(deviceId)
+	if err != nil {
+		t.Errorf(constgetcachefailed, err)
+	}
+	c.UpdateHeartBeat(testCases1[0])
+	c.UpdateTrustReport(testCases1[0])
+	c.SetTaTrusted(ktaId, cache.StrTrusted)
 
 	ras, err := CreateConn(server)
 	if err != nil {
@@ -1329,15 +1405,17 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 	}
 	defer kdb.DeleteKeyInfo(string(taId), string(keyId))
 
-	message := inKeyInfo {
-		TAId:		taId,
-		Account:	account,
-		Password:	password,
-		KeyId:		keyId,
-		HostKeyId:	hostKeyId,
-		Command:	command,
+	message := inKeyInfo{
+		TAId:      taId,
+		Account:   account,
+		Password:  password,
+		KeyId:     keyId,
+		HostKeyId: hostKeyId,
+		Command:   command,
+		KTAId:     ktaId,
+		DeviceId:  deviceId,
 	}
-	encMessage ,err := json.Marshal(message)
+	encMessage, err := json.Marshal(message)
 	if err != nil {
 		t.Errorf("Encode inside json of key operation error, %v", err)
 	}
@@ -1354,18 +1432,18 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 	// TODO: use kcm public key to encrypt decKey as key
 	key := RsaEncrypt(decKey, kcmPublicKey)
 
-	cmdData := tagCmdData {
-		Key:		key,
-		EncCmdData:	encCmdData,
+	cmdData := tagCmdData{
+		Key:        key,
+		EncCmdData: encCmdData,
 	}
-	outCmdData ,err := json.Marshal(cmdData)
+	outCmdData, err := json.Marshal(cmdData)
 	if err != nil {
 		t.Errorf("Encode outside json of key operation error:, %v", err)
 	}
 
 	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
 	_, err = DoKeyOperationWithConn(ras, &KeyOperationRequest{
-		EncMessage:	outCmdData,
+		EncMessage: outCmdData,
 	})
 	if err != nil {
 		t.Errorf("test DoKeyOperationWithConn error %v", err)
