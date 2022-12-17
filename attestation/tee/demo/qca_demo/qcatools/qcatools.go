@@ -95,7 +95,6 @@ const (
 	Scenario    = "qcaconfig.scenario"
 	NoDaaACFile = "qcaconfig.nodaaacfile"
 	DaaACFile   = "qcaconfig.daaacfile"
-	ClientId    = "qcaconfig.clientid"
 	/*** cmd flags ***/
 	// server open ip:port
 	lflagServer = "server"
@@ -125,7 +124,6 @@ type (
 		Scenario    int32
 		NoDaaACFile string
 		DaaACFile   string
-		ClientId    int64
 	}
 )
 
@@ -167,7 +165,6 @@ func LoadConfigs() {
 	Qcacfg.Scenario = viper.GetInt32(Scenario)
 	Qcacfg.NoDaaACFile = viper.GetString(NoDaaACFile)
 	Qcacfg.DaaACFile = viper.GetString(DaaACFile)
-	Qcacfg.ClientId = viper.GetInt64(ClientId)
 }
 
 func HandleFlags() {
@@ -318,6 +315,8 @@ func GenerateAKCert() ([]byte, error) {
 		log.Print("DAA scenario: Generate AK and AK Cert succeeded!")
 		//ioutil.WriteFile("akcert-daa.orig", akcert, 0644)
 		return akcert, nil
+	default:
+		return nil, errors.New("scenario is not supported yet")
 	}
 	return nil, errors.New("do not need to access as")
 }

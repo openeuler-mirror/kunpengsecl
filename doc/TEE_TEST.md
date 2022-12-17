@@ -20,11 +20,179 @@
 
 ### 最小实现
 
+#### qcatools测试
+
+**覆盖率：** 75.0%  
+**测试信息：**  
+=== RUN   TestGetTAReport  
+2022/12/17 20:50:24 Init qca flags......  
+2022/12/17 20:50:24 Load qca Configs......  
+2022/12/17 20:50:24 Handle qca flags......  
+Get RA_SCENARIO_NO_AS report......  
+Get report successfully!  
+2022/12/17 20:50:24 Generate TA report succeeded!  
+--- PASS: TestGetTAReport (0.00s)  
+=== RUN   TestGenerateAKCert  
+2022/12/17 20:50:24 Load qca Configs......  
+2022/12/17 20:50:24 Handle qca flags......  
+Generate AK and AK Cert successfully!  
+2022/12/17 20:50:24 NoAS scenario: Generate RSA AK and AK Cert succeeded!  
+Generate AK and AK Cert successfully!  
+2022/12/17 20:50:24 NoDAA scenario: Generate RSA AK and AK Cert succeeded!  
+--- PASS: TestGenerateAKCert (0.00s)  
+=== RUN   TestSaveAKCert  
+Save AK Cert successfully!  
+--- PASS: TestSaveAKCert (0.00s)  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools  0.004s
+
+#### qapi测试
+
+**覆盖率：**
+**测试信息：**
+
+#### attestertools测试
+
+**覆盖率：**
+**测试信息：**
+
+#### verifier lib测试
+
+**覆盖率：**
+**测试信息：**
+
 ### 独立实现
+
+#### aslib测试
+
+**覆盖率：**
+**测试信息：**
+
+#### akissuer测试
+
+**覆盖率：** 86.6%  
+**测试信息：**  
+=== RUN   TestGenerateDAAAKCert  
+2022/12/17 21:31:19 Load TAS configs...  
+2022/12/17 21:31:19 Server: Parse drk cert succeeded.  
+2022/12/17 21:31:19 Server: Verify drk signature ok.  
+Compare image & hash measurement..  
+Finish Comparation  
+2022/12/17 21:31:19 Server: Verify ak signature & QCA ok.  
+--- PASS: TestGenerateDAAAKCert (0.02s)  
+=== RUN   TestGenerateNoDAAAKCert  
+2022/12/17 21:31:19 Load TAS configs...  
+2022/12/17 21:31:19 Server: Parse drk cert succeeded.  
+2022/12/17 21:31:19 Server: Verify drk signature ok.  
+Compare image & hash measurement..  
+Finish Comparation  
+2022/12/17 21:31:19 Server: Verify ak signature & QCA ok.  
+2022/12/17 21:31:19 Server: re-sign ak cert ok.  
+--- PASS: TestGenerateNoDAAAKCert (0.02s)  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/tas/akissuer        0.044s  
+
+#### clientapi测试
+
+**覆盖率：**
+**测试信息：**
+
+#### config测试
+
+**覆盖率：** 78.9%  
+**测试信息：**  
+=== RUN   TestConfig  
+2022/12/17 21:17:39 Load TAS configs...  
+--- PASS: TestConfig (0.00s)  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/tas/config  0.003s
 
 ### 整合实现
 
 ### 密钥缓存管理
+
+#### kta测试
+
+#### katools测试
+
+**覆盖率：** 12.9%  
+**测试信息：**  
+=== RUN   TestGetPollDuration  
+    config_test.go:51: polldur=3s  
+--- PASS: TestGetPollDuration (0.00s)  
+=== RUN   TestGetCaCertFile  
+    config_test.go:63: caCert=./cert/ca.crt  
+--- PASS: TestGetCaCertFile (0.00s)  
+=== RUN   TestGetKtaCertFile  
+    config_test.go:74: ktaCert=./cert/kta.crt  
+--- PASS: TestGetKtaCertFile (0.00s)  
+=== RUN   TestGetKtaKeyFile  
+    config_test.go:86: ktaCert=./cert/kta.key  
+--- PASS: TestGetKtaKeyFile (0.00s)  
+=== RUN   TestGetKtaPath  
+    config_test.go:97: ktaPath=/root/data/bbb2d138-ee21-43af-8796-40c20d7b45fa.sec  
+--- PASS: TestGetKtaPath (0.00s)  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/rac/ka/katools      0.011s  
+
+#### kcmstools测试
+
+**覆盖率：** 74.0%  
+**测试信息：**  
+=== RUN   TestDeleteKey  
+    kcmstools_test.go:648: delete key information success  
+--- PASS: TestDeleteKey (0.00s)  
+=== RUN   TestVerifyKTAPubKeyCert  
+../cert/kta.crt: OK  
+    kcmstools_test.go:670: verify KTAPubKeyCert success  
+--- PASS: TestVerifyKTAPubKeyCert (0.01s)  
+=== RUN   TestSendKCMPubKeyCert  
+    kcmstools_test.go:685: test send kcm public key cert success  
+--- PASS: TestSendKCMPubKeyCert (0.00s)  
+=== RUN   TestGenerateNewKey  
+Start Server...  
+    kcmstools_test.go:715: test generate new key success  
+--- PASS: TestGenerateNewKey (0.01s)  
+=== RUN   TestGetKey  
+fail to serve, http: Server closed  
+Start Server...  
+K: [249 90 41 235 182 50 20 114 120 109 171 173 50 28 195 233 107 95 115 51 225 23 186 89 149 247 59 229 12 167 116 249]   
+    kcmstools_test.go:754: test get key success  
+--- PASS: TestGetKey (0.01s)  
+=== RUN   TestSaveCert  
+    kcmstools_test.go:764: test save cert success  
+--- PASS: TestSaveCert (0.00s)  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kcmstools  0.052s  
+
+#### kdb测试
+
+**覆盖率：** 58.5%  
+**测试信息：**  
+=== RUN   TestSaveKeyInfo  
+    kdb_test.go:32: text1  
+    kdb_test.go:32: text2  
+    kdb_test.go:32: text3  
+    kdb_test.go:32: text4  
+    kdb_test.go:32: text5  
+    kdb_test.go:32: text6  
+--- PASS: TestSaveKeyInfo (0.02s)  
+=== RUN   TestFindKeyInfo  
+    kdb_test.go:54: find key information by taid=1                                    and keyid=testkey1                            , key=&{27 1 testkey1 text1}
+--- PASS: TestFindKeyInfo (0.00s)  
+=== RUN   TestSavePubKeyInfo  
+    kdb_test.go:77: testpubkey1  
+    kdb_test.go:77: testpubkey2  
+    kdb_test.go:77: testpubkey3  
+    kdb_test.go:77: testpubkey4  
+    kdb_test.go:77: testpubkey5  
+    kdb_test.go:77: testpubkey6  
+--- PASS: TestSavePubKeyInfo (0.01s)  
+=== RUN   TestFindPubKeyInfo  
+    kdb_test.go:98: find public key information by deviceid=1, public   key=&{27 1 testpubkey1}  
+--- PASS: TestFindPubKeyInfo (0.00s)  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb        0.038s  
 
 ## 集成测试
 
