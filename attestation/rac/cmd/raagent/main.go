@@ -64,7 +64,9 @@ func main() {
 	logger.L.Debug("open tpm success")
 
 	prepare()
-	go katools.KaMain(GetServer(), GetClientId())
+	if *kaFlag {
+		go katools.KaMain(GetServer(), GetClientId())
+	}
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
 	loop()
 }
