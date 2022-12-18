@@ -92,7 +92,7 @@ typedef struct _tagReplyQueue{
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first reply for key generate.
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last reply for key generate.
 } ReplyCache;
-
+/*
 typedef struct _tagRequest{
     /*
     when using as Intermediate Request:
@@ -102,13 +102,13 @@ typedef struct _tagRequest{
     json:  key:*****;cmdData:*****； 
     key has been encrypted by the kcm-pub
     cmddata has been encrypted by the key
-    */
+    
     uint8_t key[KEY_SIZE]; 
     uint32_t key_size;
     uint8_t cmddata[MAX_DATA_LEN];
     uint32_t data_size;
 } CmdRequest;
-
+*/
 
 //internal function
 

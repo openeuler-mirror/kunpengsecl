@@ -25,6 +25,10 @@ Description: key managing module in kta.
 #include <cJSON.h>
 
 #define PARAM_COUNT 4
+#define AES_KEY_SIZE 32
+#define RSA_PUB_SIZE 256
+#define NONCE_SIZE 12
+#define TAG_SIZE 16
 
 const TEE_UUID ktaUuid = {
     0x435dcafa, 0x0029, 0x4d53, { 0x97, 0xe8, 0xa7, 0xa1, 0x3a, 0x80, 0xc8, 0x2e }
@@ -51,32 +55,77 @@ void dequeue(CmdNode *cmdnode){
 };
 
 //generate Data encryption symmetric key kcm-pub key
-TEE_Result generaterCmdDataKey(CmdRequest *intermediateRequest){
-};
+TEE_Result generateCmdDataKey(TEE_ObjectHandle key_obj){
+    TEE_Result ret;
+    TEE_Attribute attr = {0};
+    uint8_t key_buffer[AES_KEY_SIZE] = {0};
 
-void encryption(char *pubkeyname, CmdRequest *intermediateRequest,
-                CmdRequest *finalrequest){
-    /*
-    todo:
-    1 encrypt cmd_data by symmetric key
-    2 encrypt symmetric key by kcm-pub key
-    */
+    ret = TEE_AllocateTransientObject(TEE_TYPE_AES, AES_KEY_SIZE, &key_obj);
+    if (ret != TEE_SUCCESS) {
+        tloge("fail to allocate aes transient object, ret 0x%x\n", ret);
+        return ret;
+    }
+    TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, key_buffer, AES_KEY_SIZE);
+    ret = TEE_PopulateTransientObject(key_obj, &attr, 1);
+    if (ret != TEE_SUCCESS) {
+        tloge("fail to populate aes transient object, ret 0x%x\n", ret);
+        return ret;
+    }
+
+    ret = TEE_GenerateKey(key_obj, AES_KEY_SIZE, &attr, 1);
+    if (ret != TEE_SUCCESS) {
+        tloge("fail to generate aes key, ret 0x%x\n", ret);
+        return ret;
+    }
+}
+
+void encryptCmd(uint8_t *jsoncmd, uint32_t jsoncmd_size, TEE_ObjectHandle *key_obj, uint8_t *nonce_buff, uint8_t *tag_buff) {
+    TEE_Result ret;
+    TEE_OperationHandle oper_enc = NULL;
+    uint8_t encrypted_buffer[jsoncmd_size];
+    size_t encrypted_size = jsoncmd_size;
+    size_t nonce_size = NONCE_SIZE;
+    size_t tag_size = TAG_SIZE;
+
+    ret = TEE_AllocateOperation(&oper_enc, TEE_ALG_AES_GCM, TEE_MODE_ENCRYPT, AES_KEY_SIZE);
+    if (ret != TEE_SUCCESS) {
+        tloge("fail to allocate aes encrypt operation, ret 0x%x\n", ret);
+        return ret;
+    }
+
+    ret = TEE_SetOperationKey(oper_enc, key_obj);
+    if (ret != TEE_SUCCESS) {
+        tloge("fail to set rsa encrypt key, ret 0x%x\n", ret);
+        TEE_FreeOperation(oper_enc);
+        return ret;
+    }
+    TEE_GenerateRandom(nonce_buff, nonce_size);
+    TEE_AEInit(oper_enc, nonce_buff, nonce_size, tag_size, 0, 0);
+
+    ret = TEE_AEEncryptFinal(oper_enc, jsoncmd, jsoncmd_size, encrypted_buffer, encrypted_size, tag_buff, &tag_size);
+    if (ret != TEE_SUCCESS) {
+        tloge("fail to final aes encrypt, ret 0x%x\n", ret);
+        TEE_FreeOperation(oper_enc);
+        return ret;
+    }
+    memcpy_s(jsoncmd, jsoncmd_size, encrypted_buffer, encrypted_size);
+}
+
+void encryptKey(TEE_ObjectHandle *key_obj, uint8_t *encrypted_key){
+    TEE_Result ret;
+    TEE_ObjectHandle rsa_key_obj = NULL;
+
+    ret = TEE_AllocateTransientObject(TEE_TYPE_RSA_PUBLIC_KEY, RSA_PUB_SIZE, &rsa_key_obj);
+    if (ret != TEE_SUCCESS) {
+        tloge("fail to allocate rsa transient object, ret 0x%x\n", ret);
+        return ret;
+    }
+
+
    
 };
 
-void generaterFinalRequest(CmdNode cmdnode, CmdRequest *request){
-    /* get request data from cmdqueue,and generate final request*/
-    //申请IntermediateRequest临时内存
-    TEE_AllocateTransientObject();
-    generaterCmdDataKey();
-    json();//cmdqueue.queue[cmdqueue.head]
-    encryption();
-    json();
-    //释放IntermediateRequest
-    return;
-}
-
-void hex2char(uint32_t hex, int8_t *hexchar, int32_t i) {
+void hex2char(uint32_t hex, uint8_t *hexchar, int32_t i) {
     for(i--; i >= 0; i--, hex >>= 4) {
         if ((hex & 0xf) <= 9)
             *(hexchar + i) = (hex & 0xf) + '0';
@@ -85,7 +134,7 @@ void hex2char(uint32_t hex, int8_t *hexchar, int32_t i) {
     }
 }
 
-void uuid2char(TEE_UUID uuid, int8_t charuuid[33]) {
+void uuid2char(TEE_UUID uuid, uint8_t charuuid[33]) {
     int32_t i = 0;
 
     hex2char(uuid.timeLow, charuuid, 8);
@@ -101,10 +150,10 @@ void uuid2char(TEE_UUID uuid, int8_t charuuid[33]) {
 
 // transfer struct CmdNode to cJSON format
 void cmdNode2cjson(CmdNode cmdnode, cJSON *cj) {
-    int8_t taid[33] = {0};
-    int8_t keyid[33] = {0};
-    int8_t masterkey[33] = {0};
-    int8_t ktauuid[33] = {0};
+    uint8_t taid[33] = {0};
+    uint8_t keyid[33] = {0};
+    uint8_t masterkey[33] = {0};
+    uint8_t ktauuid[33] = {0};
     // translate cmd
     cJSON_AddNumberToObject(cj, "cmd", cmdnode.cmd);
     // translate taid
@@ -125,22 +174,39 @@ void cmdNode2cjson(CmdNode cmdnode, cJSON *cj) {
     cJSON_AddStringToObject(cj, "ktauuid", ktauuid[33]);
 }
 
-// transfer struct CmdRequest to cJSON format
-void cmdRequest2cjson(CmdRequest req, cJSON *cj) {
+void generateFinalRequest(CmdNode cmdnode, uint8_t *finalrequest){
+    TEE_Result ret;
+    TEE_ObjectHandle data_key = NULL;
+    cJSON cmdjsonnode = {0};
+    cJSON finalcmdjsonnode = {0};
+    uint8_t nonce_buff[NONCE_SIZE] = {0};
+    uint8_t tag_buff[TAG_SIZE] = {0};
+    uint8_t encrypted_key[RSA_PUB_SIZE+1] = {0};
+    /* get request data from cmdqueue,and generate final request*/
+    ret = generateCmdDataKey(data_key);
+    if (ret != TEE_SUCCESS) {
+        tloge("fail to generate key, ret 0x%x\n", ret);
+        return ret;
+    }
+    cmdNode2cjson(cmdnode, &cmdjsonnode);//cmdqueue.queue[cmdqueue.head]
+    uint8_t *charRequest = cJSON_PrintUnformatted(&cmdjsonnode);
+    encryptCmd(charRequest, strlen(charRequest), data_key, nonce_buff, tag_buff);
+    encryptKey(data_key, encrypted_key);
     // translate key
-    cJSON_AddStringToObject(cj, "key", req.key);
+    cJSON_AddStringToObject(&finalcmdjsonnode, "key", encrypted_key);
     // translate key_size
-    cJSON_AddNumberToObject(cj, "key_size", req.key_size);
+    cJSON_AddNumberToObject(&finalcmdjsonnode, "key_size", strlen(encrypted_key));
     // translate cmddata
-    cJSON_AddStringToObject(cj, "cmddata", req.cmddata);
+    cJSON_AddStringToObject(&finalcmdjsonnode, "cmddata", charRequest);
     // translate data_size
-    cJSON_AddNumberToObject(cj, "data_size", req.data_size);
+    cJSON_AddNumberToObject(&finalcmdjsonnode, "data_size", strlen(charRequest));
+    finalrequest = cJSON_PrintUnformatted(&finalcmdjsonnode);
 }
 
 TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     CmdNode curNode;
-    CmdRequest finalrequest;
+    uint8_t *finalrequest = NULL;
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_OUTPUT,
         TEE_PARAM_TYPE_VALUE_OUTPUT,
@@ -150,7 +216,7 @@ TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return TEE_ERROR_BAD_PARAMETERS;
     }
     if (params[0].memref.buffer == NULL ||
-        params[0].memref.size < sizeof(CmdRequest)) {
+        params[0].memref.size == 0) {
         tloge("Bad expected parameter value");
         return TEE_ERROR_BAD_PARAMETERS;
     }
@@ -164,9 +230,13 @@ TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     params[1].value.a = (cmdqueue.tail + MAX_QUEUE_SIZE - cmdqueue.head) % MAX_QUEUE_SIZE;
     dequeue(&curNode);
 
-    //generater Request Return value for ka
-    generaterFinalRequest(curNode, &finalrequest);
-    memcpy_s(params[0].memref.buffer, sizeof(finalrequest), &finalrequest, sizeof(finalrequest));
+    //generate Request Return value for ka
+    generateFinalRequest(curNode, finalrequest);
+    errno_t err = memcpy_s(params[0].memref.buffer, sizeof(finalrequest), &finalrequest, sizeof(finalrequest));
+    if(err != 0) {
+        tloge("buffer is too short");
+        return TEE_ERROR_SHORT_BUFFER;
+    }
     return TEE_SUCCESS;
 }
 
@@ -180,10 +250,10 @@ void decryption(){
     */
 }
 
-void char2uuid(int8_t charuuid[33], TEE_UUID *uuid) {
+void char2uuid(uint8_t charuuid[33], TEE_UUID *uuid) {
     int32_t i = 0;
-    int8_t *stop = NULL;
-    int8_t buffer[3] = {0};
+    uint8_t *stop = NULL;
+    uint8_t buffer[3] = {0};
     uuid->timeLow = strtoul(charuuid, &stop, 16);
     uuid->timeMid = strtoul(stop, &stop, 16);
     uuid->timeHiAndVersion = strtoul(stop, &stop, 16);
@@ -286,6 +356,10 @@ TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    if (params[0].memref.buffer == NULL || params[0].memref.size == 0) {
+        tloge("Bad expected parameter value");
         return TEE_ERROR_BAD_PARAMETERS;
     }
     decryption();
