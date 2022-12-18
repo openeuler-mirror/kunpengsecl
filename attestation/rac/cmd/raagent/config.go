@@ -61,9 +61,14 @@ const (
 	defaultTestMode    = false
 	defaultTaTestMode  = false
 	defaultVerboseMode = false
+	defaultKaMode      = false
 	defaultDigestAlg   = "sha1"
 	defaultImaLog      = "./ascii_runtime_measurements"
 	defaultBiosLog     = "./binary_bios_measurements"
+	// tee/ka flag
+	lflagKa = "ka"
+	sflagKa = "k"
+	helpKa  = "run with tee[true] or not[false/default]"
 	// ras server listen ip:port
 	lflagServer = "server"
 	sflagServer = "s"
@@ -137,6 +142,7 @@ var (
 	taTestMode  *bool   = nil
 	versionFlag *bool   = nil
 	verboseFlag *bool   = nil
+	kaFlag      *bool   = nil
 	//algDigest   *string = nil
 	imaLogPath  *string = nil
 	biosLogPath *string = nil
@@ -149,6 +155,7 @@ func initFlags() {
 	taTestMode = pflag.BoolP(lflagTaTest, sflagTaTest, defaultTaTestMode, helpTaTest)
 	versionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
 	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, defaultVerboseMode, helpVerbose)
+	kaFlag = pflag.BoolP(lflagKa, sflagKa, defaultKaMode, helpKa)
 	//algDigest = pflag.StringP(lflagAlg, sflagAlg, defaultDigestAlg, helpAlg)
 	imaLogPath = pflag.StringP(lflagIma, sflagIma, defaultImaLog, helpIma)
 	biosLogPath = pflag.StringP(lflagBios, sflagBios, defaultBiosLog, helpBios)
