@@ -14,6 +14,7 @@ package katools
 */
 import "C"
 import (
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -109,13 +110,8 @@ func kaInitialize(ras *clientapi.RasConn, id int64) error {
 	logger.L.Debug("ka initialize done")
 	return nil
 }
-func getSendKtaData(kcm_cert *x509.Certificate) ([]byte, []byte, []byte, error) {
-	pub1 := kcm_cert.PublicKey
-	kcmPubkey, err := x509.MarshalPKIXPublicKey(pub1)
-	if err != nil {
-		logger.L.Sugar().Errorf("decode kcm pubkey error, %s", err)
-		return nil, nil, nil, err
-	}
+func getSendKtaData(kcm_cert *x509.Certificate) (*rsa.PublicKey, []byte, *rsa.PrivateKey, error) {
+	kcmPubkey := kcm_cert.PublicKey.(*rsa.PublicKey)
 	ktaPubCert, err := ioutil.ReadFile(getKtaCertFile())
 	if err != nil {
 		logger.L.Sugar().Errorf("read kta pubcert from file error, %s", err)
@@ -127,8 +123,7 @@ func getSendKtaData(kcm_cert *x509.Certificate) ([]byte, []byte, []byte, error) 
 		return nil, nil, nil, err
 	}
 	block, _ := pem.Decode(keypemData)
-	ktaPrivKey := block.Bytes
-
+	ktaPrivKey, _ := x509.ParsePKCS1PrivateKey(block.Bytes)
 	return kcmPubkey, ktaPubCert, ktaPrivKey, nil
 }
 func removeKeyFile() {
@@ -185,26 +180,31 @@ func getContextSession(c_path *C.char) error {
 }
 
 //初始化KTA
-func initialKTA(kcmPubkey []byte, ktaPubCert []byte, ktaPrivKey []byte) ([]byte, error) {
-
-	c_kcmPubkey := C.CBytes(kcmPubkey)
-	defer C.free(c_kcmPubkey)
+func initialKTA(kcmPubkey *rsa.PublicKey, ktaPubCert []byte, ktaPrivKey *rsa.PrivateKey) ([]byte, error) {
+	// kcm pubkey: N
+	c_kcmPubkey_N := C.CBytes(kcmPubkey.N.Bytes())
+	defer C.free(c_kcmPubkey_N)
 	c_request_data1 := C.struct_buffer_data{
-		C.__uint32_t(len(kcmPubkey)), (*C.uchar)(c_kcmPubkey)}
+		C.__uint32_t(len(kcmPubkey.N.Bytes())), (*C.uchar)(c_kcmPubkey_N)}
+	// kcm pubkey certification
 	c_ktaPubCert := C.CBytes(ktaPubCert)
 	defer C.free(c_ktaPubCert)
 	c_request_data2 := C.struct_buffer_data{
 		C.__uint32_t(len(ktaPubCert)), (*C.uchar)(c_ktaPubCert)}
-	c_ktaPrivKey := C.CBytes(ktaPrivKey)
-	defer C.free(c_ktaPrivKey)
+	//kta privkey: (N, D)
+	c_ktaPrivKey_N := C.CBytes(ktaPrivKey.N.Bytes())
+	defer C.free(c_ktaPrivKey_N)
 	c_request_data3 := C.struct_buffer_data{
-		C.__uint32_t(len(ktaPrivKey)), (*C.uchar)(c_ktaPrivKey)}
-
+		C.__uint32_t(len(ktaPrivKey.N.Bytes())), (*C.uchar)(c_ktaPrivKey_N)}
+	c_ktaPrivKey_D := C.CBytes(ktaPrivKey.D.Bytes())
+	defer C.free(c_ktaPrivKey_D)
+	c_request_data4 := C.struct_buffer_data{
+		C.__uint32_t(len(ktaPrivKey.D.Bytes())), (*C.uchar)(c_ktaPrivKey_D)}
 	// 返回值
 	c_response_data := C.struct_buffer_data{}
 	c_response_data.size = C.__uint32_t(len(ktaPubCert))
 	c_response_data.buf = (*C.uint8_t)(C.malloc(C.ulong(c_response_data.size)))
-	teec_result := C.KTAinitialize(&c_request_data1, &c_request_data2, &c_request_data3, &c_response_data)
+	teec_result := C.KTAinitialize(&c_request_data1, &c_request_data2, &c_request_data3, &c_request_data4, &c_response_data)
 	if int(teec_result) != 0 {
 		return nil, errors.New("initial kta failed")
 	}
