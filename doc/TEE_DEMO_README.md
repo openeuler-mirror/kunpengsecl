@@ -793,16 +793,18 @@ TEEC_Result InitContextSession(uint8_t* ktapath)
 
 ```c
 TEEC_Result KTAinitialize(
-    struct buffer_data* kcmPubKey, 
+    struct buffer_data* kcmPubKey_N, 
     struct buffer_data* ktaPubCert, 
-    struct buffer_data* ktaPrivKey, 
+    struct buffer_data* ktaPrivKey_N, 
+    struct buffer_data* ktaPrivKey_D, 
     struct buffer_data *out_data)
 ```
 接口描述：初始化KTA过程  
-参数1【传入】：KCM的公钥。  
+参数1【传入】：KCM的公钥参数N。  
 参数2【传入】：KTA公钥证书。  
-参数3【传入】：KTA私钥。  
-参数4【传出】：KTA公钥证书。
+参数3【传入】：KTA私钥参数N。   
+参数4【传入】：KTA私钥参数D。   
+参数5【传出】：KTA公钥证书。
 
 ```c
 TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum)
