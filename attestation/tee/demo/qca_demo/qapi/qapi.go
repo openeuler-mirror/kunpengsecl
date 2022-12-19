@@ -38,6 +38,7 @@ const (
 var (
 	count int = 0
 	l     sync.Mutex
+	srv   *grpc.Server = nil
 )
 
 func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
@@ -59,19 +60,27 @@ func StartServer() {
 		return
 	}
 
-	s := grpc.NewServer()
-	RegisterQcaServer(s, &service{})
+	srv = grpc.NewServer()
+	RegisterQcaServer(srv, &service{})
 
 	result := hasAKCert(qcatools.Qcacfg.Scenario)
 	if !result {
 		createAKCert(qcatools.Qcacfg.Scenario)
 	}
 
-	if err = s.Serve(listen); err != nil {
+	if err = srv.Serve(listen); err != nil {
 		log.Fatalf("Server: fail to serve %v", err)
 	}
 
 	log.Print("Stop Server......")
+}
+
+func StopServer() {
+	if srv == nil {
+		return
+	}
+	srv.Stop()
+	srv = nil
 }
 
 func hasAKCert(s int32) bool {
@@ -113,7 +122,7 @@ func createAKCert(s int32) {
 	if err != nil {
 		return
 	}
-	newCert, err := aslib.GetAKCert(ac, s)
+	newCert, err := aslib.GetAKCert(qcatools.Qcacfg.AKServer, ac, s)
 	if err != nil {
 		return
 	}

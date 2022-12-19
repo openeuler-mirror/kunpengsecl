@@ -1,4 +1,5 @@
 PKGPATH=pkg
+TASTEST=./akissuer ./clientapi ./config
 
 build:
 	go build -mod=vendor -o $(PKGPATH)/akissuer akissuer/*.go
@@ -8,6 +9,7 @@ build:
 	go build -mod=vendor -o $(PKGPATH)/restapi restapi/*.go
 
 test:
+	go test -count=1 $(TASTEST)
 
 clean:
 	@rm -rf $(PKGPATH)

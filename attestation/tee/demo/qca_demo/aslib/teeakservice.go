@@ -6,15 +6,14 @@ import (
 	"log"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi"
-	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 )
 
-func GetAKCert(oldAKCert []byte, scenario int32) ([]byte, error) {
+func GetAKCert(addr string, oldAKCert []byte, scenario int32) ([]byte, error) {
 	req := clientapi.GetAKCertRequest{
 		Akcert:   oldAKCert,
 		Scenario: scenario,
 	}
-	rpy, err := clientapi.DoGetAKCert(qcatools.Qcacfg.AKServer, &req)
+	rpy, err := clientapi.DoGetAKCert(addr, &req)
 	if err != nil {
 		log.Printf("Get AKCert failed, error: %v", err)
 		return nil, err
