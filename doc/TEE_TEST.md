@@ -299,6 +299,93 @@ ok      gitee.com/openeuler/kunpengsecl/attestation/tas/config  0.003s
 
 ### 整合实现
 
+#### RAC测试
+
+##### ractools测试
+
+**覆盖率：** 51.3% 
+**测试信息：** 
+=== RUN   TestOpenSWTPM
+--- PASS: TestOpenSWTPM (0.00s)
+=== RUN   TestSetDigestAlg
+--- PASS: TestSetDigestAlg (0.06s)
+=== RUN   TestCreateTrustReport
+--- PASS: TestCreateTrustReport (0.10s)
+=== RUN   TestNVRAM
+--- PASS: TestNVRAM (0.14s)
+=== RUN   TestActivateIKCert
+--- PASS: TestActivateIKCert (0.24s)
+PASS
+coverage: 51.3% of statements in ./
+ok      gitee.com/openeuler/kunpengsecl/attestation/rac/ractools        0.553s
+
+#### RAS测试
+
+##### cache测试
+
+**覆盖率：** 72.9%  
+**测试信息：** 
+== RUN   TestHeartBeat
+--- PASS: TestHeartBeat (6.02s)
+=== RUN   TestUpdateTrustReport
+--- PASS: TestUpdateTrustReport (0.00s)
+=== RUN   TestOnline
+--- PASS: TestOnline (8.02s)
+=== RUN   TestCommands
+--- PASS: TestCommands (0.00s)
+=== RUN   TestTrusted
+--- PASS: TestTrusted (0.00s)
+=== RUN   TestNonce
+--- PASS: TestNonce (0.00s)
+=== RUN   TestIKeyCert
+--- PASS: TestIKeyCert (0.00s)
+=== RUN   TestRegTime
+--- PASS: TestRegTime (0.00s)
+=== RUN   TestIsAutoUpdate
+--- PASS: TestIsAutoUpdate (0.00s)
+PASS
+coverage: 72.9% of statements in ./
+ok      gitee.com/openeuler/kunpengsecl/attestation/ras/cache   14.048s
+
+##### config测试
+
+**覆盖率：** 60.8%  
+**测试信息：** 
+=== RUN   TestRASConfig1
+--- PASS: TestRASConfig1 (2.03s)
+=== RUN   TestRASConfig2
+{{[1 2 3 4]} [{bios [8-0 80000008-1]} {ima [boot_aggregate /etc/modprobe.d/tuned.conf]}]}
+--- PASS: TestRASConfig2 (0.00s)
+=== RUN   TestRACConfig
+--- PASS: TestRACConfig (0.01s)
+PASS
+coverage: 60.8% of statements in ./
+ok      gitee.com/openeuler/kunpengsecl/attestation/ras/config  2.059s
+
+##### trustmgr测试
+
+**覆盖率：** 23.0%  
+**测试信息：** 
+=== RUN   TestRegisterClient
+--- PASS: TestRegisterClient (0.16s)
+=== RUN   TestFindClient
+    trustmgr_test.go:498: find client by ik=IK22-12-19-20-34-10KA, c=&{26 2022-12-19 20:34:10.393153 +0800 CST true {"ip": "8.8.8.10", "last": 10, "name": "google DNS"} IK22-12-19-20-34-10KA}
+    trustmgr_test.go:504: find client by id=26, c=&{26 2022-12-19 20:34:10.393153 +0800 CST true {"ip": "8.8.8.10", "last": 10, "name": "google DNS"} IK22-12-19-20-34-10KA}
+    trustmgr_test.go:511: find client by info={"name": "google DNS"}
+    trustmgr_test.go:513:   0, {26 2022-12-19 20:34:10.393153 +0800 CST true {"ip": "8.8.8.10", "last": 10, "name": "google DNS"} IK22-12-19-20-34-10KA}
+--- PASS: TestFindClient (0.03s)
+=== RUN   TestReport
+--- PASS: TestReport (0.06s)
+=== RUN   TestBaseValue
+--- PASS: TestBaseValue (0.04s)
+=== RUN   TestTaBaseValue
+--- PASS: TestTaBaseValue (0.04s)
+=== RUN   TestTaReport
+--- PASS: TestTaReport (0.04s)
+PASS
+coverage: 23.0% of statements in ./
+ok      gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr        0.393s
+
 ### 密钥缓存管理
 
 #### kta测试
