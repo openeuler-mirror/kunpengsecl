@@ -140,72 +140,73 @@ ok      gitee.com/openeuler/kunpengsecl/attestation/tee/demo/attester_demo/attes
 
 #### verifier lib测试
 
-**覆盖率：** 80%
-**测试信息：**
-=== NoAS Case ===
-nonce:challenge
-uuid:
-B0019DC213CD5A4099F906343DFBE691
-scenario:0
-img_hash:
-090B10A2DF8CDBDB10509615C83F447F35579D2FE1C632C06BD8CA8C74D069F5
+**覆盖率：** 80%  
+**测试信息：**  
+=== NoAS Case ===  
+nonce:challenge  
+uuid:  
+B0019DC213CD5A4099F906343DFBE691  
+scenario:0  
+img_hash:  
+090B10A2DF8CDBDB10509615C83F447F35579D2FE1C632C06BD8CA8C74D069F5  
 
-hash:
-0F195258B87028A62FB29B1E9EF221897530DC090994E3B17B2350117D259492
+hash:  
+0F195258B87028A62FB29B1E9EF221897530DC090994E3B17B2350117D259492  
 
-reserve:
-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+reserve:  
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  
 
-Verify success!
-verify signature succeeded
-verify nonce succeeded
-Compare image & hash measurement..
-Finish Comparation
-verify succeeded
+Verify success!  
+verify signature succeeded  
+verify nonce succeeded  
+Compare image & hash measurement..  
+Finish Comparation  
+verify succeeded  
 
-=== NoDAA Case ===
-nonce:challenge
-uuid:
-04D78FF6B16E144DB218722850EB3EF0
-scenario:1
-img_hash:
-BDA93201BABC6EE96B60EDD6B4104C0A5B2AB66F22B3E82A0FBE121C955755B2
+=== NoDAA Case ===  
+nonce:challenge  
+uuid:  
+04D78FF6B16E144DB218722850EB3EF0  
+scenario:1  
+img_hash:  
+BDA93201BABC6EE96B60EDD6B4104C0A5B2AB66F22B3E82A0FBE121C955755B2  
 
-hash:
-319964DB5BFAD8FFD1B32ABE7148F7681B1EF15F4BAB8A20D377D9623FEB3758
+hash:  
+319964DB5BFAD8FFD1B32ABE7148F7681B1EF15F4BAB8A20D377D9623FEB3758  
 
-reserve:
-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+reserve:  
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  
 
-Couldn't open file: TAS Root Cert.pem
-WARNING: failed to verify x509 cert
-Verify success!
-verify signature succeeded
-verify nonce succeeded
-Compare image & hash measurement..
-Finish Comparation
-verify succeeded
+Couldn't open file: TAS Root Cert.pem  
+WARNING: failed to verify x509 cert  
+Verify success!  
+verify signature succeeded  
+verify nonce succeeded  
+Compare image & hash measurement..  
+Finish Comparation  
+verify succeeded  
 
-=== DAA Case ===
-nonce:challenge
-uuid:
-B0019DC213CD5A4099F906343DFBE691
-scenario:2
-img_hash:
-0A45C3ABB1F2B3C609645870A9DB35BF6BEBDFC8E822FCF66CE6EBE1E647BE53
+=== DAA Case ===  
+nonce:challenge  
+uuid:  
+B0019DC213CD5A4099F906343DFBE691  
+scenario:2  
+img_hash:  
+0A45C3ABB1F2B3C609645870A9DB35BF6BEBDFC8E822FCF66CE6EBE1E647BE53  
 
-hash:
-369786D88A4EF603340EB2B98173D1ABEABA5D7205E0ABE4CAC888F2B0ABE663
+hash:  
+369786D88A4EF603340EB2B98173D1ABEABA5D7205E0ABE4CAC888F2B0ABE663  
 
-reserve:
-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+reserve:  
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  
 
-Verify success!
-verify signature succeeded
-verify nonce succeeded
-Compare image & hash measurement..
-Finish Comparation
-verify succeeded
+Verify success!  
+verify signature succeeded  
+verify nonce succeeded  
+Compare image & hash measurement..  
+Finish Comparation  
+verify succeeded  
+
 ### 独立实现
 
 #### aslib测试
@@ -303,88 +304,88 @@ ok      gitee.com/openeuler/kunpengsecl/attestation/tas/config  0.003s
 
 ##### ractools测试
 
-**覆盖率：** 51.3% 
-**测试信息：** 
-=== RUN   TestOpenSWTPM
---- PASS: TestOpenSWTPM (0.00s)
-=== RUN   TestSetDigestAlg
---- PASS: TestSetDigestAlg (0.06s)
-=== RUN   TestCreateTrustReport
---- PASS: TestCreateTrustReport (0.10s)
-=== RUN   TestNVRAM
---- PASS: TestNVRAM (0.14s)
-=== RUN   TestActivateIKCert
---- PASS: TestActivateIKCert (0.24s)
-PASS
-coverage: 51.3% of statements in ./
-ok      gitee.com/openeuler/kunpengsecl/attestation/rac/ractools        0.553s
+**覆盖率：** 51.3%  
+**测试信息：**  
+=== RUN   TestOpenSWTPM  
+--- PASS: TestOpenSWTPM (0.00s)  
+=== RUN   TestSetDigestAlg  
+--- PASS: TestSetDigestAlg (0.06s)  
+=== RUN   TestCreateTrustReport  
+--- PASS: TestCreateTrustReport (0.10s)  
+=== RUN   TestNVRAM  
+--- PASS: TestNVRAM (0.14s)  
+=== RUN   TestActivateIKCert  
+--- PASS: TestActivateIKCert (0.24s)  
+PASS  
+coverage: 51.3% of statements in ./  
+ok      gitee.com/openeuler/kunpengsecl/attestation/rac/ractools        0.553s  
 
 #### RAS测试
 
 ##### cache测试
 
 **覆盖率：** 72.9%  
-**测试信息：** 
-== RUN   TestHeartBeat
---- PASS: TestHeartBeat (6.02s)
-=== RUN   TestUpdateTrustReport
---- PASS: TestUpdateTrustReport (0.00s)
-=== RUN   TestOnline
---- PASS: TestOnline (8.02s)
-=== RUN   TestCommands
---- PASS: TestCommands (0.00s)
-=== RUN   TestTrusted
---- PASS: TestTrusted (0.00s)
-=== RUN   TestNonce
---- PASS: TestNonce (0.00s)
-=== RUN   TestIKeyCert
---- PASS: TestIKeyCert (0.00s)
-=== RUN   TestRegTime
---- PASS: TestRegTime (0.00s)
-=== RUN   TestIsAutoUpdate
---- PASS: TestIsAutoUpdate (0.00s)
-PASS
-coverage: 72.9% of statements in ./
-ok      gitee.com/openeuler/kunpengsecl/attestation/ras/cache   14.048s
+**测试信息：**  
+== RUN   TestHeartBeat  
+--- PASS: TestHeartBeat (6.02s)  
+=== RUN   TestUpdateTrustReport  
+--- PASS: TestUpdateTrustReport (0.00s)  
+=== RUN   TestOnline  
+--- PASS: TestOnline (8.02s)  
+=== RUN   TestCommands  
+--- PASS: TestCommands (0.00s)  
+=== RUN   TestTrusted  
+--- PASS: TestTrusted (0.00s)  
+=== RUN   TestNonce  
+--- PASS: TestNonce (0.00s)  
+=== RUN   TestIKeyCert  
+--- PASS: TestIKeyCert (0.00s)  
+=== RUN   TestRegTime  
+--- PASS: TestRegTime (0.00s)  
+=== RUN   TestIsAutoUpdate  
+--- PASS: TestIsAutoUpdate (0.00s)  
+PASS  
+coverage: 72.9% of statements in ./  
+ok      gitee.com/openeuler/kunpengsecl/attestation/ras/cache   14.048s  
 
 ##### config测试
 
 **覆盖率：** 60.8%  
-**测试信息：** 
-=== RUN   TestRASConfig1
---- PASS: TestRASConfig1 (2.03s)
-=== RUN   TestRASConfig2
-{{[1 2 3 4]} [{bios [8-0 80000008-1]} {ima [boot_aggregate /etc/modprobe.d/tuned.conf]}]}
---- PASS: TestRASConfig2 (0.00s)
-=== RUN   TestRACConfig
---- PASS: TestRACConfig (0.01s)
-PASS
-coverage: 60.8% of statements in ./
-ok      gitee.com/openeuler/kunpengsecl/attestation/ras/config  2.059s
+**测试信息：**  
+=== RUN   TestRASConfig1  
+--- PASS: TestRASConfig1 (2.03s)  
+=== RUN   TestRASConfig2  
+{{[1 2 3 4]} [{bios [8-0 80000008-1]} {ima [boot_aggregate /etc/modprobe.d/tuned.conf]}]}  
+--- PASS: TestRASConfig2 (0.00s)  
+=== RUN   TestRACConfig  
+--- PASS: TestRACConfig (0.01s)  
+PASS  
+coverage: 60.8% of statements in ./  
+ok      gitee.com/openeuler/kunpengsecl/attestation/ras/config  2.059s  
 
 ##### trustmgr测试
 
 **覆盖率：** 23.0%  
-**测试信息：** 
-=== RUN   TestRegisterClient
---- PASS: TestRegisterClient (0.16s)
-=== RUN   TestFindClient
-    trustmgr_test.go:498: find client by ik=IK22-12-19-20-34-10KA, c=&{26 2022-12-19 20:34:10.393153 +0800 CST true {"ip": "8.8.8.10", "last": 10, "name": "google DNS"} IK22-12-19-20-34-10KA}
-    trustmgr_test.go:504: find client by id=26, c=&{26 2022-12-19 20:34:10.393153 +0800 CST true {"ip": "8.8.8.10", "last": 10, "name": "google DNS"} IK22-12-19-20-34-10KA}
-    trustmgr_test.go:511: find client by info={"name": "google DNS"}
-    trustmgr_test.go:513:   0, {26 2022-12-19 20:34:10.393153 +0800 CST true {"ip": "8.8.8.10", "last": 10, "name": "google DNS"} IK22-12-19-20-34-10KA}
---- PASS: TestFindClient (0.03s)
-=== RUN   TestReport
---- PASS: TestReport (0.06s)
-=== RUN   TestBaseValue
---- PASS: TestBaseValue (0.04s)
-=== RUN   TestTaBaseValue
---- PASS: TestTaBaseValue (0.04s)
-=== RUN   TestTaReport
---- PASS: TestTaReport (0.04s)
-PASS
-coverage: 23.0% of statements in ./
-ok      gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr        0.393s
+**测试信息：**  
+=== RUN   TestRegisterClient  
+--- PASS: TestRegisterClient (0.16s)  
+=== RUN   TestFindClient  
+    trustmgr_test.go:498: find client by ik=IK22-12-19-20-34-10KA, c=&{26 2022-12-19 20:34:10.393153 +0800 CST true {"ip": "8.8.8.10", "last": 10, "name": "google DNS"} IK22-12-19-20-34-10KA}  
+    trustmgr_test.go:504: find client by id=26, c=&{26 2022-12-19 20:34:10.393153 +0800 CST true {"ip": "8.8.8.10", "last": 10, "name": "google DNS"} IK22-12-19-20-34-10KA}  
+    trustmgr_test.go:511: find client by info={"name": "google DNS"}  
+    trustmgr_test.go:513:   0, {26 2022-12-19 20:34:10.393153 +0800 CST true {"ip": "8.8.8.10", "last": 10, "name": "google DNS"}IK22-12-19-20-34-10KA}  
+--- PASS: TestFindClient (0.03s)  
+=== RUN   TestReport  
+--- PASS: TestReport (0.06s)  
+=== RUN   TestBaseValue  
+--- PASS: TestBaseValue (0.04s)  
+=== RUN   TestTaBaseValue  
+--- PASS: TestTaBaseValue (0.04s)  
+=== RUN   TestTaReport  
+--- PASS: TestTaReport (0.04s)  
+PASS  
+coverage: 23.0% of statements in ./  
+ok      gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr        0.393s  
 
 ### 密钥缓存管理
 
