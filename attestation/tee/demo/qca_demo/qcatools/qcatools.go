@@ -178,6 +178,17 @@ func HandleFlags() {
 	}
 }
 
+func GetQcaServer() string {
+	if Qcacfg == nil {
+		return ""
+	}
+	return Qcacfg.Server
+}
+
+func SetScenario(s int32) {
+	Qcacfg.Scenario = s
+}
+
 func reverseEndian(num []byte) {
 	for i := 0; i < len(num)/2; i++ {
 		num[i], num[len(num)-1-i] = num[len(num)-1-i], num[i]

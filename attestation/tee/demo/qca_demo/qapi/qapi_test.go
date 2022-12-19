@@ -1,51 +1,33 @@
-package config
+package qapi
 
 import (
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/tas/config"
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 )
 
 const (
-	testString1 = "cc0fe80b4510b3c8d5bf6308024676d2d9e83fbb05ba3d23cd645bfb573ae8a1 bd9df1a7f941c572c14723b80a0fbd805d52641bbac8325681a19d8ba8487b53"
-	testString2 = "*%$****(^$#@@)@%^(&$@@&*((*^@!()_)+&*_*_^%$#&^*^&$#@!#$%^&*(()&* !@#$@$#!$&^&*)*__*&%)$%^&*_)*&&)(&%$#$&^(*&)&%@@!#$%^&)(*&^%*(&)"
-	testString3 = "0000000000000000000000000000000000000000000000000000000000000000 0000000000000000000000000000000000000000000000000000000000000000"
-)
-
-const serverConfig = `
-tasconfig:
-  port: 127.0.0.1:40008
-  rest: 127.0.0.1:40009
-  akskeycertfile: ./ascert.crt
-  aksprivkeyfile: ./aspriv.key
-  huaweiitcafile: ./Huawei IT Product CA.pem
-  DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
-  DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56
-  basevalue: ""
-  authkeyfile: ./ecdsakey.pub
+	configFilePath = "./config.yaml"
+	asCertPath     = "./ascert.crt"
+	asprivPath     = "./aspriv.key"
+	huaweiPath     = "./Huawei IT Product CA.pem"
+	nodaaFilePath  = "./nodaa-ac.crt"
+	daaFilePath    = "./daa-ac.crt"
+	QcaConfig      = `
+qcaconfig:
+  server: 127.0.0.1:40006
+  akserver: 127.0.0.1:40008
+  scenario: 0
+  nodaaacfile: ./nodaa-ac.crt
+  daaacfile: ./daa-ac.crt
 `
-const (
-	serverport = "127.0.0.1:40008"
-	restport   = "127.0.0.1:40009"
 )
 
-const configFilePath = "./config.yaml"
-
-const (
-	asCertPath   = "./ascert.crt"
-	asprivPath   = "./aspriv.key"
-	huaweiPath   = "./Huawei IT Product CA.pem"
-	ecdsakeyPath = "./ecdsakey.pub"
-)
-
-const ecdsakey = `
------BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnEwqCEpLwzEVvjIDTaZNSKjUprQI
-6K2x5pynyMeKSePduw9DPiZNx+Mh+06XcDPotf/dW8Sgust0CwKIvQ9iaQ==
------END PUBLIC KEY-----
-`
-
-const cert = `
+const ascert = `
 -----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIURBG3rzn2SH3wruHaPKctA2pEqS8wDQYJKoZIhvcNAQEL
 BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
@@ -164,23 +146,42 @@ d+j7JrLzey3bncx7wceASUUL3iAzICHYr728fNzXKV6OcZpjGdYdVREpM26sbxLo
 -----END CERTIFICATE-----
 `
 
+const TasConfig = `
+tasconfig:
+  port: 127.0.0.1:40008
+  rest: 127.0.0.1:40009
+  akskeycertfile: ./ascert.crt
+  aksprivkeyfile: ./aspriv.key
+  huaweiitcafile: ./Huawei IT Product CA.pem
+  DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
+  DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56
+  basevalue: cc0fe80b4510b3c8d5bf6308024676d2d9e83fbb05ba3d23cd645bfb573ae8a1 bd9df1a7f941c572c14723b80a0fbd805d52641bbac8325681a19d8ba8487b53
+`
+
 var (
-	testCases = []struct {
-		input  string
-		result string
-	}{
-		{testString1, testString1},
-		{testString2, testString2},
-		{testString3, testString3},
-	}
+	id     = []byte("testuuid")
+	id2    = []byte("testuuid2")
+	id3    = []byte("testuuid3")
+	id4    = []byte("testuuid4")
+	nonce  = []byte("testnonce")
+	nonce2 = []byte("testnonce2")
+	nonce3 = []byte("testnonce3")
+	nonce4 = []byte("testnonce4")
+	tcb    = false
 )
 
+func createQcaConfigFile() {
+	ioutil.WriteFile(configFilePath, []byte(QcaConfig), 0644)
+}
+
+func createTasConfigFile() {
+	ioutil.WriteFile(configFilePath, []byte(TasConfig), 0644)
+}
+
 func createFiles() {
-	ioutil.WriteFile(configFilePath, []byte(serverConfig), 0644)
-	ioutil.WriteFile(asCertPath, []byte(cert), 0644)
+	ioutil.WriteFile(asCertPath, []byte(ascert), 0644)
 	ioutil.WriteFile(asprivPath, []byte(aspriv), 0644)
 	ioutil.WriteFile(huaweiPath, []byte(huaweica), 0644)
-	ioutil.WriteFile(ecdsakeyPath, []byte(ecdsakey), 0644)
 }
 
 func removeFiles() {
@@ -188,55 +189,86 @@ func removeFiles() {
 	os.Remove(asCertPath)
 	os.Remove(asprivPath)
 	os.Remove(huaweiPath)
-	os.Remove(ecdsakeyPath)
+	os.Remove(nodaaFilePath)
+	os.Remove(daaFilePath)
 }
 
-func TestConfig(t *testing.T) {
+func TestQapi(t *testing.T) {
+	createTasConfigFile()
 	createFiles()
+	config.LoadConfigs()
+	tasServer := config.GetServerPort()
+
+	go clientapi.StartServer(tasServer)
+	defer clientapi.StopServer()
+	err := config.InitializeAS()
+	if err != nil {
+		t.Error(err)
+	}
+	removeFiles()
+
+	createQcaConfigFile()
 	defer removeFiles()
 
-	InitFlags()
-	LoadConfigs()
-	InitializeAS()
+	qcatools.InitFlags()
+	qcatools.LoadConfigs()
+	qcatools.HandleFlags()
+	server := qcatools.GetQcaServer()
 
-	if cfg := GetConfigs(); cfg == nil {
-		t.Error("get tas config error")
+	go StartServer()
+	qca, err := makesock(server)
+	if err != nil {
+		t.Error(err)
 	}
-	if serv := GetServerPort(); serv != serverport {
-		t.Error("get clientapi addr error")
+
+	req1 := &GetReportRequest{
+		Uuid:    id,
+		Nonce:   nonce,
+		WithTcb: tcb,
 	}
-	if rest := GetRestPort(); rest != restport {
-		t.Error("get restapi addr error")
+	_, err = qca.c.GetReport(qca.ctx, req1)
+	if err != nil {
+		t.Error(err)
 	}
-	if acfile := GetASCertFile(); acfile != asCertPath {
-		t.Error("get as cert file path error")
+	qca.conn.Close()
+	qca.cancel()
+
+	req2 := &GetReportRequest{
+		Uuid:    id2,
+		Nonce:   nonce2,
+		WithTcb: tcb,
 	}
-	if akfile := GetASKeyFile(); akfile != asprivPath {
-		t.Error("get as key file path error")
+	_, err = DoGetTeeReport(server, req2)
+	if err != nil {
+		t.Error(err)
 	}
-	if hwfile := GetHWCertFile(); hwfile != huaweiPath {
-		t.Error("get huawei cert file path error")
+
+	StopServer()
+
+	qcatools.SetScenario(RA_SCENARIO_AS_NO_DAA)
+	go StartServer()
+	req3 := &GetReportRequest{
+		Uuid:    id3,
+		Nonce:   nonce3,
+		WithTcb: tcb,
 	}
-	if ascert := GetASCert(); ascert == nil {
-		t.Error("get as cert error")
+	_, err = DoGetTeeReport(server, req3)
+	if err != nil {
+		t.Error(err)
 	}
-	if aspriv := GetASPrivKey(); aspriv == nil {
-		t.Error("get as privkey error")
+
+	StopServer()
+
+	qcatools.SetScenario(RA_SCENARIO_AS_WITH_DAA)
+	go StartServer()
+	req4 := &GetReportRequest{
+		Uuid:    id4,
+		Nonce:   nonce4,
+		WithTcb: tcb,
 	}
-	if hwcert := GetHWCert(); hwcert == nil {
-		t.Error("get huawei cert error")
+	_, err = DoGetTeeReport(server, req4)
+	if err != nil {
+		t.Error(err)
 	}
-	if DAA_X, DAA_Y := GetDAAGrpPrivKey(); DAA_X != "65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C" &&
-		DAA_Y != "126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56" {
-		t.Error("get daa privkey error")
-	}
-	if authfile := GetAuthKeyFile(); authfile != ecdsakeyPath {
-		t.Error("get authkey file error")
-	}
-	for i := 0; i < len(testCases); i++ {
-		SetBaseValue(testCases[i].input)
-		if GetBaseValue() != testCases[i].result {
-			t.Errorf("test basevalue error at case %d\n", i)
-		}
-	}
+	StopServer()
 }

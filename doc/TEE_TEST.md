@@ -48,13 +48,95 @@ ok      gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools  
 
 #### qapi测试
 
-**覆盖率：**
-**测试信息：**
+**覆盖率：** 76.9%  
+**测试信息：**  
+=== RUN   TestQapi  
+2022/12/18 10:59:31 Load TAS configs...  
+2022/12/18 10:59:31 Start tee ak server...  
+2022/12/18 10:59:31 Init qca flags......  
+2022/12/18 10:59:31 Load qca Configs......  
+2022/12/18 10:59:31 Start Server......  
+2022/12/18 10:59:31 Serve in scenario: RA_SCENARIO_NO_AS  
+Generate AK and AK Cert successfully!  
+2022/12/18 10:59:31 NoAS scenario: Generate RSA AK and AK Cert succeeded!  
+2022/12/18 10:59:32 Client: connect to 127.0.0.1:40007  
+2022/12/18 10:59:32 Now have 1 clients connected to server  
+Get RA_SCENARIO_NO_AS report......  
+Get report successfully!  
+2022/12/18 10:59:32 Generate TA report succeeded!  
+2022/12/18 10:59:32 Client: connect to 127.0.0.1:40007  
+2022/12/18 10:59:32 Now have 2 clients connected to server  
+Get RA_SCENARIO_NO_AS report......  
+Get report successfully!  
+2022/12/18 10:59:32 Generate TA report succeeded!  
+2022/12/18 10:59:32 Stop Server......  
+2022/12/18 10:59:32 Start Server......  
+2022/12/18 10:59:32 Serve in scenario: RA_SCENARIO_AS_NO_DAA  
+2022/12/18 10:59:32 AKCert File does not exist!  
+Generate AK and AK Cert successfully!  
+2022/12/18 10:59:32 NoDAA scenario: Generate RSA AK and AK Cert succeeded!  
+2022/12/18 10:59:32 Client: connect to 127.0.0.1:40008  
+2022/12/18 10:59:32 Server: Parse drk cert succeeded.  
+2022/12/18 10:59:32 Server: Verify drk signature ok.  
+Compare image & hash measurement..  
+Finish Comparation  
+2022/12/18 10:59:32 Server: Verify ak signature & QCA ok.  
+2022/12/18 10:59:32 Server: re-sign ak cert ok.  
+2022/12/18 10:59:32 NoDAA scenario: Generate AK Cert succeeded!  
+2022/12/18 10:59:32 Get new cert signed by as succeeded.  
+Save AK Cert successfully!  
+2022/12/18 10:59:32 Save ak cert into tee.  
+2022/12/18 10:59:33 Client: connect to 127.0.0.1:40007  
+2022/12/18 10:59:33 Now have 3 clients connected to server  
+Get RA_SCENARIO_AS_NO_DAA report......  
+Get report successfully!  
+2022/12/18 10:59:33 Generate TA report succeeded!  
+2022/12/18 10:59:33 Stop Server......  
+2022/12/18 10:59:33 Start Server......  
+2022/12/18 10:59:33 Serve in scenario: RA_SCENARIO_AS_WITH_DAA  
+2022/12/18 10:59:33 AKCert File does not exist!  
+Unsupported scenario 2!  
+2022/12/18 10:59:33 DAA scenario: Generate AK and AK Cert failed!  
+2022/12/18 10:59:34 Client: connect to 127.0.0.1:40007  
+2022/12/18 10:59:34 Now have 4 clients connected to server  
+bad param_set 4!  
+2022/12/18 10:59:34 Get TA report failed!  
+--- PASS: TestQapi (3.01s)  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi      3.011s  
 
 #### attestertools测试
 
-**覆盖率：**
-**测试信息：**
+**覆盖率：** 71.7%  
+**测试信息：**  
+=== RUN   TestAttester  
+2022/12/19 09:39:09 Load qca Configs......  
+2022/12/19 09:39:09 Start Server......  
+2022/12/19 09:39:09 Serve in scenario: RA_SCENARIO_NO_AS  
+Generate AK and AK Cert successfully!  
+2022/12/19 09:39:09 NoAS scenario: Generate RSA AK and AK Cert succeeded!  
+2022/12/19 09:39:10 Init attester flags......  
+2022/12/19 09:39:10 Load attester Configs......  
+2022/12/19 09:39:10 Handle attester flags......  
+2022/12/19 09:39:10 Start Attester......  
+2022/12/19 09:39:10 127.0.0.1:40007  
+2022/12/19 09:39:10 Client: connect to 127.0.0.1:40007  
+2022/12/19 09:39:10 Now have 1 clients connected to server  
+Get RA_SCENARIO_NO_AS report......  
+Get report successfully!  
+2022/12/19 09:39:10 Generate TA report succeeded!  
+2022/12/19 09:39:10 Get TA report succeeded!  
+Couldn't open file: Huawei IT Product CA.pem  
+WARNING: failed to verify x509 cert  
+Verify success!  
+Compare hash measurement..  
+Finish Comparation  
+2022/12/19 09:39:10 tee verify succeeded!  
+2022/12/19 09:39:10 Stop Attester......  
+--- PASS: TestAttester (1.00s)  
+2022/12/19 09:39:10 Stop Server......  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/tee/demo/attester_demo/attestertools        1.006s  
 
 #### verifier lib测试
 
@@ -128,8 +210,31 @@ verify succeeded
 
 #### aslib测试
 
-**覆盖率：**
-**测试信息：**
+**覆盖率：** 100.0%  
+**测试信息：**  
+=== RUN   TestGetAKCert  
+2022/12/19 10:35:14 Load TAS configs...  
+2022/12/19 10:35:14 Start tee ak server...  
+2022/12/19 10:35:15 Client: connect to 127.0.0.1:40008  
+2022/12/19 10:35:15 Server: Parse drk cert succeeded.  
+2022/12/19 10:35:15 Server: Verify drk signature ok.  
+Compare image & hash measurement..  
+Finish Comparation  
+2022/12/19 10:35:15 Server: Verify ak signature & QCA ok.  
+2022/12/19 10:35:15 Server: re-sign ak cert ok.  
+2022/12/19 10:35:15 NoDAA scenario: Generate AK Cert succeeded!  
+2022/12/19 10:35:15 Client: connect to 127.0.0.1:40008  
+2022/12/19 10:35:15 Server: Parse drk cert succeeded.  
+2022/12/19 10:35:15 Server: Verify drk signature ok.  
+Compare image & hash measurement..  
+Finish Comparation  
+2022/12/19 10:35:15 Server: Verify ak signature & QCA ok.  
+2022/12/19 10:35:15 DAA scenario: Generate AK Cert succeeded!  
+2022/12/19 10:35:15 Client: connect to 127.0.0.1:40008  
+2022/12/19 10:35:15 Get AKCert failed, error: rpc error: code = Unknown desc = do not need to access as  
+--- PASS: TestGetAKCert (1.02s)  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/aslib     1.027s  
 
 #### akissuer测试
 
@@ -157,8 +262,30 @@ ok      gitee.com/openeuler/kunpengsecl/attestation/tas/akissuer        0.044s
 
 #### clientapi测试
 
-**覆盖率：**
-**测试信息：**
+**覆盖率：** 62.8%  
+**测试信息：**  
+=== RUN   TestClientapi  
+2022/12/19 10:40:07 Load TAS configs...  
+2022/12/19 10:40:07 Start tee ak server...  
+2022/12/19 10:40:08 Client: connect to 127.0.0.1:40008  
+2022/12/19 10:40:08 Server: Parse drk cert succeeded.  
+2022/12/19 10:40:08 Server: Verify drk signature ok.  
+Compare image & hash measurement..  
+Finish Comparation  
+2022/12/19 10:40:08 Server: Verify ak signature & QCA ok.  
+2022/12/19 10:40:08 Server: re-sign ak cert ok.  
+2022/12/19 10:40:08 NoDAA scenario: Generate AK Cert succeeded!  
+2022/12/19 10:40:08 Client: connect to 127.0.0.1:40008  
+2022/12/19 10:40:08 Server: Parse drk cert succeeded.  
+2022/12/19 10:40:08 Server: Verify drk signature ok.  
+Compare image & hash measurement..  
+Finish Comparation  
+2022/12/19 10:40:08 Server: Verify ak signature & QCA ok.  
+2022/12/19 10:40:08 DAA scenario: Generate AK Cert succeeded!  
+2022/12/19 10:40:08 Client: connect to 127.0.0.1:40008  
+--- PASS: TestClientapi (1.02s)  
+PASS  
+ok      gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi       1.028s  
 
 #### config测试
 
