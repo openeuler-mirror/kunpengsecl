@@ -5,6 +5,12 @@
 #define PARAMETER_SECOND 1
 #define PARAMETER_THIRD 2
 #define PARAMETER_FOURTH 3
+#define RSA_PUB_SIZE 256
+
+struct ktaprivkey {
+    uint8_t modulus[RSA_PUB_SIZE];
+    uint8_t privateExponent[RSA_PUB_SIZE];
+};
 static const TEEC_UUID Uuid = {
     0x435dcafa, 0x0029, 0x4d53, { 0x97, 0xe8, 0xa7, 0xa1, 0x3a, 0x80, 0xc8, 0x2e }
 };
@@ -55,11 +61,13 @@ TEEC_Result InitContextSession(uint8_t* ktapath) {
 }
 
 // 向KTA发出初始化命令
-TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey, struct buffer_data* ktaPubCert, struct buffer_data* ktaPrivKey, struct buffer_data *out_data){
+TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey_N, struct buffer_data* ktaPubCert, struct buffer_data* ktaPrivKey_N, struct buffer_data* ktaPrivKey_D, struct buffer_data *out_data){
     TEEC_Operation operation = {0};
     uint32_t origin = 0;
     TEEC_Result ret;
-
+    struct ktaprivkey ktaPrivKey = {0};
+    memcpy(ktaPrivKey.modulus, ktaPrivKey_N->buf, ktaPrivKey_N->size);
+    memcpy(ktaPrivKey.privateExponent, ktaPrivKey_D->buf, ktaPrivKey_D->size);
     operation.started = OPERATION_START_FLAG;
     operation.paramTypes = TEEC_PARAM_TYPES(
         TEEC_MEMREF_TEMP_INPUT,   //存放KCM公钥
@@ -68,12 +76,12 @@ TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey, struct buffer_data* kta
         TEEC_MEMREF_TEMP_OUTPUT  //存放KTA公钥证书（返回）
     );
 
-    operation.params[PARAMETER_FRIST].tmpref.buffer = kcmPubKey->buf;
-    operation.params[PARAMETER_FRIST].tmpref.size = kcmPubKey->size;
+    operation.params[PARAMETER_FRIST].tmpref.buffer = kcmPubKey_N->buf;
+    operation.params[PARAMETER_FRIST].tmpref.size = kcmPubKey_N->size;
     operation.params[PARAMETER_SECOND].tmpref.buffer = ktaPubCert->buf;
     operation.params[PARAMETER_SECOND].tmpref.size = ktaPubCert->size;
-    operation.params[PARAMETER_THIRD].tmpref.buffer = ktaPrivKey->buf;
-    operation.params[PARAMETER_THIRD].tmpref.size = ktaPrivKey->size;
+    operation.params[PARAMETER_THIRD].tmpref.buffer = &ktaPrivKey;
+    operation.params[PARAMETER_THIRD].tmpref.size = sizeof(struct ktaprivkey);
     operation.params[PARAMETER_FOURTH].tmpref.buffer = out_data->buf;
     operation.params[PARAMETER_FOURTH].tmpref.size = out_data->size;
 
