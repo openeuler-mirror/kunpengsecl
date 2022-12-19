@@ -65,7 +65,7 @@ TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         tloge("save kta cert failed\n");
         return ret;
     }
-    ret = saveKeyandCert("sec_storage_data/ktakey.txt", params[2].memref.buffer, params[2].memref.size);
+    ret = saveKTAPriv("sec_storage_data/ktakey.txt", params[2].memref.buffer);
     if (ret != TEE_SUCCESS){
         tloge("save ktakey failed\n");
         return ret;

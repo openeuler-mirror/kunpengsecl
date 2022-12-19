@@ -26,6 +26,7 @@ Description: initialize module in kta.
 #include <tee_crypto_api.h>
 #include <string.h>
 #include <securec.h>
+#include <cJSON.h>
 
 extern Cache cache;
 extern CmdQueue cmdqueue;
@@ -87,7 +88,6 @@ TEE_Result saveKeyPair(char *keyname, uint8_t *keyvalue, size_t keysize, uint32_
 }
 */
 TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size) {
-    //todo: save a certain kind ok key into the physical media
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
     uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
     void *create_objectID = name;
@@ -103,7 +103,33 @@ TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size) {
     ret = TEE_WriteObjectData(persistent_data, write_buffer, size);
     if (ret != TEE_SUCCESS) {
         tloge("Failed to write file: ret = 0x%x\n", ret);
-        /* 打开或创建文件之后异常分支需要关闭文件，否则会产生内存泄漏 */
+        TEE_CloseObject(persistent_data);
+        return ret;
+    }
+    TEE_CloseObject(persistent_data);
+    return TEE_SUCCESS;
+}
+
+TEE_Result saveKTAPriv(char *name, ktaprivkey *value) {
+    uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
+    uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
+    void *create_objectID = name;
+    TEE_ObjectHandle persistent_data = NULL;
+    TEE_Result ret;
+    cJSON *kta_priv_json = cJSON_CreateObject();
+    uint8_t *kta_priv = NULL;
+    uint8_t *write_buffer = value;
+    cJSON_AddStringToObject(kta_priv_json, "modulus", value->modulus);
+    cJSON_AddStringToObject(kta_priv_json, "privateExponent", value->privateExponent);
+    kta_priv = cJSON_PrintUnformatted(kta_priv_json);
+    ret = TEE_CreatePersistentObject(storageID, create_objectID, strlen(create_objectID), w_flags, TEE_HANDLE_NULL, NULL, 0, (&persistent_data));
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to create file: ret = 0x%x\n", ret);
+        return ret;
+    }
+    ret = TEE_WriteObjectData(persistent_data, write_buffer, strlen(kta_priv));
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to write file: ret = 0x%x\n", ret);
         TEE_CloseObject(persistent_data);
         return ret;
     }
@@ -155,6 +181,53 @@ TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t *buf_len) {
         TEE_Free(read_buffer);
         return TEE_ERROR_SECURITY;
     }
+    TEE_CloseObject(persistent_data);
+    TEE_Free(read_buffer);
+    return TEE_SUCCESS;
+}
+
+TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t privateExponent[RSA_PUB_SIZE]) {
+    TEE_Result ret;
+    uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
+    uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
+    void *create_objectID = name;
+    TEE_ObjectHandle persistent_data = NULL;
+    uint32_t pos = 0;
+    uint32_t len = 0;
+    uint8_t *read_buffer = NULL;
+    uint32_t count = 0;
+    ret = TEE_OpenPersistentObject(storageID, create_objectID, strlen(create_objectID),r_flags, (&persistent_data));
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to open file:ret = 0x%x\n", ret);
+        return ret;
+    }
+
+    ret = TEE_InfoObjectData(persistent_data, &pos, &len);
+    if (ret != TEE_SUCCESS) {
+        tloge("Failed to open file:ret = 0x%x\n", ret);
+        TEE_CloseObject(persistent_data);
+        return ret;
+    }
+
+    read_buffer = TEE_Malloc(len + 1, 0);
+    if (read_buffer == NULL) {
+        tloge("Failed to open file:ret = 0x%x\n", ret);
+        TEE_CloseObject(persistent_data);
+        return ret;
+    }
+
+    /* 读取已存入的数据 */
+    ret = TEE_ReadObjectData(persistent_data, read_buffer, len, &count);
+    if (ret != TEE_SUCCESS) {
+        TEE_CloseObject(persistent_data);
+        TEE_Free(read_buffer);
+        return ret;
+    }
+    cJSON *kta_priv_json = cJSON_Parse(read_buffer);
+    cJSON *jsonmodulus = cJSON_GetObjectItemCaseSensitive(kta_priv_json, "modulus");
+    cJSON *jsonprivateExponent = cJSON_GetObjectItemCaseSensitive(kta_priv_json, "privateExponent");
+    memcpy_s(modulus, RSA_PUB_SIZE, jsonmodulus->valuestring, RSA_PUB_SIZE);
+    memcpy_s(privateExponent, RSA_PUB_SIZE, jsonprivateExponent->valuestring, RSA_PUB_SIZE);
     TEE_CloseObject(persistent_data);
     TEE_Free(read_buffer);
     return TEE_SUCCESS;

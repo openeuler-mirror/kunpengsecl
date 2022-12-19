@@ -29,6 +29,7 @@ Description: initialize module in kta.
 #define NODE_LEN            8
 #define MAX_DATA_LEN        1024
 #define END_NULL            -1
+#define RSA_PUB_SIZE        256
 
 static const char *signed_pubkey_path = ""; //to be set
 static const char *kcm_encodekey_path = ""; //to be set
@@ -110,13 +111,22 @@ typedef struct _tagRequest{
 } CmdRequest;
 */
 
+typedef struct {
+    uint8_t modulus[RSA_PUB_SIZE];
+    uint8_t privateExponent[RSA_PUB_SIZE];
+}ktaprivkey;
+
 //internal function
 
 //for initializition
 
-TEE_Result saveKeyandCert(char *certname, uint8_t *certvalue, size_t certsize);
+TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size);
+
+TEE_Result saveKTAPriv(char *name, ktaprivkey *value);
 
 TEE_Result restoreKeyandCert(char *certname, uint8_t *buffer, size_t *buf_len);
+
+TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t privateExponent[RSA_PUB_SIZE]);
 
 TEE_Result initStructure();
 
