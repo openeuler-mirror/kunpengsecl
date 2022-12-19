@@ -197,6 +197,7 @@ type retKeyInfo struct {
 	KeyId		[]byte
 	PlainText	[]byte
 	HostKeyId	[]byte
+	Cmd			uint32
 }
 
 var (
@@ -506,6 +507,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 				KeyId:		retKeyId,
 				PlainText:	plainText,
 				HostKeyId:	message.HostKeyId,
+				Cmd:		message.Command,
 			}
 			sessionKey = key
 			encSessionKey = encKey
@@ -527,6 +529,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 				KeyId:		retKeyId,
 				PlainText:	plainText,
 				HostKeyId:	message.HostKeyId,
+				Cmd:		message.Command,
 			}
 			sessionKey = key
 			encSessionKey = encKey
@@ -547,6 +550,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 				TAId:		message.TAId,
 				KeyId:		message.KeyId,
 				HostKeyId:	message.HostKeyId,
+				Cmd:		message.Command,
 			}
 			sessionKey = make([]byte, 32)
 			ktaPublicKey := kcmPublicKey	// use kcms' public key as a temporary pulic key
