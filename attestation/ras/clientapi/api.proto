@@ -109,7 +109,8 @@ message VerifyKTAPubKeyCertReply {
 }
 
 message KeyOperationRequest {
-  bytes encMessage = 1;
+  int64 clientId = 1;
+  bytes encMessage = 2;
 }
 
 message KeyOperationReply {
