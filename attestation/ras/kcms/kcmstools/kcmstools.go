@@ -7,6 +7,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,8 +17,10 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/common"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"github.com/gemalto/kmip-go"
 	"github.com/gemalto/kmip-go/kmip14"
 	"github.com/gemalto/kmip-go/ttlv"
@@ -38,8 +41,6 @@ func dailKMS() net.Conn {
 	}
 	return conn
 }
-
-var deviceId int64 = 1238263726351263121
 
 func SendKCMPubKeyCert() ([]byte, error) {
 	// TODO: get KCM public key cert
@@ -79,8 +80,12 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 	return nil
 }
 
-func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []byte) ([]byte, []byte, []byte, []byte, []byte, error) {
+func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
 	// TODO: get the trusted status of TA (from cache)(trustmgr.GetCache)
+	err := GetKTATrusted(deviceId, ktaid)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 
 	// ask KMS to generate a new key for the specific TA,
 	// getting (plaintext, ciphertext)
@@ -136,9 +141,12 @@ func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []by
 	return taid, K, enc_k, plaintext, []byte(keyid), nil
 }
 
-func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyid []byte) ([]byte, []byte, []byte, []byte, []byte, error) {
+func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
 	// TODO: get the trusted status of TA (from cache)
-
+	err := GetKTATrusted(deviceId, ktaid)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 	// find ciphertext of the specific key
 	// in database by (taid, keyid)
 	str_taid := string(taid)
@@ -191,14 +199,18 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 	return taid, K, enc_k, plaintext, keyid, nil
 }
 
-func DeleteKey(taid []byte, keyid []byte) error {
+func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) error {
 	// TODO: get the trusted status of TA (from cache)
+	err := GetKTATrusted(deviceId, ktaid)
+	if err != nil {
+		return err
+	}
 
 	str_taid := string(taid)
 	str_keyid := string(keyid)
 
 	// delete the specific key in database
-	err := kdb.DeleteKeyInfo(str_taid, str_keyid)
+	err = kdb.DeleteKeyInfo(str_taid, str_keyid)
 	if err != nil {
 		return err
 	}
@@ -420,4 +432,16 @@ func ReadCert(pathname string) ([]byte, error) {
 		return nil, err
 	}
 	return buffer, nil
+}
+
+func GetKTATrusted(deviceId int64, ktaid string) error {
+	c, err := trustmgr.GetCache(deviceId)
+	if err != nil {
+		return err
+	}
+	if c.GetTaTrusted(ktaid) != cache.StrTrusted {
+		fmt.Printf("\n c.GetTaTrusted(ktaid) = %s", c.GetTaTrusted(ktaid))
+		return errors.New("verify the KTA trusted status failed")
+	}
+	return nil
 }

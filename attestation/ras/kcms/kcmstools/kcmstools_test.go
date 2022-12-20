@@ -4,9 +4,12 @@ import (
 	"encoding/base64"
 	"os"
 	"testing"
+	"time"
 
 	kmsServer "gitee.com/openeuler/kunpengsecl/attestation/kms"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 )
 
 const (
@@ -15,6 +18,7 @@ const (
 	constsavekeyinfofailed = "save key information fail %v"
 	constfindkeyinfofailed = "find key information fail %v"
 	constsavektacertfailed = "save KTA Cert failed %v"
+	constgetcachefailed    = "get cache by deviceId failed :%v"
 )
 
 var (
@@ -627,23 +631,42 @@ var (
 	ktafilename  = "kta.crt"
 	rootfilename = "ca.crt"
 	kcmfilename  = "kcm.crt"
+	ktaid        = "ktaid"
+	ik           = "IK"
+)
+var (
+	deviceId int64 = 17
+	testCases1 = []time.Duration{time.Second, time.Second * 3, time.Millisecond * 10}
 )
 
 func TestDeleteKey(t *testing.T) {
 	kdb.CreateKdbManager(constDB, constDNS)
 	defer kdb.ReleaseKdbManager()
+	trustmgr.CreateTrustManager(constDB, constDNS)
+	defer trustmgr.ReleaseTrustManager()
+	regtime := time.Time{}
+	trustmgr.RegisterClientByID(deviceId, regtime, ik)
+	defer trustmgr.DeleteClientByID(deviceId)
+
+	c, err := trustmgr.GetCache(deviceId)
+	if err != nil {
+		t.Errorf(constgetcachefailed, err)
+	}
+	c.UpdateHeartBeat(testCases1[0])
+	c.UpdateTrustReport(testCases1[0])
+	c.SetTaTrusted(ktaid, cache.StrTrusted)
 	taid := []byte{'1'}
 	keyid := []byte{'t', 'e', 's', 't', 'k', 'e', 'y', '1'}
 	ciphertext := "text1"
 	str_taid := string(taid)
 	str_keyid := string(keyid)
-	_, err := kdb.SaveKeyInfo(str_taid, str_keyid, ciphertext)
+	_, err = kdb.SaveKeyInfo(str_taid, str_keyid, ciphertext)
 	if err != nil {
 		t.Logf(constsavekeyinfofailed, err)
 	}
 
 	//_, _, err = DeleteKey(taid, keyid)
-	err = DeleteKey(taid, keyid)
+	err = DeleteKey(taid, keyid, ktaid, deviceId)
 	if err == nil {
 		t.Logf("delete key information success")
 	} else {
@@ -654,7 +677,6 @@ func TestDeleteKey(t *testing.T) {
 func TestVerifyKTAPubKeyCert(t *testing.T) {
 	kdb.CreateKdbManager(constDB, constDNS)
 	defer kdb.ReleaseKdbManager()
-	var deviceID int64 = 1238263726351263121
 	err := SaveCert(ktacert, certpath, ktafilename)
 	if err != nil {
 		t.Errorf(constsavektacertfailed, err)
@@ -665,13 +687,13 @@ func TestVerifyKTAPubKeyCert(t *testing.T) {
 	}
 	defer os.RemoveAll(certpath)
 
-	err = VerifyKTAPubKeyCert(deviceID, ktacert)
+	err = VerifyKTAPubKeyCert(deviceId, ktacert)
 	if err == nil {
 		t.Logf("verify KTAPubKeyCert success")
 	} else {
 		t.Errorf("test KTAPubKeyCert failed, error: %v", err)
 	}
-	defer kdb.DeletePubKeyInfo(deviceID)
+	defer kdb.DeletePubKeyInfo(deviceId)
 }
 
 func TestSendKCMPubKeyCert(t *testing.T) {
@@ -691,26 +713,39 @@ func TestSendKCMPubKeyCert(t *testing.T) {
 func TestGenerateNewKey(t *testing.T) {
 	go kmsServer.ExampleServer()
 	defer kmsServer.StopServer()
+	kdb.CreateKdbManager(constDB, constDNS)
+	defer kdb.ReleaseKdbManager()
+	trustmgr.CreateTrustManager(constDB, constDNS)
+	defer trustmgr.ReleaseTrustManager()
+	regtime := time.Time{}
+	trustmgr.RegisterClientByID(deviceId, regtime, ik)
+	defer trustmgr.DeleteClientByID(deviceId)
 
+	c, err := trustmgr.GetCache(deviceId)
+	if err != nil {
+		t.Errorf(constgetcachefailed, err)
+	}
+	c.UpdateHeartBeat(testCases1[0])
+	c.UpdateTrustReport(testCases1[0])
+	c.SetTaTrusted(ktaid, cache.StrTrusted)
 	taid := []byte("taid")
 	account := []byte("account")
 	password := []byte("password")
 	hostkeyid := []byte("hostkeyid")
 	kdb.CreateKdbManager(constDB, constDNS)
 	defer kdb.ReleaseKdbManager()
-	var deviceID int64 = 1238263726351263121
-	err := SaveCert(ktacert, certpath, ktafilename)
+	err = SaveCert(ktacert, certpath, ktafilename)
 	if err != nil {
 		t.Errorf(constsavektacertfailed, err)
 	}
 	defer os.RemoveAll(certpath)
 	base64_pubKey := base64.StdEncoding.EncodeToString(ktacert)
-	_, err = kdb.SavePubKeyInfo(deviceID, base64_pubKey)
+	_, err = kdb.SavePubKeyInfo(deviceId, base64_pubKey)
 	if err != nil {
 		t.Errorf("save public key in database failed, error: %v", err)
 	}
-	defer kdb.DeletePubKeyInfo(deviceID)
-	_, _, _, _, keyid, err := GenerateNewKey(taid, account, password, hostkeyid)
+	defer kdb.DeletePubKeyInfo(deviceId)
+	_, _, _, _, keyid, err := GenerateNewKey(taid, account, password, hostkeyid, ktaid, deviceId)
 	if err == nil {
 		t.Logf("test generate new key success")
 	} else {
@@ -723,6 +758,21 @@ func TestGetKey(t *testing.T) {
 	go kmsServer.ExampleServer()
 	defer kmsServer.StopServer()
 
+	kdb.CreateKdbManager(constDB, constDNS)
+	defer kdb.ReleaseKdbManager()
+	trustmgr.CreateTrustManager(constDB, constDNS)
+	defer trustmgr.ReleaseTrustManager()
+	regtime := time.Time{}
+	trustmgr.RegisterClientByID(deviceId, regtime, ik)
+	defer trustmgr.DeleteClientByID(deviceId)
+
+	c, err := trustmgr.GetCache(deviceId)
+	if err != nil {
+		t.Errorf(constgetcachefailed, err)
+	}
+	c.UpdateHeartBeat(testCases1[0])
+	c.UpdateTrustReport(testCases1[0])
+	c.SetTaTrusted(ktaid, cache.StrTrusted)
 	taid := []byte("taid")
 	account := []byte("account")
 	password := []byte("password")
@@ -730,18 +780,17 @@ func TestGetKey(t *testing.T) {
 	hostkeyid := []byte("hostkeyid")
 	kdb.CreateKdbManager(constDB, constDNS)
 	defer kdb.ReleaseKdbManager()
-	var deviceID int64 = 1238263726351263121
-	err := SaveCert(ktacert, certpath, ktafilename)
+	err = SaveCert(ktacert, certpath, ktafilename)
 	if err != nil {
 		t.Errorf(constsavektacertfailed, err)
 	}
 	defer os.RemoveAll(certpath)
 	base64_pubKey := base64.StdEncoding.EncodeToString(ktacert)
-	_, err = kdb.SavePubKeyInfo(deviceID, base64_pubKey)
+	_, err = kdb.SavePubKeyInfo(deviceId, base64_pubKey)
 	if err != nil {
 		t.Errorf("save public key in database failed, error: %v", err)
 	}
-	defer kdb.DeletePubKeyInfo(deviceID)
+	defer kdb.DeletePubKeyInfo(deviceId)
 
 	_, err = kdb.SaveKeyInfo(string(taid), string(keyid), "89Kl9gkvWImjh5CUsADSbmFyDb7s5q+voUf2ym4u6dc=")
 	if err != nil {
@@ -749,7 +798,7 @@ func TestGetKey(t *testing.T) {
 	}
 	defer kdb.DeleteKeyInfo(string(taid), string(keyid))
 
-	_, _, _, _, _, err = GetKey(taid, account, password, keyid, hostkeyid)
+	_, _, _, _, _, err = GetKey(taid, account, password, keyid, hostkeyid, ktaid, deviceId)
 	if err == nil {
 		t.Logf("test get key success")
 	} else {
