@@ -75,95 +75,7 @@ const (
 	constDB = "postgres"
 )
 
-const (
-	kcmCert = `
-Certificate:
-    Data:
-        Version: 3 (0x2)
-        Serial Number: 2 (0x2)
-        Signature Algorithm: sha256WithRSAEncryption
-        Issuer: C=CN, ST=Shanghai, L=Shanghai, O=Huawei, CN=ca
-        Validity
-            Not Before: Dec  9 00:36:05 2022 GMT
-            Not After : Nov 30 00:36:05 2023 GMT
-        Subject: C=CN, ST=Shanghai, L=Shanghai, O=Huawei, CN=kcm
-        Subject Public Key Info:
-            Public Key Algorithm: rsaEncryption
-                RSA Public-Key: (2048 bit)
-                Modulus:
-                    00:cf:e5:72:98:85:46:34:54:51:fe:bd:f4:3f:7a:
-                    24:57:44:36:76:02:75:0a:ff:bf:e2:c4:8f:6f:50:
-                    54:d2:6d:3a:13:fa:17:f7:1b:df:9b:6f:2a:22:3f:
-                    b2:a4:ad:b7:bc:64:36:fb:69:ec:15:52:b1:ba:b7:
-                    6c:2c:5b:89:2b:50:3b:1d:be:a7:4f:91:19:d2:6e:
-                    49:47:6b:45:f2:7d:9c:94:fa:f5:d8:86:e6:37:04:
-                    8e:aa:06:1e:3e:e2:95:27:9b:f7:f5:e6:34:d7:2f:
-                    1e:46:bd:90:89:be:43:0d:cf:c4:91:19:80:26:95:
-                    3c:1f:f1:bd:23:01:c3:50:92:69:1a:07:c2:e6:af:
-                    07:47:fe:a2:41:04:1c:9a:ca:ed:5d:fc:b4:93:72:
-                    c0:ee:58:5b:2a:e8:81:e6:7c:ae:d1:4e:d0:59:14:
-                    ea:f6:4f:bc:01:e4:39:af:1b:db:05:01:c3:b2:da:
-                    25:f4:86:10:d9:92:81:aa:e5:d6:fd:09:a8:3c:e3:
-                    d0:37:df:a9:de:5b:65:7c:f6:90:7c:ff:1b:83:67:
-                    47:a5:3f:95:1f:3e:43:70:20:d5:29:0b:30:24:fb:
-                    a8:c1:6c:44:99:69:c1:4a:bf:65:b6:83:bf:f3:5c:
-                    33:43:11:db:63:ea:01:85:4e:6a:e5:26:20:75:5e:
-                    79:23
-                Exponent: 65537 (0x10001)
-        X509v3 extensions:
-            X509v3 Basic Constraints: 
-                CA:FALSE
-            Netscape Comment: 
-                OpenSSL Generated Certificate
-            X509v3 Subject Key Identifier: 
-                AC:68:E3:D5:5A:64:E6:1B:DB:32:1F:BA:01:5C:6A:ED:08:13:F5:E2
-            X509v3 Authority Key Identifier: 
-                keyid:F7:CC:87:ED:0D:1F:86:8B:C5:34:8E:47:08:47:AA:70:AF:EF:82:A6
-
-    Signature Algorithm: sha256WithRSAEncryption
-         a7:af:17:de:eb:7b:32:82:0b:f6:58:c1:15:5a:0a:01:57:81:
-         fb:4f:b2:e4:d8:27:27:bb:3e:cf:cd:6f:17:a1:75:25:5e:ec:
-         5a:57:8c:79:f3:69:39:54:35:1b:7f:a2:30:74:1d:3d:33:79:
-         ce:72:e8:7e:51:f3:e7:fd:80:ab:a1:ec:b4:7c:26:16:a8:09:
-         e9:91:d4:b2:7a:ba:a6:ee:73:d8:64:27:13:d9:55:51:33:3c:
-         f6:2f:2f:be:27:c6:7a:15:e3:49:f8:5f:c9:50:af:5a:fc:9b:
-         fb:fc:f9:09:0e:ba:b7:f3:5a:f3:13:05:2d:56:b9:46:ce:ec:
-         ae:b5:66:7b:e3:16:72:27:01:e1:d5:d3:c5:43:66:5f:b1:9c:
-         4d:bc:69:df:8a:b2:cc:a9:6d:bc:2d:36:76:ee:ae:20:9a:3d:
-         75:a1:ea:f0:58:e6:29:81:68:aa:09:56:23:80:a8:cf:92:9f:
-         01:e0:2c:f0:21:c0:63:2d:21:50:e7:d6:c0:8a:1c:f7:50:ba:
-         e1:05:f4:96:a7:b7:54:7c:e2:80:0c:de:c6:c7:bd:86:8a:84:
-         4b:11:09:79:0e:b4:5c:9d:b2:44:9a:ed:0c:ee:22:3f:f9:e3:
-         24:75:2e:44:60:c7:7b:c5:8e:fd:36:8d:60:95:70:54:f2:82:
-         4a:5f:f8:50
------BEGIN CERTIFICATE-----
-MIIDmTCCAoGgAwIBAgIBAjANBgkqhkiG9w0BAQsFADBRMQswCQYDVQQGEwJDTjER
-MA8GA1UECAwIU2hhbmdoYWkxETAPBgNVBAcMCFNoYW5naGFpMQ8wDQYDVQQKDAZI
-dWF3ZWkxCzAJBgNVBAMMAmNhMB4XDTIyMTIwOTAwMzYwNVoXDTIzMTEzMDAwMzYw
-NVowUjELMAkGA1UEBhMCQ04xETAPBgNVBAgMCFNoYW5naGFpMREwDwYDVQQHDAhT
-aGFuZ2hhaTEPMA0GA1UECgwGSHVhd2VpMQwwCgYDVQQDDANrY20wggEiMA0GCSqG
-SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDP5XKYhUY0VFH+vfQ/eiRXRDZ2AnUK/7/i
-xI9vUFTSbToT+hf3G9+bbyoiP7Kkrbe8ZDb7aewVUrG6t2wsW4krUDsdvqdPkRnS
-bklHa0XyfZyU+vXYhuY3BI6qBh4+4pUnm/f15jTXLx5GvZCJvkMNz8SRGYAmlTwf
-8b0jAcNQkmkaB8LmrwdH/qJBBByayu1d/LSTcsDuWFsq6IHmfK7RTtBZFOr2T7wB
-5DmvG9sFAcOy2iX0hhDZkoGq5db9Cag849A336neW2V89pB8/xuDZ0elP5UfPkNw
-INUpCzAk+6jBbESZacFKv2W2g7/zXDNDEdtj6gGFTmrlJiB1XnkjAgMBAAGjezB5
-MAkGA1UdEwQCMAAwLAYJYIZIAYb4QgENBB8WHU9wZW5TU0wgR2VuZXJhdGVkIENl
-cnRpZmljYXRlMB0GA1UdDgQWBBSsaOPVWmTmG9syH7oBXGrtCBP14jAfBgNVHSME
-GDAWgBT3zIftDR+Gi8U0jkcIR6pwr++CpjANBgkqhkiG9w0BAQsFAAOCAQEAp68X
-3ut7MoIL9ljBFVoKAVeB+0+y5NgnJ7s+z81vF6F1JV7sWleMefNpOVQ1G3+iMHQd
-PTN5znLoflHz5/2Aq6HstHwmFqgJ6ZHUsnq6pu5z2GQnE9lVUTM89i8vvifGehXj
-SfhfyVCvWvyb+/z5CQ66t/Na8xMFLVa5Rs7srrVme+MWcicB4dXTxUNmX7GcTbxp
-34qyzKltvC02du6uIJo9daHq8FjmKYFoqglWI4Coz5KfAeAs8CHAYy0hUOfWwIoc
-91C64QX0lqe3VHzigAzexse9hoqESxEJeQ60XJ2yRJrtDO4iP/njJHUuRGDHe8WO
-/TaNYJVwVPKCSl/4UA==
------END CERTIFICATE-----`
-)
-
 var (
-	/*decKey = []byte{
-	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50,
-	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e}*/
 	certPath     = "../cert/"
 	kcmFileName  = "kcm.crt"
 	ktaFileName  = "kta.crt"
@@ -191,7 +103,6 @@ type inKeyInfo struct {
 	HostKeyId []byte
 	Command   uint32
 	KTAId     string
-	DeviceId  int64
 }
 
 type retKeyInfo struct {
@@ -471,7 +382,7 @@ func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKe
 }
 
 func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) (*KeyOperationReply, error) {
-
+	deviceId := in.GetClientId()
 	encCmdData := in.GetEncMessage()
 	if len(encCmdData) == 0 {
 		//logger.L.Sugar().Errorf("Outside json is empty")
@@ -494,7 +405,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		retTAId, key, encKey, plainText, retKeyId, err := kcmstools.GenerateNewKey(message.TAId, message.Account, message.Password, message.HostKeyId, message.KTAId, message.DeviceId)
+		retTAId, key, encKey, plainText, retKeyId, err := kcmstools.GenerateNewKey(message.TAId, message.Account, message.Password, message.HostKeyId, message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -515,7 +426,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		retTAId, key, encKey, plainText, retKeyId, err := kcmstools.GetKey(message.TAId, message.Account, message.Password, message.KeyId, message.HostKeyId, message.KTAId, message.DeviceId)
+		retTAId, key, encKey, plainText, retKeyId, err := kcmstools.GetKey(message.TAId, message.Account, message.Password, message.KeyId, message.HostKeyId, message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Get key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -536,7 +447,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		err = kcmstools.DeleteKey(message.TAId, message.KeyId, message.KTAId, message.DeviceId)
+		err = kcmstools.DeleteKey(message.TAId, message.KeyId, message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Delete key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
