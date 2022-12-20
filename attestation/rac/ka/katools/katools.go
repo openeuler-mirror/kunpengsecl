@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	CMD_DATA_SZIE = 4096 // Now set randomly
+	CMD_DATA_SZIE = 512
 )
 
 // KA主函数
@@ -217,9 +217,9 @@ func initialKTA(kcmPubkey *rsa.PublicKey, ktaPubCert []byte, ktaPrivKey *rsa.Pri
 func getKTACmd() ([]byte, uint32, error) {
 	c_cmd_data := C.struct_buffer_data{}
 	c_cmd_num := C.uint(0)
-	// malloc大小待设置
 	c_cmd_data.size = C.__uint32_t(CMD_DATA_SZIE)
 	c_cmd_data.buf = (*C.uint8_t)(C.malloc(C.ulong(c_cmd_data.size)))
+	defer C.free(unsafe.Pointer(c_cmd_data.buf))
 	teec_result := C.KTAgetCommand(&c_cmd_data, &c_cmd_num)
 	if int(teec_result) != 0 {
 		return nil, 0, errors.New("get kta commmand failed")

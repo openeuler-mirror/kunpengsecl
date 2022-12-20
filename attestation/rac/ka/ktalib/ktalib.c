@@ -114,6 +114,7 @@ TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum){
         return ret;
     }
     *retnum = cmdnum.a;
+    out_data->size = cmdnum.b;
     return TEEC_SUCCESS;
 }
 
