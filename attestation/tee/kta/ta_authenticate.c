@@ -36,7 +36,7 @@ bool CheckUUID(TEE_UUID id1,TEE_UUID id2)
     }
     return true;
 }
-bool verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password) {
+bool verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
     //todo: search a ta state from tacache
     //step1: check the queue is or not is empty
     if (cache.head == END_NULL && cache.tail == END_NULL)
@@ -64,8 +64,4 @@ bool verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password) {
     }
     return true;   
 
-}
-
-void attestTA(TEE_UUID TA_uuid) {
-    //attest a ta's trusted station locally by QTA
 }

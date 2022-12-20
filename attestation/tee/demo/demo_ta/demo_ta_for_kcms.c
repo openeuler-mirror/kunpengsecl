@@ -20,10 +20,10 @@ enum {
     CMD_TA_EXIT      = 0x03,
 };
 
-static const TEE_UUID localUuid = {
+TEE_UUID localUuid = {
     0xbbb2d138, 0xee21, 0x43af, { 0x87, 0x96, 0x40, 0xc2, 0x0d, 0x7b, 0x45, 0xfa }
 };
-static const TEE_UUID ktaUuid = {
+TEE_UUID ktaUuid = {
     0x435dcafa, 0x0029, 0x4d53, { 0x97, 0xe8, 0xa7, 0xa1, 0x3a, 0x80, 0xc8, 0x2e }
 };
 uint32_t new_key_flag = 1;
@@ -70,25 +70,27 @@ void uuid2char(TEE_UUID uuid, int8_t charuuid[37]) {
 
 void char2uuid(TEE_UUID *uuid, int8_t charuuid[37]) {
     int32_t i = 0;
-    int8_t *stop;
+    char *stop;
     int8_t buffer[3];
-    uuid->timeLow = strtoul(charuuid, &stop, 16);
+    uuid->timeLow = strtoul((char*)charuuid, &stop, 16);
     uuid->timeMid = strtoul(stop + 1, &stop, 16);
     uuid->timeHiAndVersion = strtoul(stop + 1, &stop, 16);
     for(i = 0; i < 2; i++) {
-        uuid->clockSeqAndNode[i] = strtoul(charuuid + 19 + i * 2, &stop, 16) >> (8 - i * 8);
+        uuid->clockSeqAndNode[i] = strtoul((char*)charuuid + 19 + i * 2, &stop, 16) >> (8 - i * 8);
     }
     for(i = 0; i < 6; i++) {
         buffer[0] = *(charuuid + 24 + i * 2);
         buffer[1] = *(charuuid + 25 + i * 2);
-        uuid->clockSeqAndNode[i + 2] = strtoul(buffer, &stop, 16);
+        uuid->clockSeqAndNode[i + 2] = strtoul((char*)buffer, &stop, 16);
     }
 }
 
 //The encryption operation or other operations needs key
 TEE_Result encrypt(uint8_t *keyvalue) {
-    uint8_t *data = "demo data";
-    (void*)keyvalue;
+    char *data = "demo data";
+    (void)keyvalue;
+    (void)data;
+    return TEE_SUCCESS;
 }
 
 //
@@ -167,12 +169,13 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
         tlogd("encrypt data success");
         return TEE_SUCCESS;
     }
+    return TEE_SUCCESS;
 }
 
 TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     TEE_UUID keyid = {0};
-    int8_t keyidchar[37] = "------------------------------------";
+    char *keyidchar = NULL;
     int8_t *keyiddelete = NULL;
     uint8_t *keyvalue = NULL;
     TEE_ObjectHandle keyid_data = NULL;
@@ -191,12 +194,13 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     uint32_t twice_search_flag;
     switch(flag.symbol) {
     case 1:
+        keyidchar = "------------------------------------";
         ret = get_kcm_reply(&localUuid, account, password, &keyid, keyvalue);
         if (ret != TEE_SUCCESS) {
             tloge("get generate key reply failed");
             return ret;
         }
-        uuid2char(keyid, keyidchar);
+        uuid2char(keyid, (int8_t*)keyidchar);
         ret = TEE_CreatePersistentObject(TEE_OBJECT_STORAGE_PRIVATE, keyid_storage_path, strlen(keyid_storage_path),
                 TEE_DATA_FLAG_ACCESS_WRITE, TEE_HANDLE_NULL, NULL, 0, &keyid_data);
         if (ret != TEE_SUCCESS) {
@@ -204,7 +208,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
             return ret;
         }
 
-        ret = TEE_WriteObjectData(keyid_data, keyidchar, strlen(keyidchar));
+        ret = TEE_WriteObjectData(keyid_data, keyidchar, strlen((char*)keyidchar));
         if (ret != TEE_SUCCESS) {
             tloge("Failed to write file: ret = 0x%x\n", ret);
             TEE_CloseObject(keyid_data);
@@ -214,6 +218,26 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         TEE_CloseObject(keyid_data);
         break;
     case 2:
+        ret = TEE_OpenPersistentObject(TEE_OBJECT_STORAGE_PRIVATE, keyid_storage_path, strlen(keyid_storage_path),
+                TEE_DATA_FLAG_ACCESS_READ, &keyid_data);
+        if (ret != TEE_SUCCESS) {
+            tloge("failed to open file:ret = 0x%x\n", ret);
+            return ret;
+        }
+        keyidchar = TEE_Malloc(len + 1, 0);
+        if (keyidchar == NULL) {
+            tloge("failed to open file:ret = 0x%x\n", ret);
+            TEE_CloseObject(keyid_data);
+            return ret;
+        }
+        ret = TEE_ReadObjectData(keyid_data, keyidchar, len, &count);
+        if (ret != TEE_SUCCESS) {
+            TEE_CloseObject(keyid_data);
+            TEE_Free(keyidchar);
+        return ret;
+        }
+        TEE_CloseObject(keyid_data);
+        char2uuid(&keyid, (int8_t*)keyidchar);
         ret = search_key(&localUuid, account, password, &keyid, &masterkey, keyvalue, &twice_search_flag);
         if (ret != TEE_SUCCESS) {
             tloge("get generate key reply failed");
@@ -225,6 +249,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         }
         break;
     case 3:
+        
         ret = get_kcm_reply(&localUuid, account, password, &keyid, NULL);
         if (ret != TEE_SUCCESS) {
             tloge("delete key failed");
@@ -257,7 +282,8 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
             TEE_Free(keyiddelete);
         return ret;
         }
-        ret = delete_key(&localUuid, account, password, keyiddelete);
+        char2uuid(&keyid, keyiddelete);
+        ret = delete_key(&localUuid, account, password, &keyid);
         if (ret != TEE_SUCCESS) {
             tloge("delete key failed");
             return ret;
@@ -268,7 +294,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     return TEE_SUCCESS;
 }
 
-TEE_Result ta_exit(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
+TEE_Result ta_exit() {
     TEE_Result ret;
     TEE_ObjectHandle keyid_data = NULL;
 
@@ -334,7 +360,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
         }
         break;
     case CMD_TA_EXIT:
-        ret = ta_exit(param_type, params);
+        ret = ta_exit();
         if(ret != TEE_SUCCESS) {
             tloge("execute call back operation failed0x%x", ret);
             return ret;

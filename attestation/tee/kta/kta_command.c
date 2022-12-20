@@ -76,49 +76,10 @@ TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         return ret;
     }
 
-    ret = restoreKeyandCert("sec_storage_data/ktacert.txt",params[3].memref.buffer, &params[3].memref.size);
+    ret = restoreKeyandCert("sec_storage_data/ktacert.txt", params[3].memref.buffer, &params[3].memref.size);
     if (ret != TEE_SUCCESS){
         tloge("restore kta cert failed\n");
         return ret;
     }
     return TEE_SUCCESS;
-}
-
-TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: send request to ka when ka polls, and answer ta trusted state which ka asks
-}
-
-TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: Get Response from ka when kta had sent request to kcm before,and put the result into replycache
-}
-
-
-// Communication with ta
-
-TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: init ta cache;
-};
-
-//the following operation must start with ta authenticating
-
-TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: search a certain ta key, if not exist, call generaterKcmRequest to add a request
-
-    //input: TA_uuid, keyid, cache
-    //output: cache, keyvalue
-}
-
-TEE_Result DestoryKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: delete a certain key by calling DeleteTAKey()
-    DeleteTAKey(param_type, params);
-    //then generate a delete key request in TaCache
-    generaterKcmRequest();
-}
-
-TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: get reply result from replyqueque
-}
-
-TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    //todo: clear all ta cache
 }
