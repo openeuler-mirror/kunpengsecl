@@ -55,7 +55,7 @@ func KaMain(addr string, id int64) {
 		return
 	}
 	// 轮询密钥请求过程
-	kaLoop(ras, getPollDuration())
+	kaLoop(ras, id, getPollDuration())
 	logger.L.Debug("ka closed...")
 }
 func kaInitialize(ras *clientapi.RasConn, id int64) error {
@@ -132,14 +132,14 @@ func removeKeyFile() {
 }
 
 // 轮询函数
-func kaLoop(ras *clientapi.RasConn, askDuration time.Duration) {
+func kaLoop(ras *clientapi.RasConn, id int64, pollDuration time.Duration) {
 	logger.L.Debug("start ka loop...")
 	for {
 		nextCmd, cmdnum, err := getKTACmd()
 		if err != nil {
 			logger.L.Sugar().Errorf("get kta command error, %s", err)
 			break
-			// time.Sleep(askDuration)
+			// time.Sleep(pollDuration)
 			// continue
 		}
 		if cmdnum == 0 {
@@ -147,6 +147,7 @@ func kaLoop(ras *clientapi.RasConn, askDuration time.Duration) {
 			continue
 		}
 		req := clientapi.KeyOperationRequest{
+			ClientId:   id,
 			EncMessage: nextCmd,
 		}
 		// 向clientapi返回
@@ -157,14 +158,14 @@ func kaLoop(ras *clientapi.RasConn, askDuration time.Duration) {
 		}
 		err1 := sendRpyToKTA(rpy.EncRetMessage)
 		if err1 != nil {
-			logger.L.Sugar().Errorf("send rpy to kta error, %s", err)
+			logger.L.Sugar().Errorf("send rpy to kta error, %s", err1)
 			break
 		}
 		if cmdnum == 1 {
 			time.Sleep(3 * time.Second)
 			continue
 		}
-		time.Sleep(askDuration)
+		time.Sleep(pollDuration)
 	}
 	terminateKTA()
 }
