@@ -65,8 +65,6 @@ TEE_Result TA_CreateEntryPoint(void)
 
 TEE_Result TA_OpenSessionEntryPoint(uint32_t param_type,
     TEE_Param params[PARAM_COUNT], void** session_context) {
-    
-    TEE_Result ret;
 
     (void)param_type;
     (void)params;

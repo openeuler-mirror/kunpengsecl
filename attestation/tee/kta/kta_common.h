@@ -31,9 +31,6 @@ Description: initialize module in kta.
 #define END_NULL            -1
 #define RSA_PUB_SIZE        256
 
-static const char *signed_pubkey_path = ""; //to be set
-static const char *kcm_encodekey_path = ""; //to be set
-static const char *kms_pubkey_path = ""; //to be set
 
 typedef struct _tagKeyInfo{
     TEE_UUID    id;
@@ -93,23 +90,6 @@ typedef struct _tagReplyQueue{
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first reply for key generate.
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last reply for key generate.
 } ReplyCache;
-/*
-typedef struct _tagRequest{
-    /*
-    when using as Intermediate Request:
-    Symmetric key plaintext and CmdData (json) plaintext
-    ====================================================
-    when using as final request:
-    json:  key:*****;cmdData:*****； 
-    key has been encrypted by the kcm-pub
-    cmddata has been encrypted by the key
-    
-    uint8_t key[KEY_SIZE]; 
-    uint32_t key_size;
-    uint8_t cmddata[MAX_DATA_LEN];
-    uint32_t data_size;
-} CmdRequest;
-*/
 
 typedef struct {
     uint8_t modulus[RSA_PUB_SIZE];
@@ -132,7 +112,7 @@ TEE_Result initStructure();
 
 //for reset key and cert
 
-TEE_Result reset_all();
+TEE_Result Reset_All();
 
 TEE_Result reset(char *name);
 
@@ -141,10 +121,8 @@ TEE_Result reset(char *name);
 
 
 //for ta-auth
-bool verifyTApasswd(TEE_UUID TA_uuid, char *account, char *password);
+bool verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password);
 
 bool CheckUUID(TEE_UUID id1,TEE_UUID id2);
-
-void attestTA(TEE_UUID TA_uuid);
 
 #endif /* __KTA_H__ */
