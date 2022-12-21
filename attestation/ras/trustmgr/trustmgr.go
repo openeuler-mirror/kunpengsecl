@@ -177,6 +177,7 @@ func CreateTrustManager(dbType, dbConfig string) {
 		tmgr = nil
 		return
 	}
+	defer rows.Close()
 	for rows.Next() {
 		err = rows.Scan(&id, &regtime, &ik)
 		if err == nil {
@@ -311,6 +312,7 @@ func GetAllNodes(f, t int64) (map[int64]*typdefs.NodeInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		err = rows.Scan(&id, &regitime)
 		if err == nil {
@@ -451,6 +453,7 @@ func FindClientsByInfo(info string) ([]typdefs.ClientRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	cs := make([]typdefs.ClientRow, 0, 10)
 	for rows.Next() {
 		c := typdefs.ClientRow{}
@@ -483,6 +486,7 @@ func FindReportsByClientID(id int64) ([]typdefs.ReportRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	reports := make([]typdefs.ReportRow, 0, 100)
 	for rows.Next() {
 		res := typdefs.ReportRow{}
@@ -532,6 +536,7 @@ func FindBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	basevalues := make([]*typdefs.BaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
@@ -554,6 +559,7 @@ func FindHostBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	basevalues := make([]*typdefs.BaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
@@ -576,6 +582,7 @@ func FindContainerBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	basevalues := make([]*typdefs.BaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
@@ -598,6 +605,7 @@ func FindDeviceBaseValuesByClientID(id int64) ([]*typdefs.BaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	basevalues := make([]*typdefs.BaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.BaseRow{}
@@ -664,6 +672,7 @@ func FindTaReportsByUuid(cid int64, taid string) ([]typdefs.TaReportRow, error) 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	tareports := make([]typdefs.TaReportRow, 0, 100)
 	for rows.Next() {
 		res := typdefs.TaReportRow{}
@@ -714,6 +723,7 @@ func FindTaBaseValuesByCid(cid int64) ([]*typdefs.TaBaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	tabasevalues := make([]*typdefs.TaBaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.TaBaseRow{}
@@ -738,6 +748,7 @@ func FindTaBaseValuesByUuid(cid int64, taid string) ([]*typdefs.TaBaseRow, error
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	tabasevalues := make([]*typdefs.TaBaseRow, 0, defaultBaseRows)
 	for rows.Next() {
 		res := typdefs.TaBaseRow{}
@@ -1201,6 +1212,7 @@ func isFirstReport(clientId int64) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	defer rows.Close()
 	// because isFirstReport is judged after saving report, len(rows) == 1
 	if !rows.Next() {
 		return true, nil
