@@ -186,6 +186,8 @@ const (
 	constSaveKTACertFailed = "save KTA Cert failed %v"
 	constsavekeyinfofailed = "save key information fail %v"
 	constgetcachefailed    = "get cache by deviceId failed :%v"
+	fileMod				   = 0755
+	keyMod				   = 0600
 )
 
 var (
@@ -826,9 +828,6 @@ func TestClientapiInitKTA(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// generate public key and priate key of KCM
-	privKey, kcmPublicKey = GenRsaKey()
-
 	err = kcmstools.SaveCert([]byte(kcmCert), certPath, kcmFileName)
 	if err != nil {
 		t.Errorf("save KCM Cert failed, error, %v", err)
@@ -896,7 +895,9 @@ func TestClientapiKeyOp(t *testing.T) {
 	defer cancel()
 
 	// generate public key and priate key of KCM
-	privKey, kcmPublicKey = GenRsaKey()
+	privKey, kcmPublicKey := GenRsaKey()
+	err = os.Mkdir(certPath, fileMod)
+	err = ioutil.WriteFile(certPath+kcmKeyName, []byte(privKey), keyMod)
 
 	// test empty taId
 	_, err = ras.c.KeyOperation(ctx, &KeyOperationRequest{})
@@ -1102,9 +1103,6 @@ func TestDoClientapiInitKTA(t *testing.T) {
 	go StartServer(server)
 	defer StopServer()
 
-	// generate public key and priate key of KCM
-	privKey, kcmPublicKey = GenRsaKey()
-
 	// test SendKCMPubKeyCert
 	err := kcmstools.SaveCert([]byte(kcmCert), certPath, kcmFileName)
 	if err != nil {
@@ -1164,7 +1162,9 @@ func TestDoClientapiKeyOp(t *testing.T) {
 	c.SetTaTrusted(ktaId, cache.StrTrusted)
 
 	// generate public key and priate key of KCM
-	privKey, kcmPublicKey = GenRsaKey()
+	privKey, kcmPublicKey := GenRsaKey()
+	err = os.Mkdir(certPath, fileMod)
+	err = ioutil.WriteFile(certPath+kcmKeyName, []byte(privKey), keyMod)
 
 	// test empty taId
 	_, err = DoKeyOperation(server, &KeyOperationRequest{})
@@ -1391,9 +1391,6 @@ func TestClientapiWithConnInitKTA(t *testing.T) {
 	}
 	defer ReleaseConn(ras)
 
-	// generate public key and priate key of KCM
-	privKey, kcmPublicKey = GenRsaKey()
-
 	// test SendKCMPubKeyCert
 	err = kcmstools.SaveCert([]byte(kcmCert), certPath, kcmFileName)
 	if err != nil {
@@ -1459,7 +1456,10 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 	defer ReleaseConn(ras)
 
 	// generate public key and priate key of KCM
-	privKey, kcmPublicKey = GenRsaKey()
+	privKey, kcmPublicKey := GenRsaKey()
+	err = os.Mkdir(certPath, fileMod)
+	err = ioutil.WriteFile(certPath+kcmKeyName, []byte(privKey), keyMod)
+
 	// test empty taId
 	_, err = DoKeyOperationWithConn(ras, &KeyOperationRequest{})
 	if err != nil {

@@ -1018,12 +1018,14 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 **删除密钥场景接口**
 
 ```go
-func DeleteKey(taid []byte, keyid []byte) error;
+func DeleteKey(taid []byte, keyid []byte) ([]byte, []byte, error);
 ```
 接口描述：请求KCM Service依据密钥ID删除相应的密钥  
 参数1：TA的身份ID的[]byte值。  
-参数2：TA需要删除的密钥ID的[]byte值。  
-返回值：错误输出。
+参数2：TA需要删除的密钥ID的[]byte值。   
+返回值1：会话密钥的[]byte值。 
+返回值2：KTA公钥加密过的会话密钥密文。  
+返回值3：错误输出。
 
 **数据库操作场景接口**
 
