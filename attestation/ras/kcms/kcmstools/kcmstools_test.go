@@ -665,8 +665,22 @@ func TestDeleteKey(t *testing.T) {
 		t.Logf(constsavekeyinfofailed, err)
 	}
 
+	kdb.CreateKdbManager(constDB, constDNS)
+	defer kdb.ReleaseKdbManager()
+	err = SaveCert(ktacert, certpath, ktafilename)
+	if err != nil {
+		t.Errorf(constsavektacertfailed, err)
+	}
+	defer os.RemoveAll(certpath)
+	base64_pubKey := base64.StdEncoding.EncodeToString(ktacert)
+	_, err = kdb.SavePubKeyInfo(deviceId, base64_pubKey)
+	if err != nil {
+		t.Errorf("save public key in database failed, error: %v", err)
+	}
+	defer kdb.DeletePubKeyInfo(deviceId)
+
 	//_, _, err = DeleteKey(taid, keyid)
-	err = DeleteKey(taid, keyid, ktaid, deviceId)
+	_, _, err = DeleteKey(taid, keyid, ktaid, deviceId)
 	if err == nil {
 		t.Logf("delete key information success")
 	} else {

@@ -199,11 +199,11 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 	return taid, K, enc_k, plaintext, keyid, nil
 }
 
-func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) error {
+func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte, []byte, error) {
 	// TODO: get the trusted status of TA (from cache)
 	err := GetKTATrusted(deviceId, ktaid)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	str_taid := string(taid)
@@ -212,10 +212,45 @@ func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) error {
 	// delete the specific key in database
 	err = kdb.DeleteKeyInfo(str_taid, str_keyid)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	return nil
+	// generate a session key K
+	// (symmetric, and can only be decryped by KTA)
+	K := make([]byte, 32)
+	if _, err = io.ReadFull(rand.Reader, K); err != nil {
+		return nil, nil, err
+	}
+	fmt.Printf("K: %v \n", K)
+
+	// use K to encrypt plaintext
+	//enc_plaintext, err := EncryptWithAES256GCM(plaintext, K)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// use kta public key to encrypt K
+	// (can only be decryped by KTA))
+	pubkey, err := kdb.FindPubKeyInfo(deviceId)
+	if err != nil {
+		return nil, nil, err
+	}
+	KtaPublickeyCert, err := base64.StdEncoding.DecodeString(pubkey.PubKeyCert)
+	if err != nil {
+		return nil, nil, err
+	}
+	pubkeycert, _, err := cryptotools.DecodeKeyCertFromPEM(KtaPublickeyCert)
+	if err != nil {
+		return nil, nil, err
+	}
+	label := []byte("label")
+	enc_k, err := cryptotools.AsymmetricEncrypt(0x0001, 0x0000, pubkeycert.PublicKey, K, label)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return K, enc_k, nil
+
 }
 
 func KmsGenerateKey(account, passwd, hostkeyid []byte) ([]byte, []byte, []byte, error) {

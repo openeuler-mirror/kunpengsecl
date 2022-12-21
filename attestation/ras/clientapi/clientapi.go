@@ -80,11 +80,12 @@ var (
 	kcmFileName  = "kcm.crt"
 	ktaFileName  = "kta.crt"
 	rootFileName = "ca.crt"
+	kcmKeyName 	 = "kcm.key"
 )
 
 // var Nonce []byte
-var privKey []byte
-var kcmPublicKey []byte
+//var privKey []byte
+//var kcmPublicKey []byte
 
 type rasService struct {
 	UnimplementedRasServer
@@ -394,7 +395,12 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	var encSessionKey []byte
 	var retMessage retKeyInfo
 
-	message, err := DecryptKeyOpIncome(encCmdData)
+	// TODO: get kcm private key(kcm private key is a global variable now)
+	privKey, err := kcmstools.ReadCert(certPath+kcmKeyName)
+	if privKey == nil {
+		logger.L.Sugar().Errorf("private key is nil, %v", err)
+	}
+	message, err = DecryptKeyOpIncome(encCmdData, privKey)
 
 	switch message.Command {
 	case 0x80000001:
@@ -447,7 +453,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		err = kcmstools.DeleteKey(message.TAId, message.KeyId, message.KTAId, deviceId)
+		key, encKey, err := kcmstools.DeleteKey(message.TAId, message.KeyId, message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Delete key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -457,9 +463,11 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			KeyId:     message.KeyId,
 			HostKeyId: message.HostKeyId,
 		}
-		sessionKey = make([]byte, 32)
-		ktaPublicKey := kcmPublicKey // use kcms' public key as a temporary pulic key
-		encSessionKey = RsaEncrypt(sessionKey, ktaPublicKey)
+		//sessionKey = make([]byte, 32)
+		//ktaPublicKey := kcmPublicKey // use kcms' public key as a temporary pulic key
+		//encSessionKey = RsaEncrypt(sessionKey, ktaPublicKey)
+		sessionKey = key
+		encSessionKey = encKey
 	default:
 		logger.L.Sugar().Errorf("resolve command of TA %s failed", message.TAId)
 		return &KeyOperationReply{Result: false}, err
@@ -926,7 +934,7 @@ func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, encSessionKey []byte
 	return finalRetMessage, nil
 }
 
-func DecryptKeyOpIncome(encCmdData []byte) (inKeyInfo, error) {
+func DecryptKeyOpIncome(encCmdData, privKey []byte) (inKeyInfo, error) {
 	var cmdData tagCmdData
 	var message inKeyInfo
 	err := json.Unmarshal(encCmdData, &cmdData)
@@ -934,8 +942,6 @@ func DecryptKeyOpIncome(encCmdData []byte) (inKeyInfo, error) {
 		logger.L.Sugar().Errorf("Decode outside json of TA error, %v", err)
 		return message, err
 	}
-
-	// TODO: get kcm private key(kcm private key is a global variable now)
 
 	// TODO: use kcm private key to decode key
 	decKey := RsaDecrypt(cmdData.Key, privKey)
