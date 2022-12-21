@@ -28,11 +28,11 @@ enum {
     CMD_RESPOND_REQUEST     = 0x00000003,
     CMD_RESET_ALL           = 0x00000004,
     CMD_KILL                = 0x00000005,
-    CMD_KEY_GENETARE        = 0x80000001,
-    CMD_KEY_SEARCH          = 0x80000002,
-    CMD_KEY_DELETE          = 0x80000003,
-    CMD_KCM_REPLY           = 0x80000004,
-    CMD_CLEAR_CACHE         = 0x80000005
+    CMD_KEY_GENETARE        = 0x00008001,
+    CMD_KEY_SEARCH          = 0x00008002,
+    CMD_KEY_DELETE          = 0x00008003,
+    CMD_KCM_REPLY           = 0x00008004,
+    CMD_CLEAR_CACHE         = 0x00008005
 };
 
 Cache cache;
@@ -45,7 +45,7 @@ TEE_Result TA_CreateEntryPoint(void)
 
     tlogd("----- TA entry point ----- ");
 
-    ret = addcaller_ca_exec("", "");  //需要确定ca的路径
+    ret = addcaller_ca_exec("/usr/bin/raagent", "root");
     if (ret == TEE_SUCCESS) 
         tlogd("TA entry point: add ca whitelist success");
     else {
@@ -78,6 +78,7 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_type,
 TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
     uint32_t param_type, TEE_Param params[PARAM_COUNT])
 {
+    tlogd("dddsd");
     TEE_Result ret;
     caller_info caller_info ;
 
@@ -133,7 +134,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
             return ret;
             break;
         case CMD_KEY_DELETE:
-            ret = DestoryTAKey(param_type, params);
+            ret = DeleteTAKey(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("destory ta key failed\n");
             return ret;

@@ -2,7 +2,7 @@ kaconfig:
   ccfile: ./cert/ca.crt
   kcfile: ./cert/kta.crt
   kkeyfile: ./cert/kta.key
-  ktapath: /root/data/bbb2d138-ee21-43af-8796-40c20d7b45fa.sec
+  ktapath: /root/data/435dcafa-0029-4d53-97e8-a7a13a80c82e.sec
   pollduration: 1s
 log:
   path: ./rac-log.txt

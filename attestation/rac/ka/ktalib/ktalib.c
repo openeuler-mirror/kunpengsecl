@@ -95,10 +95,8 @@ TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey_N, struct buffer_data* k
 // 从KTA拿取密钥请求
 TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum){
     TEEC_Operation operation = {0};
-    TEEC_Value cmdnum = {0};
     uint32_t origin = 0;
     TEEC_Result ret;
-    cmdnum.a = INITIAL_CMD_NUM;
     operation.started = OPERATION_START_FLAG;
     operation.paramTypes = TEEC_PARAM_TYPES(
         TEEC_MEMREF_TEMP_OUTPUT, //存放请求
@@ -108,13 +106,14 @@ TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum){
     );
     operation.params[PARAMETER_FRIST].tmpref.buffer = out_data->buf;
     operation.params[PARAMETER_FRIST].tmpref.size = out_data->size;
-    operation.params[PARAMETER_SECOND].value = cmdnum;
+    operation.params[PARAMETER_SECOND].value.a = INITIAL_CMD_NUM;
+    operation.params[PARAMETER_SECOND].value.b = INITIAL_CMD_NUM;
     ret = TEEC_InvokeCommand(&session, CMD_GET_REQUEST, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
         return ret;
     }
-    *retnum = cmdnum.a;
-    out_data->size = cmdnum.b;
+    *retnum = operation.params[PARAMETER_SECOND].value.a;
+    out_data->size = operation.params[PARAMETER_SECOND].value.b;
     return TEEC_SUCCESS;
 }
 
