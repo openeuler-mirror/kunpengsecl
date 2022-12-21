@@ -181,7 +181,7 @@ SfhfyVCvWvyb+/z5CQ66t/Na8xMFLVa5Rs7srrVme+MWcicB4dXTxUNmX7GcTbxp
 )
 
 const (
-	command                = 0x80000003
+	command                = 0x00008003
 	constDNS               = "user=postgres password=postgres dbname=kunpengsecl host=localhost port=5432 sslmode=disable"
 	constSaveKTACertFailed = "save KTA Cert failed %v"
 	constsavekeyinfofailed = "save key information fail %v"
