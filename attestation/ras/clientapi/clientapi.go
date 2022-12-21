@@ -370,6 +370,10 @@ func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKe
 
 	ktaPem := in.GetKtaPubKeyCert()
 
+	dbConfig := GetdbConfig(strDbConfig)
+	kdb.CreateKdbManager(constDB, dbConfig)
+	defer kdb.ReleaseKdbManager()
+
 	logger.L.Sugar().Debugf("Going to verify cert of KTA %x", deviceId)
 	err := kcmstools.VerifyKTAPubKeyCert(deviceId, ktaPem)
 	if err != nil {
@@ -378,7 +382,7 @@ func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKe
 	} else {
 		logger.L.Sugar().Debugf("Have already verified cert of KTA %x", deviceId)
 	}
-
+	//defer kdb.DeletePubKeyInfo(deviceId)
 	return &VerifyKTAPubKeyCertReply{Result: true}, nil
 }
 

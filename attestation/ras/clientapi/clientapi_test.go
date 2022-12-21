@@ -844,9 +844,9 @@ func TestClientapiInitKTA(t *testing.T) {
 		t.Errorf("test VerifyKTAPubKeyCert with empty deviceId failed %v", err)
 	}
 
-	dbConfig := GetdbConfig(strDbConfig)
+	/*dbConfig := GetdbConfig(strDbConfig)
 	kdb.CreateKdbManager(constDB, dbConfig)
-	defer kdb.ReleaseKdbManager()
+	defer kdb.ReleaseKdbManager()*/
 
 	err = kcmstools.SaveCert(ktacert, certPath, ktaFileName)
 	if err != nil {
@@ -1119,9 +1119,9 @@ func TestDoClientapiInitKTA(t *testing.T) {
 		t.Errorf("test DoVerifyKTAPubKeyCert with empty deviceId failed %v", err)
 	}
 
-	dbConfig := GetdbConfig(strDbConfig)
+	/*dbConfig := GetdbConfig(strDbConfig)
 	kdb.CreateKdbManager(constDB, dbConfig)
-	defer kdb.ReleaseKdbManager()
+	defer kdb.ReleaseKdbManager()*/
 
 	err = kcmstools.SaveCert(ktacert, certPath, ktaFileName)
 	if err != nil {
@@ -1407,9 +1407,9 @@ func TestClientapiWithConnInitKTA(t *testing.T) {
 		t.Errorf("test DoVerifyKTAPubKeyCertWithConn with empty deviceId failed %v", err)
 	}
 
-	dbConfig := GetdbConfig(strDbConfig)
+	/*dbConfig := GetdbConfig(strDbConfig)
 	kdb.CreateKdbManager(constDB, dbConfig)
-	defer kdb.ReleaseKdbManager()
+	defer kdb.ReleaseKdbManager()*/
 
 	err = kcmstools.SaveCert(ktacert, certPath, ktaFileName)
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
@@ -25,6 +26,12 @@ import (
 	"github.com/gemalto/kmip-go/kmip14"
 	"github.com/gemalto/kmip-go/ttlv"
 	uuid "github.com/satori/go.uuid"
+)
+
+var (
+	certPath     = "../cert/"
+	ktaCertName  = "kta.crt"
+	rootCertName = "ca.crt"
 )
 
 const (
@@ -60,13 +67,14 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 	}
 
 	// temporarily save ktaPubKeyCert in cert folder
-	err = SaveCert([]byte(ktaPubKeyCert), "../cert/", "kta.crt")
+	deviceStr := strconv.FormatInt(deviceId, 10)
+	err = SaveCert([]byte(ktaPubKeyCert), certPath, deviceStr+ktaCertName)
 	if err != nil {
 		return err
 	}
 
 	// verify KTA cert
-	_, err = VerifyPubCert("../cert/ca.crt", "../cert/kta.crt")
+	_, err = VerifyPubCert(certPath+rootCertName, certPath+deviceStr+ktaCertName)
 	if err != nil {
 		return err
 	}
