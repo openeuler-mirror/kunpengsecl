@@ -983,16 +983,18 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error;
 **生成新密钥场景接口**
 
 ```go
-func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []byte) ([]byte, []byte, []byte, []byte, []byte, error);
+func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error);
 ```
 接口描述：请求KCM Service让KMS依据主密钥ID生成新的密钥，并生成密钥ID，将密钥密文和密钥ID保存下来，返回密钥明文和密钥ID，并对返回值进行加密保护。  
 参数1：TA的身份ID的[]byte值。  
 参数2：TA登录KMS的账号的[]byte值。  
 参数3：TA登录KMS的密码的[]byte值。  
 参数4：TA请求生成新密钥需要依据的主密钥的ID的[]byte值。  
+参数5：KTA的身份ID的string值。  
+参数6：KA的设备ID的int64值。 
 返回值1：TA的身份ID的[]byte值。  
 返回值2：会话密钥的[]byte值。  
-返回值3：KTA公钥加密过的会话密钥密文。  
+返回值3：KTA公钥加密过的会话密钥密文的[]byte值。  
 返回值4：KMS生成的密钥明文。  
 返回值5：密钥ID的[]byte值。  
 返回值6：错误输出。  
@@ -1000,7 +1002,7 @@ func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []by
 **获取旧密钥场景接口**
 
 ```go
-func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyid []byte) ([]byte, []byte, []byte, []byte, []byte, error);
+func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error);
 ```
 接口描述：请求KCM Service依据密钥ID查询到相应的密钥密文，然后请求KMS依据主密钥ID解密旧的密钥，并返回密钥明文和密钥ID，其中需要对返回值进行加密保护。  
 参数1：TA的身份ID的[]byte值。  
@@ -1008,9 +1010,11 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 参数3：TA登录KMS的密码的[]byte值。  
 参数4：TA请求获取的密钥ID的[]byte值。  
 参数5：TA请求生成新密钥需要依据的主密钥的ID的[]byte值。  
+参数6：KTA的身份ID的string值。  
+参数7：KA的设备ID的int64值。  
 返回值1：TA的身份ID的[]byte值。  
 返回值2：会话密钥的[]byte值。  
-返回值3：KTA公钥加密过的会话密钥密文。  
+返回值3：KTA公钥加密过的会话密钥密文的[]byte值。  
 返回值4：密钥明文。  
 返回值5：密钥ID的[]byte值。  
 返回值6：错误输出。  
@@ -1018,12 +1022,14 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 **删除密钥场景接口**
 
 ```go
-func DeleteKey(taid []byte, keyid []byte) ([]byte, []byte, error);
+func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte, []byte, error) ;
 ```
 接口描述：请求KCM Service依据密钥ID删除相应的密钥  
 参数1：TA的身份ID的[]byte值。  
 参数2：TA需要删除的密钥ID的[]byte值。   
-返回值1：会话密钥的[]byte值。 
+参数3：KTA的身份ID的string值。   
+参数4：KA的设备ID的int64值。   
+返回值1：会话密钥的[]byte值。   
 返回值2：KTA公钥加密过的会话密钥密文。  
 返回值3：错误输出。
 
