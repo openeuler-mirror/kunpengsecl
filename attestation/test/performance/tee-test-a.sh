@@ -96,7 +96,8 @@ EOF
 
 # judgment string
 QCACONNECT="Get TA report succeeded"
-TASCONNECT="Get new cert signed by as succeeded."
+TASCONNECT="Get new cert signed by as succeeded"
+VERIFYRES="tee verify succeeded"
 
 echo "start akservice..." | tee -a ${DST}/control.txt
 ( cd ${DST}/tas ; ./akserver -T &> ${DST}/tas/echo.txt ; ./akserver &>> ${DST}/tas/echo.txt ; )&
@@ -127,7 +128,7 @@ echo "wait for all qca get ak cert..." | tee -a ${DST}/control.txt
 for (( i=1; i<=${NUM3}; i++ ))
 do
     if [ `grep -c "${TASCONNECT}" ${DST}/qca-${i}/echo.txt` -eq '0' ] ; then
-        echo "test failed!" | tee -a ${DST}/control.txt ;
+        echo "test failed!" | tee -a ${DST}/control.txt
         exit 0
     fi
 done
@@ -163,10 +164,29 @@ echo "wait for all attester get report..." | tee -a ${DST}/control.txt
 for (( i=1; i<=${NUM2}; i++ ))
 do
     if [ `grep -c "${QCACONNECT}" ${DST}/attester-${i}/echo.txt` -eq '0' ] ; then
-        echo "test failed!" | tee -a ${DST}/control.txt ;
+        echo "test failed!" | tee -a ${DST}/control.txt
         exit 0
     fi
 done
 
-echo "test succeeded!" | tee -a ${DST}/control.txt ;
+echo "start qcaserver and generate AK/AKCert..." | tee -a ${DST}/control.txt
+( cd ${DST}/qca ; ./qcaserver &> ${DST}/qca/echo.txt ; )&
+
+echo "start attester..." | tee -a ${DST}/control.txt
+(cd ${DST}/attester ; ${DST}/attester/attester -T &> ${DST}/attester/echo.txt ; )&
+
+sleep 1
+
+echo "kill all processes" | tee -a ${DST}/control.txt
+pkill -u ${USER} qcaserver
+pkill -u ${USER} attester
+
+echo "wait for attester get verify result..." | tee -a ${DST}/control.txt
+
+if [ `grep -c "${VERIFYRES}" ${DST}/attester/echo.txt` -eq '0' ] ; then
+    echo "test failed!" | tee -a ${DST}/control.txt
+    exit 0
+fi
+
+echo "test succeeded!" | tee -a ${DST}/control.txt
 exit 1
