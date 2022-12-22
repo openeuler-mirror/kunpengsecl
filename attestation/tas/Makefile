@@ -1,8 +1,9 @@
 PKGPATH=pkg
 TASTEST=./akissuer ./clientapi ./config
 
+all: build
+
 build:
-	go build -mod=vendor -o $(PKGPATH)/akserver cmd/*.go
 	go build -mod=vendor -o $(PKGPATH)/akissuer akissuer/*.go
 	go build -mod=vendor -o $(PKGPATH)/clientapi clientapi/*.go
 	go build -mod=vendor -o $(PKGPATH)/config config/*.go
