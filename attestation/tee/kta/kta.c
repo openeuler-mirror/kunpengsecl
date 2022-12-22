@@ -28,11 +28,11 @@ enum {
     CMD_RESPOND_REQUEST     = 0x00000003,
     CMD_RESET_ALL           = 0x00000004,
     CMD_KILL                = 0x00000005,
-    CMD_KEY_GENETARE        = 0x00008001,
-    CMD_KEY_SEARCH          = 0x00008002,
-    CMD_KEY_DELETE          = 0x00008003,
-    CMD_KCM_REPLY           = 0x00008004,
-    CMD_CLEAR_CACHE         = 0x00008005
+    CMD_KEY_GENETARE        = 0x70000001,
+    CMD_KEY_SEARCH          = 0x70000002,
+    CMD_KEY_DELETE          = 0x70000003,
+    CMD_KCM_REPLY           = 0x70000004,
+    CMD_CLEAR_CACHE         = 0x70000005
 };
 
 Cache cache;

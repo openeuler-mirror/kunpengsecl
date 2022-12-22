@@ -97,7 +97,7 @@ TEE_Result encryptCmd(uint8_t *jsoncmd, uint32_t jsoncmd_size, TEE_ObjectHandle 
     return TEE_SUCCESS;
 }
 
-TEE_Result encryptKey(TEE_ObjectHandle key_obj, uint8_t encrypted_key[RSA_KEY_SIZE]){
+TEE_Result encryptKey(uint8_t key_obj[61], uint8_t encrypted_key[RSA_KEY_SIZE]){
     TEE_Result ret;
     TEE_ObjectHandle rsa_key_obj = NULL;
     uint8_t modulus[RSA_KEY_SIZE] = {0};
@@ -119,21 +119,24 @@ TEE_Result encryptKey(TEE_ObjectHandle key_obj, uint8_t encrypted_key[RSA_KEY_SI
     TEE_InitRefAttribute(&attrs[0], TEE_ATTR_RSA_MODULUS, modulus, rsa_size);
     TEE_InitRefAttribute(&attrs[1], TEE_ATTR_RSA_PUBLIC_EXPONENT, &exponent[0], 3);
     ret = TEE_PopulateTransientObject(rsa_key_obj, attrs, sizeof(attrs)/sizeof(TEE_Attribute));
-    
+
     TEE_OperationHandle oper_key_enc = NULL;
 
-    ret = TEE_AllocateOperation(&oper_key_enc, TEE_ALG_RSAES_PKCS1_V1_5, TEE_MODE_ENCRYPT, RSA_KEY_SIZE);
+    ret = TEE_AllocateOperation(&oper_key_enc, TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256, TEE_MODE_ENCRYPT, RSA_KEY_SIZE);
     if (ret != TEE_SUCCESS) {
         tloge("fail to allocate rsa encrypt operation, ret 0x%x\n", ret);
         return ret;
     }
+
+    TEE_Attribute attrs2[1];
+    TEE_InitValueAttribute(&attrs2[0], TEE_ATTR_RSA_MGF1_HASH, TEE_DH_HASH_SHA256_mode, 0);
     ret = TEE_SetOperationKey(oper_key_enc, rsa_key_obj);
     if (ret != TEE_SUCCESS) {
         tloge("fail to set rsa encrypt key, ret 0x%x\n", ret);
         TEE_FreeOperation(oper_key_enc);
         return ret;
     }
-    ret = TEE_AsymmetricEncrypt(oper_key_enc, NULL, 0, key_obj->Attribute->content.ref.buffer, AES_KEY_SIZE, encrypted_key, &enc_key_len);
+    ret = TEE_AsymmetricEncrypt(oper_key_enc, attrs2, 1, key_obj, AES_KEY_SIZE, encrypted_key, &enc_key_len);
     if (ret != TEE_SUCCESS)
         tloge("Fail to do rsa encrypt, ret 0x%x\n", ret);
 
@@ -170,20 +173,22 @@ void cmdNode2cjson(CmdNode cmdnode, cJSON *cj) {
     uint8_t keyid[33] = {0};
     uint8_t masterkey[33] = {0};
     uint8_t ktauuid[33] = {0};
-    // translate cmd
-    cJSON_AddNumberToObject(cj, "cmd", cmdnode.cmd);
     // translate taid
     uuid2char(cmdnode.taId, taid);
-    cJSON_AddStringToObject(cj, "taid", (char*)taid);
+    cJSON_AddStringToObject(cj, "TAId", (char*)taid);
+    cJSON_AddStringToObject(cj, "Account", (char*)cmdnode.account);
+    cJSON_AddStringToObject(cj, "Password", (char*)cmdnode.password);
     // translate keyid
     uuid2char(cmdnode.keyId, keyid);
-    cJSON_AddStringToObject(cj, "keyid", (char*)keyid);
+    cJSON_AddStringToObject(cj, "KeyId", (char*)keyid);
     // translate masterkey
     uuid2char(cmdnode.masterkey, masterkey);
-    cJSON_AddStringToObject(cj, "masterkey", (char*)masterkey);
+    cJSON_AddStringToObject(cj, "HostKeyId", (char*)masterkey);
+    // translate cmd
+    cJSON_AddNumberToObject(cj, "Command", cmdnode.cmd);
     // translate kta uuid
     uuid2char(ktaUuid, ktauuid);
-    cJSON_AddStringToObject(cj, "ktauuid", (char*)ktauuid);
+    cJSON_AddStringToObject(cj, "KTAId", (char*)ktauuid);
     tlogv("54545\n");
 }
 
@@ -198,7 +203,7 @@ void str2hex(const uint8_t *source, int source_len, char *dest)
             dest[2 * i + 1] = (source[i] % 16) + 0x30;
         else
             dest[2 * i + 1] = (source[i] % 16) + 0x37;
-   }
+    }
 }
 
 TEE_Result generateFinalRequest(CmdNode cmdnode, char *finalrequest){
@@ -225,40 +230,43 @@ TEE_Result generateFinalRequest(CmdNode cmdnode, char *finalrequest){
     }
     cmdNode2cjson(cmdnode, cmdjsonnode);//cmdqueue.queue[cmdqueue.head]
     char *charRequest = cJSON_PrintUnformatted(cmdjsonnode);
-    ret = encryptCmd((uint8_t*)charRequest, strlen(charRequest), data_key, nonce_buff, tag_buff);
+    uint32_t Requestlen = strlen(charRequest);
+    char *hexrequest = TEE_Malloc((Requestlen*2+1)*sizeof(char), 0);
+    
+    ret = encryptCmd((uint8_t*)charRequest, Requestlen, data_key, nonce_buff, tag_buff);
     if (ret != TEE_SUCCESS) {
         tloge("encrypt cmd failed");
         return ret;
     }
-    char *hexrequest = TEE_Malloc(strlen(charRequest)*2+1, 0);
-    str2hex((uint8_t*)charRequest, strlen(charRequest), hexrequest);
-    ret = encryptKey(data_key, encrypted_key);
-    if (ret != TEE_SUCCESS) {
-        tloge("encrypt key failed");
-        return ret;
-    }
-    char *hexencryptedkey = TEE_Malloc(2*RSA_KEY_SIZE+1, 0);
-    str2hex(encrypted_key, RSA_KEY_SIZE, hexencryptedkey);
-    hexencryptedkey[2*RSA_KEY_SIZE] = '\0';
+    str2hex((uint8_t*)charRequest, Requestlen, hexrequest);
+    cJSON_free(charRequest);
+    cJSON_Delete(cmdjsonnode);
     char hexnonce[NONCE_SIZE*2+1] = {0};
     str2hex(nonce_buff, NONCE_SIZE, hexnonce);
     char hextag[TAG_SIZE*2+1] = {0};
     str2hex(tag_buff, TAG_SIZE, hextag);
+    uint8_t final_aeskey[AES_KEY_SIZE+NONCE_SIZE+TAG_SIZE+1] = {0};
+    memcpy_s(final_aeskey, AES_KEY_SIZE+NONCE_SIZE+TAG_SIZE+1, nonce_buff, NONCE_SIZE);
+    memcpy_s(final_aeskey+NONCE_SIZE, AES_KEY_SIZE+TAG_SIZE+1, data_key->Attribute->content.ref.buffer, AES_KEY_SIZE);
+    memcpy_s(final_aeskey+NONCE_SIZE+AES_KEY_SIZE, TAG_SIZE+1, tag_buff, TAG_SIZE);
+    ret = encryptKey(final_aeskey, encrypted_key);
+    if (ret != TEE_SUCCESS) {
+        tloge("encrypt key failed");
+        return ret;
+    }
+    char hexencryptedkey[2*RSA_KEY_SIZE+1] = {0};
+    str2hex(encrypted_key, RSA_KEY_SIZE, hexencryptedkey);
     // translate key
     cJSON_AddStringToObject(finalcmdjsonnode, "key", hexencryptedkey);
-    // translate key_size
-    cJSON_AddNumberToObject(finalcmdjsonnode, "key_size", 2*RSA_KEY_SIZE);
-    cJSON_AddStringToObject(finalcmdjsonnode, "nonce", hexnonce);
-    cJSON_AddStringToObject(finalcmdjsonnode, "tag", hextag);
     // translate cmddata
-    cJSON_AddStringToObject(finalcmdjsonnode, "cmddata", hexrequest);
-    // translate data_size
-    cJSON_AddNumberToObject(finalcmdjsonnode, "data_size", strlen(charRequest)*2);
-    memcpy_s(finalrequest, strlen(cJSON_PrintUnformatted(finalcmdjsonnode))+1,
-            cJSON_PrintUnformatted(finalcmdjsonnode), strlen(cJSON_PrintUnformatted(finalcmdjsonnode))+1);
+    cJSON_AddStringToObject(finalcmdjsonnode, "EncCmdData", hexrequest);
+    char *strfinalrequest = cJSON_PrintUnformatted(finalcmdjsonnode);
+    memcpy_s(finalrequest, MAX_FINAL_SIZE,
+            strfinalrequest, strlen(strfinalrequest)+1);
+    cJSON_free(strfinalrequest);
+    cJSON_Delete(finalcmdjsonnode);
     tlogd("generate final request success");
     TEE_Free(hexrequest);
-    TEE_Free(hexencryptedkey);
     return TEE_SUCCESS;
 }
 
@@ -297,11 +305,13 @@ TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return TEE_ERROR_OVERFLOW;
     }
     params[1].value.b = strlen(finalrequest);
-    errno_t err = memcpy_s(params[0].memref.buffer, strlen(finalrequest), &finalrequest, strlen(finalrequest));
+    errno_t err = memcpy_s(params[0].memref.buffer, params[0].memref.size, finalrequest, strlen(finalrequest));
     if(err != 0) {
         tloge("buffer is too short");
         return TEE_ERROR_SHORT_BUFFER;
     }
+    params[0].memref.size = params[1].value.b ;
+    tlogd("send request success");
     TEE_Free(finalrequest);
     return TEE_SUCCESS;
 }
