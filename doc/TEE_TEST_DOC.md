@@ -890,6 +890,73 @@ test succeeded!
 
 ### <a id="整合实现-1"></a>整合实现
 
+测试思路：
+1. 配置好raagent和ras的配置文件，ras使用缺省ras配置文件（mgrstrategy: auto），raagent使用缺省rac配置文件（clientID: -1）；
+2. 清空kunpengsecl所有数据库表；
+3. 分别启动ras和raagent（仅一个raagent，-t 测试模式启动）；
+4. 等待20s，向restapi发送请求获取当前TA完整性验证策略，记录restapi的响应；
+5. 向restapi发送请求修改TA完整性验证策略，记录restapi的响应；
+6. 等待120s，向restapi发送请求获取当前TA可信报告，记录restapi的响应；
+7. 终止ras和raagent进程；
+8. 检查前两次restapi的响应，确认第一次响应包含一个TA验证策略条目，条目中的策略值为3，第二次响应也包含一个TA验证策略条目，但条目中的策略值为1；
+9. 检查第三次restapi的响应，确认包含一个TA可信报告完整性验证信息条目，条目中的值为true；同时包含一个TA可信状态信息条目，条目中的可信状态为true。
+
+测试结果：
+==========
+start test tee-phase3 at: 2022年 12月 22日 星期四 16:02:42 CST
+prepare the test environments...
+start test preparation...
+~/goProject/src/gitee.com/openeuler/kunpengsecl ~/goProject/src/gitee.com/openeuler/kunpengsecl
+clean database
+DROP TABLE client;
+DROP TABLE
+DROP TABLE report;
+DROP TABLE
+DROP TABLE base;
+DROP TABLE
+DROP TABLE tareport;
+DROP TABLE
+DROP TABLE tabase;
+DROP TABLE
+DROP TABLE keyinfo;
+DROP TABLE
+DROP TABLE pubkeyinfo;
+DROP TABLE
+CREATE TABLE
+~/goProject/src/gitee.com/openeuler/kunpengsecl
+start ras...
+start 1 rac clients...
+start 1 rac clients at 2022年 12月 22日 星期四 16:02:43 CST...
+start to perform test ...
+wait for 20s
+get client id
+1
+modify ta verify type via restapi request
+step1: get current ta verify type via restapi request
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   362  100   362    0     0  77037      0 --:--:-- --:--:-- --:--:-- 90500
+{"hbduration":"10s","trustduration":"2m0s","isallupdate":false,"logtestmode":true,"digestalgorithm":"sha1","mgrstrategy":"auto","extractrules":"{\"PcrRule\":{\"PcrSelection\":[1,2,3,4]},\"ManifestRules\":[{\"MType\":\"bios\",\"Name\":[\"8-0\",\"80000008-1\"]},{\"MType\":\"ima\",\"Name\":[\"boot_aggregate\",\"/etc/modprobe.d/tuned.conf\"]}]}","taverifytype":3}
+step2: set new ta verify type via restapi request
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   381  100   362  100    19  28673   1504 --:--:-- --:--:-- --:--:-- 29307
+{"hbduration":"10s","trustduration":"2m0s","isallupdate":false,"logtestmode":true,"digestalgorithm":"sha1","mgrstrategy":"auto","extractrules":"{\"PcrRule\":{\"PcrSelection\":[1,2,3,4]},\"ManifestRules\":[{\"MType\":\"bios\",\"Name\":[\"8-0\",\"80000008-1\"]},{\"MType\":\"ima\",\"Name\":[\"boot_aggregate\",\"/etc/modprobe.d/tuned.conf\"]}]}","taverifytype":1}
+verify ta to get trust status via restapi request
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   381  100   362  100    19  75653   3970 --:--:-- --:--:-- --:--:-- 95250
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   130  100   130    0     0  21392      0 --:--:-- --:--:-- --:--:-- 26000
+[{"ID":1,"ClientID":1,"CreateTime":"2022-12-22T16:02:44.51073+08:00","Validated":true,"Trusted":true,"Uuid":"test","Value":null}]
+kill all test processes...
+test DONE!!!
+ClientID:1
+TAVerifyType1: 3  TAVerifyType2: 1
+Validated: true,  Status2: true,
+test succeeded!
+
 ### <a id="密钥缓存管理-1"></a>密钥缓存管理
 
 ## 性能测试
