@@ -407,7 +407,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	message, err = DecryptKeyOpIncome(encCmdData, privKey)
 
 	switch message.Command {
-	case 0x00008001:
+	case 0x70000001:
 		logger.L.Sugar().Debugf("going to call GenerateNewKey()")
 		go kmsServer.ExampleServer()
 		defer kmsServer.StopServer()
@@ -428,7 +428,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		}
 		sessionKey = key
 		encSessionKey = encKey
-	case 0x00008002:
+	case 0x70000002:
 		logger.L.Sugar().Debugf("going to call GetKey()")
 		go kmsServer.ExampleServer()
 		defer kmsServer.StopServer()
@@ -449,7 +449,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		}
 		sessionKey = key
 		encSessionKey = encKey
-	case 0x00008003:
+	case 0x70000003:
 		logger.L.Sugar().Debugf("going to call GetKey()")
 		go kmsServer.ExampleServer()
 		defer kmsServer.StopServer()

@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	CMD_DATA_SZIE = 512
+	CMD_DATA_SZIE = 1024
 )
 
 // KA主函数
