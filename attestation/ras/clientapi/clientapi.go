@@ -36,10 +36,12 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -394,9 +396,9 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		return &KeyOperationReply{Result: false}, nil
 	}
 
-	var message inKeyInfo
+	var message *inKeyInfo
 	var sessionKey []byte
-	var encSessionKey []byte
+	var pubkeycert []byte
 	var retMessage retKeyInfo
 
 	// TODO: get kcm private key(kcm private key is a global variable now)
@@ -415,7 +417,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		retTAId, key, encKey, plainText, retKeyId, err := kcmstools.GenerateNewKey(message.TAId, message.Account, message.Password, message.HostKeyId, message.KTAId, deviceId)
+		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GenerateNewKey(message.TAId, message.Account, message.Password, message.HostKeyId, message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -426,8 +428,10 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			PlainText: plainText,
 			HostKeyId: message.HostKeyId,
 		}
+		
+		pubkeycert = KtaPublickeyCert
 		sessionKey = key
-		encSessionKey = encKey
+		
 	case 0x70000002:
 		logger.L.Sugar().Debugf("going to call GetKey()")
 		go kmsServer.ExampleServer()
@@ -436,7 +440,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		retTAId, key, encKey, plainText, retKeyId, err := kcmstools.GetKey(message.TAId, message.Account, message.Password, message.KeyId, message.HostKeyId, message.KTAId, deviceId)
+		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GetKey(message.TAId, message.Account, message.Password, message.KeyId, message.HostKeyId, message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Get key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -447,8 +451,10 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			PlainText: plainText,
 			HostKeyId: message.HostKeyId,
 		}
+		
+		pubkeycert = KtaPublickeyCert
 		sessionKey = key
-		encSessionKey = encKey
+
 	case 0x70000003:
 		logger.L.Sugar().Debugf("going to call GetKey()")
 		go kmsServer.ExampleServer()
@@ -457,7 +463,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		key, encKey, err := kcmstools.DeleteKey(message.TAId, message.KeyId, message.KTAId, deviceId)
+		key, KtaPublickeyCert, err := kcmstools.DeleteKey(message.TAId, message.KeyId, message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Delete key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -467,17 +473,16 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			KeyId:     message.KeyId,
 			HostKeyId: message.HostKeyId,
 		}
-		//sessionKey = make([]byte, 32)
-		//ktaPublicKey := kcmPublicKey // use kcms' public key as a temporary pulic key
-		//encSessionKey = RsaEncrypt(sessionKey, ktaPublicKey)
+
+		pubkeycert = KtaPublickeyCert
 		sessionKey = key
-		encSessionKey = encKey
+
 	default:
 		logger.L.Sugar().Errorf("resolve command of TA %s failed", message.TAId)
 		return &KeyOperationReply{Result: false}, err
 	}
 	
-	encRetMessage, err := EncryptKeyOpOutcome(retMessage, sessionKey, encSessionKey)
+	encRetMessage, err := EncryptKeyOpOutcome(retMessage, sessionKey, pubkeycert)
 	if err != nil {
 		logger.L.Sugar().Errorf("Encode return message of TA %s error, %v", retMessage.TAId, err)
 		return &KeyOperationReply{Result: false}, err
@@ -832,21 +837,25 @@ func GetdbConfig(strDbConfig string) string {
 		config.GetDBName(), config.GetDBHost(), config.GetDBPort())
 }
 
-func aesGCMEncrypt(key, plainText []byte) ([]byte, error) {
+func aesGCMEncrypt(key, plainText []byte) ([]byte, []byte, []byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	Nonce := make([]byte, aesGCM.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, Nonce); err != nil {
+		return nil, nil, nil, err
+	}
 	cipher := aesGCM.Seal(nil, Nonce, plainText, nil)
-	return cipher, nil
+	tlength := aesGCM.Overhead()	// length of tag
+	return cipher[:len(cipher) - tlength], cipher[len(cipher) - tlength :], Nonce, nil
 }
 
-func aesGCMDecrypt(key, cipherText []byte) ([]byte, error) {
+func aesGCMDecrypt(key, cipherText, nonce []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -855,8 +864,7 @@ func aesGCMDecrypt(key, cipherText []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	Nonce := make([]byte, aesGCM.NonceSize())
-	plain, err := aesGCM.Open(nil, Nonce, cipherText, nil) // error, message authentication failed
+	plain, err := aesGCM.Open(nil, nonce, cipherText, nil) // error, message authentication failed
 	if err != nil {
 		logger.L.Sugar().Errorf("aesgcm decode error, %v", err)
 		return nil, err
@@ -870,14 +878,14 @@ func RsaEncrypt(data, keyBytes []byte) []byte {
 	// 解析公钥
 	pubInterface, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		panic(err)
+		logger.L.Sugar().Errorf("rsa pem decode error, %v", err)
 	}
 	// 类型断言
 	pub := pubInterface.(*rsa.PublicKey)
 	//加密
 	ciphertext, err := rsa.EncryptPKCS1v15(rand.Reader, pub, data)
 	if err != nil {
-		panic(err)
+		logger.L.Sugar().Errorf("rsa encode error, %v", err)
 	}
 	return ciphertext
 }
@@ -886,15 +894,15 @@ func RsaDecrypt(ciphertext, keyBytes []byte) []byte {
 	//获取私钥
 	block, _ := pem.Decode(keyBytes)
 	if block == nil {
-		panic(errors.New("private key is nil"))
+		logger.L.Sugar().Errorf("private key is nil")
 	}
 	//解析PKCS1格式的私钥
 	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-		panic(errors.New("x509 decode fail"))
+		logger.L.Sugar().Errorf("x509 decode fail, %v", err)
 	}
 	if priv == nil {
-		panic(errors.New("x509 key is nil"))
+		logger.L.Sugar().Errorf("x509 key is nil, %v", err)
 	}
 	// 解密
 	data, err := rsa.DecryptPKCS1v15(rand.Reader, priv, ciphertext)
@@ -907,7 +915,7 @@ func RsaDecrypt(ciphertext, keyBytes []byte) []byte {
 	return data
 }
 
-func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, encSessionKey []byte) ([]byte, error) {
+func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []byte) ([]byte, error) {
 	str_taId := string(retMessage.TAId)
 	jsonRetMessage, err := json.Marshal(retMessage)
 	if err != nil {
@@ -915,17 +923,33 @@ func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, encSessionKey []byte
 		return nil, err
 	}
 
+	pubkeycert, _, err := cryptotools.DecodeKeyCertFromPEM(KtaPublickeyCert)
+	if err != nil {
+		return nil, err
+	}
+
 	//TODO: use sessionKey to encrypt jsonRetMessage
-	encRetMessage, err := aesGCMEncrypt(sessionKey, jsonRetMessage)
+	encRetMessage, tag, nonce, err := aesGCMEncrypt(sessionKey, jsonRetMessage)
 	if err != nil {
 		logger.L.Sugar().Errorf("Encode return message(json format) of TA %s after get key, error, %v", str_taId, err)
 		return nil, err
 	}
+	appendKey := append(nonce, sessionKey...)
+	appendKey = append(appendKey, tag...)
+
+	label := []byte("label")
+	encSessionKey, err := cryptotools.AsymmetricEncrypt(cryptotools.AlgRSA, cryptotools.AlgNull, pubkeycert.PublicKey, appendKey, label)
+	if err != nil {
+		return nil, err
+	}
+
+	encKey := hex.EncodeToString(encSessionKey)
+	encMessage := hex.EncodeToString(encRetMessage)
 
 	//TODO: pack encrypted encRetMessage and encSessionKey as struct
 	finalMessage := tagCmdData{
-		Key:        encSessionKey,
-		EncCmdData: encRetMessage,
+		Key:        []byte(encKey),
+		EncCmdData: []byte(encMessage),
 	}
 
 	//TODO encrypt the struct to json format
@@ -938,30 +962,64 @@ func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, encSessionKey []byte
 	return finalRetMessage, nil
 }
 
-func DecryptKeyOpIncome(encCmdData, privKey []byte) (inKeyInfo, error) {
+func DecryptKeyOpIncome(encCmdData, privKey []byte) (*inKeyInfo, error) {
 	var cmdData tagCmdData
 	var message inKeyInfo
 	err := json.Unmarshal(encCmdData, &cmdData)
 	if err != nil {
 		logger.L.Sugar().Errorf("Decode outside json of TA error, %v", err)
-		return message, err
+		return &message, err
+	}
+
+	sessionKey, err := hex.DecodeString(string(cmdData.Key))
+	if err != nil {
+		logger.L.Sugar().Errorf("decode session key from hex error, %v", err)
+		return nil, err
+	}
+	decCmdData, err := hex.DecodeString(string(cmdData.EncCmdData))
+	if err != nil {
+		logger.L.Sugar().Errorf("decode cmd data from hex error, %v", err)
+		return nil, err
 	}
 
 	// TODO: use kcm private key to decode key
-	decKey := RsaDecrypt(cmdData.Key, privKey)
+	// decKey := RsaDecrypt(cmdData.Key, privKey)
+	block, _ := pem.Decode(privKey)
+	// 解析PKCS1格式的私钥
+	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		logger.L.Sugar().Errorf("decode private key from x509 error, %v", err)
+		return nil, err
+	}
+	if priv == nil {
+		logger.L.Sugar().Errorf("private key is nil, %v", err)
+		return nil, err
+	}
 
+	label := []byte("label")
+	decSessionKey, err := cryptotools.AsymmetricDecrypt(cryptotools.AlgRSA, cryptotools.AlgNull, priv, sessionKey, label)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := decSessionKey[:12]
+	decKey := decSessionKey[12:len(decSessionKey)-16]
+	tag := decSessionKey[len(decSessionKey)-16:]
+
+	appendCmdData := append(decCmdData, tag...)
+	
 	// TODO: use decoded key to decode cmdData.encCmdData and save the result in encMessage
-	encMessage, err := aesGCMDecrypt(decKey, cmdData.EncCmdData) // Encrypt algorithm: AES GCM (256bit) (AES256GCM)
+	encMessage, err := aesGCMDecrypt(decKey, appendCmdData, nonce) // Encrypt algorithm: AES GCM (256bit) (AES256GCM)
 	if err != nil {
 		logger.L.Sugar().Errorf("Decode AESGCM error, %v", err)
-		return message, err
+		return nil, err
 	}
 
 	err = json.Unmarshal(encMessage, &message)
 	if err != nil {
 		logger.L.Sugar().Errorf("Decode inside json of TA error, %v", err)
-		return message, err
+		return nil, err
 	}
 
-	return message, nil
+	return &message, nil
 }

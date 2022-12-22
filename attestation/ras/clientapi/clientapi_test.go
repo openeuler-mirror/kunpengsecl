@@ -7,8 +7,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"io"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -23,6 +25,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kcmstools"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	//"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 )
 
 const (
@@ -943,20 +946,31 @@ func TestClientapiKeyOp(t *testing.T) {
 		t.Errorf("Encode inside json of key operation error: %v", err)
 	}
 
+	sessionKey := make([]byte, 32)
+	if _, err = io.ReadFull(rand.Reader, sessionKey); err != nil {
+		t.Errorf("make session key error: %v", err)
+	}
+
 	// TODO: use decKey to encrypt encMessage as encCmdData
-	encCmdData, err := aesGCMEncrypt(decKey, encMessage)
+	cmdData, tag, nonce, err := aesGCMEncrypt(sessionKey, encMessage)
 	if err != nil {
 		t.Errorf("Encode AESGCM error: %v", err)
 	}
+	
+	appendKey := append(nonce, sessionKey...)
+	appendKey = append(appendKey, tag...)
 
 	// TODO: use kcm public key to encrypt decKey as key
-	key := RsaEncrypt(decKey, kcmPublicKey)
+	key := RsaEncrypt(appendKey, kcmPublicKey)
 
-	cmdData := tagCmdData{
-		Key:        key,
-		EncCmdData: encCmdData,
+	encKey := hex.EncodeToString(key)
+	encData := hex.EncodeToString(cmdData)
+
+	decCmdData := tagCmdData{
+		Key:        []byte(encKey),
+		EncCmdData: []byte(encData),
 	}
-	outCmdData, err := json.Marshal(cmdData)
+	outCmdData, err := json.Marshal(decCmdData)
 	if err != nil {
 		t.Errorf("Encode outside json of key operation error: %v", err)
 	}
@@ -1207,28 +1221,36 @@ func TestDoClientapiKeyOp(t *testing.T) {
 	}
 	encMessage, err := json.Marshal(message)
 	if err != nil {
-		t.Errorf("Encode inside json of key operation error, %v", err)
+		t.Errorf("Encode inside json of key operation error: %v", err)
 	}
 
-	// TODO: create Key for symmetric encryption
-	//decKey := make([]byte, 32)
+	sessionKey := make([]byte, 32)
+	if _, err = io.ReadFull(rand.Reader, sessionKey); err != nil {
+		t.Errorf("make session key error: %v", err)
+	}
 
 	// TODO: use decKey to encrypt encMessage as encCmdData
-	encCmdData, err := aesGCMEncrypt(decKey, encMessage)
+	cmdData, tag, nonce, err := aesGCMEncrypt(sessionKey, encMessage)
 	if err != nil {
-		t.Errorf("Encode AESGCM error, %v", err)
+		t.Errorf("Encode AESGCM error: %v", err)
 	}
+
+	appendKey := append(nonce, sessionKey...)
+	appendKey = append(appendKey, tag...)
 
 	// TODO: use kcm public key to encrypt decKey as key
-	key := RsaEncrypt(decKey, kcmPublicKey)
+	key := RsaEncrypt(appendKey, kcmPublicKey)
 
-	cmdData := tagCmdData{
-		Key:        key,
-		EncCmdData: encCmdData,
+	encKey := hex.EncodeToString(key)
+	encData := hex.EncodeToString(cmdData)
+
+	decCmdData := tagCmdData{
+		Key:        []byte(encKey),
+		EncCmdData: []byte(encData),
 	}
-	outCmdData, err := json.Marshal(cmdData)
+	outCmdData, err := json.Marshal(decCmdData)
 	if err != nil {
-		t.Errorf("Encode outside json of key operation error:, %v", err)
+		t.Errorf("Encode outside json of key operation error: %v", err)
 	}
 
 	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
@@ -1501,28 +1523,36 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 	}
 	encMessage, err := json.Marshal(message)
 	if err != nil {
-		t.Errorf("Encode inside json of key operation error, %v", err)
+		t.Errorf("Encode inside json of key operation error: %v", err)
 	}
 
-	// TODO: create Key for symmetric encryption
-	//decKey := make([]byte, 32)
-
+	sessionKey := make([]byte, 32)
+	if _, err = io.ReadFull(rand.Reader, sessionKey); err != nil {
+		t.Errorf("make session key error: %v", err)
+	}
+	
 	// TODO: use decKey to encrypt encMessage as encCmdData
-	encCmdData, err := aesGCMEncrypt(decKey, encMessage)
+	cmdData, tag, nonce, err := aesGCMEncrypt(sessionKey, encMessage)
 	if err != nil {
-		t.Errorf("Encode AESGCM error, %v", err)
+		t.Errorf("Encode AESGCM error: %v", err)
 	}
+
+	appendKey := append(nonce, sessionKey...)
+	appendKey = append(appendKey, tag...)
 
 	// TODO: use kcm public key to encrypt decKey as key
-	key := RsaEncrypt(decKey, kcmPublicKey)
+	key := RsaEncrypt(appendKey, kcmPublicKey)
 
-	cmdData := tagCmdData{
-		Key:        key,
-		EncCmdData: encCmdData,
+	encKey := hex.EncodeToString(key)
+	encData := hex.EncodeToString(cmdData)
+
+	decCmdData := tagCmdData{
+		Key:        []byte(encKey),
+		EncCmdData: []byte(encData),
 	}
-	outCmdData, err := json.Marshal(cmdData)
+	outCmdData, err := json.Marshal(decCmdData)
 	if err != nil {
-		t.Errorf("Encode outside json of key operation error:, %v", err)
+		t.Errorf("Encode outside json of key operation error: %v", err)
 	}
 
 	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
