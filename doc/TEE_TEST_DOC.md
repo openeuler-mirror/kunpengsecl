@@ -958,6 +958,85 @@ Validated: true,  Status2: true,
 test succeeded!
 
 ### <a id="密钥缓存管理-1"></a>密钥缓存管理
+**story4.6 测试**  
+测试思路：  
+1. 在kunpengsecl根目录下进行 `make build` 编译。
+2. 创建测试目录，并加载程序启动所需文件。
+3. 启动RAS。
+4. 启动RAC，添加-k 参数启动ka。
+5. 等待5秒，检查get kta trusted success日志是否在echo.txt中存在，若有，则说明测试密钥缓存初始化过程成功，否则，则测试失败，流程结束。
+
+测试结果：
+>start test story4.1 at: Thu 22 Dec 2022 08:39:29 AM PST   
+prepare the test environments...   
+start test preparation...   
+~/gowork/kunpengsecl ~/gowork/kunpengsecl   
+clean database   
+DROP TABLE client;   
+DROP TABLE   
+DROP TABLE report;   
+DROP TABLE   
+DROP TABLE base;   
+DROP TABLE   
+DROP TABLE tareport;   
+DROP TABLE   
+DROP TABLE tabase;   
+DROP TABLE   
+DROP TABLE keyinfo;   
+DROP TABLE   
+DROP TABLE pubkeyinfo;   
+DROP TABLE   
+CREATE TABLE   
+prepare kcm environment   
+Write out database with 1 new entries   
+Data Base Updated   
+~/gowork/kunpengsecl   
+start 1 rac clients at Thu 22 Dec 2022 08:39:54 AM PST...   
+wait for 5s   
+kill all test processes...   
+test DONE!!!   
+count: 1   
+test get kta trusted success!   
+
+** story4.7 测试**   
+测试思路：  
+1. 在kunpengsecl根目录下进行 `make build` 编译。
+2. 创建测试目录，并加载程序启动所需文件。
+3. 启动RAS。
+4. 启动RAC，添加-k 参数启动ka。
+5. 等待5秒，检查get kms supported success日志是否在echo.txt中存在，若有，则说明测试密钥缓存初始化过程成功，否则，则测试失败，流程结束。
+
+测试结果：
+>start test story4.1 at: Thu 22 Dec 2022 09:04:29 AM PST   
+prepare the test environments...   
+start test preparation...   
+~/gowork/kunpengsecl ~/gowork/kunpengsecl   
+clean database   
+DROP TABLE client;   
+DROP TABLE   
+DROP TABLE report;   
+DROP TABLE   
+DROP TABLE base;   
+DROP TABLE   
+DROP TABLE tareport;   
+DROP TABLE   
+DROP TABLE tabase;   
+DROP TABLE   
+DROP TABLE keyinfo;   
+DROP TABLE   
+DROP TABLE pubkeyinfo;   
+DROP TABLE   
+CREATE TABLE   
+prepare kcm environment   
+Write out database with 1 new entries   
+Data Base Updated   
+~/gowork/kunpengsecl   
+start 1 rac clients at Thu 22 Dec 2022 08:39:54 AM PST...   
+wait for 5s   
+kill all test processes...   
+test DONE!!!   
+count: 1   
+test get kms supported success!   
 
 ## 性能测试
 
