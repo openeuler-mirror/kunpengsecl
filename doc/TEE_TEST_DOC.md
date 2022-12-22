@@ -1250,7 +1250,64 @@ Terminated
 test DONE!!!  
 
 ### <a id="密钥缓存管理-2"></a>密钥缓存管理
-
+**story4.1 测试**
+测试思路：
+1. 在kunpengsecl根目录下进行 `make build` 编译。
+2. 创建测试目录，并加载程序启动所需文件。
+3. 启动RAS。
+4. 启动RAC，添加-k 参数启动ka。
+5. 等待5秒，检查Initialize KTA success日志是否在echo.txt中存在，若有，则说明测试密钥缓存初始化过程成功，否则，则测试失败，流程结束。
+测试结果：
+Write out database with 1 new entries
+Data Base Updated
+~/go/src/kunpengsecl
+start ras...
+start 1 rac clients...
+start 1 rac clients at 2022年 12月 22日 星期四 21:14:13 CST...
+wait for 5s
+kill all test processes...
+test DONE!!!
+count: 0
+test KTA Initialize succeeded!
+**story4.2-3 测试**
+测试思路：
+1. 在kunpengsecl根目录下进行 `make build` 编译。
+2. 创建测试目录，并加载程序启动所需文件。
+3. 启动RAS。
+4. 启动RAC，添加-k 参数启动ka。
+5. 等待5秒，检查get TA Trusted success以及get key success日志是否在echo.txt中存在，若有，则说明测试密钥访问鉴权和密钥获取过程成功，否则，则测试失败，流程结束。
+测试结果：
+Write out database with 1 new entries
+Data Base Updated
+~/go/src/kunpengsecl
+start ras...
+start 1 rac clients...
+start 1 rac clients at 2022年 12月 22日 星期四 21:14:48 CST...
+wait for 5s
+kill all test processes...
+test DONE!!!
+count1: 0
+count2: 0
+test get key and verify succeeded!
+**story4.4 测试**
+测试思路：
+1. 在kunpengsecl根目录下进行 `make build` 编译。
+2. 创建测试目录，并加载程序启动所需文件。
+3. 启动RAS。
+4. 启动RAC，添加-k 参数启动ka。
+5. 等待5秒，检查delete key success日志是否在echo.txt中存在，若有，则说明测试密钥缓存清理过程成功，否则，则测试失败，流程结束。
+测试结果：
+Write out database with 1 new entries
+Data Base Updated
+~/go/src/kunpengsecl
+start ras...
+start 1 rac clients...
+start 1 rac clients at 2022年 12月 22日 星期四 21:16:44 CST...
+wait for 5s
+kill all test processes...
+test DONE!!!
+count: 0
+test delete key succeeded!
 #### 密钥请求响应时间
 
 **测试目标：** 用户 TA 获取密钥请求响应时间：1.命中：<100ms；2.未命中：<5s
