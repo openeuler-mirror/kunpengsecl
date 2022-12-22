@@ -1,3 +1,4 @@
+all : build
 PKGPATH=pkg
 TASTEST=./akissuer ./clientapi ./config
 

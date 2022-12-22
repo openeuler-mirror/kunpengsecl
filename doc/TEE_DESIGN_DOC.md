@@ -827,7 +827,7 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 参数2：各参数类型所对应的参数值。  
 ***
 ```c
-TEE_Result DestoryTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]); 
+TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]); 
 ```
 接口描述：删除缓存中指定密钥，并向KCM生成一个删除密钥请求。  
 参数1：对应CMD_KEY_DELETE的参数类型。  

@@ -40,7 +40,7 @@ TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 
 TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 
-TEE_Result DestoryTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]); 
+TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]); 
 
 TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 

@@ -28,9 +28,11 @@ TEE_UUID ktaUuid = {
 };
 uint32_t new_key_flag = 1;
 
-uint8_t *account = NULL;
-uint8_t *password = NULL;
-TEE_UUID masterkey = {0};
+uint8_t account[MAX_STR_LEN] = "1234";
+uint8_t password[MAX_STR_LEN] = "5678";
+TEE_UUID masterkey = {
+    0x4aeb3aa9, 0x7050, 0x4e40, { 0x97, 0x61, 0x3e, 0x42, 0xf0, 0x3f, 0x2c, 0x63 }
+};
 
 typedef struct _StatusFlag {
     TEE_UUID *keyid;
@@ -317,7 +319,7 @@ TEE_Result ta_exit() {
 TEE_Result TA_CreateEntryPoint(void)
 {
     TEE_Result ret;
-    ret = addcaller_ca_exec("/vendor/bin/demo_hello", "root");
+    ret = addcaller_ca_exec("/root/vendor/bin/demo_ca", "root");
     if (ret != TEE_SUCCESS) {
         tloge("add caller ca failed");
         return TEE_ERROR_GENERIC;

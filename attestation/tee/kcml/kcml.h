@@ -2,10 +2,9 @@
 #define __KCML_H__
 
 #include <tee_defines.h>
-#include <kta_command.h>
 
 #define MAX_STR_LEN 64
-#define KEY_SIZE 128
+#define KEY_SIZE 4096
 
 #define PARAMETER_FRIST 0
 #define PARAMETER_SECOND 1
@@ -13,11 +12,11 @@
 #define PARAMETER_FOURTH 3
 
 enum {
-    CMD_KEY_GENETARE        = 0x80000001,
-    CMD_KEY_SEARCH          = 0x80000002,
-    CMD_KEY_DELETE          = 0x80000003,
-    CMD_KCM_REPLY           = 0x80000004,
-    CMD_CLEAR_CACHE         = 0x80000005
+    CMD_KEY_GENETARE        = 0x00008001,
+    CMD_KEY_SEARCH          = 0x00008002,
+    CMD_KEY_DELETE          = 0x00008003,
+    CMD_KCM_REPLY           = 0x00008004,
+    CMD_CLEAR_CACHE         = 0x00008005
 };
 
 typedef struct _tagCmdNode{
