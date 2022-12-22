@@ -21,12 +21,29 @@ RACCONF=${CMDRAAGENT}/config.yaml
 RAHUBCONF=${CMDRAHUB}/config.yaml
 BIOSFILE=binary_bios_measurements
 IMAFILE=ascii_runtime_measurements
+TALISTFILE=talist
 BIOSMANIFEST=${CMDRAAGENT}/${BIOSFILE}
 IMAMANIFEST=${CMDRAAGENT}/${IMAFILE}
+TALIST=${CMDRAAGENT}/${TALISTFILE}
 
 RAS=${PROJROOT}/attestation/ras/pkg/ras
 RASCONF=${PROJROOT}/attestation/ras/cmd/config.yaml
 RASAUTHKEY=${PROJROOT}/attestation/ras/cmd/ecdsakey.pub
+
+TAS=${PROJROOT}/attestation/tas/pkg/akserver
+TASCONF=${PROJROOT}/attestation/tas/cmd/config.yaml
+CMDTAS=${PROJROOT}/attestation/tas/cmd
+TASAUTHKEY=${PROJROOT}/attestation/tas/cmd/ecdsakey.pub
+
+PKGPATH=${PROJROOT}/attestation/tee/demo/pkg
+CMDQCASERVER=${PROJROOT}/attestation/tee/demo/qca_demo/cmd
+CMDATTESTER=${PROJROOT}/attestation/tee/demo/attester_demo/cmd
+
+QCASERVER=${PKGPATH}/qcaserver
+QCACONF=${CMDQCASERVER}/config.yaml
+ATTESTER=${PKGPATH}/attester
+ATTESTERCONF=${CMDATTESTER}/config.yaml
+BASEVALUE=${CMDATTESTER}/basevalue.txt
 
 # EXAMPLE=${PROJROOT}/attestation/ras/example
 # SAMPLEAUTHSVR=${EXAMPLE}/pkg/server
