@@ -85,6 +85,7 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 	if err != nil {
 		return err
 	}
+	//logger.L.Debug("Initialize KTA success")
 	return nil
 }
 
@@ -146,6 +147,7 @@ func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []by
 		return nil, nil, nil, nil, nil, err
 	}
 	// return taid, ENC(K), ENC(plaintext), keyId, error
+	//logger.L.Debug("get key success")
 	return taid, K, enc_k, plaintext, []byte(keyid), nil
 }
 
@@ -204,6 +206,7 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 		return nil, nil, nil, nil, nil, err
 	}
 	// return taid, ENC(K), ENC(plaintext),keyid,  error
+	//logger.L.Debug("get key success")
 	return taid, K, enc_k, plaintext, keyid, nil
 }
 
