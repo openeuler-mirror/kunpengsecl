@@ -999,9 +999,48 @@ test succeeded!
 
 **测试目标：** RestAPI 单次调用查询 1 个目标服务器可信状态的时间平均 <= 1s， 最长 <= 5s
 
-**测试方法：** 
+**测试方法：** 先搭建基本测试环境，然后清理数据库，先后启动一个RAS和QCA程序，接着同时启动1个RAC，启动结束等待20秒，然后调用RestAPI查询 1 个目标服务器可信状态，反复调用10000次，记录每次查询所用时间，最后计算出平均查询时间和最大查询时间。查看control.txt内的返回信息，判断是否正确获取到可信状态。
 
 **测试结果：**
+start test tee-test-b-2 at: 2022年 12月 22日 星期四 17:29:11 CST  
+prepare the test environments...  
+start test preparation...  
+~/go/src/gitee.com/openeuler/kunpengsecl ~/go/src/gitee.com/openeuler/kunpengsecl  
+clean database  
+DROP TABLE client;  
+DROP TABLE  
+DROP TABLE report;  
+DROP TABLE  
+DROP TABLE base;  
+DROP TABLE  
+DROP TABLE tareport;  
+DROP TABLE  
+DROP TABLE tabase;  
+DROP TABLE  
+DROP TABLE keyinfo;  
+DROP TABLE  
+DROP TABLE pubkeyinfo;  
+DROP TABLE  
+CREATE TABLE  
+~/go/src/gitee.com/openeuler/kunpengsecl  
+start ras...  
+start qcaserver...  
+start 1 rac clients...  
+start 1 rac clients at 2022年 12月 22日 星期四 17:29:12 CST...  
+start to perform test ...  
+wait for 20s  
+get client id  
+1  
+get 10000 times server trust status via restapi request  
+change MAXTIME=30ms  
+change MAXTIME=39ms  
+change MAXTIME=42ms  
+change MAXTIME=61ms  
+change MAXTIME=162ms  
+It took 243216ms to get 10000 times trust status of 1 server, the average time is 24ms, the max time is 162ms.  
+kill all test processes...  
+已终止  
+test DONE!!!  
 
 #### RestAPI千个查询
 
