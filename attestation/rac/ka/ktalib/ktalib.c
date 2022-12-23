@@ -24,7 +24,7 @@ enum {
     CMD_KTA_INITIALIZE      = 0x00000001, //send request to kta for setup snd initialization, get parameters kta generated during initialization
     CMD_GET_REQUEST         = 0x00000002, //ask kta for commands in its cmdqueue, and send ta identification whose trusted status needs to update
     CMD_RESPOND_REQUEST     = 0x00000003, //reply a command to kta(maybe one)
-    CMD_CLOSE_KTA           = 0x00000004,
+    CMD_CLOSE_KTA           = 0x00000005,
 };
 
 TEEC_Context context = {0};

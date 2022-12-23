@@ -110,7 +110,7 @@ TEE_Result encryptKey(uint8_t key_obj[61], uint8_t encrypted_key[RSA_KEY_SIZE]){
         tloge("fail to allocate rsa transient object, ret 0x%x\n", ret);
         return ret;
     }
-    ret = restoreKeyandCert("sec_storage_data/kcmpub.txt", modulus, &rsa_size);
+    ret = restoreKeyandCert("sec_storage_data/kcmpub.txt", modulus, rsa_size);
     if (ret != TEE_SUCCESS) {
         tloge("fail to restore kcm public key, ret 0x%x\n", ret);
         return ret;
@@ -136,7 +136,7 @@ TEE_Result encryptKey(uint8_t key_obj[61], uint8_t encrypted_key[RSA_KEY_SIZE]){
         TEE_FreeOperation(oper_key_enc);
         return ret;
     }
-    ret = TEE_AsymmetricEncrypt(oper_key_enc, attrs2, 1, key_obj, AES_KEY_SIZE, encrypted_key, &enc_key_len);
+    ret = TEE_AsymmetricEncrypt(oper_key_enc, attrs2, 1, key_obj, 60, encrypted_key, &enc_key_len);
     if (ret != TEE_SUCCESS)
         tloge("Fail to do rsa encrypt, ret 0x%x\n", ret);
 
@@ -190,20 +190,6 @@ void cmdNode2cjson(CmdNode cmdnode, cJSON *cj) {
     uuid2char(ktaUuid, ktauuid);
     cJSON_AddStringToObject(cj, "KTAId", (char*)ktauuid);
     tlogv("54545\n");
-}
-
-void str2hex(const uint8_t *source, int source_len, char *dest)
-{
-    for (int32_t i = 0; i < source_len; i++) {
-        if ((source[i] >> 4) <= 9) // 0x39 corresponds to the character '9'
-            dest[2 * i] = (source[i] >> 4) + 0x30;
-        else // Otherwise, it is a letter, and 7 symbols need to be skipped
-            dest[2 * i] = (source[i] >> 4) + 0x37;
-        if ((source[i] % 16) <=9)
-            dest[2 * i + 1] = (source[i] % 16) + 0x30;
-        else
-            dest[2 * i + 1] = (source[i] % 16) + 0x37;
-    }
 }
 
 TEE_Result generateFinalRequest(CmdNode cmdnode, char *finalrequest){
@@ -332,7 +318,7 @@ TEE_Result decryptkey(uint8_t encrypted_key[RSA_KEY_SIZE+1], uint8_t decrypted_k
         return TEE_ERROR_STORAGE_EIO;
     }
 
-    ret = TEE_AllocateTransientObject(TEE_TYPE_RSA_PUBLIC_KEY, RSA_KEY_SIZE, &rsa_key_obj);
+    ret = TEE_AllocateTransientObject(TEE_TYPE_RSA_KEYPAIR, RSA_KEY_SIZE, &rsa_key_obj);
     if (ret != TEE_SUCCESS) {
         tloge("fail to allocate rsa transient object, ret 0x%x\n", ret);
         return ret;
@@ -343,7 +329,7 @@ TEE_Result decryptkey(uint8_t encrypted_key[RSA_KEY_SIZE+1], uint8_t decrypted_k
 
     TEE_OperationHandle oper_key_enc = NULL;
 
-    ret = TEE_AllocateOperation(&oper_key_enc, TEE_ALG_RSAES_PKCS1_V1_5, TEE_MODE_DECRYPT, RSA_KEY_SIZE);
+    ret = TEE_AllocateOperation(&oper_key_enc, TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256, TEE_MODE_DECRYPT, RSA_KEY_SIZE);
     if (ret != TEE_SUCCESS) {
         tloge("fail to allocate rsa encrypt operation, ret 0x%x\n", ret);
         return ret;

@@ -32,26 +32,62 @@ extern Cache cache;
 extern CmdQueue cmdqueue;
 extern ReplyCache replycache;
 
+void str2hex(const uint8_t *source, int source_len, char *dest) {
+    for (int32_t i = 0; i < source_len; i++) {
+        if ((source[i] >> 4) <= 9) // 0x39 corresponds to the character '9'
+            dest[2 * i] = (source[i] >> 4) + 0x30;
+        else // Otherwise, it is a letter, and 7 symbols need to be skipped
+            dest[2 * i] = (source[i] >> 4) + 0x37;
+        if ((source[i] % 16) <=9)
+            dest[2 * i + 1] = (source[i] % 16) + 0x30;
+        else
+            dest[2 * i + 1] = (source[i] % 16) + 0x37;
+    }
+}
+
+void hex2str(const char *source, int dest_len, uint8_t *dest) {
+    uint8_t HighByte;
+    uint8_t LowByte;
+
+    for (int i = 0; i < dest_len; i++) {
+        HighByte = source[i * 2];
+        LowByte = source[i * 2 + 1];
+        if (HighByte <= 0x39) 
+            HighByte -= 0x30;
+        else
+            HighByte -= 0x37;
+        if (LowByte <= 0x39)
+            LowByte -= 0x30;
+        else
+            LowByte -= 0x37;
+        dest[i] = (HighByte << 4) | LowByte;
+    }
+}
+
 TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size) {
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
     uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
     void *create_objectID = name;
     TEE_ObjectHandle persistent_data = NULL;
     TEE_Result ret;
-    uint8_t *write_buffer = value;
+    char *write_buffer = TEE_Malloc((2*size+1)*sizeof(char), 0);
+    str2hex(value, size, write_buffer);
     ret = TEE_CreatePersistentObject(storageID, create_objectID, strlen(create_objectID), w_flags, TEE_HANDLE_NULL, NULL, 0, (&persistent_data));
     if (ret != TEE_SUCCESS) {
         tloge("Failed to create file: ret = 0x%x\n", ret);
+        TEE_Free(write_buffer);
         return ret;
     }
 
-    ret = TEE_WriteObjectData(persistent_data, write_buffer, size);
+    ret = TEE_WriteObjectData(persistent_data, write_buffer, strlen(write_buffer));
     if (ret != TEE_SUCCESS) {
         tloge("Failed to write file: ret = 0x%x\n", ret);
         TEE_CloseObject(persistent_data);
+        TEE_Free(write_buffer);
         return ret;
     }
     TEE_CloseObject(persistent_data);
+    TEE_Free(write_buffer);
     return TEE_SUCCESS;
 }
 
@@ -62,26 +98,32 @@ TEE_Result saveKTAPriv(char *name, ktaprivkey *value) {
     TEE_ObjectHandle persistent_data = NULL;
     TEE_Result ret;
     cJSON *kta_priv_json = cJSON_CreateObject();
-    uint8_t *kta_priv = NULL;
-    cJSON_AddStringToObject(kta_priv_json, "modulus", (char*)value->modulus);
-    cJSON_AddStringToObject(kta_priv_json, "privateExponent", (char*)value->privateExponent);
-    kta_priv = (uint8_t*)cJSON_PrintUnformatted(kta_priv_json);
+    char *kta_priv = NULL;
+    char modulus_buffer[2*RSA_PUB_SIZE+1] = {0};
+    char exponent_buffer[2*RSA_PUB_SIZE+1] = {0};
+    str2hex(value->modulus, RSA_PUB_SIZE, modulus_buffer);
+    str2hex(value->privateExponent, RSA_PUB_SIZE, exponent_buffer);
+    cJSON_AddStringToObject(kta_priv_json, "modulus", modulus_buffer);
+    cJSON_AddStringToObject(kta_priv_json, "privateExponent", exponent_buffer);
+    kta_priv = cJSON_PrintUnformatted(kta_priv_json);
     ret = TEE_CreatePersistentObject(storageID, create_objectID, strlen(create_objectID), w_flags, TEE_HANDLE_NULL, NULL, 0, (&persistent_data));
     if (ret != TEE_SUCCESS) {
         tloge("Failed to create file: ret = 0x%x\n", ret);
         return ret;
     }
-    ret = TEE_WriteObjectData(persistent_data, kta_priv, strlen((char*)kta_priv));
+    ret = TEE_WriteObjectData(persistent_data, kta_priv, strlen(kta_priv));
     if (ret != TEE_SUCCESS) {
         tloge("Failed to write file: ret = 0x%x\n", ret);
         TEE_CloseObject(persistent_data);
         return ret;
     }
     TEE_CloseObject(persistent_data);
+    cJSON_free(kta_priv);
+    cJSON_Delete(kta_priv_json);
     return TEE_SUCCESS;
 }
 
-TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t *buf_len) {
+TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t buf_len) {
     TEE_Result ret;
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
     uint32_t r_flags = TEE_DATA_FLAG_ACCESS_READ;
@@ -106,9 +148,9 @@ TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t *buf_len) {
 
     read_buffer = TEE_Malloc(len + 1, 0);
     if (read_buffer == NULL) {
-        tloge("Failed to open file:ret = 0x%x\n", ret);
+        tloge("Failed to open file:malloc fail, len=%d\n", len + 1);
         TEE_CloseObject(persistent_data);
-        return ret;
+        return TEE_ERROR_OUT_OF_MEMORY;
     }
 
     /* 读取已存入的数据 */
@@ -118,15 +160,24 @@ TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t *buf_len) {
         TEE_Free(read_buffer);
         return ret;
     }
-    *buf_len = len;
-    int32_t rc = memmove_s(buffer, len, read_buffer, len);
+    uint8_t *read_data = TEE_Malloc(len/2, 0);
+    if (read_data == NULL) {
+        tloge("Failed to open file:malloc fail, len=%d\n", len/2);
+        TEE_CloseObject(persistent_data);
+        TEE_Free(read_buffer);
+        return TEE_ERROR_OUT_OF_MEMORY;
+    }
+    hex2str(read_buffer, len/2, read_data);
+    int32_t rc = memmove_s(buffer, buf_len, read_data, len/2);
     if (rc != 0) {
         TEE_CloseObject(persistent_data);
         TEE_Free(read_buffer);
+        TEE_Free(read_data);
         return TEE_ERROR_SECURITY;
     }
     TEE_CloseObject(persistent_data);
     TEE_Free(read_buffer);
+    TEE_Free(read_data);
     return TEE_SUCCESS;
 }
 
@@ -138,8 +189,10 @@ TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t pri
     TEE_ObjectHandle persistent_data = NULL;
     uint32_t pos = 0;
     uint32_t len = 0;
-    uint8_t *read_buffer = NULL;
+    char *read_buffer = NULL;
     uint32_t count = 0;
+    uint8_t strmodulus[RSA_PUB_SIZE] = {0};
+    uint8_t strexponent[RSA_PUB_SIZE] = {0};
     ret = TEE_OpenPersistentObject(storageID, create_objectID, strlen(create_objectID),r_flags, (&persistent_data));
     if (ret != TEE_SUCCESS) {
         tloge("Failed to open file:ret = 0x%x\n", ret);
@@ -155,7 +208,7 @@ TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t pri
 
     read_buffer = TEE_Malloc(len + 1, 0);
     if (read_buffer == NULL) {
-        tloge("Failed to open file:ret = 0x%x\n", ret);
+        tloge("Failed to open file:malloc fail, len=%d\n", len+1);
         TEE_CloseObject(persistent_data);
         return ret;
     }
@@ -167,13 +220,29 @@ TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t pri
         TEE_Free(read_buffer);
         return ret;
     }
-    cJSON *kta_priv_json = cJSON_Parse((char*)read_buffer);
+    cJSON *kta_priv_json = cJSON_Parse(read_buffer);
     cJSON *jsonmodulus = cJSON_GetObjectItemCaseSensitive(kta_priv_json, "modulus");
     cJSON *jsonprivateExponent = cJSON_GetObjectItemCaseSensitive(kta_priv_json, "privateExponent");
-    memcpy_s(modulus, RSA_PUB_SIZE, jsonmodulus->valuestring, RSA_PUB_SIZE);
-    memcpy_s(privateExponent, RSA_PUB_SIZE, jsonprivateExponent->valuestring, RSA_PUB_SIZE);
+    hex2str(jsonmodulus->valuestring, strlen(jsonmodulus->valuestring)/2, strmodulus);
+    hex2str(jsonprivateExponent->valuestring, strlen(jsonprivateExponent->valuestring)/2, strexponent);
+    int rc = memcpy_s(modulus, RSA_PUB_SIZE, strmodulus, RSA_PUB_SIZE);
+    if (rc != 0) {
+        TEE_CloseObject(persistent_data);
+        TEE_Free(read_buffer);
+        cJSON_Delete(kta_priv_json);
+        return TEE_ERROR_SECURITY;
+    }
+    rc = memcpy_s(privateExponent, RSA_PUB_SIZE, strexponent, RSA_PUB_SIZE);
+    if (rc != 0) {
+        TEE_CloseObject(persistent_data);
+        TEE_Free(read_buffer);
+        cJSON_Delete(kta_priv_json);
+        return TEE_ERROR_SECURITY;
+    }
     TEE_CloseObject(persistent_data);
     TEE_Free(read_buffer);
+    cJSON_Delete(kta_priv_json);
+    tlogd("success!!");
     return TEE_SUCCESS;
 }
 
@@ -223,12 +292,12 @@ TEE_Result Reset_All(){
         tloge("Failed to reset ktacert\n", ret);
         return ret;
     }
-    reset("sec_storage_data/kcmpub.txt");
+    ret = reset("sec_storage_data/kcmpub.txt");
     if (ret != TEE_SUCCESS) {
         tloge("Failed to reset kcmpub\n", ret);
         return ret;
     }
-    reset("sec_storage_data/ktakey.txt");
+    ret = reset("sec_storage_data/ktakey.txt");
     if (ret != TEE_SUCCESS) {
         tloge("Failed to reset ktakey\n", ret);
         return ret;
