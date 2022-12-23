@@ -82,7 +82,7 @@ var (
 	kcmFileName  = "kcm.crt"
 	ktaFileName  = "kta.crt"
 	rootFileName = "ca.crt"
-	kcmKeyName 	 = "kcm.key"
+	kcmKeyName   = "kcm.key"
 )
 
 // var Nonce []byte
@@ -330,7 +330,7 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 		Quoted:     in.GetQuoted(),
 		Signature:  in.GetSignature(),
 		Manifests:  ms,
-		//TaReports:  in.GetTaReports(),
+		TaReports:  in.GetTaReports(),
 	}
 	//logger.L.Debug("validate report and save...")
 	_, err := trustmgr.ValidateReport(&trustReport)
@@ -402,7 +402,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	var retMessage retKeyInfo
 
 	// TODO: get kcm private key(kcm private key is a global variable now)
-	privKey, err := kcmstools.ReadCert(certPath+kcmKeyName)
+	privKey, err := kcmstools.ReadCert(certPath + kcmKeyName)
 	if privKey == nil {
 		logger.L.Sugar().Errorf("private key is nil, %v", err)
 	}
@@ -428,10 +428,10 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			PlainText: plainText,
 			HostKeyId: message.HostKeyId,
 		}
-		
+
 		pubkeycert = KtaPublickeyCert
 		sessionKey = key
-		
+
 	case 0x70000002:
 		logger.L.Sugar().Debugf("going to call GetKey()")
 		go kmsServer.ExampleServer()
@@ -451,7 +451,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			PlainText: plainText,
 			HostKeyId: message.HostKeyId,
 		}
-		
+
 		pubkeycert = KtaPublickeyCert
 		sessionKey = key
 
@@ -481,7 +481,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		logger.L.Sugar().Errorf("resolve command of TA %s failed", message.TAId)
 		return &KeyOperationReply{Result: false}, err
 	}
-	
+
 	encRetMessage, err := EncryptKeyOpOutcome(retMessage, sessionKey, pubkeycert)
 	if err != nil {
 		logger.L.Sugar().Errorf("Encode return message of TA %s error, %v", retMessage.TAId, err)
@@ -851,8 +851,8 @@ func aesGCMEncrypt(key, plainText []byte) ([]byte, []byte, []byte, error) {
 		return nil, nil, nil, err
 	}
 	cipher := aesGCM.Seal(nil, Nonce, plainText, nil)
-	tlength := aesGCM.Overhead()	// length of tag
-	return cipher[:len(cipher) - tlength], cipher[len(cipher) - tlength :], Nonce, nil
+	tlength := aesGCM.Overhead() // length of tag
+	return cipher[:len(cipher)-tlength], cipher[len(cipher)-tlength:], Nonce, nil
 }
 
 func aesGCMDecrypt(key, cipherText, nonce []byte) ([]byte, error) {
@@ -1003,11 +1003,11 @@ func DecryptKeyOpIncome(encCmdData, privKey []byte) (*inKeyInfo, error) {
 	}
 
 	nonce := decSessionKey[:12]
-	decKey := decSessionKey[12:len(decSessionKey)-16]
+	decKey := decSessionKey[12 : len(decSessionKey)-16]
 	tag := decSessionKey[len(decSessionKey)-16:]
 
 	appendCmdData := append(decCmdData, tag...)
-	
+
 	// TODO: use decoded key to decode cmdData.encCmdData and save the result in encMessage
 	encMessage, err := aesGCMDecrypt(decKey, appendCmdData, nonce) // Encrypt algorithm: AES GCM (256bit) (AES256GCM)
 	if err != nil {

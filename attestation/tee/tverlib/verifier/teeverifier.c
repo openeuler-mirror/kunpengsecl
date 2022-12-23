@@ -10,7 +10,7 @@
       SHA256_Final(md, &ctx);    \
    }
 
-#define HW_IT_PRODUCT_CA_CERT_PATH "Huawei IT Product CA.pem"
+#define HW_IT_PRODUCT_CA_CERT_PATH "./Huawei IT Product CA.pem"
 #define TAS_ROOT_CERT_PATH "TAS Root Cert.pem"
 //static void free_report(TA_report *report);
 
@@ -1459,8 +1459,6 @@ bool tee_verify2(buffer_data *bufdata, int type, base_value *baseval)
                          baseval); // compare the report with the basevalue
 
    free_report(report);
-   free(report);
-   free(baseval);
    return verified;
 }
 
