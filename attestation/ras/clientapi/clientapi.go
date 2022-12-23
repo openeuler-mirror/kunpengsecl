@@ -405,6 +405,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	privKey, err := kcmstools.ReadCert(certPath + kcmKeyName)
 	if privKey == nil {
 		logger.L.Sugar().Errorf("private key is nil, %v", err)
+		return &KeyOperationReply{Result: false}, err
 	}
 	message, err = DecryptKeyOpIncome(encCmdData, privKey)
 
@@ -840,14 +841,17 @@ func GetdbConfig(strDbConfig string) string {
 func aesGCMEncrypt(key, plainText []byte) ([]byte, []byte, []byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
+		logger.L.Sugar().Errorf("create NewCipher error, %v", err)
 		return nil, nil, nil, err
 	}
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
+		logger.L.Sugar().Errorf("create NewGCM error, %v", err)
 		return nil, nil, nil, err
 	}
 	Nonce := make([]byte, aesGCM.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, Nonce); err != nil {
+		logger.L.Sugar().Errorf("create nonce error, %v", err)
 		return nil, nil, nil, err
 	}
 	cipher := aesGCM.Seal(nil, Nonce, plainText, nil)
@@ -858,10 +862,12 @@ func aesGCMEncrypt(key, plainText []byte) ([]byte, []byte, []byte, error) {
 func aesGCMDecrypt(key, cipherText, nonce []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
+		logger.L.Sugar().Errorf("create NewCipher error, %v", err)
 		return nil, err
 	}
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
+		logger.L.Sugar().Errorf("create NewGCM error, %v", err)
 		return nil, err
 	}
 	plain, err := aesGCM.Open(nil, nonce, cipherText, nil) // error, message authentication failed
@@ -872,13 +878,14 @@ func aesGCMDecrypt(key, cipherText, nonce []byte) ([]byte, error) {
 	return plain, nil
 }
 
-func RsaEncrypt(data, keyBytes []byte) []byte {
+func RsaEncrypt(data, keyBytes []byte) ([]byte, error) {
 	//解密pem格式的公钥
 	block, _ := pem.Decode(keyBytes)
 	// 解析公钥
 	pubInterface, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		logger.L.Sugar().Errorf("rsa pem decode error, %v", err)
+		return nil, err
 	}
 	// 类型断言
 	pub := pubInterface.(*rsa.PublicKey)
@@ -886,33 +893,35 @@ func RsaEncrypt(data, keyBytes []byte) []byte {
 	ciphertext, err := rsa.EncryptPKCS1v15(rand.Reader, pub, data)
 	if err != nil {
 		logger.L.Sugar().Errorf("rsa encode error, %v", err)
+		return nil, err
 	}
-	return ciphertext
+	return ciphertext, nil
 }
 
-func RsaDecrypt(ciphertext, keyBytes []byte) []byte {
+func RsaDecrypt(ciphertext, keyBytes []byte) ([]byte, error) {
 	//获取私钥
 	block, _ := pem.Decode(keyBytes)
-	if block == nil {
-		logger.L.Sugar().Errorf("private key is nil")
-	}
 	//解析PKCS1格式的私钥
 	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		logger.L.Sugar().Errorf("x509 decode fail, %v", err)
+		return nil, err
 	}
 	if priv == nil {
 		logger.L.Sugar().Errorf("x509 key is nil, %v", err)
+		return nil, err
 	}
 	// 解密
 	data, err := rsa.DecryptPKCS1v15(rand.Reader, priv, ciphertext)
 	if err != nil {
 		logger.L.Sugar().Errorf("rsa decode error, %v", err)
+		return nil, err
 	}
 	if data == nil {
 		logger.L.Sugar().Errorf("data is nil")
+		return nil, err
 	}
-	return data
+	return data, nil
 }
 
 func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []byte) ([]byte, error) {
