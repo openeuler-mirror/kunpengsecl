@@ -304,12 +304,13 @@ TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
 
 //--------------------------2、GetResponse---------------------------------------------
 
-TEE_Result decryptkey(uint8_t encrypted_key[RSA_KEY_SIZE+1], uint8_t decrypted_key[RSA_KEY_SIZE]){
+TEE_Result decryptkey(uint8_t encrypted_key[RSA_KEY_SIZE], uint8_t decrypted_key[RSA_KEY_SIZE]){
     TEE_Result ret;
     TEE_ObjectHandle rsa_key_obj = NULL;
     uint8_t modulus[RSA_KEY_SIZE] = {0};
     uint8_t privateExponent[RSA_KEY_SIZE] = {0};
-    size_t rsa_size = RSA_KEY_SIZE;
+    size_t enc_key_size = RSA_KEY_SIZE;
+    size_t dec_key_size = RSA_KEY_SIZE;
     TEE_Attribute attrs[3];
     
     ret = restoreKTAPriv("sec_storage_data/ktakey.txt", modulus, privateExponent);
@@ -323,39 +324,47 @@ TEE_Result decryptkey(uint8_t encrypted_key[RSA_KEY_SIZE+1], uint8_t decrypted_k
         tloge("fail to allocate rsa transient object, ret 0x%x\n", ret);
         return ret;
     }
-    TEE_InitRefAttribute(&attrs[0], TEE_ATTR_RSA_MODULUS, modulus, rsa_size);
+    TEE_InitRefAttribute(&attrs[0], TEE_ATTR_RSA_MODULUS, modulus, enc_key_size);
     TEE_InitRefAttribute(&attrs[1], TEE_ATTR_RSA_PUBLIC_EXPONENT, exponent, 3);
-    TEE_InitRefAttribute(&attrs[2], TEE_ATTR_RSA_PRIVATE_EXPONENT, privateExponent, rsa_size);
+    TEE_InitRefAttribute(&attrs[2], TEE_ATTR_RSA_PRIVATE_EXPONENT, privateExponent, enc_key_size);
+    ret = TEE_PopulateTransientObject(rsa_key_obj, attrs, sizeof(attrs)/sizeof(TEE_Attribute));
+    if (ret != TEE_SUCCESS) {
+        tloge("fail to populata attrs, ret 0x%x\n", ret);
+        return ret;
+    }
 
     TEE_OperationHandle oper_key_enc = NULL;
 
     ret = TEE_AllocateOperation(&oper_key_enc, TEE_ALG_RSAES_PKCS1_OAEP_MGF1_SHA256, TEE_MODE_DECRYPT, RSA_KEY_SIZE);
     if (ret != TEE_SUCCESS) {
-        tloge("fail to allocate rsa encrypt operation, ret 0x%x\n", ret);
+        tloge("fail to allocate rsa decrypt operation, ret 0x%x\n", ret);
         return ret;
     }
+
+    TEE_Attribute attrs2[1];
+    TEE_InitValueAttribute(&attrs2[0], TEE_ATTR_RSA_MGF1_HASH, TEE_DH_HASH_SHA256_mode, 0);
     ret = TEE_SetOperationKey(oper_key_enc, rsa_key_obj);
     if (ret != TEE_SUCCESS) {
-        tloge("fail to set rsa encrypt key, ret 0x%x\n", ret);
+        tloge("fail to set rsa decrypt key, ret 0x%x\n", ret);
         TEE_FreeOperation(oper_key_enc);
         return ret;
     }
-    ret = TEE_AsymmetricDecrypt(oper_key_enc, NULL, 0, encrypted_key, RSA_KEY_SIZE, decrypted_key, &rsa_size);
+    ret = TEE_AsymmetricDecrypt(oper_key_enc, attrs2, 1, encrypted_key, RSA_KEY_SIZE, decrypted_key, &dec_key_size);
     if (ret != TEE_SUCCESS)
-        tloge("Fail to do rsa encrypt, ret 0x%x\n", ret);
+        tloge("Fail to do rsa decrypt, ret 0x%x\n", ret);
 
     TEE_FreeOperation(oper_key_enc);
     return TEE_SUCCESS;
 }
 
-TEE_Result decryptcmd(uint8_t *decrypted_key, uint8_t *encrypted_cmd, uint8_t *decrypted_cmd) {
+TEE_Result decryptcmd(uint8_t *decrypted_key, uint8_t *encrypted_cmd, uint8_t *decrypted_cmd, int *cmd_size) {
     TEE_Result ret;
     TEE_OperationHandle oper_dec = NULL;
-    size_t encrypted_size = strlen((char*)encrypted_cmd);
-    size_t decrypted_size = strlen((char*)encrypted_cmd);
-    uint8_t nonce_buf[12] = {0};
+    size_t encrypted_size = *cmd_size;
+    size_t decrypted_size = *cmd_size;
+    uint8_t nonce_buf[NONCE_SIZE] = {0};
     size_t nonce_size = NONCE_SIZE;
-    uint8_t tag_buf[16] = {0};
+    uint8_t tag_buf[TAG_SIZE] = {0};
     size_t tag_size = TAG_SIZE;
     uint8_t key_buf[AES_KEY_SIZE] = {0};
     TEE_ObjectHandle key_obj = NULL;
@@ -366,36 +375,35 @@ TEE_Result decryptcmd(uint8_t *decrypted_key, uint8_t *encrypted_cmd, uint8_t *d
         tloge("fail to allocate aes transient object, ret 0x%x\n", ret);
         return ret;
     }
-
-    ret = TEE_GenerateKey(key_obj, AES_KEY_SIZE, &attr, 1);
+    memcpy_s(nonce_buf, nonce_size, decrypted_key, nonce_size);
+    memcpy_s(key_buf, AES_KEY_SIZE, decrypted_key+12, AES_KEY_SIZE);
+    memcpy_s(tag_buf, tag_size, decrypted_key+AES_KEY_SIZE+12, tag_size);
+    TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, key_buf, AES_KEY_SIZE);
+    ret = TEE_PopulateTransientObject(key_obj, &attr, 1);
     if (ret != TEE_SUCCESS) {
-        tloge("fail to generate aes key, ret 0x%x\n", ret);
+        tloge("fail to populata attrs, ret 0x%x\n", ret);
         return ret;
     }
-
     ret = TEE_AllocateOperation(&oper_dec, TEE_ALG_AES_GCM, TEE_MODE_DECRYPT, AES_KEY_SIZE);
     if (ret != TEE_SUCCESS) {
-        tloge("fail to allocate aes encrypt operation, ret 0x%x\n", ret);
+        tloge("fail to allocate aes decrypt operation, ret 0x%x\n", ret);
         return ret;
     }
 
     ret = TEE_SetOperationKey(oper_dec, key_obj);
     if (ret != TEE_SUCCESS) {
-        tloge("fail to set rsa encrypt key, ret 0x%x\n", ret);
+        tloge("fail to set rsa decrypt key, ret 0x%x\n", ret);
         TEE_FreeOperation(oper_dec);
         return ret;
     }
-    memcpy_s(nonce_buf, nonce_size, decrypted_key, nonce_size);
-    memcpy_s(key_buf, AES_KEY_SIZE, decrypted_key+12, AES_KEY_SIZE);
-    memcpy_s(tag_buf, tag_size, decrypted_key, tag_size);
     TEE_AEInit(oper_dec, nonce_buf, nonce_size, tag_size, 0, 0);
-
     ret = TEE_AEDecryptFinal(oper_dec, encrypted_cmd, encrypted_size, decrypted_cmd, &decrypted_size, tag_buf, tag_size);
     if (ret != TEE_SUCCESS) {
         tloge("fail to final aes decrypt, ret 0x%x\n", ret);
         TEE_FreeOperation(oper_dec);
         return ret;
     }
+    *cmd_size = decrypted_size;
     TEE_FreeOperation(oper_dec);
     return TEE_SUCCESS;
 }
@@ -417,7 +425,7 @@ void char2uuid(uint8_t charuuid[33], TEE_UUID *uuid) {
     }
 }
 
-void parsejson(uint8_t *decrypted_cmd, uint32_t *cmd, TEE_UUID *taid, TEE_UUID *keyid, uint8_t *key) {
+void parsejson(uint8_t *decrypted_cmd, uint32_t *cmd, TEE_UUID *taid, TEE_UUID *keyid, char *key) {
     cJSON *cj = cJSON_Parse((char*)decrypted_cmd);
     cJSON *cjtaid = cJSON_GetObjectItemCaseSensitive(cj, "TAId");
     uint8_t *chartaid = (uint8_t*)cjtaid->valuestring;
@@ -426,16 +434,16 @@ void parsejson(uint8_t *decrypted_cmd, uint32_t *cmd, TEE_UUID *taid, TEE_UUID *
     uint8_t *charkeyid = (uint8_t*)cjkeyid->valuestring;
     char2uuid(charkeyid, keyid);
     cJSON *cjcmd = cJSON_GetObjectItemCaseSensitive(cj, "cmd");
-    char *charcmd = cjcmd->valuestring;
-    if(!strncmp(charcmd, "2147483649", 10)) {
+    if(cjcmd->valueint == 0x70000001) {
         *cmd = 1;
-    } else if(!strncmp(charcmd, "2147483650", 10)) {
+    } else if(cjcmd->valueint == 0x70000002) {
         *cmd = 2;
-    } else if (!strncmp(charcmd, "2147483651", 10)) {
+    } else if (cjcmd->valueint == 0x70000003) {
         *cmd = 3;
     }
     cJSON *cjkey = cJSON_GetObjectItemCaseSensitive(cj, "PlainText");
-    memcpy_s(key, strlen(cjkey->valuestring), cjkey->valuestring, strlen(cjkey->valuestring));
+    memcpy_s(key, AES_KEY_SIZE*2+1, cjkey->valuestring, strlen(cjkey->valuestring));
+    cJSON_Delete(cj);
 }
 
 void saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
@@ -467,7 +475,7 @@ void saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
         if(ta.key[i].next == -1 || i != cur2) {
             cache.ta[head].head = i;
             cache.ta[head].key[i].id = keyid;
-            memcpy_s(cache.ta[thead].key[i].value, strlen((char*)keyvalue), keyvalue, strlen((char*)keyvalue));
+            memcpy_s(cache.ta[thead].key[i].value, KEY_SIZE, keyvalue, AES_KEY_SIZE);
             cache.ta[head].key[i].next = thead;
         }
     }
@@ -486,11 +494,11 @@ void saveGenReplyCache(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
     }
 save:
     for(int32_t i=0; i<MAX_KEY_NUM; i++) {
-        if(replycache.list[i].next == -1 || i != cur) {
+        if(replycache.list[i].next == -1 && i != cur) {
             replycache.list[i].tag = 1;
             replycache.list[i].keyId = keyid;
             replycache.list[i].taId = TA_uuid;
-            memcpy_s(replycache.list[i].keyvalue, strlen((char*)keyvalue), keyvalue, strlen((char*)keyvalue));
+            memcpy_s(replycache.list[i].keyvalue, KEY_SIZE, keyvalue, AES_KEY_SIZE);
             replycache.list[i].next = -1;
             if(cur != -1){
                 replycache.list[cur].next = i;
@@ -539,9 +547,7 @@ TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     cJSON *keybuffer = NULL;
     cJSON *cmdbuffer = NULL;
-    uint8_t encrypted_key[RSA_KEY_SIZE+1] = {0};
     uint8_t decrypted_key[RSA_KEY_SIZE] = {0};
-    uint8_t *encrypted_cmd = NULL;
     uint8_t *decrypted_cmd = NULL;
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,
@@ -555,28 +561,34 @@ TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         tloge("Bad expected parameter value");
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    uint8_t *response = TEE_Malloc(params[0].memref.size*sizeof(uint8_t)+1, 0);
+    char *response = TEE_Malloc(params[0].memref.size*sizeof(uint8_t)+1, 0);
     memcpy_s(response, params[0].memref.size*sizeof(uint8_t)+1, params[0].memref.buffer, params[0].memref.size);
-    cJSON *cj = cJSON_Parse((char*)response);
+    cJSON *cj = cJSON_Parse(response);
     keybuffer = cJSON_GetObjectItemCaseSensitive(cj, "Key");
-    memcpy_s(encrypted_key, RSA_KEY_SIZE+1, keybuffer->valuestring, RSA_KEY_SIZE+1);
-    ret = decryptkey(encrypted_key, decrypted_key);
+    uint8_t hex_key[RSA_KEY_SIZE] = {0};
+    hex2str(keybuffer->valuestring, strlen(keybuffer->valuestring)/2, hex_key);
+    ret = decryptkey(hex_key, decrypted_key);
     if (ret != TEE_SUCCESS) {
         tloge("decrypt key failed");
         return ret;
     }
-    cmdbuffer = cJSON_GetObjectItemCaseSensitive(cj, "retKeyInfo");
-    memcpy_s(encrypted_cmd, strlen(cmdbuffer->valuestring)*sizeof(uint8_t),
-            cmdbuffer->valuestring, strlen(cmdbuffer->valuestring)*sizeof(uint8_t));
-    ret = decryptcmd(decrypted_key, encrypted_cmd, decrypted_cmd);
+    cmdbuffer = cJSON_GetObjectItemCaseSensitive(cj, "EncCmdData");
+    int cmd_size = strlen(cmdbuffer->valuestring)/2;
+    uint8_t *str_cmd = TEE_Malloc(cmd_size, 0);
+    decrypted_cmd = TEE_Malloc(cmd_size, 0);
+    hex2str(cmdbuffer->valuestring, cmd_size, str_cmd);
+    ret = decryptcmd(decrypted_key, str_cmd, decrypted_cmd, &cmd_size);
     if (ret != TEE_SUCCESS) {
         tloge("decrypt cmd failed");
         return ret;
     }
+    decrypted_cmd[cmd_size] = '\0';
     TEE_UUID taid = {0}, keyid = {0};
-    uint8_t *key = NULL;
+    char *key = TEE_Malloc(AES_KEY_SIZE, 0);
+    uint8_t hexkey[2*AES_KEY_SIZE+1] = {0};
     uint32_t cmd = 0;
-    parsejson(decrypted_cmd, &cmd, &taid, &keyid, key);
+    parsejson(decrypted_cmd, &cmd, &taid, &keyid, hexkey);
+    hex2str(hexkey, AES_KEY_SIZE, key);
     switch(cmd) {
     case 1:
         saveTaKey(taid, keyid, key);
@@ -592,6 +604,10 @@ TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         tloge("unknown cmd");
         return TEE_ERROR_BAD_PARAMETERS;
     }
+    params[1].value.a = 1;
+    TEE_Free(key);
+    TEE_Free(str_cmd);
+    TEE_Free(decrypted_cmd);
     return TEE_SUCCESS;
 }
 
@@ -812,7 +828,8 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    CmdNode *n = params[0].memref.buffer;
+    CmdNode *n = TEE_Malloc(sizeof(CmdNode), 0);
+    memcpy_s(n, sizeof(CmdNode), params[0].memref.buffer, sizeof(CmdNode));
     if (!verifyTApasswd(n->taId, n->account, n->password)) {
         params[1].value.b = 0;
         return TEE_ERROR_ACCESS_DENIED;

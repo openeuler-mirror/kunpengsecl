@@ -25,12 +25,17 @@ Description: initialize module in kta.
 #include <tee_crypto_api.h>
 #include <tee_crypto_api.h>
 #include <string.h>
+#include <ctype.h>
 #include <securec.h>
 #include <cJSON.h>
 
 extern Cache cache;
 extern CmdQueue cmdqueue;
 extern ReplyCache replycache;
+
+TEE_UUID validUuid = {
+    0xbbb2d138, 0xee21, 0x43af, { 0x87, 0x96, 0x40, 0xc2, 0x0d, 0x7b, 0x45, 0xfa }
+};;
 
 void str2hex(const uint8_t *source, int source_len, char *dest) {
     for (int32_t i = 0; i < source_len; i++) {
@@ -50,8 +55,8 @@ void hex2str(const char *source, int dest_len, uint8_t *dest) {
     uint8_t LowByte;
 
     for (int i = 0; i < dest_len; i++) {
-        HighByte = source[i * 2];
-        LowByte = source[i * 2 + 1];
+        HighByte = toupper(source[i * 2]);
+        LowByte = toupper(source[i * 2 + 1]);
         if (HighByte <= 0x39) 
             HighByte -= 0x30;
         else
@@ -258,6 +263,15 @@ TEE_Result initStructure(){
             cache.ta[i].key[j].next = -1;
         }
     }
+    //fill one legitimate ta info into the cache
+    //to simulate the ta has already registered into the KTA
+    cache.head = 0;
+    cache.tail = 0;
+    memcpy_s(cache.ta[cache.head].account, 64, "1234", 5);
+    memcpy_s(cache.ta[cache.head].password, 64, "5678", 5);
+    cache.ta[cache.head].id = validUuid;
+    cache.ta[cache.head].next = -1;
+
     //init cmdqueue
     cmdqueue.head = 0;
     cmdqueue.tail = 0;

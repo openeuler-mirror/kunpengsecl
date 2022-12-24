@@ -56,17 +56,17 @@ void hex2char(uint32_t hex, int8_t *hexchar, int32_t i) {
     }
 }
 
-void uuid2char(TEE_UUID uuid, int8_t charuuid[37]) {
+void uuid2char(TEE_UUID uuid, int8_t charuuid[33]) {
     int32_t i = 0;
 
     hex2char(uuid.timeLow, charuuid, 8);
-    hex2char(uuid.timeMid, charuuid + 9, 4);
-    hex2char(uuid.timeHiAndVersion, charuuid + 14, 4);
+    hex2char(uuid.timeMid, charuuid + 8, 4);
+    hex2char(uuid.timeHiAndVersion, charuuid + 12, 4);
     for(i = 0; i < 2; i++){
-        hex2char(uuid.clockSeqAndNode[i], charuuid + 19 + i * 2, 2);
+        hex2char(uuid.clockSeqAndNode[i], charuuid + 16 + i * 2, 2);
     }
     for(i = 0; i < 6; i++){
-        hex2char(uuid.clockSeqAndNode[i+2], charuuid + 24 + i * 2, 2);
+        hex2char(uuid.clockSeqAndNode[i+2], charuuid + 20 + i * 2, 2);
     }
 }
 
@@ -187,7 +187,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE)) {
+        TEE_PARAM_TYPE_VALUE_OUTPUT)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
@@ -216,7 +216,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
             TEE_CloseObject(keyid_data);
             return ret;
         }
-
+        params[3].value.a = 0;
         TEE_CloseObject(keyid_data);
         break;
     case 2:
@@ -249,6 +249,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
             tloge("not find designated key");
             return TEE_ERROR_TIMEOUT;
         }
+        params[3].value.a = 0;
         break;
     case 3:
         

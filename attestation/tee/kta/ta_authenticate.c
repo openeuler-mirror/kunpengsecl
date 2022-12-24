@@ -27,10 +27,12 @@ bool CheckUUID(TEE_UUID id1,TEE_UUID id2)
     if(id1.timeHiAndVersion != id2.timeHiAndVersion || 
     id1.timeLow != id2.timeLow ||
     id1.timeMid != id2.timeMid){
+        tlogd("a");
         return false;
     }
     for(int32_t i = 0;i < NODE_LEN; i++){
         if(id1.clockSeqAndNode[i] != id2.clockSeqAndNode[i]){
+            tlogd("b");
             return false;
         }
     }
@@ -49,19 +51,18 @@ bool verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
     while (front != END_NULL && !CheckUUID(TA_uuid,cache.ta[front].id))
     {
         //loop
-        front = cache.ta->next; //move to next one
+        front = cache.ta[front].next; //move to next one
     }
     ////step3: compare the cache's value with account and password
     if (front != END_NULL)
     {
         //find the TA_uuid in the cache
-        if(!(memcmp(account,cache.ta[front].account,sizeof(cache.ta[front].account)) 
-        && memcmp(password,cache.ta[front].password,sizeof(cache.ta[front].password))))
+        if(!memcmp(account,cache.ta[front].account,sizeof(cache.ta[front].account)) 
+        && !memcmp(password,cache.ta[front].password,sizeof(cache.ta[front].password)))
         {
-            tloge("Failed to verify the TA password!\n");
-            return false;
+            return true;
         }
     }
-    return true;   
-
+    tloge("Failed to verify the TA password!\n");
+    return false;
 }

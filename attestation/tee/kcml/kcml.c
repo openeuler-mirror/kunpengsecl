@@ -54,11 +54,13 @@ TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_KEY_GENETARE, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("invoke command generate key failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return ret;
     }
     if(params[PARAMETER_THIRD].value.b != 1) {
         tloge("generate kcm command failed");
+        TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return TEE_ERROR_CANCEL;
     }
@@ -72,7 +74,7 @@ TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
 TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
         uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey , uint8_t *keyvalue, uint32_t *flag) {
     TEE_Result ret;
-    CmdNode *cmdnode = NULL;
+    CmdNode *cmdnode = TEE_Malloc(sizeof(CmdNode), 0);
     TEE_TASessionHandle session = {0};
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
@@ -88,7 +90,7 @@ TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_NONE);
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
-    params[PARAMETER_FRIST].memref.size = sizeof(cmdnode);
+    params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].memref.buffer = keyvalue;
     params[PARAMETER_SECOND].memref.size = KEY_SIZE * sizeof(keyvalue);
     params[PARAMETER_THIRD].value.a = VALUE_INIT;
@@ -97,27 +99,31 @@ TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_KEY_SEARCH, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("invoke command search key failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return ret;
     }
     if(params[PARAMETER_THIRD].value.a == 0) {
         tlogd("success to search key");
+        TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return TEE_SUCCESS;
     }
     if(params[PARAMETER_THIRD].value.a != 1 || params[PARAMETER_THIRD].value.b != 1) {
         tloge("generate kcm command failed");
+        TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return TEE_ERROR_BAD_FORMAT;
     }
     *flag = 1;
     TEE_CloseTASession(session);
+    TEE_Free(cmdnode);
     return TEE_SUCCESS;
 }
 
 TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *keyid) {
     TEE_Result ret;
-    CmdNode *cmdnode = NULL;
+    CmdNode *cmdnode = TEE_Malloc(sizeof(CmdNode), 0);
     TEE_TASessionHandle session = {0};
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
@@ -135,7 +141,7 @@ TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_U
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_NONE);
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
-    params[PARAMETER_FRIST].memref.size = sizeof(cmdnode);
+    params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].value.a = VALUE_INIT;
     params[PARAMETER_SECOND].value.b = VALUE_INIT;
     params[PARAMETER_THIRD].value.a = VALUE_INIT;
@@ -144,28 +150,32 @@ TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_U
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_KEY_DELETE, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("invoke command destory key failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return ret;
     }
     if(params[PARAMETER_SECOND].value.a != 1) {
         tloge("delete local key failed");
+        TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return TEE_ERROR_CANCEL;
     }
     if(params[PARAMETER_THIRD].value.b != 1) {
         tloge("generate kcm command failed");
+        TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return TEE_ERROR_BAD_FORMAT;
     }
 
     tlogd("success to destory key");
     TEE_CloseTASession(session);
+    TEE_Free(cmdnode);
     return TEE_SUCCESS;
 }
 
 TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password) {
     TEE_Result ret;
-    CmdNode *cmdnode = NULL;
+    CmdNode *cmdnode = TEE_Malloc(sizeof(CmdNode), 0);
     TEE_TASessionHandle session = {0};
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
@@ -174,6 +184,7 @@ TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password) {
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("open ta session failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
         return ret;
     }
 
@@ -182,53 +193,62 @@ TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password) {
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
-    params[PARAMETER_FRIST].memref.size = sizeof(cmdnode);
+    params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].value.a = VALUE_INIT;
     params[PARAMETER_SECOND].value.b = VALUE_INIT;
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_CLEAR_CACHE, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("invoke command clear cache failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return ret;
     }
     if(params[PARAMETER_SECOND].value.a != 1) {
         tloge("clear local cache failed");
         TEE_CloseTASession(session);
+        TEE_Free(cmdnode);
         return TEE_ERROR_CANCEL;
     }
 
     tlogd("success to clear cache");
     TEE_CloseTASession(session);
+    TEE_Free(cmdnode);
     return TEE_SUCCESS;
 }
 
 TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
         uint8_t *password, TEE_UUID *keyid, uint8_t *keyvalue) {
     TEE_Result ret;
-    CmdNode *cmdnode = NULL;
-    ReplyNode *replynode = NULL;
+    CmdNode *cmdnode = TEE_Malloc(sizeof(CmdNode), 0);
+    ReplyNode *replynode = TEE_Malloc(sizeof(ReplyNode), 0);
     TEE_TASessionHandle session = {0};
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
     uint32_t command_param_type = 0;
+    int8_t uuid1[33] = {0};
+    uuid2char(*uuid, uuid1);
+    tlogd("uuid%s",uuid1);
 
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("open ta session failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
         return ret;
     }
     
     cmd_copy(cmdnode, uuid, account, password, NULL, NULL);
     cmdnode->cmd = CMD_KCM_REPLY;
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);    
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
-    params[PARAMETER_FRIST].memref.size = sizeof(cmdnode);
+    params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].memref.buffer = replynode;
-    params[PARAMETER_SECOND].memref.size = sizeof(replynode);
+    params[PARAMETER_SECOND].memref.size = sizeof(ReplyNode);
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_KCM_REPLY, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("invoke command get kcm reply failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
+        TEE_Free(replynode);
         TEE_CloseTASession(session);
         return ret;
     }
@@ -237,14 +257,22 @@ TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
         memcpy_s(keyid, sizeof(TEE_UUID), &replynode->keyId, sizeof(TEE_UUID));
         memcpy_s(keyvalue, KEY_SIZE, replynode->keyvalue, KEY_SIZE);
         tlogd("get a key generate reply");
+        TEE_Free(cmdnode);
+        TEE_Free(replynode);
         return TEE_SUCCESS;
         case 2:
         tlogd("get a key delete reply");
         if(replynode->flag) {
+            TEE_Free(cmdnode);
+            TEE_Free(replynode);
             return TEE_SUCCESS;
         } else {
+            TEE_Free(cmdnode);
+            TEE_Free(replynode);
             return TEE_ERROR_NOT_IMPLEMENTED;
         }
     }
+    TEE_Free(cmdnode);
+    TEE_Free(replynode);
     return TEE_SUCCESS;
 }

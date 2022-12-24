@@ -112,7 +112,7 @@ TEE_Result initStructure();
 
 void str2hex(const uint8_t *source, int source_len, char *dest);
 
-void hex2str(const char *source, int source_len, uint8_t *dest);
+void hex2str(const char *source, int dest_len, uint8_t *dest);
 
 //for reset key and cert
 
