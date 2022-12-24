@@ -104,11 +104,15 @@ TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size);
 
 TEE_Result saveKTAPriv(char *name, ktaprivkey *value);
 
-TEE_Result restoreKeyandCert(char *certname, uint8_t *buffer, size_t *buf_len);
+TEE_Result restoreKeyandCert(char *certname, uint8_t *buffer, size_t buf_len);
 
 TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t privateExponent[RSA_PUB_SIZE]);
 
 TEE_Result initStructure();
+
+void str2hex(const uint8_t *source, int source_len, char *dest);
+
+void hex2str(const char *source, int source_len, uint8_t *dest);
 
 //for reset key and cert
 
@@ -117,8 +121,6 @@ TEE_Result Reset_All();
 TEE_Result reset(char *name);
 
 //for key management
-
-
 
 //for ta-auth
 bool verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password);
