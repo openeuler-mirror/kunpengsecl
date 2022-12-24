@@ -961,7 +961,10 @@ func TestClientapiKeyOp(t *testing.T) {
 	appendKey = append(appendKey, tag...)
 
 	// TODO: use kcm public key to encrypt decKey as key
-	key := RsaEncrypt(appendKey, kcmPublicKey)
+	key, err := RsaEncrypt(appendKey, kcmPublicKey)
+	if err != nil {
+		t.Errorf("Encode rsa error: %v", err)
+	}
 
 	encKey := hex.EncodeToString(key)
 	encData := hex.EncodeToString(cmdData)
@@ -1239,7 +1242,10 @@ func TestDoClientapiKeyOp(t *testing.T) {
 	appendKey = append(appendKey, tag...)
 
 	// TODO: use kcm public key to encrypt decKey as key
-	key := RsaEncrypt(appendKey, kcmPublicKey)
+	key, err := RsaEncrypt(appendKey, kcmPublicKey)
+	if err != nil {
+		t.Errorf("Encode rsa error: %v", err)
+	}
 
 	encKey := hex.EncodeToString(key)
 	encData := hex.EncodeToString(cmdData)
@@ -1541,7 +1547,10 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 	appendKey = append(appendKey, tag...)
 
 	// TODO: use kcm public key to encrypt decKey as key
-	key := RsaEncrypt(appendKey, kcmPublicKey)
+	key, err := RsaEncrypt(appendKey, kcmPublicKey)
+	if err != nil {
+		t.Errorf("Encode rsa error: %v", err)
+	}
 
 	encKey := hex.EncodeToString(key)
 	encData := hex.EncodeToString(cmdData)
