@@ -36,7 +36,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"crypto/sha256"
+    "crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -114,6 +114,7 @@ type retKeyInfo struct {
 	KeyId     string
 	PlainText string
 	HostKeyId string
+	Command   uint32
 }
 
 var (
@@ -433,6 +434,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			KeyId:     string(retKeyId),
 			PlainText: hex.EncodeToString(plainText),
 			HostKeyId: string(message.HostKeyId),
+			Command:   message.Command,
 		}
 
 		pubkeycert = KtaPublickeyCert
@@ -456,6 +458,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			KeyId:     string(retKeyId),
 			PlainText: string(plainText),
 			HostKeyId: message.HostKeyId,
+			Command:   message.Command,
 		}
 
 		pubkeycert = KtaPublickeyCert
@@ -478,6 +481,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			TAId:      message.TAId,
 			KeyId:     message.KeyId,
 			HostKeyId: message.HostKeyId,
+			Command:   message.Command,
 		}
 
 		pubkeycert = KtaPublickeyCert

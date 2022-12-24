@@ -98,9 +98,12 @@ const (
 	sflagIma = "i"
 	helpIma  = "input ima log path"
 	// digest alg output
-	lflagBios = "bioslog"
-	sflagBios = "b"
-	helpBios  = "input bios log path"
+	lflagBios    = "bioslog"
+	sflagBios    = "b"
+	helpBios     = "input bios log path"
+	lflagShutkta = "shutkta"
+	sflagShutkta = "S"
+	helpShutkta  = "shut down kta"
 )
 
 type (
@@ -146,6 +149,7 @@ var (
 	//algDigest   *string = nil
 	imaLogPath  *string = nil
 	biosLogPath *string = nil
+	shutktaFlag *bool   = nil
 )
 
 // initFlags inits the raagent whole command flags.
@@ -159,6 +163,7 @@ func initFlags() {
 	//algDigest = pflag.StringP(lflagAlg, sflagAlg, defaultDigestAlg, helpAlg)
 	imaLogPath = pflag.StringP(lflagIma, sflagIma, defaultImaLog, helpIma)
 	biosLogPath = pflag.StringP(lflagBios, sflagBios, defaultBiosLog, helpBios)
+	shutktaFlag = pflag.BoolP(lflagShutkta, sflagShutkta, false, helpShutkta)
 	pflag.Parse()
 }
 

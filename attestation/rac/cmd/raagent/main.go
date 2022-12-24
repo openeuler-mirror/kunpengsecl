@@ -65,7 +65,7 @@ func main() {
 
 	prepare()
 	if *kaFlag {
-		go katools.KaMain(GetServer(), GetClientId())
+		go katools.KaMain(GetServer(), GetClientId(), *shutktaFlag)
 	}
 	// step 3. if rac has clientId, it uses clientId to send heart beat.
 	loop()

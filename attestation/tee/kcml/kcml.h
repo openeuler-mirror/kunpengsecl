@@ -94,5 +94,4 @@ TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password);
  */
 TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
         uint8_t *password, TEE_UUID *keyid, uint8_t *keyvalue);
-
 #endif // __KCML_H__

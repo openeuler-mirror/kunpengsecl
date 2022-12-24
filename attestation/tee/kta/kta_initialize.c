@@ -33,9 +33,9 @@ extern Cache cache;
 extern CmdQueue cmdqueue;
 extern ReplyCache replycache;
 
-TEE_UUID validUuid = {
+TEE_UUID taUuid = {
     0xbbb2d138, 0xee21, 0x43af, { 0x87, 0x96, 0x40, 0xc2, 0x0d, 0x7b, 0x45, 0xfa }
-};;
+};
 
 void str2hex(const uint8_t *source, int source_len, char *dest) {
     for (int32_t i = 0; i < source_len; i++) {
@@ -244,6 +244,24 @@ TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t pri
         cJSON_Delete(kta_priv_json);
         return TEE_ERROR_SECURITY;
     }
+    char strmodulus1[201] = {0};
+    char strmodulus2[201] = {0};
+    char strmodulus3[113] = {0};
+    memcpy_s(strmodulus1,201,jsonmodulus->valuestring,200);
+    memcpy_s(strmodulus2,201,jsonmodulus->valuestring+200,200);
+    memcpy_s(strmodulus3,113,jsonmodulus->valuestring+400,112);
+    tlogd("strmodulus1: %s", strmodulus1);
+    tlogd("strmodulus2: %s", strmodulus2);
+    tlogd("strmodulus3: %s", strmodulus3);
+    char strprivateExponent1[201] = {0};
+    char strprivateExponent2[201] = {0};
+    char strprivateExponent3[113] = {0};
+    memcpy_s(strprivateExponent1,201,jsonprivateExponent->valuestring,200);
+    memcpy_s(strprivateExponent2,201,jsonprivateExponent->valuestring+200,200);
+    memcpy_s(strprivateExponent3,113,jsonprivateExponent->valuestring+400,112);
+    tlogd("strprivateExponent1: %s", strprivateExponent1);
+    tlogd("strprivateExponent2: %s", strprivateExponent2);
+    tlogd("strprivateExponent3: %s", strprivateExponent3);
     TEE_CloseObject(persistent_data);
     TEE_Free(read_buffer);
     cJSON_Delete(kta_priv_json);
@@ -263,13 +281,11 @@ TEE_Result initStructure(){
             cache.ta[i].key[j].next = -1;
         }
     }
-    //fill one legitimate ta info into the cache
-    //to simulate the ta has already registered into the KTA
     cache.head = 0;
     cache.tail = 0;
     memcpy_s(cache.ta[cache.head].account, 64, "1234", 5);
     memcpy_s(cache.ta[cache.head].password, 64, "5678", 5);
-    cache.ta[cache.head].id = validUuid;
+    cache.ta[cache.head].id = taUuid;
     cache.ta[cache.head].next = -1;
 
     //init cmdqueue
