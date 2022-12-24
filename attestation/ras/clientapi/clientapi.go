@@ -36,6 +36,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -94,25 +95,25 @@ type rasService struct {
 }
 
 type tagCmdData struct {
-	Key        []byte
-	EncCmdData []byte
+	Key        string
+	EncCmdData string
 }
 
 type inKeyInfo struct {
-	TAId      []byte
-	Account   []byte
-	Password  []byte
-	KeyId     []byte
-	HostKeyId []byte
+	TAId      string
+	Account   string
+	Password  string
+	KeyId     string
+	HostKeyId string
 	Command   uint32
 	KTAId     string
 }
 
 type retKeyInfo struct {
-	TAId      []byte
-	KeyId     []byte
-	PlainText []byte
-	HostKeyId []byte
+	TAId      string
+	KeyId     string
+	PlainText string
+	HostKeyId string
 }
 
 var (
@@ -408,6 +409,10 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		return &KeyOperationReply{Result: false}, err
 	}
 	message, err = DecryptKeyOpIncome(encCmdData, privKey)
+	if err != nil {
+		logger.L.Sugar().Errorf("Decrypt CmdData error, %v", err)
+		return &KeyOperationReply{Result: false}, err
+	}
 
 	switch message.Command {
 	case 0x70000001:
@@ -418,16 +423,16 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GenerateNewKey(message.TAId, message.Account, message.Password, message.HostKeyId, message.KTAId, deviceId)
+		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GenerateNewKey([]byte(message.TAId), []byte(message.Account), []byte(message.Password), []byte(message.HostKeyId), message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
 		}
 		retMessage = retKeyInfo{
-			TAId:      retTAId,
-			KeyId:     retKeyId,
-			PlainText: plainText,
-			HostKeyId: message.HostKeyId,
+			TAId:      string(retTAId),
+			KeyId:     string(retKeyId),
+			PlainText: hex.EncodeToString(plainText),
+			HostKeyId: string(message.HostKeyId),
 		}
 
 		pubkeycert = KtaPublickeyCert
@@ -441,15 +446,15 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GetKey(message.TAId, message.Account, message.Password, message.KeyId, message.HostKeyId, message.KTAId, deviceId)
+		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GetKey([]byte(message.TAId), []byte(message.Account), []byte(message.Password), []byte(message.KeyId), []byte(message.HostKeyId), message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Get key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
 		}
 		retMessage = retKeyInfo{
-			TAId:      retTAId,
-			KeyId:     retKeyId,
-			PlainText: plainText,
+			TAId:      string(retTAId),
+			KeyId:     string(retKeyId),
+			PlainText: string(plainText),
 			HostKeyId: message.HostKeyId,
 		}
 
@@ -464,7 +469,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		key, KtaPublickeyCert, err := kcmstools.DeleteKey(message.TAId, message.KeyId, message.KTAId, deviceId)
+		key, KtaPublickeyCert, err := kcmstools.DeleteKey([]byte(message.TAId), []byte(message.KeyId), message.KTAId, deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Delete key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -482,7 +487,6 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		logger.L.Sugar().Errorf("resolve command of TA %s failed", message.TAId)
 		return &KeyOperationReply{Result: false}, err
 	}
-
 	encRetMessage, err := EncryptKeyOpOutcome(retMessage, sessionKey, pubkeycert)
 	if err != nil {
 		logger.L.Sugar().Errorf("Encode return message of TA %s error, %v", retMessage.TAId, err)
@@ -890,7 +894,7 @@ func RsaEncrypt(data, keyBytes []byte) ([]byte, error) {
 	// 类型断言
 	pub := pubInterface.(*rsa.PublicKey)
 	//加密
-	ciphertext, err := rsa.EncryptPKCS1v15(rand.Reader, pub, data)
+	ciphertext, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, pub, data, nil)
 	if err != nil {
 		logger.L.Sugar().Errorf("rsa encode error, %v", err)
 		return nil, err
@@ -946,8 +950,7 @@ func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []b
 	appendKey := append(nonce, sessionKey...)
 	appendKey = append(appendKey, tag...)
 
-	label := []byte("label")
-	encSessionKey, err := cryptotools.AsymmetricEncrypt(cryptotools.AlgRSA, cryptotools.AlgNull, pubkeycert.PublicKey, appendKey, label)
+	encSessionKey, err := cryptotools.AsymmetricEncrypt(cryptotools.AlgRSA, cryptotools.AlgOAEP, pubkeycert.PublicKey, appendKey, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -957,8 +960,8 @@ func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []b
 
 	//TODO: pack encrypted encRetMessage and encSessionKey as struct
 	finalMessage := tagCmdData{
-		Key:        []byte(encKey),
-		EncCmdData: []byte(encMessage),
+		Key:        encKey,
+		EncCmdData: encMessage,
 	}
 
 	//TODO encrypt the struct to json format
@@ -979,7 +982,6 @@ func DecryptKeyOpIncome(encCmdData, privKey []byte) (*inKeyInfo, error) {
 		logger.L.Sugar().Errorf("Decode outside json of TA error, %v", err)
 		return &message, err
 	}
-
 	sessionKey, err := hex.DecodeString(string(cmdData.Key))
 	if err != nil {
 		logger.L.Sugar().Errorf("decode session key from hex error, %v", err)
@@ -990,7 +992,6 @@ func DecryptKeyOpIncome(encCmdData, privKey []byte) (*inKeyInfo, error) {
 		logger.L.Sugar().Errorf("decode cmd data from hex error, %v", err)
 		return nil, err
 	}
-
 	// TODO: use kcm private key to decode key
 	// decKey := RsaDecrypt(cmdData.Key, privKey)
 	block, _ := pem.Decode(privKey)
@@ -1005,12 +1006,10 @@ func DecryptKeyOpIncome(encCmdData, privKey []byte) (*inKeyInfo, error) {
 		return nil, err
 	}
 
-	label := []byte("label")
-	decSessionKey, err := cryptotools.AsymmetricDecrypt(cryptotools.AlgRSA, cryptotools.AlgNull, priv, sessionKey, label)
+	decSessionKey, err := cryptotools.AsymmetricDecrypt(cryptotools.AlgRSA, cryptotools.AlgOAEP, priv, sessionKey, nil)
 	if err != nil {
 		return nil, err
 	}
-
 	nonce := decSessionKey[:12]
 	decKey := decSessionKey[12 : len(decSessionKey)-16]
 	tag := decSessionKey[len(decSessionKey)-16:]
@@ -1023,7 +1022,6 @@ func DecryptKeyOpIncome(encCmdData, privKey []byte) (*inKeyInfo, error) {
 		logger.L.Sugar().Errorf("Decode AESGCM error, %v", err)
 		return nil, err
 	}
-
 	err = json.Unmarshal(encMessage, &message)
 	if err != nil {
 		logger.L.Sugar().Errorf("Decode inside json of TA error, %v", err)

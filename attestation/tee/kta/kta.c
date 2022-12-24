@@ -78,7 +78,6 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t param_type,
 TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
     uint32_t param_type, TEE_Param params[PARAM_COUNT])
 {
-    tlogd("dddsd");
     TEE_Result ret;
     caller_info caller_info ;
 

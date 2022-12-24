@@ -198,11 +198,11 @@ var (
 		48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
 		80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108,
 		109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122}
-	taId                = []byte("taId")
-	keyId               = []byte("keyId")
-	hostKeyId           = []byte("hostKeyId")
-	account             = []byte("account")
-	password            = []byte("password")
+	taId                = "taId"
+	keyId               = "keyId"
+	hostKeyId           = "hostKeyId"
+	account             = "account"
+	password            = "password"
 	deviceId      int64 = 1238263726351263121
 	cipherMessage       = "89Kl9gkvWImjh5CUsADSbmFyDb7s5q+voUf2ym4u6dc="
 	ktaId               = "ktaId"
@@ -970,8 +970,8 @@ func TestClientapiKeyOp(t *testing.T) {
 	encData := hex.EncodeToString(cmdData)
 
 	decCmdData := tagCmdData{
-		Key:        []byte(encKey),
-		EncCmdData: []byte(encData),
+		Key:        encKey,
+		EncCmdData: encData,
 	}
 	outCmdData, err := json.Marshal(decCmdData)
 	if err != nil {
@@ -1251,8 +1251,8 @@ func TestDoClientapiKeyOp(t *testing.T) {
 	encData := hex.EncodeToString(cmdData)
 
 	decCmdData := tagCmdData{
-		Key:        []byte(encKey),
-		EncCmdData: []byte(encData),
+		Key:        encKey,
+		EncCmdData: encData,
 	}
 	outCmdData, err := json.Marshal(decCmdData)
 	if err != nil {
@@ -1556,8 +1556,8 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 	encData := hex.EncodeToString(cmdData)
 
 	decCmdData := tagCmdData{
-		Key:        []byte(encKey),
-		EncCmdData: []byte(encData),
+		Key:        encKey,
+		EncCmdData: encData,
 	}
 	outCmdData, err := json.Marshal(decCmdData)
 	if err != nil {

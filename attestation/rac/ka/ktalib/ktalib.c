@@ -120,7 +120,6 @@ TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum){
 // 向KTA返回密钥请求结果
 TEEC_Result KTAsendCommandreply(struct buffer_data* in_data){
     TEEC_Operation operation = {0};
-    TEEC_Value ktares = {0};
     uint32_t origin = 0;
     TEEC_Result ret;
 
@@ -133,12 +132,12 @@ TEEC_Result KTAsendCommandreply(struct buffer_data* in_data){
     );
     operation.params[PARAMETER_FRIST].tmpref.buffer = in_data->buf;
     operation.params[PARAMETER_FRIST].tmpref.size = in_data->size;
-    operation.params[PARAMETER_SECOND].value = ktares;
+    operation.params[PARAMETER_SECOND].value.a = INITIAL_CMD_NUM;
     ret = TEEC_InvokeCommand(&session, CMD_RESPOND_REQUEST, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
         return ret;
     }
-    if (ktares.a == 0){
+    if (operation.params[PARAMETER_SECOND].value.a == 0){
         return TEEC_ERROR_BAD_BUFFER_DATA;
     }
     return TEEC_SUCCESS;

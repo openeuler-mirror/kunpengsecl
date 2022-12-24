@@ -91,10 +91,10 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 
 func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
 	// TODO: get the trusted status of TA (from cache)(trustmgr.GetCache)
-	err := GetKTATrusted(deviceId, ktaid)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
+	//err := GetKTATrusted(deviceId, ktaid)
+	//if err != nil {
+	//	return nil, nil, nil, nil, nil, err
+	//}
 
 	// ask KMS to generate a new key for the specific TA,
 	// getting (plaintext, ciphertext)
@@ -137,18 +137,9 @@ func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []by
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	pubkeycert, _, err := cryptotools.DecodeKeyCertFromPEM(KtaPublickeyCert)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	label := []byte("label")
-	enc_k, err := cryptotools.AsymmetricEncrypt(0x0001, 0x0000, pubkeycert.PublicKey, K, label)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
 	// return taid, ENC(K), ENC(plaintext), keyId, error
 	//logger.L.Debug("get key success")
-	return taid, K, enc_k, plaintext, []byte(keyid), nil
+	return taid, K, KtaPublickeyCert, plaintext, []byte(keyid), nil
 }
 
 func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
@@ -196,18 +187,9 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	pubkeycert, _, err := cryptotools.DecodeKeyCertFromPEM(KtaPublickeyCert)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	label := []byte("label")
-	enc_k, err := cryptotools.AsymmetricEncrypt(0x0001, 0x0000, pubkeycert.PublicKey, K, label)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
 	// return taid, ENC(K), ENC(plaintext),keyid,  error
 	//logger.L.Debug("get key success")
-	return taid, K, enc_k, plaintext, keyid, nil
+	return taid, K, KtaPublickeyCert, plaintext, keyid, nil
 }
 
 func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte, []byte, error) {
@@ -250,17 +232,8 @@ func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte,
 	if err != nil {
 		return nil, nil, err
 	}
-	pubkeycert, _, err := cryptotools.DecodeKeyCertFromPEM(KtaPublickeyCert)
-	if err != nil {
-		return nil, nil, err
-	}
-	label := []byte("label")
-	enc_k, err := cryptotools.AsymmetricEncrypt(0x0001, 0x0000, pubkeycert.PublicKey, K, label)
-	if err != nil {
-		return nil, nil, err
-	}
 
-	return K, enc_k, nil
+	return K, KtaPublickeyCert, nil
 
 }
 
