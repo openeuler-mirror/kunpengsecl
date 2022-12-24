@@ -194,16 +194,16 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 
 func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte, []byte, error) {
 	// TODO: get the trusted status of TA (from cache)
-	err := GetKTATrusted(deviceId, ktaid)
-	if err != nil {
-		return nil, nil, err
-	}
+	//err := GetKTATrusted(deviceId, ktaid)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
 
 	str_taid := string(taid)
 	str_keyid := string(keyid)
 
 	// delete the specific key in database
-	err = kdb.DeleteKeyInfo(str_taid, str_keyid)
+	err := kdb.DeleteKeyInfo(str_taid, str_keyid)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -29,11 +29,11 @@ import (
 )
 
 const (
-	CMD_DATA_SZIE = 1024
+	CMD_DATA_SIZE = 2048
 )
 
 // KA主函数
-func KaMain(addr string, id int64) {
+func KaMain(addr string, id int64, ktaShutdown bool) {
 	logger.L.Debug("start ka...")
 	loadConfigs()
 	c_kta_path := C.CString(getKtaPath())
@@ -55,6 +55,10 @@ func KaMain(addr string, id int64) {
 		return
 	}
 	// 轮询密钥请求过程
+	if ktaShutdown {
+		terminateKTA()
+		os.Exit(0)
+	}
 	kaLoop(ras, id, getPollDuration())
 	logger.L.Debug("ka closed...")
 }
@@ -143,7 +147,7 @@ func kaLoop(ras *clientapi.RasConn, id int64, pollDuration time.Duration) {
 			// continue
 		}
 		if cmdnum == 0 {
-			time.Sleep(3 * time.Second)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 		req := clientapi.KeyOperationRequest{
@@ -218,7 +222,7 @@ func initialKTA(kcmPubkey *rsa.PublicKey, ktaPubCert []byte, ktaPrivKey *rsa.Pri
 func getKTACmd() ([]byte, uint32, error) {
 	c_cmd_data := C.struct_buffer_data{}
 	c_cmd_num := C.uint(0)
-	c_cmd_data.size = C.__uint32_t(CMD_DATA_SZIE)
+	c_cmd_data.size = C.__uint32_t(CMD_DATA_SIZE)
 	c_cmd_data.buf = (*C.uint8_t)(C.malloc(C.ulong(c_cmd_data.size)))
 	defer C.free(unsafe.Pointer(c_cmd_data.buf))
 	teec_result := C.KTAgetCommand(&c_cmd_data, &c_cmd_num)

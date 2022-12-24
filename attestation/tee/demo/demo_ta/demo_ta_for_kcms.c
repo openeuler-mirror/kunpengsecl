@@ -47,27 +47,32 @@ typedef struct _StatusFlag {
 StatusFlag flag = {NULL, 0};
 void *keyid_storage_path = "sec_storage_data/takeyid.txt";
 
-void hex2char(uint32_t hex, int8_t *hexchar, int32_t i) {
+void hex2char(uint32_t hex, uint8_t *hexchar, int32_t i) {
     for(i--; i >= 0; i--, hex >>= 4) {
         if ((hex & 0xf) <= 9)
             *(hexchar + i) = (hex & 0xf) + '0';
         else
-            *(hexchar + i) = (hex & 0xf) + 'A' - 0x0a;
+            *(hexchar + i) = (hex & 0xf) + 'a' - 0x0a;
     }
 }
 
-void uuid2char(TEE_UUID uuid, int8_t charuuid[33]) {
+void uuid2char(TEE_UUID uuid, uint8_t charuuid[37]) {
     int32_t i = 0;
 
     hex2char(uuid.timeLow, charuuid, 8);
-    hex2char(uuid.timeMid, charuuid + 8, 4);
-    hex2char(uuid.timeHiAndVersion, charuuid + 12, 4);
+    hex2char(uuid.timeMid, charuuid + 9, 4);
+    hex2char(uuid.timeHiAndVersion, charuuid + 14, 4);
     for(i = 0; i < 2; i++){
-        hex2char(uuid.clockSeqAndNode[i], charuuid + 16 + i * 2, 2);
+        hex2char(uuid.clockSeqAndNode[i], charuuid + 19 + i * 2, 2);
     }
     for(i = 0; i < 6; i++){
-        hex2char(uuid.clockSeqAndNode[i+2], charuuid + 20 + i * 2, 2);
+        hex2char(uuid.clockSeqAndNode[i+2], charuuid + 24 + i * 2, 2);
     }
+    charuuid[8] = '-';
+    charuuid[13] = '-';
+    charuuid[18] = '-';
+    charuuid[23] = '-';
+    charuuid[36] = '\0';
 }
 
 void char2uuid(TEE_UUID *uuid, int8_t charuuid[37]) {
@@ -92,6 +97,18 @@ TEE_Result encrypt(uint8_t *keyvalue) {
     char *data = "demo data";
     (void)keyvalue;
     (void)data;
+    return TEE_SUCCESS;
+}
+
+TEE_Result delete_key_opt(TEE_UUID *keyid, TEE_Param params[PARAM_COUNT] ) {
+    TEE_Result ret;
+    ret = delete_key(&localUuid, account, password, keyid);
+    if (ret != TEE_SUCCESS) {
+        tloge("delete key failed");
+        return ret;
+    }
+    params[3].value.a = 1;
+    flag.symbol = 3;
     return TEE_SUCCESS;
 }
 
@@ -153,8 +170,9 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
         return ret;
         }
         TEE_CloseObject(keyid_data);
+        tlogd("%s",keyidchar);
         char2uuid(&keyid, keyidchar);
-
+        keyvalue = TEE_Malloc(KEY_SIZE, 0);
         ret = search_key(&localUuid, account, password, &keyid, &masterkey, keyvalue, &twice_search_flag);
         if(ret != TEE_SUCCESS) {
             tloge("search command failed");
@@ -168,8 +186,13 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
             return TEE_SUCCESS;
         }
         encrypt(keyvalue);
+        TEE_Free(keyvalue);
         tlogd("encrypt data success");
-        return TEE_SUCCESS;
+        ret = delete_key_opt(&keyid, params);
+        if (ret != TEE_SUCCESS) {
+            tloge("generate delete cmd fail");
+            return ret;
+        }
     }
     return TEE_SUCCESS;
 }
@@ -177,11 +200,11 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
 TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     TEE_UUID keyid = {0};
-    char *keyidchar = NULL;
+    char keyidchar[37] = {0};
     int8_t *keyiddelete = NULL;
     uint8_t *keyvalue = NULL;
     TEE_ObjectHandle keyid_data = NULL;
-        uint32_t len = 36, count = 0;
+    uint32_t len = 36, count = 0;
 
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_NONE,
@@ -196,13 +219,12 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     uint32_t twice_search_flag;
     switch(flag.symbol) {
     case 1:
-        keyidchar = "------------------------------------";
         ret = get_kcm_reply(&localUuid, account, password, &keyid, keyvalue);
         if (ret != TEE_SUCCESS) {
             tloge("get generate key reply failed");
             return ret;
         }
-        uuid2char(keyid, (int8_t*)keyidchar);
+        uuid2char(keyid, (uint8_t*)keyidchar);
         ret = TEE_CreatePersistentObject(TEE_OBJECT_STORAGE_PRIVATE, keyid_storage_path, strlen(keyid_storage_path),
                 TEE_DATA_FLAG_ACCESS_WRITE, TEE_HANDLE_NULL, NULL, 0, &keyid_data);
         if (ret != TEE_SUCCESS) {
@@ -224,12 +246,6 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
                 TEE_DATA_FLAG_ACCESS_READ, &keyid_data);
         if (ret != TEE_SUCCESS) {
             tloge("failed to open file:ret = 0x%x\n", ret);
-            return ret;
-        }
-        keyidchar = TEE_Malloc(len + 1, 0);
-        if (keyidchar == NULL) {
-            tloge("failed to open file:ret = 0x%x\n", ret);
-            TEE_CloseObject(keyid_data);
             return ret;
         }
         ret = TEE_ReadObjectData(keyid_data, keyidchar, len, &count);
@@ -255,9 +271,14 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         
         ret = get_kcm_reply(&localUuid, account, password, &keyid, NULL);
         if (ret != TEE_SUCCESS) {
+            params[3].value.a = 2;
             tloge("delete key failed");
             return ret;
-        } else return TEE_SUCCESS;
+        } else {
+            params[3].value.a = 0;
+            tlogd("delete key success");
+            return TEE_SUCCESS;
+        }
     default:
         tloge("parameter symbol is wrong");
         return TEE_ERROR_BAD_PARAMETERS;
@@ -266,7 +287,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     tlogd("encrypt data success");
 
     //a delete key attribute example
-    if(new_key_flag == 0) {
+    if(flag.symbol == 2) {
         ret = TEE_OpenPersistentObject(TEE_OBJECT_STORAGE_PRIVATE, keyid_storage_path, strlen(keyid_storage_path),
                 TEE_DATA_FLAG_ACCESS_READ, &keyid_data);
         if (ret != TEE_SUCCESS) {
@@ -286,12 +307,11 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return ret;
         }
         char2uuid(&keyid, keyiddelete);
-        ret = delete_key(&localUuid, account, password, &keyid);
+        ret = delete_key_opt(&keyid, params);
         if (ret != TEE_SUCCESS) {
-            tloge("delete key failed");
+            tloge("generate delete cmd fail");
             return ret;
         }
-        params[PARAM_COUNT].value.a = 1;
     }
     tlogd("execute call back success");
     return TEE_SUCCESS;

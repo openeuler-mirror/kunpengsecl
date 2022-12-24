@@ -28,7 +28,7 @@ int main(){
 
     result = TEEC_InitializeContext(NULL, &context);
     if (result != TEEC_SUCCESS) {
-        printf("initial context failed");
+        printf("initial context failed\n");
         goto end1;
     }
 
@@ -42,7 +42,7 @@ int main(){
 
     result = TEEC_OpenSession(&context, &session, &Uuid, TEEC_LOGIN_IDENTIFY, NULL, &operation, &origin);
     if (result != TEEC_SUCCESS) {
-        printf("open session failed");
+        printf("open session failed\n");
         goto end2;
     }
     //Demonstrate twice, first for key generation, second for key search
@@ -57,18 +57,18 @@ int main(){
         operation.params[SYMBOL_PARAM].value.a = VALUE_INIT; //a marks whether ta needs needs to be called back, a=0 means not need
         result = TEEC_InvokeCommand(&session, CMD_DATA_ENCRIPT, &operation, &origin);
         if(result != TEEC_SUCCESS) {
-            printf("encrypt data process failed, codes=0x%x, origin=0x%x", result, origin);
+            printf("encrypt data process failed, codes=0x%x, origin=0x%x\n", result, origin);
             goto end3;
         }
         if(operation.params[SYMBOL_PARAM].value.a == 0) {
-            printf("encrypt data process succeeded");
+            printf("encrypt data process succeeded\n");
             goto else_options;
         } else if (operation.params[SYMBOL_PARAM].value.a != 1) {
-            printf("encrypt data process failed, parameter is wrong");
+            printf("encrypt data process failed, parameter is wrong\n");
             goto end3;
         } else {
-            printf("ta needs to be called back, wait 2s");
-            sleep(2);
+            printf("ta needs to be called back, wait 3s\n");
+            sleep(3);
             operation.started = OPERATION_START_FLAG;
             operation.paramTypes = TEEC_PARAM_TYPES(
                 TEEC_NONE,
@@ -79,18 +79,18 @@ int main(){
             operation.params[SYMBOL_PARAM].value.a = VALUE_INIT; //a marks whether ta needs needs to be called back, a=0 means not need
             result = TEEC_InvokeCommand(&session, CMD_TA_CALLBACK, &operation, &origin);
             if(result != TEEC_SUCCESS) {
-                printf("ta call back failed, codes=0x%x, origin=0x%x", result, origin);
+                printf("ta call back failed, codes=0x%x, origin=0x%x\n", result, origin);
                 goto end3;
             }
             if(operation.params[SYMBOL_PARAM].value.a == 0) {
-                printf("encrypt data process succeeded");
-                goto else_options;
+                printf("encrypt data process succeeded\n");
+                continue;
             } else if (operation.params[SYMBOL_PARAM].value.a != 1) {
-                printf("encrypt data process failed, parameter is wrong");
+                printf("encrypt data process failed, parameter is wrong\n");
                 goto end3;
             } else {
-                printf("ta needs to be called back, wait 2s");
-                sleep(2);
+                printf("ta needs to be called back, wait 3s\n");
+                sleep(3);
                 operation.started = OPERATION_START_FLAG;
                 operation.paramTypes = TEEC_PARAM_TYPES(
                     TEEC_NONE,
@@ -101,13 +101,13 @@ int main(){
                 operation.params[SYMBOL_PARAM].value.a = VALUE_INIT; //a marks whether ta needs needs to be called back, a=0 means not need
                 result = TEEC_InvokeCommand(&session, CMD_TA_CALLBACK, &operation, &origin);
                 if(result != TEEC_SUCCESS) {
-                    printf("ta call back failed, codes=0x%x, origin=0x%x", result, origin);
+                    printf("ta call back failed, codes=0x%x, origin=0x%x\n", result, origin);
                     goto end3;
                 }
                 if(operation.params[SYMBOL_PARAM].value.a == 0) {
-                    printf("encrypt data process succeeded");
+                    printf("encrypt data process succeeded\n");
                     goto else_options;
-                } else printf("encrypt data process failed");
+                } else printf("encrypt data process failed\n");
             }
         }
     }
@@ -123,10 +123,10 @@ else_options:
         );
     result = TEEC_InvokeCommand(&session, CMD_TA_EXIT, &operation, &origin);
     if(result != TEEC_SUCCESS) {
-        printf("ta exit failed, codes=0x%x, origin=0x%x", result, origin);
+        printf("ta exit failed, codes=0x%x, origin=0x%x\n", result, origin);
         goto end3;
     }
-    printf("ta exit succeeded");
+    printf("ta exit succeeded\n");
 
 end3:
     TEEC_CloseSession(&session);

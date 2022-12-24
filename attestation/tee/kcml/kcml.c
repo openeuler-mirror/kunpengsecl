@@ -92,7 +92,7 @@ TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
     params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].memref.buffer = keyvalue;
-    params[PARAMETER_SECOND].memref.size = KEY_SIZE * sizeof(keyvalue);
+    params[PARAMETER_SECOND].memref.size = KEY_SIZE;
     params[PARAMETER_THIRD].value.a = VALUE_INIT;
     params[PARAMETER_THIRD].value.b = VALUE_INIT;
 
@@ -160,14 +160,14 @@ TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_U
         TEE_CloseTASession(session);
         return TEE_ERROR_CANCEL;
     }
-    if(params[PARAMETER_THIRD].value.b != 1) {
+    if(params[PARAMETER_THIRD].value.a != 1) {
         tloge("generate kcm command failed");
         TEE_Free(cmdnode);
         TEE_CloseTASession(session);
         return TEE_ERROR_BAD_FORMAT;
     }
 
-    tlogd("success to destory key");
+    tlogd("success generate destory key command");
     TEE_CloseTASession(session);
     TEE_Free(cmdnode);
     return TEE_SUCCESS;
@@ -225,9 +225,6 @@ TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
     uint32_t command_param_type = 0;
-    int8_t uuid1[33] = {0};
-    uuid2char(*uuid, uuid1);
-    tlogd("uuid%s",uuid1);
 
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
@@ -239,7 +236,7 @@ TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
     cmd_copy(cmdnode, uuid, account, password, NULL, NULL);
     cmdnode->cmd = CMD_KCM_REPLY;
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);    
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);   
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
     params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].memref.buffer = replynode;
@@ -257,6 +254,9 @@ TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
         memcpy_s(keyid, sizeof(TEE_UUID), &replynode->keyId, sizeof(TEE_UUID));
         memcpy_s(keyvalue, KEY_SIZE, replynode->keyvalue, KEY_SIZE);
         tlogd("get a key generate reply");
+        tlogd("%08x", keyid->timeLow);
+        tlogd("%04x", keyid->timeMid);
+        tlogd("%04x", keyid->timeHiAndVersion);
         TEE_Free(cmdnode);
         TEE_Free(replynode);
         return TEE_SUCCESS;
