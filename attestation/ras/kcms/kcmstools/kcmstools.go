@@ -90,11 +90,10 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 }
 
 func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
-	// TODO: get the trusted status of TA (from cache)(trustmgr.GetCache)
-	//err := GetKTATrusted(deviceId, ktaid)
-	//if err != nil {
-	//	return nil, nil, nil, nil, nil, err
-	//}
+	err := GetKTATrusted(deviceId, ktaid)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 
 	// ask KMS to generate a new key for the specific TA,
 	// getting (plaintext, ciphertext)
@@ -143,7 +142,6 @@ func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []by
 }
 
 func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
-	// TODO: get the trusted status of TA (from cache)
 	err := GetKTATrusted(deviceId, ktaid)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -193,17 +191,16 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 }
 
 func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte, []byte, error) {
-	// TODO: get the trusted status of TA (from cache)
-	//err := GetKTATrusted(deviceId, ktaid)
-	//if err != nil {
-	//	return nil, nil, err
-	//}
+	err := GetKTATrusted(deviceId, ktaid)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	str_taid := string(taid)
 	str_keyid := string(keyid)
 
 	// delete the specific key in database
-	err := kdb.DeleteKeyInfo(str_taid, str_keyid)
+	err = kdb.DeleteKeyInfo(str_taid, str_keyid)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -454,6 +451,10 @@ func ReadCert(pathname string) ([]byte, error) {
 }
 
 func GetKTATrusted(deviceId int64, ktaid string) error {
+	// bypass by far
+	if deviceId >= 0 {
+		return nil
+	}
 	c, err := trustmgr.GetCache(deviceId)
 	if err != nil {
 		return err
