@@ -968,15 +968,15 @@ test succeeded!
 测试结果：
 Write out database with 1 new entries
 Data Base Updated
-~/go/src/kunpengsecl
+~/kunpengsecl
 start ras...
 start 1 rac clients...
-start 1 rac clients at 2022年 12月 22日 星期四 21:14:13 CST...
+start 1 rac clients at Sun Dec 25 10:43:49 PM CST 2022...
 wait for 5s
 kill all test processes...
 test DONE!!!
-count: 0
-test KTA Initialize succeeded!
+count: 1
+test succeeded!
 **story4.2-3 测试**
 测试思路：
 1. 在kunpengsecl根目录下进行 `make build` 编译。
@@ -987,15 +987,13 @@ test KTA Initialize succeeded!
 测试结果：
 Write out database with 1 new entries
 Data Base Updated
-~/go/src/kunpengsecl
+~/kunpengsecl
 start ras...
 start 1 rac clients...
-start 1 rac clients at 2022年 12月 22日 星期四 21:14:48 CST...
+start 1 rac clients at Sun Dec 25 11:00:37 PM CST 2022...
 wait for 5s
 kill all test processes...
 test DONE!!!
-count1: 0
-count2: 0
 test get key and verify succeeded!
 **story4.4 测试**
 测试思路：
