@@ -42,6 +42,7 @@ do
         echo "start ${i} rac clients at $(date)..." | tee -a ${DST}/control.txt
     fi
 done
+
 echo "wait for 5s"
 sleep 5
 
@@ -52,15 +53,19 @@ pkill -u ${USER} raagent
 
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
-COUNT=$(grep 'get kta trusted success' ${DST}/ras/echo.txt |wc -l)
-echo "count: ${COUNT}" | tee -a ${DST}/control.txt
+COUNT1=$(grep 'Have already verified cert of KTA' ${DST}/ras/echo.txt |wc -l)
+#echo "count1: ${COUNT1}" | tee -a ${DST}/control.txt
+COUNT2=$(grep 'get key success' ${DST}/ras/echo.txt |wc -l)
+#echo "count2: ${COUNT2}" | tee -a ${DST}/control.txt
+### using to test
+#COUNT1=1
 ### list the log
 ### tail -f ${DST}/rac-1/echo.txt
-if (( ${COUNT} == 1 ))
+if (( ${COUNT1} == 1 ))||(( ${COUNT2} == 1 ))
 then
-    echo "test succeeded!"
+    echo "test get key and verify succeeded!"
     exit 0
 else
-    echo "test failed!"
+    echo "test get key and verify failed!"
     exit 1
 fi

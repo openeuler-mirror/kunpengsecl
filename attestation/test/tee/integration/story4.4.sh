@@ -52,7 +52,7 @@ pkill -u ${USER} raagent
 
 echo "test DONE!!!" | tee -a ${DST}/control.txt
 
-COUNT=$(grep 'get kta trusted success' ${DST}/ras/echo.txt |wc -l)
+COUNT=$(grep 'delete key success' ${DST}/ras/echo.txt |wc -l)
 echo "count: ${COUNT}" | tee -a ${DST}/control.txt
 ### list the log
 ### tail -f ${DST}/rac-1/echo.txt
