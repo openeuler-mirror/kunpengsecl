@@ -45,6 +45,10 @@ func main() {
 	handleFlags()
 	signalHandler()
 
+	// in case that we need to kick kta off the tee with -k -S flags
+	if *kaFlag && *shutktaFlag {
+		katools.KaMain(GetServer(), GetClientId(), *shutktaFlag)
+	}
 	logger.L.Debug("open tpm...")
 	tpmConf := createTPMConfig(GetTestMode(), GetImaLogPath(), GetBiosLogPath(), GetDigestAlgorithm())
 	if GetTestMode() && GetSeed() == -1 {

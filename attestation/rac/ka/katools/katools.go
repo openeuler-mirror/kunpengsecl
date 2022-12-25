@@ -43,6 +43,10 @@ func KaMain(addr string, id int64, ktaShutdown bool) {
 		logger.L.Sugar().Errorf("open session failed, %s", err)
 		return
 	}
+	if ktaShutdown {
+		terminateKTA()
+		os.Exit(0)
+	}
 	defer C.KTAshutdown()
 	ras, err := clientapi.CreateConn(addr)
 	if err != nil {
@@ -55,10 +59,6 @@ func KaMain(addr string, id int64, ktaShutdown bool) {
 		return
 	}
 	// 轮询密钥请求过程
-	if ktaShutdown {
-		terminateKTA()
-		os.Exit(0)
-	}
 	kaLoop(ras, id, getPollDuration())
 	logger.L.Debug("ka closed...")
 }
@@ -99,7 +99,7 @@ func kaInitialize(ras *clientapi.RasConn, id int64) error {
 		return err
 	}
 	// 删除密钥文件
-	removeKeyFile()
+	//removeKeyFile()
 	req := clientapi.VerifyKTAPubKeyCertRequest{
 		ClientId:      id,
 		KtaPubKeyCert: ktaCert,
@@ -154,6 +154,8 @@ func kaLoop(ras *clientapi.RasConn, id int64, pollDuration time.Duration) {
 			ClientId:   id,
 			EncMessage: nextCmd,
 		}
+
+		logger.L.Sugar().Debugf("client id: %x, cmdlen: %d", id, len(nextCmd))
 		// 向clientapi返回
 		rpy, err := clientapi.DoKeyOperationWithConn(ras, &req)
 		if err != nil {
