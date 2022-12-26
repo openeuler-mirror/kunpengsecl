@@ -18,6 +18,9 @@ RAHUB=${RACPKG}/rahub
 CMDRAAGENT=${PROJROOT}/attestation/rac/cmd/raagent
 CMDRAHUB=${PROJROOT}/attestation/rac/cmd/rahub
 RACCONF=${CMDRAAGENT}/config.yaml
+RACCACERT=${CMDRAAGENT}/cert/ca.crt
+KTACERT=${CMDRAAGENT}/cert/kta.crt
+KTAPRIVKEY=${CMDRAAGENT}/cert/kta.key
 RAHUBCONF=${CMDRAHUB}/config.yaml
 BIOSFILE=binary_bios_measurements
 IMAFILE=ascii_runtime_measurements
@@ -26,7 +29,11 @@ BIOSMANIFEST=${CMDRAAGENT}/${BIOSFILE}
 IMAMANIFEST=${CMDRAAGENT}/${IMAFILE}
 TALIST=${CMDRAAGENT}/${TALISTFILE}
 
+CERTFILE=${PROJROOT}/attestation/ras/cert
 RAS=${PROJROOT}/attestation/ras/pkg/ras
+CACERT=${CERTFILE}/ca.crt
+KCMCERT=${CERTFILE}/kcm.crt
+KCMPRIVKEY=${CERTFILE}/kcm.key
 RASCONF=${PROJROOT}/attestation/ras/cmd/config.yaml
 RASAUTHKEY=${PROJROOT}/attestation/ras/cmd/ecdsakey.pub
 
