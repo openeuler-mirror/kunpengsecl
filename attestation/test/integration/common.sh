@@ -39,6 +39,13 @@ cp ${RAAGENT} ${DST}/rac
 cp ${BIOSMANIFEST} ${DST}/rac
 cp ${IMAMANIFEST} ${DST}/rac
 cp ${TALIST} ${DST}/rac
+mkdir -p ${DST}/cert
+cp ${CACERT} ${DST}/cert
+cp ${KCMCERT} ${DST}/cert
+cp ${KCMPRIVKEY} ${DST}/cert
+cp ${RACCACERT} ${DST}/rac
+cp ${KTACERT} ${DST}/rac
+cp ${KTAPRIVKEY} ${DST}/rac
 for (( i=1; i<=${NUM}; i++ ))
 do
     RACDIR=${DST}/rac-${i}
@@ -47,6 +54,10 @@ do
     ln -s ${DST}/rac/${BIOSFILE} ${RACDIR}
     ln -s ${DST}/rac/${IMAFILE} ${RACDIR}
     ln -s ${DST}/rac/${TALISTFILE} ${RACDIR}
+    mkdir -p ${RACDIR}/cert
+    ln -s ${DST}/rac/ca.crt ${RACDIR}/cert
+    ln -s ${DST}/rac/kta.crt ${RACDIR}/cert
+    ln -s ${DST}/rac/kta.key ${RACDIR}/cert
 done
 
 # prepare akserver
