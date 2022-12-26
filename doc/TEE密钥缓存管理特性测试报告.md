@@ -107,6 +107,7 @@ ok      gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb        0.038s
 ## 集成测试
 
 ### <a id="密钥缓存管理-1"></a>密钥缓存管理
+
 **story4.1 测试**
 测试思路：
 1. 在kunpengsecl根目录下进行 `make build` 编译。
@@ -126,6 +127,7 @@ kill all test processes...
 test DONE!!!
 count: 1
 test succeeded!
+
 **story4.2-3 测试**
 测试思路：
 1. 在kunpengsecl根目录下进行 `make build` 编译。
@@ -144,6 +146,7 @@ wait for 5s
 kill all test processes...
 test DONE!!!
 test get key and verify succeeded!
+
 **story4.4 测试**
 测试思路：
 1. 在kunpengsecl根目录下进行 `make build` 编译。
@@ -163,6 +166,9 @@ kill all test processes...
 test DONE!!!
 count: 0
 test delete key succeeded!
+
+**story4.5 测试**  
+
 **story4.6 测试**  
 测试思路：  
 1. 在kunpengsecl根目录下进行 `make build` 编译。
