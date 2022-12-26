@@ -87,7 +87,7 @@ $ bash clear-database.sh
 $ bash prepare-kcm-env.sh 
 ```
 
-### 程序部署
+### 程序启动
 
 **对于服务端QCA的启用**
 ```bash
@@ -116,7 +116,7 @@ $ cd /root/kunpengsecl/attestation/tee/demo/demo_ca
 $ /root/vendor/bin/demo_ca
 ```
 
-### 程序启动
+### 特性使用命令汇总
 #### 代码同步过程
 ```bash
 $ cp -rf /root/kunpengsecl/attestation/tee/demo/demo_ca /root/itrustee_sdk_for_demota/test/CA/
