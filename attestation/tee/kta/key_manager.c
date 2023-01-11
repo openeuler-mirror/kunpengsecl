@@ -462,7 +462,7 @@ void parsejson(uint8_t *decrypted_cmd, uint32_t *cmd, TEE_UUID *taid, TEE_UUID *
     cJSON_Delete(cj);
 }
 
-void saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
+TEE_Result saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
     int32_t head = cache.head;
     int32_t nxt = -2;
     tlogd("%d",cache.ta[head].id.timeHiAndVersion);
@@ -480,6 +480,11 @@ void saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
             nxt = cache.ta[nxt].next;
         }
     }
+    tlogd("nxt is%d",nxt);
+    if(nxt == -1) {
+        tloge("ta info is not exist");
+        return TEE_ERROR_ITEM_NOT_FOUND; 
+    }
     TaInfo ta = cache.ta[head];
     int32_t thead = ta.head;
     int32_t cur2 = thead;
@@ -496,11 +501,13 @@ void saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
             cache.ta[head].key[i].next = thead;
         }
     }
+    return TEE_SUCCESS;
 }
 
 void saveGenReplyCache(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
     int32_t head = replycache.head;
     int32_t cur = head;
+    tlogd("head is %d", replycache.head);
     if(head == -1) {
         goto save;
     }
@@ -608,7 +615,11 @@ TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     hex2str(hexkey, AES_KEY_SIZE, key);
     switch(cmd) {
     case 1:
-        saveTaKey(taid, keyid, key);
+        ret = saveTaKey(taid, keyid, key);
+        if(ret != TEE_SUCCESS) {
+            tloge("save ta key operation failed!");
+            return ret;
+        }
         uint8_t uuidd[33] = {0};
         uuid2char(taid, uuidd);
         saveGenReplyCache(taid, keyid, key);
@@ -877,8 +888,14 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
             memcpy_s(params[1].memref.buffer, sizeof(ReplyNode), &replycache.list[cur], sizeof(ReplyNode));
             if (pre == -2) {
                 replycache.head = replycache.list[cur].next;
+                if (cur == replycache.tail) {
+                    replycache.tail = -1;
+                }
             } else {
                 replycache.list[pre].next = replycache.list[cur].next;
+            }
+            if (cur == replycache.tail) {
+                replycache.tail = pre;
             }
             tlogd("get kcm reply success");
             return TEE_SUCCESS;
@@ -912,8 +929,8 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
 
     // cache仅1个元素且命中
     if (CheckUUID(cache.ta[cache.head].id, n->taId) && cache.head == cache.tail) {
-        cache.head = END_NULL;
-        cache.tail = END_NULL;
+        //cache.head = END_NULL;
+        //cache.tail = END_NULL;
         tlogd("clear ta cache succeeded.\n");
         params[1].value.a = 1;
         return TEE_SUCCESS;
@@ -929,7 +946,7 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     // cache有2个或以上元素
     int32_t cur = cache.head;
     if (CheckUUID(cache.ta[cur].id, n->taId)) {
-        cache.head = cache.ta[cur].next;
+        //cache.head = cache.ta[cur].next;
         tloge("clear ta cache succeeded.\n");
         params[1].value.a = 1;
         return TEE_SUCCESS;
@@ -938,9 +955,9 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     while (nxt != END_NULL) {
         TEE_UUID tmp = cache.ta[nxt].id;
         if (CheckUUID(tmp, n->taId)) {
-            cache.ta[cur].next = cache.ta[nxt].next;
+            //cache.ta[cur].next = cache.ta[nxt].next;
             if (nxt == cache.tail) {
-                cache.tail = cur;
+                //cache.tail = cur;
             }
             tloge("clear ta cache succeeded.\n");
             params[1].value.a = 1;
