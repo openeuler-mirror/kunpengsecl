@@ -123,7 +123,7 @@ TEE_Result reset(char *name);
 //for key management
 
 //for ta-auth
-bool verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password);
+int32_t verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password);
 
 bool CheckUUID(TEE_UUID id1,TEE_UUID id2);
 
