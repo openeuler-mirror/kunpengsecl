@@ -78,17 +78,22 @@ void uuid2char(TEE_UUID uuid, uint8_t charuuid[37]) {
 void char2uuid(TEE_UUID *uuid, int8_t charuuid[37]) {
     int32_t i = 0;
     char *stop;
-    int8_t buffer[3];
+    // int8_t buffer[3];
     uuid->timeLow = strtoul((char*)charuuid, &stop, 16);
     uuid->timeMid = strtoul(stop + 1, &stop, 16);
     uuid->timeHiAndVersion = strtoul(stop + 1, &stop, 16);
     for(i = 0; i < 2; i++) {
         uuid->clockSeqAndNode[i] = strtoul((char*)charuuid + 19 + i * 2, &stop, 16) >> (8 - i * 8);
     }
+    /*
     for(i = 0; i < 6; i++) {
         buffer[0] = *(charuuid + 24 + i * 2);
         buffer[1] = *(charuuid + 25 + i * 2);
         uuid->clockSeqAndNode[i + 2] = strtoul((char*)buffer, &stop, 16);
+    }
+    */
+   for(i = 0; i < 6; i++) {
+        uuid->clockSeqAndNode[i+2] = strtoul((char*)charuuid + 24 + i * 2, &stop, 16) >> (40 - i * 8);
     }
 }
 
