@@ -492,43 +492,63 @@ TEE_Result saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
 }
 
 void saveGenReplyCache(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
-    for(int32_t i=0; i<MAX_KEY_NUM; i++) {
+    int32_t i = 0;
+    for(; i<MAX_QUEUE_SIZE; i++) {
         if(replycache.list[i].next == -1 && i != replycache.tail) {
-            replycache.list[i].tag = 1;
-            replycache.list[i].keyId = keyid;
-            replycache.list[i].taId = TA_uuid;
-            memcpy_s(replycache.list[i].keyvalue, KEY_SIZE, keyvalue, AES_KEY_SIZE);
-            replycache.list[i].next = -1;
-            if(replycache.head != -1){
-                replycache.list[replycache.tail].next = i;
-                replycache.tail = i;
-            } else {
-                replycache.head = i;
-                replycache.tail = i;
-            }
-            break;
+            goto save;
         }
     }
+    if(i == MAX_QUEUE_SIZE) {
+        i = replycache.tail;
+        int32_t cur = replycache.head;
+        int32_t nxt = replycache.list[cur].next;
+        while (nxt != i) {
+            cur = nxt;
+            nxt = replycache.list[nxt].next;
+        }
+        replycache.list[cur].next = -1;
+        replycache.tail = cur;
+    }
+save:
+    replycache.list[i].tag = 1;
+    replycache.list[i].keyId = keyid;
+    replycache.list[i].taId = TA_uuid;
+    memcpy_s(replycache.list[i].keyvalue, KEY_SIZE, keyvalue, AES_KEY_SIZE);
+    replycache.list[i].next = replycache.head;
+    if(replycache.head == -1) {
+        replycache.tail = i;
+    }
+    replycache.head = i;
 }
 
 void saveDelReplyCache(TEE_UUID TA_uuid, TEE_UUID keyid) {
-    for(int32_t i=0; i<MAX_KEY_NUM; i++) {
+        int32_t i = 0;
+    for(; i<MAX_QUEUE_SIZE; i++) {
         if(replycache.list[i].next == -1 && i != replycache.tail) {
-            replycache.list[i].tag = 2;
-            replycache.list[i].keyId = keyid;
-            replycache.list[i].flag = 1;
-            replycache.list[i].next = -1;
-            replycache.list[i].taId = TA_uuid;
-            if(replycache.head != -1) {
-                replycache.list[replycache.tail].next = i;
-                replycache.tail = i;
-            } else {
-                replycache.head = i;
-                replycache.tail = i;
-            }
-        break;
+            goto save;
         }
     }
+    if(i == MAX_QUEUE_SIZE) {
+        i = replycache.tail;
+        int32_t cur = replycache.head;
+        int32_t nxt = replycache.list[cur].next;
+        while (nxt != i) {
+            cur = nxt;
+            nxt = replycache.list[nxt].next;
+        }
+        replycache.list[cur].next = -1;
+        replycache.tail = cur;
+    }
+save:
+    replycache.list[i].tag = 2;
+    replycache.list[i].keyId = keyid;
+    replycache.list[i].flag = 1;
+    replycache.list[i].next = replycache.head;
+    replycache.list[i].taId = TA_uuid;
+    if(replycache.head == -1) {
+        replycache.tail = i;
+    }
+    replycache.head = i;
 }
 
 TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
@@ -624,20 +644,21 @@ bool generateKcmRequest(CmdNode *n){
 
 void SaveTAInfo(CmdNode *n) {
     int32_t i = 0;
-    for(; i<MAX_KEY_NUM; i++) {
+    for(; i<MAX_TA_NUM; i++) {
         if(cache.ta[i].next == -1 && i != cache.tail) {
             goto save;
         }
     }
-    if(i == MAX_KEY_NUM) {
+    if(i == MAX_TA_NUM) {
         i = cache.tail;
-        int32_t cur = replycache.head;
-        int32_t nxt = replycache.list[cur].next;
+        int32_t cur = cache.head;
+        int32_t nxt = cache.ta[cur].next;
         while (nxt != i) {
             cur = nxt;
-            nxt = replycache.list[nxt].next;
+            nxt = cache.ta[nxt].next;
         }
         cache.ta[cur].next = -1;
+        cache.tail = cur;
     }
 save:
     memcpy_s(cache.ta[i].account, MAX_STR_LEN, (char*)n->account, MAX_STR_LEN);
@@ -862,9 +883,10 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    CmdNode *n = TEE_Malloc(sizeof(CmdNode), 0);
+    CmdNode *n = params[0].memref.buffer;
+    int32_t veriresult = verifyTApasswd(n->taId, n->account, n->password);
     memcpy_s(n, sizeof(CmdNode), params[0].memref.buffer, sizeof(CmdNode));
-    if (!verifyTApasswd(n->taId, n->account, n->password)) {
+    if (veriresult != 0) {
         params[1].value.b = 0;
         return TEE_ERROR_ACCESS_DENIED;
     }
@@ -919,7 +941,8 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     //params[0].memref.buffer内为输入的cmd结构体
     CmdNode *n = params[0].memref.buffer;
     // 验证帐号密码
-    if (!verifyTApasswd(n->taId, n->account, n->password)) {
+    int32_t veriresult = verifyTApasswd(n->taId, n->account, n->password);
+    if (veriresult != 0) {
         params[1].value.a = 0;
         return TEE_ERROR_ACCESS_DENIED;
     }
