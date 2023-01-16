@@ -93,6 +93,7 @@ TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size) {
     }
     TEE_CloseObject(persistent_data);
     TEE_Free(write_buffer);
+    tlogd("save key/cert success");
     return TEE_SUCCESS;
 }
 
@@ -125,6 +126,7 @@ TEE_Result saveKTAPriv(char *name, ktaprivkey *value) {
     TEE_CloseObject(persistent_data);
     cJSON_free(kta_priv);
     cJSON_Delete(kta_priv_json);
+    tlogd("save kta private key success");
     return TEE_SUCCESS;
 }
 
@@ -183,6 +185,7 @@ TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t buf_len) {
     TEE_CloseObject(persistent_data);
     TEE_Free(read_buffer);
     TEE_Free(read_data);
+    tlogd("restore key/cert success");
     return TEE_SUCCESS;
 }
 
@@ -244,28 +247,10 @@ TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t pri
         cJSON_Delete(kta_priv_json);
         return TEE_ERROR_SECURITY;
     }
-    char strmodulus1[201] = {0};
-    char strmodulus2[201] = {0};
-    char strmodulus3[113] = {0};
-    memcpy_s(strmodulus1,201,jsonmodulus->valuestring,200);
-    memcpy_s(strmodulus2,201,jsonmodulus->valuestring+200,200);
-    memcpy_s(strmodulus3,113,jsonmodulus->valuestring+400,112);
-    tlogd("strmodulus1: %s", strmodulus1);
-    tlogd("strmodulus2: %s", strmodulus2);
-    tlogd("strmodulus3: %s", strmodulus3);
-    char strprivateExponent1[201] = {0};
-    char strprivateExponent2[201] = {0};
-    char strprivateExponent3[113] = {0};
-    memcpy_s(strprivateExponent1,201,jsonprivateExponent->valuestring,200);
-    memcpy_s(strprivateExponent2,201,jsonprivateExponent->valuestring+200,200);
-    memcpy_s(strprivateExponent3,113,jsonprivateExponent->valuestring+400,112);
-    tlogd("strprivateExponent1: %s", strprivateExponent1);
-    tlogd("strprivateExponent2: %s", strprivateExponent2);
-    tlogd("strprivateExponent3: %s", strprivateExponent3);
     TEE_CloseObject(persistent_data);
     TEE_Free(read_buffer);
     cJSON_Delete(kta_priv_json);
-    tlogd("success!!");
+    tlogd("restore kta private key success");
     return TEE_SUCCESS;
 }
 
@@ -281,13 +266,6 @@ TEE_Result initStructure(){
             cache.ta[i].key[j].next = -1;
         }
     }
-    cache.head = 0;
-    cache.tail = 0;
-    memcpy_s(cache.ta[cache.head].account, 64, "1234", 5);
-    memcpy_s(cache.ta[cache.head].password, 64, "5678", 5);
-    cache.ta[cache.head].id = taUuid;
-    cache.ta[cache.head].next = -1;
-
     //init cmdqueue
     cmdqueue.head = 0;
     cmdqueue.tail = 0;

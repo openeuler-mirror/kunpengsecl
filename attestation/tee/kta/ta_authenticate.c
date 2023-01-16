@@ -27,24 +27,24 @@ bool CheckUUID(TEE_UUID id1,TEE_UUID id2)
     if(id1.timeHiAndVersion != id2.timeHiAndVersion || 
     id1.timeLow != id2.timeLow ||
     id1.timeMid != id2.timeMid){
-        tlogd("a");
         return false;
     }
     for(int32_t i = 0;i < NODE_LEN; i++){
         if(id1.clockSeqAndNode[i] != id2.clockSeqAndNode[i]){
-            tlogd("b");
             return false;
         }
     }
     return true;
 }
-bool verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
+
+// return -1 when ta is not exist, return 0 when success, return 1 when account is not match
+int32_t verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
     //todo: search a ta state from tacache
     //step1: check the queue is or not is empty
     if (cache.head == END_NULL && cache.tail == END_NULL)
     {
          tloge("Failed to get a valid cache!\n");
-         return false;
+         return -1;
     }
     //step2: find the TA_uuid from the cache
     int32_t front = cache.head;//don not change the original value
@@ -53,16 +53,18 @@ bool verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
         //loop
         front = cache.ta[front].next; //move to next one
     }
-    ////step3: compare the cache's value with account and password
-    if (front != END_NULL)
-    {
-        //find the TA_uuid in the cache
-        if(!memcmp(account,cache.ta[front].account,sizeof(cache.ta[front].account)) 
-        && !memcmp(password,cache.ta[front].password,sizeof(cache.ta[front].password)))
-        {
-            return true;
-        }
+    if (front == END_NULL) {
+        tloge("Failed to verify the TA password!\n");
+        return -1;
     }
-    tloge("Failed to verify the TA password!\n");
-    return false;
+    ////step3: compare the cache's value with account and password
+    //find the TA_uuid in the cache
+    if(!memcmp(account,cache.ta[front].account,sizeof(cache.ta[front].account)) 
+    && !memcmp(password,cache.ta[front].password,sizeof(cache.ta[front].password)))
+    {
+        tlogd("success to verify the TA password");
+        return 0;
+    }
+    tloge("Failed to verify the TA password");
+    return 1;
 }
