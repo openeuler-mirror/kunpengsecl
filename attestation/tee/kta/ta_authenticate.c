@@ -43,7 +43,7 @@ int32_t verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
     //step1: check the queue is or not is empty
     if (cache.head == END_NULL && cache.tail == END_NULL)
     {
-         tloge("Failed to get a valid cache!\n");
+         tlogd("Failed to get a valid cache!\n");
          return -1;
     }
     //step2: find the TA_uuid from the cache
