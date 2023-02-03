@@ -1,4 +1,17 @@
-// Description: Implement specific services provided by AS
+/*
+kunpengsecl licensed under the Mulan PSL v2.
+You can use this software according to the terms and conditions of
+the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
+    http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details.
+
+Author: wangli/wanghaijing
+Create: 2022-04-01
+Description: Implement specific services provided by AS
+*/
 
 package akissuer
 
@@ -142,7 +155,6 @@ func verifyAKCert(oldAKCert []byte) (drkpub *rsa.PublicKey, akpub []byte, err er
 	//TODO: verify TCB
 	return drkpub, akpub, nil
 }
-
 
 // The input parameter is the AK certificate issued by the target platform device certificate
 // After receiving the AK certificate, parse and extract the signed data fields,
