@@ -8,7 +8,7 @@ EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
-Author: gwei3
+Author: gwei3/yemaolin/wanghaijing
 Create: 2021-09-17
 Description: manage the client trust status.
 	1. 2022-01-17	wucaijun

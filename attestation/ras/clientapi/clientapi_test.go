@@ -1,3 +1,31 @@
+/*
+kunpengsecl licensed under the Mulan PSL v2.
+You can use this software according to the terms and conditions of
+the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
+    http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details.
+
+Author: wucaijun
+Create: 2021-10-08
+Description: Using grpc to implement the rasService API.
+	1. 2022-01-19	wucaijun
+		redefine SendReportRequest parameters and refine some implementations.
+	2. 2022-01-28	wucaijun
+		fix the problem that grpc occupy all the file handle, use LimitListener
+		and getSockNum to auto adjust the max limit of grpc socket handle.
+	3. 2022-01-29	wucaijun
+		add a new group communication functions to rac, these functions will try
+	to use the same grpc socket to enhance performance if possible.
+
+Notice:
+	For performance, change the process max file limit and database max connections.
+`ulimit -n 200000`			# set in the ras start bash script
+`max_connections = 1000`	# in /var/lib/pgsql/data/postgresql.conf and restart
+*/
+
 package clientapi
 
 import (
@@ -189,8 +217,8 @@ const (
 	constSaveKTACertFailed = "save KTA Cert failed %v"
 	constsavekeyinfofailed = "save key information fail %v"
 	constgetcachefailed    = "get cache by deviceId failed :%v"
-	fileMod				   = 0755
-	keyMod				   = 0600
+	fileMod                = 0755
+	keyMod                 = 0600
 )
 
 var (
@@ -910,7 +938,7 @@ func TestClientapiKeyOp(t *testing.T) {
 
 	go kmsServer.ExampleServer()
 	defer kmsServer.StopServer()
-	
+
 	kdb.CreateKdbManager(constDB, constDNS)
 	defer kdb.ReleaseKdbManager()
 
@@ -956,7 +984,7 @@ func TestClientapiKeyOp(t *testing.T) {
 	if err != nil {
 		t.Errorf("Encode AESGCM error: %v", err)
 	}
-	
+
 	appendKey := append(nonce, sessionKey...)
 	appendKey = append(appendKey, tag...)
 
@@ -980,7 +1008,7 @@ func TestClientapiKeyOp(t *testing.T) {
 
 	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
 	_, err = ras.c.KeyOperation(ctx, &KeyOperationRequest{
-		ClientId:	deviceId,
+		ClientId:   deviceId,
 		EncMessage: outCmdData,
 	})
 	if err != nil {
@@ -1191,7 +1219,7 @@ func TestDoClientapiKeyOp(t *testing.T) {
 
 	go kmsServer.ExampleServer()
 	defer kmsServer.StopServer()
-	
+
 	kdb.CreateKdbManager(constDB, constDNS)
 	defer kdb.ReleaseKdbManager()
 
@@ -1261,7 +1289,7 @@ func TestDoClientapiKeyOp(t *testing.T) {
 
 	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
 	_, err = DoKeyOperation(server, &KeyOperationRequest{
-		ClientId:	deviceId,
+		ClientId:   deviceId,
 		EncMessage: outCmdData,
 	})
 	if err != nil {
@@ -1496,7 +1524,7 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 
 	go kmsServer.ExampleServer()
 	defer kmsServer.StopServer()
-	
+
 	kdb.CreateKdbManager(constDB, constDNS)
 	defer kdb.ReleaseKdbManager()
 
@@ -1536,7 +1564,7 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 	if _, err = io.ReadFull(rand.Reader, sessionKey); err != nil {
 		t.Errorf("make session key error: %v", err)
 	}
-	
+
 	// TODO: use decKey to encrypt encMessage as encCmdData
 	cmdData, tag, nonce, err := aesGCMEncrypt(sessionKey, encMessage)
 	if err != nil {
@@ -1566,7 +1594,7 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 
 	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
 	_, err = DoKeyOperationWithConn(ras, &KeyOperationRequest{
-		ClientId:	deviceId,
+		ClientId:   deviceId,
 		EncMessage: outCmdData,
 	})
 	if err != nil {
