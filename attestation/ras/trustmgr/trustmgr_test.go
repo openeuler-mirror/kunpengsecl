@@ -1,3 +1,25 @@
+/*
+kunpengsecl licensed under the Mulan PSL v2.
+You can use this software according to the terms and conditions of
+the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
+    http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details.
+
+Author: gwei3/yemaolin/wanghaijing
+Create: 2021-09-17
+Description: manage the client trust status.
+	1. 2022-01-17	wucaijun
+		use cache/database/files three levels arch to implement a simple
+		but high performance client trust management algorithm.
+	2. 2022-01-28	wucaijun
+		modify the mutex lock scope to enhance performance.
+	3. 2022-01-30	wucaijun
+		add the storeDb for using limited file handle to enhance database performance.
+*/
+
 package trustmgr
 
 import (

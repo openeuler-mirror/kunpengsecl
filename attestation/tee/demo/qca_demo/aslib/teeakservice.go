@@ -8,9 +8,9 @@ EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 
-Author:
-Create:
-Description: Description: Access interface of the AS provided for QCA
+Author: wangli
+Create: 2022-04-20
+Description: Access interface of the AS provided for QCA
 */
 
 package aslib
