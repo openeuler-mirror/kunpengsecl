@@ -240,3 +240,18 @@ func (c *Cache) GetSignedCert() *x509.Certificate {
 func (c *Cache) SetSignedCert(pemCert string) {
 	c.signedCert, _, _ = cryptotools.DecodeKeyCertFromPEM([]byte(pemCert))
 }
+
+// GetBases returns the baases.
+func (c *Cache) GetBases() []*typdefs.BaseRow {
+	return c.Bases
+}
+
+// SetBases saves the bases.
+func (c *Cache) SetBases(baserow *typdefs.BaseRow) {
+	c.Bases = append(c.Bases, baserow)
+}
+
+// ClearBases clears the bases.
+func (c *Cache) ClearBases() {
+	c.Bases = nil
+}
