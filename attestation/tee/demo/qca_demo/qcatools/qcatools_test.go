@@ -37,7 +37,7 @@ qcaconfig:
 )
 
 var (
-	uuid = "testuuid"
+	testUuid = "testuuid11111111"
 	data = "testdata"
 	cert = "testcert"
 	tcb  = false
@@ -65,8 +65,8 @@ func TestGetTAReport(t *testing.T) {
 	LoadConfigs()
 	HandleFlags()
 
-	res := GetTAReport([]byte(uuid), []byte(data), tcb)
-	if res == nil {
+	res, err := GetTAReport([]byte(testUuid), []byte(data), tcb)
+	if res == nil || err != nil {
 		t.Error(GET_TA_REPORT_ERROR)
 	}
 }

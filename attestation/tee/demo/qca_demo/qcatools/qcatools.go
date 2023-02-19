@@ -91,10 +91,14 @@ static uint32_t getParamSetBufferSize(uint8_t *buf) {
 import "C"
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"log"
 	"unsafe"
+	"os"
 
+	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -127,16 +131,63 @@ const (
 	lflagScenario = "scenario"
 	sflagScenario = "C"
 	helpScenario  = "set the app usage scenario"
+	// RemoteAttest Handler
+	RAProvisionInHandler  = "provisioning-input"
+	RAProvisionOutHandler = "provisioning-output"
+	RAReportInHandler     = "report-input"
+	RAReportOutHandler    = "report-output"
+	RASaveAKCertHandler   = "saveakcert-input"
 )
 
 const (
-	// RA_SCENARIO_NO_AS means ra scenario without as
-	RA_SCENARIO_NO_AS = int32(iota)
-	// RA_SCENARIO_AS_NO_DAA means ra scenario as without daa
-	RA_SCENARIO_AS_NO_DAA
-	// RA_SCENARIO_AS_WITH_DAA means ra scenario as with daa
-	RA_SCENARIO_AS_WITH_DAA
+	ZERO_VALUE                  = 0
+	UINT32_BYTES_LENGTH         = 4
+	UINT64_BYTES_LENGTH         = 8
+	NoAS_ERROR_RETURN_CODE      = 1
+	TYPE_CONV_ERROR_RETURN_CODE = -1
+	// alg type
+	RA_ALG_RSA_3072        = 0x20000
+	RA_ALG_RSA_4096        = 0x20001 // PSS padding
+	RA_ALG_SHA_256         = 0x20002
+	RA_ALG_SHA_384         = 0x20003
+	RA_ALG_SHA_512         = 0x20004
+	RA_ALG_ECDSA           = 0x20005
+	RA_ALG_ED25519         = 0x20006
+	RA_ALG_SM2_DSA_SM3     = 0x20007
+	RA_ALG_SM3             = 0x20008
+	RA_ALG_DAA_GRP_FP256BN = 0x20009
+	// app scenario
+	RA_SCENARIO_NO_AS_INT       = 0
+	RA_SCENARIO_AS_NO_DAA_INT   = 1
+	RA_SCENARIO_AS_WITH_DAA_INT = 2
 )
+
+const (
+	// version type: "TEE.RA.[Major].[Minor]"
+	RA_VERSION = "TEE.RA.1.0"
+	// app scenario
+	RA_SCENARIO_NO_AS       = "sce_no_as"
+	RA_SCENARIO_AS_NO_DAA   = "sce_as_no_daa"
+	RA_SCENARIO_AS_WITH_DAA = "sce_as_with_daa"
+	// hash algorithm
+	RA_HASH_ALG_SHA256 = "HS256"
+	// daa curve type
+	RA_DAA_CURVE_FP256BN = "Fp256BN"
+	RA_DAA_CURVE_FP512BN = "Fp512BN"
+)
+
+func typeConv(in string) int32 {
+	switch in {
+	case RA_SCENARIO_NO_AS:
+		return RA_SCENARIO_NO_AS_INT
+	case RA_SCENARIO_AS_NO_DAA:
+		return RA_SCENARIO_AS_NO_DAA_INT
+	case RA_SCENARIO_AS_WITH_DAA:
+		return RA_SCENARIO_AS_WITH_DAA_INT
+
+	}
+	return TYPE_CONV_ERROR_RETURN_CODE
+}
 
 type (
 	// Go_ra_buffer_data is used to store ra buffer data
@@ -237,14 +288,78 @@ func adapt2TAUUID(uuid []byte) {
 	reverseEndian(uuid[6:8])
 }
 
-// GetTAReport returns TA report according to ta uuid
+type (
+	reportInPl struct {
+		Version  string `json:"version,omitempty"`  // VERSION_TYPE
+		Nonce    string `json:"nonce,omitempty"`    // BASE64_TYPE
+		Uuid     string `json:"uuid,omitempty"`     // 待证明的TA UUID的hex字符串描述，字母小写，如"e08f7eca-e875-440e-9ab0-5f381136c600"
+		Hash_alg string `json:"hash_alg,omitempty"` // HASH_ALG_TYPE
+		With_tcb bool   `json:"with_tcb,omitempty"` // BOOLEAN_TYPE, 当前只能是 “FALSE”
+		Daa_bsn  *string `json:"daa_bsn,omitempty"`  // BASE64_TYPE, BASE64 of DAA用户挑选出来的basename
+	}
+	reportInParam struct {
+		Handler string     `json:"handler,omitempty"`
+		Payload reportInPl `json:"payload,omitempty"`
+	}
+)
+
+func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte, error) {
+	n := base64.RawURLEncoding.EncodeToString(usr_data)
+	id, err := uuid.FromBytes(ta_uuid)
+	if err != nil {
+		log.Printf("wrong uuid in parameters, %v", err)
+		return nil, err
+	}
+
+	// in parameters
+	pl := reportInPl{
+		Version:  RA_VERSION,
+		Nonce:    n,
+		Uuid:     id.String(),
+		Hash_alg: RA_HASH_ALG_SHA256,
+		With_tcb: with_tcb, // false
+		Daa_bsn:  nil,      // line73 only support basename = NULL now
+	}
+	inparam := reportInParam{
+		Handler: RAReportInHandler,
+		Payload: pl,
+	}
+	inparamjson, err := json.Marshal(inparam)
+	if err != nil {
+		log.Printf("Encode GetTAReport json message error, %v", err)
+		return nil, err
+	}
+	/*** format conversion: Go -> C ***/
+	// in parameter conversion
+	c_in := C.struct_ra_buffer_data{}
+	c_in.size = C.__uint32_t(len(inparamjson))
+	up_c_in := C.CBytes(inparamjson)
+	c_in.buf = (*C.uchar)(up_c_in)
+	defer C.free(up_c_in)
+
+	c_out := C.struct_ra_buffer_data{}
+	c_out.size = 0x3000
+	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
+
+	teec_result := C.RemoteAttest(&c_in, &c_out)
+	if int(teec_result) != 0 {
+		return nil, errors.New("Invoke remoteAttest failed, Get TA report failed!")
+	}
+	log.Print("Generate TA report succeeded!")
+	report := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
+	log.Print("report:", string(report))
+
+	return report, nil
+}
+
+/*
 func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	// store C data which convert from Go
 	c_usr_data := C.struct_ra_buffer_data{}
 	c_param_set := C.struct_ra_buffer_data{}
 	c_report := C.struct_ra_buffer_data{}
 
-	/*** format conversion: Go -> C ***/
+	// format conversion: Go -> C
 	// uuid conversion
 	adapt2TAUUID(ta_uuid)
 	c_ta_uuid := C.CBytes(ta_uuid)
@@ -280,7 +395,134 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 
 	return Report
 }
+*/
 
+type provisionInPl struct {
+	Version     string  `json:"version,omitempty"` 
+	Scenario    string  `json:"scenario,omitempty"`
+	Hash_alg    string  `json:"hash_alg,omitempty"`
+	Daa_g1_name *string `json:"daa_g1_name,omitempty"`
+}
+type provisionInParam struct {
+	Handler string        `json:"handler,omitempty"`
+	Payload provisionInPl `json:"payload,omitempty"`
+}
+
+func provisionNoAS() (int, error) {
+	inpayload := provisionInPl{RA_VERSION, RA_SCENARIO_NO_AS, RA_HASH_ALG_SHA256, nil}
+	inparam := provisionInParam{RAProvisionInHandler, inpayload}
+	inparamjson, err := json.Marshal(inparam)
+	log.Printf("test: no as provision. in data2 = {%s}", string(inparamjson))
+	if err != nil {
+		log.Printf("Encode NoAS json message error, %v", err)
+		return NoAS_ERROR_RETURN_CODE, err
+	}
+
+	/*** format conversion: Go -> C ***/
+	// in parameter conversion
+	c_in := C.struct_ra_buffer_data{}
+	c_in.size = C.__uint32_t(len(inparamjson))
+	up_c_in := C.CBytes(inparamjson)
+	c_in.buf = (*C.uchar)(up_c_in)
+	defer C.free(up_c_in)
+
+	c_out := C.struct_ra_buffer_data{}
+	c_out.size = 0x3000
+	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
+
+	result := C.RemoteAttest(&c_in, &c_out)
+	C.free(unsafe.Pointer(c_out.buf))
+
+	return int(result), nil
+}
+
+func provisionNoDAA() ([]byte, error) {
+	inpayload := provisionInPl{RA_VERSION, RA_SCENARIO_AS_NO_DAA, RA_HASH_ALG_SHA256, nil}
+	inparam := provisionInParam{RAProvisionInHandler, inpayload}
+	inparamjson, err := json.Marshal(inparam)
+	if err != nil {
+		log.Printf("Encode NoDAA json message error, %v", err)
+		return nil, err
+	}
+
+	/*** format conversion: Go -> C ***/
+	// in parameter conversion
+	c_in := C.struct_ra_buffer_data{}
+	c_in.size = C.__uint32_t(len(inparamjson))
+	up_c_in := C.CBytes(inparamjson)
+	c_in.buf = (*C.uchar)(up_c_in)
+	defer C.free(up_c_in)
+
+	c_out := C.struct_ra_buffer_data{}
+	c_out.size = 0x3000
+	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
+
+	result := C.RemoteAttest(&c_in, &c_out)
+	if result != 0 {
+		return nil, errors.New("invoke remoteAttest failed")
+	}
+	akcertByte := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
+	/*
+	err = createFile("path", akcertByte)
+	if err != nil{
+		return nil, errors.New("invoke remoteAttest failed")
+	}
+	*/
+	return akcertByte, nil
+}
+
+func createFile(path string, con []byte) error {
+	f, err := os.Create(path)
+	if err != nil {
+		log.Print("Create AKCert(test) file failed!")
+		return err
+	}
+	_, err1 := f.Write(con)
+	if err1 != nil {
+		log.Print("Write AKCert(test) to file failed!")
+		return err1
+	}
+	err2 := f.Close()
+	if err2 != nil {
+		return err2
+	}
+	return nil
+}
+
+func provisionDAA() ([]byte, error) {
+	//var in_curve string
+	in_curve := RA_DAA_CURVE_FP512BN
+	inpayload := provisionInPl{RA_VERSION, RA_SCENARIO_AS_WITH_DAA, RA_HASH_ALG_SHA256, &in_curve}
+	inparam := provisionInParam{RAProvisionInHandler, inpayload}
+	inparamjson, err := json.Marshal(inparam)
+	if err != nil {
+		log.Printf("Encode DAA json message error, %v", err)
+		return nil, err
+	}
+
+	/*** format conversion: Go -> C ***/
+	// in parameter conversion
+	c_in := C.struct_ra_buffer_data{}
+	c_in.size = C.__uint32_t(len(inparamjson))
+	up_c_in := C.CBytes(inparamjson)
+	c_in.buf = (*C.uchar)(up_c_in)
+	defer C.free(up_c_in)
+
+	c_out := C.struct_ra_buffer_data{}
+	c_out.size = 0x3000
+	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
+
+	result := C.RemoteAttest(&c_in, &c_out)
+	if result != 0 {
+		return nil, errors.New("invoke remoteAttest failed")
+	}
+
+	akcertByte := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
+
+	return akcertByte, nil
+}
+
+/*
 func provisionNoAS() int {
 	c_param_set := C.struct_ra_buffer_data{}
 	c_out := C.struct_ra_buffer_data{}
@@ -334,18 +576,23 @@ func provisionDAA() ([]byte, error) {
 
 	return akcertByte, nil
 }
+*/
 
 // GenerateAKCert generates ak cert according to qca server scenario configuration.
 func GenerateAKCert() ([]byte, error) {
 	switch Qcacfg.Scenario {
-	case RA_SCENARIO_NO_AS:
-		result := provisionNoAS()
+	case typeConv(RA_SCENARIO_NO_AS):
+		result, err := provisionNoAS()
+		if err != nil {
+			log.Print("NoAS scenario: Generate RSA AK and AK Cert failed!")
+			return nil, err
+		}
 		if result != 0 {
 			log.Print("NoAS scenario: Generate RSA AK and AK Cert failed!")
 		} else {
 			log.Print("NoAS scenario: Generate RSA AK and AK Cert succeeded!")
 		}
-	case RA_SCENARIO_AS_NO_DAA:
+	case typeConv(RA_SCENARIO_AS_NO_DAA):
 		akcert, err := provisionNoDAA()
 		if err != nil {
 			log.Print("NoDAA scenario: Generate RSA AK and AK Cert failed!")
@@ -353,7 +600,7 @@ func GenerateAKCert() ([]byte, error) {
 		}
 		log.Print("NoDAA scenario: Generate RSA AK and AK Cert succeeded!")
 		return akcert, nil
-	case RA_SCENARIO_AS_WITH_DAA:
+	case typeConv(RA_SCENARIO_AS_WITH_DAA):
 		akcert, err := provisionDAA()
 		if err != nil {
 			log.Print("DAA scenario: Generate AK and AK Cert failed!")
@@ -374,10 +621,14 @@ func SaveAKCert(cert []byte) error {
 	cert_data.size = C.__uint32_t(len(cert))
 	defer C.free(cert_buf)
 
-	result := C.RemoteAttestSaveAKCert(&cert_data)
+	c_out := C.struct_ra_buffer_data{}
+	c_out.size = 0x3000
+	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
+
+	result := C.RemoteAttest(&cert_data, &c_out)
 	if result != 0 {
 		log.Print("Save AK Cert failed!")
-		return errors.New("invoke RemoteAttestSaveAkCert failed")
+		return errors.New("invoke RemoteAttest failed")
 	}
 	return nil
 }

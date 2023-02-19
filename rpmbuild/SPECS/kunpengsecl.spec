@@ -13,13 +13,11 @@ Source0:         %{name}-v%{version}.tar.gz
 Source1:         vendor.tar.gz
 BuildRequires:   gettext make golang
 BuildRequires:   protobuf-compiler openssl-devel
-
+BuildRequires:   cjson-devel
 %ifarch     aarch64
 BuildRequires:   itrustee_sdk-devel
-Requires:        itrustee_sdk
 %endif
 
-Requires:        openssl itrustee_sdk
 Packager:        leezhenxiang, WangLi, Wucaijun, gwei3
 
 %description
@@ -27,6 +25,10 @@ This is %{name} project, including rac, ras, rahub, qcaserver, attester and tas 
 
 %package       rac
 Summary:       the rac package.
+Requires:      openssl
+%ifarch     aarch64
+Requires:      itrustee_sdk
+%endif
 
 %description   rac
 This is the rac rpm package, which is used to install the client of the program.
@@ -51,6 +53,8 @@ This is the qcaserver rpm package, which is used to invoke libqca.
 
 %package       attester
 Summary:       the attester package.
+Requires:      cjson
+Requires:      openssl
 
 %description   attester
 This is the attester rpm package, which is used to verify ta reports.

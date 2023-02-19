@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details.
 
 #define USER_DATA_SIZE 64
 #define NODE_LEN 8
+#define VERSION_SIZE 11
 
 // #define SIG_SIZE 512
 // #define CERT_SIZE 512
@@ -34,6 +35,16 @@ See the Mulan PSL v2 for more details.
 #define KEY_TAG_TYPE_MOVE_BITS 28
 #define RA_INTEGER (1 << KEY_TAG_TYPE_MOVE_BITS)
 #define RA_BYTES (2 << KEY_TAG_TYPE_MOVE_BITS)
+
+#define RA_SCENARIO_NO_AS           "sce_no_as"
+#define RA_SCENARIO_AS_NO_DAA       "sce_as_no_daa"
+#define RA_SCENARIO_AS_WITH_DAA     "sce_as_with_daa"
+#define RA_SCENARIO_NO_AS_INT       0
+#define RA_SCENARIO_AS_NO_DAA_INT   1
+#define RA_SCENARIO_AS_WITH_DAA_INT 2
+#define RA_HASH_ALG_SHA256          "HS256"
+#define RA_SIGN_ALG_RSA4096         "PS256"
+#define RA_VERSION                  "TEE.RA.1.0"
 
 struct ra_data_offset
 {
@@ -112,7 +123,7 @@ typedef struct __attribute__((__packed__)) report_response
 
 typedef struct
 {
-    uint32_t version;
+    uint8_t version[VERSION_SIZE];
     uint64_t timestamp;
     uint8_t nonce[USER_DATA_SIZE];
     uint8_t uuid[UUID_SIZE];
@@ -146,11 +157,14 @@ struct ak_cert
      */
 } __attribute__((__packed__));
 
+//static int tee_verify_report(buffer_data *buf_data, buffer_data *nonce, int type, char *filename);
+//static int tee_verify_report2(buffer_data *buf_data, int type, base_value *baseval);
+//static int tee_validate_report(buffer_data *buf_data, buffer_data *nonce);
 static bool tee_verify_nonce(buffer_data *buf_data,buffer_data *nonce);
 static bool tee_verify_signature(buffer_data *report);
 static bool tee_verify(buffer_data *buf_data, int type, char *filename);
 static bool tee_verify2(buffer_data *bufdata, int type, base_value *baseval);
-static void error(const char *msg);
+static void verifier_error(const char *msg);
 static void file_error(const char *s);
 static TA_report *Convert(buffer_data *buf_data);
 // static void parse_uuid(uint8_t *uuid, TEE_UUID buf_uuid);
@@ -179,3 +193,21 @@ static void dumpDrkCert(buffer_data *certdrk);
 static void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk);
 static bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *signak,buffer_data *signdata,uint32_t *scenario);
 static bool verifysig_x509cert(buffer_data *data, buffer_data *sign, buffer_data *cert, char *root_cert_pathname);
+
+//static void base64urlencode(const uint8_t *src, int src_len, uint8_t *cipher, int *dest_len);
+//static void base64urldecode(const uint8_t *src, int src_len, uint8_t *plain, int *dest_len);
+static void uint82str(const uint8_t *source, int source_len, char *dest);
+static void str2uint8(const char *source, int dest_len, uint8_t *dest);
+//static bool decodeAKPubKey(buffer_data *in, buffer_data *out);
+static bool verifyCertByCert(buffer_data *cert, uint8_t *root_cert_pathname);
+static bool verifydatasig_bykey(buffer_data *data, buffer_data *sign, EVP_PKEY *key);
+static bool verifysig_drksignedcert(buffer_data *data, buffer_data *sign, buffer_data *cert);
+static void trim_ending_0(buffer_data *buf);
+static void free_report(TA_report *report);
+static TA_report * Convert(buffer_data *data);
+static base_value *LoadQTABaseValue(const char *refval);
+static base_value *get_qta(buffer_data *akcert);
+static bool CompareBV(int type, base_value *value, base_value *basevalue);
+static bool verify_qta(buffer_data *akcert, int type, const char *refval);
+//static bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval);
+//static bool tee_get_akcert_data(buffer_data *akcert, buffer_data *akpub, buffer_data *drkcrt);
