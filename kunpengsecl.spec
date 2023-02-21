@@ -4,7 +4,7 @@
 
 Name:            %{name}
 Version:         %{version}
-Release:         1%{?dist}
+Release:         2%{?dist}
 Summary:         A remote attestation security software components running on Kunpeng processors.
 Summary(zh_CN):  一款运行于鲲鹏处理器上的远程证明安全软件组件
 License:         MulanPSL-2.0
@@ -12,9 +12,9 @@ URL:             https://gitee.com/openeuler/kunpengsecl
 Source0:         %{name}-v%{version}.tar.gz
 Source1:         vendor.tar.gz
 BuildRequires:   gettext make golang
-BuildRequires:   protobuf-compiler openssl-devel
+BuildRequires:   protobuf-compiler compat-openssl11-devel
 
-Requires:        openssl
+Requires:        compat-openssl11
 Packager:        WangLi, Wucaijun, gwei3
 
 %description
@@ -89,11 +89,10 @@ make install DESTDIR=%{buildroot}
 %{_docdir}/attestation/rahub/README.en.md
 %{_docdir}/attestation/rahub/LICENSE
 
-%clean
-rm -rf %{_builddir}
-rm -rf %{buildroot}
-
 %changelog
+* Fri Feb 10 2023 gwei3 <11015100@qq.com> - 1.1.2-2
+-   update BuildRequires & Requires to replace openssl* with compat-openssl11* to adapt to latest Mainline
+-   remove redundent clean label in spec file
 * Thu Sep 15 2022 gwei3 <11015100@qq.com> - 1.1.2-1
 -   update to 1.1.2
 -   add slice length checks to avoid buffer overflow while extracting and verifying
