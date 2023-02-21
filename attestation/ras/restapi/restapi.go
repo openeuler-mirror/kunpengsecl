@@ -343,6 +343,9 @@ func StartServerHttp(port string) {
 		fmt.Println(err)
 		return
 	}
+	if srv == nil {
+		return
+	}
 	srv.Use(av)
 	RegisterHandlers(srv, &MyRestAPIServer{})
 	logger.L.Sugar().Debug(srv.Start(port))
@@ -362,6 +365,9 @@ func StartServerHttps(httpsPort string) {
 	av, err := CreateAuthValidator(v)
 	if err != nil {
 		fmt.Println(err)
+		return
+	}
+	if srv == nil {
 		return
 	}
 	srv.Use(av)

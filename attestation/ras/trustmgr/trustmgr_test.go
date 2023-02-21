@@ -837,6 +837,15 @@ var (
 	basetype       = []string{"host", "container", "device"}
 )
 
+func RemoveFiles() {
+	os.Remove("./pca-root.crt")
+	os.Remove("./pca-root.key")
+	os.Remove("./pca-ek.crt")
+	os.Remove("./pca-ek.key")
+	os.Remove("./https.crt")
+	os.Remove("./https.key")
+}
+
 func TestRegisterClient(t *testing.T) {
 	clients := []struct {
 		IK   string
@@ -1353,6 +1362,7 @@ func TestValidateReport(t *testing.T) {
 	config.InitFlags()
 	config.LoadConfigs()
 	config.HandleFlags()
+	defer RemoveFiles()
 	// ik := "IK" + time.Now().Format(consttimeformat) + "KA"
 	IKpubBlock, _ := pem.Decode([]byte(IKpubPEM))
 	template := x509.Certificate{
@@ -1433,6 +1443,7 @@ func TestHandleBaseValue(t *testing.T) {
 	defer RemoveConfigFile()
 	config.LoadConfigs()
 	config.HandleFlags()
+	defer RemoveFiles()
 	ik := "IK" + time.Now().Format(consttimeformat) + "KA"
 	ci, err := json.Marshal(testClientInfo)
 	if err != nil {
