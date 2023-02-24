@@ -1696,3 +1696,23 @@ func handleTaBaseStore(v *typdefs.TaBaseRow) {
 	}
 	tmgr.cache[v.ClientID].TaBases[v.Uuid] = v
 }
+
+// InsertBaseValue inserts basevalue
+func InsertBaseValue(v *typdefs.BaseRow) {
+	handleBaseStore(v)
+}
+
+// InsertReport inserts report
+func InsertReport(v *typdefs.ReportRow) {
+	handleReportStore(v)
+}
+
+// InsertTaBase inserts tabasevalue
+func InsertTaBase(v *typdefs.TaBaseRow) {
+	handleTaBaseStore(v)
+}
+
+// InsertTaReport inserts tareport
+func InsertTaReport(v *typdefs.TaReportRow) {
+	handleTaReportStore(v)
+}
