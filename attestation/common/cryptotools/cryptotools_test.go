@@ -163,18 +163,30 @@ func TestSymEnc(t *testing.T) {
 		alg    uint16
 		mod    uint16
 	}{
-		{[]string{cmdEnc, decFlag, aes128cbcFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key16Value, ivValue, AlgAES, AlgCBC},
-		{[]string{cmdEnc, decFlag, aes192cbcFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key24Value, ivValue, AlgAES, AlgCBC},
-		{[]string{cmdEnc, decFlag, aes256cbcFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key32Value, ivValue, AlgAES, AlgCBC},
-		{[]string{cmdEnc, decFlag, aes128cfbFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key16Value, ivValue, AlgAES, AlgCFB},
-		{[]string{cmdEnc, decFlag, aes192cfbFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key24Value, ivValue, AlgAES, AlgCFB},
-		{[]string{cmdEnc, decFlag, aes256cfbFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key32Value, ivValue, AlgAES, AlgCFB},
-		{[]string{cmdEnc, decFlag, aes128ofbFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key16Value, ivValue, AlgAES, AlgOFB},
-		{[]string{cmdEnc, decFlag, aes192ofbFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key24Value, ivValue, AlgAES, AlgOFB},
-		{[]string{cmdEnc, decFlag, aes256ofbFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key32Value, ivValue, AlgAES, AlgOFB},
-		{[]string{cmdEnc, decFlag, aes128ctrFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key16Value, ivValue, AlgAES, AlgCTR},
-		{[]string{cmdEnc, decFlag, aes192ctrFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key24Value, ivValue, AlgAES, AlgCTR},
-		{[]string{cmdEnc, decFlag, aes256ctrFlag, inFlag, decFile, outFlag, textFile, base64Flag}, plainText, key32Value, ivValue, AlgAES, AlgCTR},
+		{[]string{cmdEnc, decFlag, aes128cbcFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key16Value, ivValue, AlgAES, AlgCBC},
+		{[]string{cmdEnc, decFlag, aes192cbcFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key24Value, ivValue, AlgAES, AlgCBC},
+		{[]string{cmdEnc, decFlag, aes256cbcFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key32Value, ivValue, AlgAES, AlgCBC},
+		{[]string{cmdEnc, decFlag, aes128cfbFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key16Value, ivValue, AlgAES, AlgCFB},
+		{[]string{cmdEnc, decFlag, aes192cfbFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key24Value, ivValue, AlgAES, AlgCFB},
+		{[]string{cmdEnc, decFlag, aes256cfbFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key32Value, ivValue, AlgAES, AlgCFB},
+		{[]string{cmdEnc, decFlag, aes128ofbFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key16Value, ivValue, AlgAES, AlgOFB},
+		{[]string{cmdEnc, decFlag, aes192ofbFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key24Value, ivValue, AlgAES, AlgOFB},
+		{[]string{cmdEnc, decFlag, aes256ofbFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key32Value, ivValue, AlgAES, AlgOFB},
+		{[]string{cmdEnc, decFlag, aes128ctrFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key16Value, ivValue, AlgAES, AlgCTR},
+		{[]string{cmdEnc, decFlag, aes192ctrFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key24Value, ivValue, AlgAES, AlgCTR},
+		{[]string{cmdEnc, decFlag, aes256ctrFlag, inFlag, decFile, outFlag, textFile, base64Flag},
+			plainText, key32Value, ivValue, AlgAES, AlgCTR},
 	}
 	defer func() {
 		os.Remove(textFile)
@@ -215,18 +227,30 @@ func TestSymDec(t *testing.T) {
 		alg    uint16
 		mod    uint16
 	}{
-		{[]string{cmdEnc, encFlag, aes128cbcFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key16Value, ivValue, AlgAES, AlgCBC},
-		{[]string{cmdEnc, encFlag, aes192cbcFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key24Value, ivValue, AlgAES, AlgCBC},
-		{[]string{cmdEnc, encFlag, aes256cbcFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key32Value, ivValue, AlgAES, AlgCBC},
-		{[]string{cmdEnc, encFlag, aes128cfbFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key16Value, ivValue, AlgAES, AlgCFB},
-		{[]string{cmdEnc, encFlag, aes192cfbFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key24Value, ivValue, AlgAES, AlgCFB},
-		{[]string{cmdEnc, encFlag, aes256cfbFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key32Value, ivValue, AlgAES, AlgCFB},
-		{[]string{cmdEnc, encFlag, aes128ofbFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key16Value, ivValue, AlgAES, AlgOFB},
-		{[]string{cmdEnc, encFlag, aes192ofbFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key24Value, ivValue, AlgAES, AlgOFB},
-		{[]string{cmdEnc, encFlag, aes256ofbFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key32Value, ivValue, AlgAES, AlgOFB},
-		{[]string{cmdEnc, encFlag, aes128ctrFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key16Value, ivValue, AlgAES, AlgCTR},
-		{[]string{cmdEnc, encFlag, aes192ctrFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key24Value, ivValue, AlgAES, AlgCTR},
-		{[]string{cmdEnc, encFlag, aes256ctrFlag, inFlag, textFile, outFlag, encFile, base64Flag}, plainText, key32Value, ivValue, AlgAES, AlgCTR},
+		{[]string{cmdEnc, encFlag, aes128cbcFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key16Value, ivValue, AlgAES, AlgCBC},
+		{[]string{cmdEnc, encFlag, aes192cbcFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key24Value, ivValue, AlgAES, AlgCBC},
+		{[]string{cmdEnc, encFlag, aes256cbcFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key32Value, ivValue, AlgAES, AlgCBC},
+		{[]string{cmdEnc, encFlag, aes128cfbFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key16Value, ivValue, AlgAES, AlgCFB},
+		{[]string{cmdEnc, encFlag, aes192cfbFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key24Value, ivValue, AlgAES, AlgCFB},
+		{[]string{cmdEnc, encFlag, aes256cfbFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key32Value, ivValue, AlgAES, AlgCFB},
+		{[]string{cmdEnc, encFlag, aes128ofbFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key16Value, ivValue, AlgAES, AlgOFB},
+		{[]string{cmdEnc, encFlag, aes192ofbFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key24Value, ivValue, AlgAES, AlgOFB},
+		{[]string{cmdEnc, encFlag, aes256ofbFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key32Value, ivValue, AlgAES, AlgOFB},
+		{[]string{cmdEnc, encFlag, aes128ctrFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key16Value, ivValue, AlgAES, AlgCTR},
+		{[]string{cmdEnc, encFlag, aes192ctrFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key24Value, ivValue, AlgAES, AlgCTR},
+		{[]string{cmdEnc, encFlag, aes256ctrFlag, inFlag, textFile, outFlag, encFile, base64Flag},
+			plainText, key32Value, ivValue, AlgAES, AlgCTR},
 	}
 	defer func() {
 		os.Remove(textFile)
@@ -607,7 +631,12 @@ func Tpm2MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]b
 
 	return encKeyBlob, encSecret, nil
 }
-func Tpm2ActivateCredential(ekPubKey crypto.PublicKey, credential, name, credBlob, secret []byte) ([]byte, []byte, error) {
+func Tpm2ActivateCredential(
+	ekPubKey crypto.PublicKey,
+	credential,
+	name,
+	credBlob,
+	secret []byte) ([]byte, []byte, error) {
 	_, _ = credBlob, secret // ignore unused warning
 	simulatorMutex.Lock()
 	defer simulatorMutex.Unlock()

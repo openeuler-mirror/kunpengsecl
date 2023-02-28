@@ -398,10 +398,14 @@ type (
 		// CredBlob & EncryptedSecret are created by MakeCredential, and will be given as input to ActivateCredential
 		CredBlob        []byte // the protected key used to encrypt IK Cert
 		EncryptedSecret []byte // the pretected secret related to protection of CredBlob
-		EncryptedCert   []byte // the encrypted IK Cert, will be decypted with the key recovered from CredBlob & EncryptedSecret, decrypted Cert will be in PEM format
-		DecryptAlg      string // the algorithm & scheme used to decrypt the IK Cert
-		DecryptParam    []byte // the parameter required by the decrypt algorithm to decrypt the IK Cert
-		// if DecryptAlg == "AES128-CBC" then it is the IV used to decrypt IK Cert together with the key recovered from CredBlob & EncryptedSecret
+		// EncryptedCert is the encrypted IK Cert,
+		// will be decypted with the key recovered from CredBlob & EncryptedSecret,
+		// decrypted Cert will be in PEM format
+		EncryptedCert []byte
+		// if DecryptAlg == "AES128-CBC"
+		// then it is the IV used to decrypt IK Cert together with the key recovered from CredBlob & EncryptedSecret
+		DecryptAlg   string // the algorithm & scheme used to decrypt the IK Cert
+		DecryptParam []byte // the parameter required by the decrypt algorithm to decrypt the IK Cert
 	}
 
 	TaReportInput struct {
@@ -576,7 +580,9 @@ func OpenTPM(useHW bool, conf *TPMConfig, seed int64) error {
 
 // openTpmChip opens TPM hardware chip and reads EC from NVRAM.
 // NOTICE:
-//   User should use tbprovisioner command tool to write the EC
+//
+//	User should use tbprovisioner command tool to write the EC
+//
 // into TPM NVRAM before running raagent or the TPM chip already
 // has EC in NVRAM when it comes from manufactories.
 func openTpmChip() error {
@@ -839,7 +845,12 @@ func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {
 }
 
 // GetTrustReport takes a nonce input, generates the current trust report
-func GetTrustReport(clientID int64, nonce uint64, algStr string, taTestMode bool, qcaserver string) (*typdefs.TrustReport, error) {
+func GetTrustReport(
+	clientID int64,
+	nonce uint64,
+	algStr string,
+	taTestMode bool,
+	qcaserver string) (*typdefs.TrustReport, error) {
 	if tpmRef == nil {
 		return nil, ErrFailTPMInit
 	}

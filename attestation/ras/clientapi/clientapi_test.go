@@ -1025,7 +1025,6 @@ func TestClientapiKeyOp(t *testing.T) {
 		t.Errorf("Encode outside json of key operation error: %v", err)
 	}
 
-	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
 	_, err = ras.c.KeyOperation(ctx, &KeyOperationRequest{
 		ClientId:   deviceId,
 		EncMessage: outCmdData,
@@ -1306,7 +1305,6 @@ func TestDoClientapiKeyOp(t *testing.T) {
 		t.Errorf("Encode outside json of key operation error: %v", err)
 	}
 
-	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
 	_, err = DoKeyOperation(server, &KeyOperationRequest{
 		ClientId:   deviceId,
 		EncMessage: outCmdData,
@@ -1613,7 +1611,6 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 		t.Errorf("Encode outside json of key operation error: %v", err)
 	}
 
-	//t.Errorf("showing in clientapi_test, taId: %s, keyId: %s, hostKeyId: %s, account: %s, password: %s", string(message.TAId), string(message.KeyId), string(message.HostKeyId), string(message.Account), string(message.Password))
 	_, err = DoKeyOperationWithConn(ras, &KeyOperationRequest{
 		ClientId:   deviceId,
 		EncMessage: outCmdData,

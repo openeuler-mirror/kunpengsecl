@@ -2,7 +2,9 @@
 kunpengsecl licensed under the Mulan PSL v2.
 You can use this software according to the terms and conditions of
 the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
-    http://license.coscl.org.cn/MulanPSL2
+
+	http://license.coscl.org.cn/MulanPSL2
+
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
@@ -54,7 +56,11 @@ func rim2ima(doc *etree.Document, dAlg string) (ima string, err error) {
 		if head != "/" && head != "" {
 			head += "/"
 		}
-		ima += fmt.Sprintf("ima-ng %s:%s %s\n", dAlg, f.SelectAttrValue(strings.ToUpper(dAlg)+":hash", ""), head+f.SelectAttrValue("name", ""))
+		ima += fmt.Sprintf(
+			"ima-ng %s:%s %s\n",
+			dAlg,
+			f.SelectAttrValue(strings.ToUpper(dAlg)+":hash", ""),
+			head+f.SelectAttrValue("name", ""))
 	}
 
 	return

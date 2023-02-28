@@ -205,7 +205,7 @@ func getContextSession(c_path *C.char) error {
 	return nil
 }
 
-//初始化KTA
+// 初始化KTA
 func initialKTA(kcmPubkey *rsa.PublicKey, ktaPubCert []byte, ktaPrivKey *rsa.PrivateKey) ([]byte, error) {
 	// kcm pubkey: N
 	c_kcmPubkey_N := C.CBytes(kcmPubkey.N.Bytes())
@@ -230,7 +230,12 @@ func initialKTA(kcmPubkey *rsa.PublicKey, ktaPubCert []byte, ktaPrivKey *rsa.Pri
 	c_response_data := C.struct_buffer_data{}
 	c_response_data.size = C.__uint32_t(len(ktaPubCert))
 	c_response_data.buf = (*C.uint8_t)(C.malloc(C.ulong(c_response_data.size)))
-	teec_result := C.KTAinitialize(&c_request_data1, &c_request_data2, &c_request_data3, &c_request_data4, &c_response_data)
+	teec_result := C.KTAinitialize(
+		&c_request_data1,
+		&c_request_data2,
+		&c_request_data3,
+		&c_request_data4,
+		&c_response_data)
 	if int(teec_result) != 0 {
 		return nil, errors.New("initial kta failed")
 	}

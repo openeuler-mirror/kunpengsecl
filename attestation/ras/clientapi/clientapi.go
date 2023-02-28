@@ -35,8 +35,8 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
-    "crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -277,7 +277,9 @@ func (s *rasService) RegisterClient(ctx context.Context, in *RegisterClientReque
 }
 
 // UnregisterClient unregisters a client from cache and database, reserved its database record and files.
-func (s *rasService) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
+func (s *rasService) UnregisterClient(
+	ctx context.Context,
+	in *UnregisterClientRequest) (*UnregisterClientReply, error) {
 	cid := in.GetClientId()
 	//logger.L.Sugar().Debugf("get UnregisterClient %d request", cid)
 	trustmgr.UnRegisterClientByID(cid)
@@ -350,7 +352,9 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 	return &SendReportReply{Result: true}, nil
 }
 
-func (s *rasService) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
+func (s *rasService) SendKCMPubKeyCert(
+	ctx context.Context,
+	in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
 
 	kcmPubKeyCert, err := kcmstools.SendKCMPubKeyCert()
 	if err != nil {
@@ -365,7 +369,9 @@ func (s *rasService) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCer
 	}
 }
 
-func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
+func (s *rasService) VerifyKTAPubKeyCert(
+	ctx context.Context,
+	in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
 	deviceId := in.GetClientId()
 	if deviceId == 0 {
 		//logger.L.Sugar().Errorf("Outside json is empty")
@@ -424,7 +430,13 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GenerateNewKey([]byte(message.TAId), []byte(message.Account), []byte(message.Password), []byte(message.HostKeyId), message.KTAId, deviceId)
+		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GenerateNewKey(
+			[]byte(message.TAId),
+			[]byte(message.Account),
+			[]byte(message.Password),
+			[]byte(message.HostKeyId),
+			message.KTAId,
+			deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -448,7 +460,14 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GetKey([]byte(message.TAId), []byte(message.Account), []byte(message.Password), []byte(message.KeyId), []byte(message.HostKeyId), message.KTAId, deviceId)
+		retTAId, key, KtaPublickeyCert, plainText, retKeyId, err := kcmstools.GetKey(
+			[]byte(message.TAId),
+			[]byte(message.Account),
+			[]byte(message.Password),
+			[]byte(message.KeyId),
+			[]byte(message.HostKeyId),
+			message.KTAId,
+			deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Get key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -472,7 +491,11 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		kdb.CreateKdbManager(constDB, dbConfig)
 		defer kdb.ReleaseKdbManager()
 
-		key, KtaPublickeyCert, err := kcmstools.DeleteKey([]byte(message.TAId), []byte(message.KeyId), message.KTAId, deviceId)
+		key, KtaPublickeyCert, err := kcmstools.DeleteKey(
+			[]byte(message.TAId),
+			[]byte(message.KeyId),
+			message.KTAId,
+			deviceId)
 		if err != nil {
 			logger.L.Sugar().Errorf("Delete key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
@@ -954,7 +977,12 @@ func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []b
 	appendKey := append(nonce, sessionKey...)
 	appendKey = append(appendKey, tag...)
 
-	encSessionKey, err := cryptotools.AsymmetricEncrypt(cryptotools.AlgRSA, cryptotools.AlgOAEP, pubkeycert.PublicKey, appendKey, nil)
+	encSessionKey, err := cryptotools.AsymmetricEncrypt(
+		cryptotools.AlgRSA,
+		cryptotools.AlgOAEP,
+		pubkeycert.PublicKey,
+		appendKey,
+		nil)
 	if err != nil {
 		return nil, err
 	}
