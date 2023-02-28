@@ -203,11 +203,6 @@ func release() {
 }
 
 func TestCreateTestAuthToken(t *testing.T) {
-	config.InitFlags()
-	https := prepare()
-	defer release()
-	go StartServer(https)
-
 	_, err := CreateTestAuthToken()
 	if err != nil {
 		fmt.Printf("CreateTestAuthToken failed: %v\n", err)
@@ -216,6 +211,7 @@ func TestCreateTestAuthToken(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
+	config.InitFlags()
 	https := prepare()
 	defer release()
 	go StartServer(https)

@@ -53,6 +53,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kcmstools"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
+	"github.com/stretchr/testify/assert"
 	//"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 )
 
@@ -709,6 +710,18 @@ func RemoveConfigFile() {
 	os.Remove(configFilePath)
 }
 
+func prepare() {
+	CreateServerConfigFile()
+	// config.InitFlags()
+	config.LoadConfigs()
+	config.HandleFlags()
+}
+
+func release() {
+	RemoveConfigFile()
+	RemoveFiles()
+}
+
 func TestClientapi(t *testing.T) {
 	print("\nThis is in TestClientapi\n")
 	CreateServerConfigFile()
@@ -847,6 +860,8 @@ func TestClientapi(t *testing.T) {
 
 func TestClientapiInitKTA(t *testing.T) {
 	print("\nThis is in TestClientapiInitKTA\n")
+	prepare()
+	defer release()
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
@@ -900,6 +915,8 @@ func TestClientapiInitKTA(t *testing.T) {
 
 func TestClientapiKeyOp(t *testing.T) {
 	print("\nThis is in TestClientapiKeyOp\n")
+	prepare()
+	defer release()
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
@@ -928,7 +945,9 @@ func TestClientapiKeyOp(t *testing.T) {
 	// generate public key and priate key of KCM
 	privKey, kcmPublicKey := GenRsaKey()
 	err = os.Mkdir(certPath, fileMod)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(certPath+kcmKeyName, []byte(privKey), keyMod)
+	assert.NoError(t, err)
 
 	// test empty taId
 	_, err = ras.c.KeyOperation(ctx, &KeyOperationRequest{})
@@ -1018,23 +1037,17 @@ func TestClientapiKeyOp(t *testing.T) {
 
 func TestDoClientapi(t *testing.T) {
 	print("\nThis is in TestDoClientapi\n")
-	CreateServerConfigFile()
-	defer RemoveConfigFile()
 	trustmgr.CreateTrustManager(constDB, constDNS)
 	defer trustmgr.ReleaseTrustManager()
-
-	config.LoadConfigs()
-	defer RemoveFiles()
-	config.HandleFlags()
+	prepare()
+	defer release()
 	server := config.GetServerPort()
 
 	go StartServer(server)
 	defer StopServer()
 
 	EKpubBlock, _ := pem.Decode([]byte(EKpubPEM))
-	reqEC := GenerateEKCertRequest{
-		EkPub: EKpubBlock.Bytes,
-	}
+	reqEC := GenerateEKCertRequest{EkPub: EKpubBlock.Bytes}
 	rspEC, err := DoGenerateEKCert(server, &reqEC)
 	if err != nil {
 		t.Errorf("test DoGenerateEKCert error %v", err)
@@ -1144,6 +1157,8 @@ func TestDoClientapi(t *testing.T) {
 
 func TestDoClientapiInitKTA(t *testing.T) {
 	print("\nThis is in TestDoClientapiInitKTA\n")
+	prepare()
+	defer release()
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
@@ -1189,6 +1204,8 @@ func TestDoClientapiInitKTA(t *testing.T) {
 
 func TestDoClientapiKeyOp(t *testing.T) {
 	print("\nThis is in TestDoClientapiKeyOp\n")
+	prepare()
+	defer release()
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
@@ -1209,7 +1226,9 @@ func TestDoClientapiKeyOp(t *testing.T) {
 	// generate public key and priate key of KCM
 	privKey, kcmPublicKey := GenRsaKey()
 	err = os.Mkdir(certPath, fileMod)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(certPath+kcmKeyName, []byte(privKey), keyMod)
+	assert.NoError(t, err)
 
 	// test empty taId
 	_, err = DoKeyOperation(server, &KeyOperationRequest{})
@@ -1299,14 +1318,10 @@ func TestDoClientapiKeyOp(t *testing.T) {
 
 func TestClientapiWithConn(t *testing.T) {
 	print("\nThis is in TestClientapiWithConn\n")
-	CreateServerConfigFile()
-	defer RemoveConfigFile()
 	trustmgr.CreateTrustManager(constDB, constDNS)
 	defer trustmgr.ReleaseTrustManager()
-
-	config.LoadConfigs()
-	defer RemoveFiles()
-	config.HandleFlags()
+	prepare()
+	defer release()
 	server := config.GetServerPort()
 
 	go StartServer(server)
@@ -1437,6 +1452,8 @@ func TestClientapiWithConn(t *testing.T) {
 
 func TestClientapiWithConnInitKTA(t *testing.T) {
 	print("\nThis is in TestClientapiWithConnInitKTA\n")
+	prepare()
+	defer release()
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
@@ -1488,6 +1505,8 @@ func TestClientapiWithConnInitKTA(t *testing.T) {
 
 func TestClientapiWithConnKeyOp(t *testing.T) {
 	print("\nThis is in TestClientapiWithConnKeyOp\n")
+	prepare()
+	defer release()
 	server := config.GetServerPort()
 	go StartServer(server)
 	defer StopServer()
@@ -1514,7 +1533,9 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 	// generate public key and priate key of KCM
 	privKey, kcmPublicKey := GenRsaKey()
 	err = os.Mkdir(certPath, fileMod)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(certPath+kcmKeyName, []byte(privKey), keyMod)
+	assert.NoError(t, err)
 
 	// test empty taId
 	_, err = DoKeyOperationWithConn(ras, &KeyOperationRequest{})
