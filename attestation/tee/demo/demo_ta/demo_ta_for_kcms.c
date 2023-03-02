@@ -118,7 +118,11 @@ TEE_Result encrypt(uint8_t *keyvalue) {
 
 TEE_Result delete_key_opt(TEE_UUID *keyid, TEE_Param params[PARAM_COUNT] ) {
     TEE_Result ret;
-    ret = delete_key(&localUuid, account, password, keyid);
+    char mem_hash[HASH_SIZE] = {0};
+    char img_hash[HASH_SIZE] = {0};
+    strncpy_s(mem_hash, HASH_SIZE, params[PARAMETER_FRIST].memref.buffer, params[PARAMETER_FRIST].memref.size);
+    strncpy_s(img_hash, HASH_SIZE, params[PARAMETER_SECOND].memref.buffer, params[PARAMETER_SECOND].memref.size);
+    ret = delete_key(&localUuid, account, password, keyid, mem_hash, img_hash);
     if (ret != TEE_SUCCESS) {
         tloge("delete key failed");
         return ret;
@@ -137,25 +141,33 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
     TEE_ObjectHandle keyid_data = NULL;
     uint32_t len = 36, count = 0;
     int8_t *keyidchar = NULL;
+    char mem_hash[HASH_SIZE] = {0};
+    char img_hash[HASH_SIZE] = {0};
 
     if (!check_param_type(param_type,
-        TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_VALUE_OUTPUT)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    if (params[PARAMETER_FOURTH].value.a != 0x7fffffff) {
+    if (params[PARAMETER_FRIST].memref.buffer == NULL ||
+        params[PARAMETER_FRIST].memref.size != HASH_SIZE ||
+        params[PARAMETER_SECOND].memref.buffer == NULL ||
+        params[PARAMETER_SECOND].memref.size != HASH_SIZE ||
+        params[PARAMETER_FOURTH].value.a != 0x7fffffff) {
         tloge("Bad expected parameter value");
         return TEE_ERROR_BAD_PARAMETERS;
     }
 
     tlogd("prepare to encrypt data");
+    strncpy_s(mem_hash, HASH_SIZE, params[PARAMETER_FRIST].memref.buffer, params[PARAMETER_FRIST].memref.size);
+    strncpy_s(img_hash, HASH_SIZE, params[PARAMETER_SECOND].memref.buffer, params[PARAMETER_SECOND].memref.size);
     uint32_t twice_search_flag = 0;
 
     if(new_key_flag == 1) {
-        ret = generate_key(&localUuid, account, password, &masterkey);
+        ret = generate_key(&localUuid, account, password, &masterkey, mem_hash, img_hash);
         if(ret != TEE_SUCCESS) {
             tloge("generate key command failed");
             return ret;
@@ -186,10 +198,10 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
         return ret;
         }
         TEE_CloseObject(keyid_data);
-        tlogd("%s",keyidchar);
         char2uuid(&keyid, keyidchar);
         keyvalue = TEE_Malloc(KEY_SIZE, 0);
-        ret = search_key(&localUuid, account, password, &keyid, &masterkey, keyvalue, &twice_search_flag);
+        ret = search_key(&localUuid, account, password, &keyid, &masterkey,
+                keyvalue, &twice_search_flag, mem_hash, img_hash);
         if(ret != TEE_SUCCESS) {
             tloge("search command failed");
             return ret;
@@ -221,21 +233,33 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     uint8_t *keyvalue = NULL;
     TEE_ObjectHandle keyid_data = NULL;
     uint32_t len = 36, count = 0;
+    char mem_hash[HASH_SIZE] = {0};
+    char img_hash[HASH_SIZE] = {0};
 
     if (!check_param_type(param_type,
-        TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_VALUE_OUTPUT)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
+    if (params[PARAMETER_FRIST].memref.buffer == NULL ||
+        params[PARAMETER_FRIST].memref.size != HASH_SIZE ||
+        params[PARAMETER_SECOND].memref.buffer == NULL ||
+        params[PARAMETER_SECOND].memref.size != HASH_SIZE ||
+        params[PARAMETER_FOURTH].value.a != 0x7fffffff) {
+        tloge("Bad expected parameter value");
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
 
     tlogd("start to encrypt data");
+    strncpy_s(mem_hash, HASH_SIZE, params[PARAMETER_FRIST].memref.buffer, params[PARAMETER_FRIST].memref.size);
+    strncpy_s(img_hash, HASH_SIZE, params[PARAMETER_SECOND].memref.buffer, params[PARAMETER_SECOND].memref.size);
     uint32_t twice_search_flag;
     switch(flag.symbol) {
     case 1:
-        ret = get_kcm_reply(&localUuid, account, password, &keyid, keyvalue);
+        ret = get_kcm_reply(&localUuid, account, password, &keyid, keyvalue, mem_hash, img_hash);
         if (ret != TEE_SUCCESS) {
             tloge("get generate key reply failed");
             return ret;
@@ -272,7 +296,8 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         }
         TEE_CloseObject(keyid_data);
         char2uuid(&keyid, (int8_t*)keyidchar);
-        ret = search_key(&localUuid, account, password, &keyid, &masterkey, keyvalue, &twice_search_flag);
+        ret = search_key(&localUuid, account, password, &keyid, &masterkey,
+                keyvalue, &twice_search_flag, mem_hash, img_hash);
         if (ret != TEE_SUCCESS) {
             tloge("get generate key reply failed");
             return ret;
@@ -284,8 +309,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         params[3].value.a = 0;
         break;
     case 3:
-        
-        ret = get_kcm_reply(&localUuid, account, password, &keyid, NULL);
+        ret = get_kcm_reply(&localUuid, account, password, &keyid, NULL, mem_hash, img_hash);
         if (ret != TEE_SUCCESS) {
             params[3].value.a = 2;
             tloge("delete key failed");
@@ -333,11 +357,29 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     return TEE_SUCCESS;
 }
 
-TEE_Result ta_exit() {
+TEE_Result ta_exit(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     TEE_ObjectHandle keyid_data = NULL;
+    char mem_hash[HASH_SIZE] = {0};
+    char img_hash[HASH_SIZE] = {0};
 
-    ret = clear_cache(&localUuid, account, password);
+    if (!check_param_type(param_type,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
+        TEE_PARAM_TYPE_MEMREF_INPUT,
+        TEE_PARAM_TYPE_NONE,
+        TEE_PARAM_TYPE_NONE)) {
+        tloge("Bad expected parameter types, 0x%x.\n", param_type);
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+    if (params[PARAMETER_FRIST].memref.buffer == NULL ||
+        params[PARAMETER_FRIST].memref.size != HASH_SIZE ||
+        params[PARAMETER_SECOND].memref.buffer == NULL ||
+        params[PARAMETER_SECOND].memref.size != HASH_SIZE) {
+        tloge("Bad expected parameter value");
+        return TEE_ERROR_BAD_PARAMETERS;
+    }
+
+    ret = clear_cache(&localUuid, account, password, mem_hash, img_hash);
     if(ret != TEE_SUCCESS) {
         tloge("clear cache failed");
         return ret;
@@ -399,7 +441,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
         }
         break;
     case CMD_TA_EXIT:
-        ret = ta_exit();
+        ret = ta_exit(param_type, params);
         if(ret != TEE_SUCCESS) {
             tloge("execute call back operation failed0x%x", ret);
             return ret;

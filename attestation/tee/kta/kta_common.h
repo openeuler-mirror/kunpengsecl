@@ -21,9 +21,14 @@ Description: initialize module in kta.
 #include <tee_defines.h>
 #include <tee_log.h>
 
+#define PARAMETER_FRIST     0
+#define PARAMETER_SECOND    1
+#define PARAMETER_THIRD     2
+#define PARAMETER_FOURTH    3
 #define MAX_TA_NUM          16
 #define MAX_KEY_NUM         16
 #define MAX_STR_LEN         64
+#define HASH_SIZE           65
 #define KEY_SIZE            128
 #define MAX_QUEUE_SIZE      16
 #define NODE_LEN            8
@@ -68,6 +73,11 @@ typedef struct _tagCmdNode{
     uint8_t password[MAX_STR_LEN];
 } CmdNode;
 
+typedef struct _tagHashValues{
+    char mem_hash[HASH_SIZE];
+    char img_hash[HASH_SIZE];
+} HashValue;
+
 typedef struct _tagCmdQueue{
     CmdNode queue[MAX_QUEUE_SIZE];
     int32_t head;   // 0~MAX_TA_NUM: first cmd for dequeue operation.
@@ -99,32 +109,23 @@ typedef struct {
 //internal function
 
 //for initializition
-
 TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size);
-
 TEE_Result saveKTAPriv(char *name, ktaprivkey *value);
-
 TEE_Result restoreKeyandCert(char *certname, uint8_t *buffer, size_t buf_len);
-
 TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t privateExponent[RSA_PUB_SIZE]);
-
 TEE_Result initStructure();
 
 void str2hex(const uint8_t *source, int source_len, char *dest);
-
 void hex2str(const char *source, int dest_len, uint8_t *dest);
 
 //for reset key and cert
-
-TEE_Result Reset_All();
-
-TEE_Result reset(char *name);
+TEE_Result ResetAll();
 
 //for key management
 
 //for ta-auth
-int32_t verifyTApasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password);
-
-bool CheckUUID(TEE_UUID id1,TEE_UUID id2);
+int32_t verifyTAPasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password);
+bool checkUuid(TEE_UUID id1,TEE_UUID id2);
+TEE_Result localAttest(uint8_t *taid, HashValue *hash);
 
 #endif /* __KTA_H__ */

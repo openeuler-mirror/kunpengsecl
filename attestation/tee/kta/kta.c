@@ -106,7 +106,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
             return ret;
             break;
         case CMD_RESET_ALL:
-            ret = Reset_All();
+            ret = ResetAll();
             if (ret != TEE_SUCCESS)
                 tloge("reset failed\n");
             return ret;

@@ -25,10 +25,10 @@ static const TEE_UUID ktauuid = {0x435dcafa, 0x0029, 0x4d53, {0x97, 0xe8, 0xa7, 
 static const uint32_t session_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);
 
-void cmd_copy(CmdNode *cmdnode, TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey) {
-    strncpy_s((char*)cmdnode->account, MAX_STR_LEN, (char*)account, MAX_STR_LEN);
-    strncpy_s((char*)cmdnode->password, MAX_STR_LEN, (char*)password, MAX_STR_LEN);
+void cmd_copy(CmdNode *cmdnode, TEE_UUID *uuid, uint8_t *account, uint8_t *password,
+        TEE_UUID *keyid, TEE_UUID *masterkey) {
+    strncpy_s((char*)cmdnode->account, MAX_STR_LEN, (char*)account, strlen((char*)account));
+    strncpy_s((char*)cmdnode->password, MAX_STR_LEN, (char*)password, strlen((char*)password));
     memcpy_s(&cmdnode->taId, sizeof(TEE_UUID), uuid, sizeof(TEE_UUID));
     if(keyid != NULL) {
         memcpy_s(&cmdnode->keyId, sizeof(TEE_UUID), keyid, sizeof(TEE_UUID));
@@ -39,14 +39,16 @@ void cmd_copy(CmdNode *cmdnode, TEE_UUID *uuid, uint8_t *account,
 }
 
 TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *masterkey) {
+        uint8_t *password, TEE_UUID *masterkey, char *mem_hash, char *img_hash) {
     TEE_Result ret;
     CmdNode *cmdnode = TEE_Malloc(sizeof(CmdNode), 0);
     TEE_TASessionHandle session = {0};
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
     uint32_t command_param_type = 0;
-    int32_t cmd = CMD_KEY_GENETARE;
+    HashValue hash = {0};
+    strncpy_s(hash.mem_hash, HASH_SIZE, mem_hash, strlen(mem_hash));
+    strncpy_s(hash.img_hash, HASH_SIZE, img_hash, strlen(img_hash));
 
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
@@ -54,14 +56,15 @@ TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
         return ret;
     }
     cmd_copy(cmdnode, uuid, account, password, NULL, masterkey);
-    memcpy_s(&cmdnode->cmd, sizeof(int32_t), &cmd, sizeof(int32_t));
+    cmdnode->cmd = CMD_KEY_GENETARE;
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_NONE);
+        TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_MEMREF_INPUT);
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
     params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_THIRD].value.a = VALUE_INIT;
     params[PARAMETER_THIRD].value.b = VALUE_INIT;
-    tlogd("666");
+    params[PARAMETER_FOURTH].memref.buffer = &hash;
+    params[PARAMETER_FOURTH].memref.size = sizeof(hash);
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_KEY_GENETARE, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("invoke command generate key failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
@@ -82,14 +85,17 @@ TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
     return TEE_SUCCESS;
 }
 
-TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey , uint8_t *keyvalue, uint32_t *flag) {
+TEE_Result search_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *keyid,
+        TEE_UUID *masterkey, uint8_t *keyvalue, uint32_t *flag, char *mem_hash, char *img_hash) {
     TEE_Result ret;
     CmdNode *cmdnode = TEE_Malloc(sizeof(CmdNode), 0);
     TEE_TASessionHandle session = {0};
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
     uint32_t command_param_type = 0;
+    HashValue hash = {0};
+    strncpy_s(hash.mem_hash, HASH_SIZE, mem_hash, strlen(mem_hash));
+    strncpy_s(hash.img_hash, HASH_SIZE, img_hash, strlen(img_hash));
 
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
@@ -99,13 +105,15 @@ TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
     cmd_copy(cmdnode, uuid, account, password, keyid, masterkey);
     cmdnode->cmd = CMD_KEY_SEARCH;
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_NONE);
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_MEMREF_INPUT);
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
     params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].memref.buffer = keyvalue;
     params[PARAMETER_SECOND].memref.size = KEY_SIZE;
     params[PARAMETER_THIRD].value.a = VALUE_INIT;
     params[PARAMETER_THIRD].value.b = VALUE_INIT;
+    params[PARAMETER_FOURTH].memref.buffer = &hash;
+    params[PARAMETER_FOURTH].memref.size = sizeof(hash);
 
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_KEY_SEARCH, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
@@ -132,15 +140,17 @@ TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
     return TEE_SUCCESS;
 }
 
-TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *keyid) {
+TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *keyid,
+        char *mem_hash, char *img_hash) {
     TEE_Result ret;
     CmdNode *cmdnode = TEE_Malloc(sizeof(CmdNode), 0);
     TEE_TASessionHandle session = {0};
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
     uint32_t command_param_type = 0;
-    //uint32_t *destory_flag = VALUE_INIT;
-    //uint32_t flag_size = sizeof(uint32_t*);
+    HashValue hash = {0};
+    strncpy_s(hash.mem_hash, HASH_SIZE, mem_hash, strlen(mem_hash));
+    strncpy_s(hash.img_hash, HASH_SIZE, img_hash, strlen(img_hash));
 
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
@@ -150,13 +160,15 @@ TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_U
     cmd_copy(cmdnode, uuid, account, password, keyid, NULL);
     cmdnode->cmd = CMD_KEY_DELETE;
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_NONE);
+        TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_MEMREF_INPUT);
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
     params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].value.a = VALUE_INIT;
     params[PARAMETER_SECOND].value.b = VALUE_INIT;
     params[PARAMETER_THIRD].value.a = VALUE_INIT;
     params[PARAMETER_THIRD].value.b = VALUE_INIT;
+    params[PARAMETER_FOURTH].memref.buffer = &hash;
+    params[PARAMETER_FOURTH].memref.size = sizeof(hash);
 
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_KEY_DELETE, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
@@ -184,13 +196,17 @@ TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_U
     return TEE_SUCCESS;
 }
 
-TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password) {
+TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password,
+        char *mem_hash, char *img_hash) {
     TEE_Result ret;
     CmdNode *cmdnode = TEE_Malloc(sizeof(CmdNode), 0);
     TEE_TASessionHandle session = {0};
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
     uint32_t command_param_type = 0;
+    HashValue hash = {0};
+    strncpy_s(hash.mem_hash, HASH_SIZE, mem_hash, strlen(mem_hash));
+    strncpy_s(hash.img_hash, HASH_SIZE, img_hash, strlen(img_hash));
 
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
@@ -202,11 +218,13 @@ TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password) {
     cmd_copy(cmdnode, uuid, account, password, NULL, NULL);
     cmdnode->cmd = CMD_CLEAR_CACHE;
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);
+        TEE_PARAM_TYPE_VALUE_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_MEMREF_INPUT);
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
     params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].value.a = VALUE_INIT;
     params[PARAMETER_SECOND].value.b = VALUE_INIT;
+    params[PARAMETER_FOURTH].memref.buffer = &hash;
+    params[PARAMETER_FOURTH].memref.size = sizeof(hash);
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_CLEAR_CACHE, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("invoke command clear cache failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
@@ -227,8 +245,8 @@ TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password) {
     return TEE_SUCCESS;
 }
 
-TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *keyid, uint8_t *keyvalue) {
+TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account, uint8_t *password,
+        TEE_UUID *keyid, uint8_t *keyvalue, char *mem_hash, char *img_hash) {
     TEE_Result ret;
     CmdNode *cmdnode = TEE_Malloc(sizeof(CmdNode), 0);
     ReplyNode *replynode = TEE_Malloc(sizeof(ReplyNode), 0);
@@ -236,6 +254,9 @@ TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
     TEE_Param params[4] = {0};
     uint32_t retOrigin = 0;
     uint32_t command_param_type = 0;
+    HashValue hash = {0};
+    strncpy_s(hash.mem_hash, HASH_SIZE, mem_hash, strlen(mem_hash));
+    strncpy_s(hash.img_hash, HASH_SIZE, img_hash, strlen(img_hash));
 
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
@@ -247,11 +268,13 @@ TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
     cmd_copy(cmdnode, uuid, account, password, NULL, NULL);
     cmdnode->cmd = CMD_KCM_REPLY;
     command_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);   
+        TEE_PARAM_TYPE_MEMREF_OUTPUT, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_MEMREF_INPUT);
     params[PARAMETER_FRIST].memref.buffer = cmdnode;
     params[PARAMETER_FRIST].memref.size = sizeof(CmdNode);
     params[PARAMETER_SECOND].memref.buffer = replynode;
     params[PARAMETER_SECOND].memref.size = sizeof(ReplyNode);
+    params[PARAMETER_FOURTH].memref.buffer = &hash;
+    params[PARAMETER_FOURTH].memref.size = sizeof(hash);
     ret = TEE_InvokeTACommand(session, TIMEOUT, CMD_KCM_REPLY, command_param_type, params, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("invoke command get kcm reply failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
@@ -264,10 +287,6 @@ TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
         case 1:
         memcpy_s(keyid, sizeof(TEE_UUID), &replynode->keyId, sizeof(TEE_UUID));
         memcpy_s(keyvalue, KEY_SIZE, replynode->keyvalue, KEY_SIZE);
-        tlogd("get a key generate reply");
-        tlogd("%08x", keyid->timeLow);
-        tlogd("%04x", keyid->timeMid);
-        tlogd("%04x", keyid->timeHiAndVersion);
         TEE_Free(cmdnode);
         TEE_Free(replynode);
         return TEE_SUCCESS;

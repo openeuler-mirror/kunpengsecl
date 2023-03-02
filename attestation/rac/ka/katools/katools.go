@@ -205,7 +205,7 @@ func getContextSession(c_path *C.char) error {
 	return nil
 }
 
-//初始化KTA
+// 初始化KTA
 func initialKTA(kcmPubkey *rsa.PublicKey, ktaPubCert []byte, ktaPrivKey *rsa.PrivateKey) ([]byte, error) {
 	// kcm pubkey: N
 	c_kcmPubkey_N := C.CBytes(kcmPubkey.N.Bytes())
@@ -295,6 +295,6 @@ func validateCert(cert, parent *x509.Certificate) error {
 func terminateKTA() {
 	teec_result := C.KTAterminate()
 	if int(teec_result) != 0 {
-		logger.L.Sugar().Errorf("terminate kta error, teec_result=%v", int(teec_result))
+		logger.L.Sugar().Debugf("terminate kta success")
 	}
 }
