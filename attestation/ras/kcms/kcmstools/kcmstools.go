@@ -100,7 +100,13 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 	return nil
 }
 
-func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
+func GenerateNewKey(
+	taid []byte,
+	account []byte,
+	password []byte,
+	hostkeyid []byte,
+	ktaid string,
+	deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
 	err := GetKTATrusted(deviceId, ktaid)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -152,7 +158,14 @@ func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []by
 	return taid, K, KtaPublickeyCert, plaintext, []byte(keyid), nil
 }
 
-func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
+func GetKey(
+	taid []byte,
+	account []byte,
+	password []byte,
+	keyid []byte,
+	hostkeyid []byte,
+	ktaid string,
+	deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error) {
 	err := GetKTATrusted(deviceId, ktaid)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -252,7 +265,9 @@ func KmsGenerateKey(account, passwd, hostkeyid []byte) ([]byte, []byte, []byte, 
 	}
 	payload.TemplateAttribute.Append(kmip14.TagCryptographicAlgorithm, kmip14.CryptographicAlgorithmAES)
 	payload.TemplateAttribute.Append(kmip14.TagCryptographicLength, 128)
-	payload.TemplateAttribute.Append(kmip14.TagCryptographicUsageMask, kmip14.CryptographicUsageMaskEncrypt|kmip14.CryptographicUsageMaskDecrypt)
+	payload.TemplateAttribute.Append(
+		kmip14.TagCryptographicUsageMask,
+		kmip14.CryptographicUsageMaskEncrypt|kmip14.CryptographicUsageMaskDecrypt)
 	payload.TemplateAttribute.Append(kmip14.TagUniqueIdentifier, string(hostkeyid))
 	payload.TemplateAttribute.Append(kmip14.TagDeviceIdentifier, account)
 	payload.TemplateAttribute.Append(kmip14.TagPassword, passwd)

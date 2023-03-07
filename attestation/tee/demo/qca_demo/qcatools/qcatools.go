@@ -243,7 +243,8 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	// tcb conversion
 	c_with_tcb := C.bool(with_tcb)
 	// result of function call
-	teec_result := C.RemoteAttestReport(*(*C.TEEC_UUID)(c_ta_uuid), &c_usr_data, &c_param_set, &c_report, c_with_tcb) // can not put Go pointer as parameter in C function!!!
+	// can not put Go pointer as parameter in C function!!!
+	teec_result := C.RemoteAttestReport(*(*C.TEEC_UUID)(c_ta_uuid), &c_usr_data, &c_param_set, &c_report, c_with_tcb)
 	if int(teec_result) != 0 {
 		log.Print("Get TA report failed!")
 		return nil

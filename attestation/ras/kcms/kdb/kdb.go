@@ -76,7 +76,8 @@ func FindKeyInfo(taid, keyid string) (*typdefs.KeyinfoRow, error) {
 		return nil, typdefs.ErrParameterWrong
 	}
 	keyinfo := &typdefs.KeyinfoRow{}
-	err := kmgr.db.QueryRow(sqlFindKeyInfo, taid, keyid).Scan(&keyinfo.ID, &keyinfo.TaID, &keyinfo.KeyID, &keyinfo.Ciphertext)
+	err := kmgr.db.QueryRow(sqlFindKeyInfo, taid, keyid).
+		Scan(&keyinfo.ID, &keyinfo.TaID, &keyinfo.KeyID, &keyinfo.Ciphertext)
 	//Q2.taid和keyid都是string类型，和数据库中的char(36)能否匹配？
 	if err != nil {
 		return nil, err
