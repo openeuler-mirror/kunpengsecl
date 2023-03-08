@@ -960,8 +960,14 @@ func TestPcrGroups(t *testing.T) {
 		d, _ := hex.DecodeString(c.value)
 		p.ExtendSha1(c.index, d)
 		h1[c.index] = sha1.New()
-		h1[c.index].Write(buf[c.index])
-		h1[c.index].Write(d)
+		_, err1 := h1[c.index].Write(buf[c.index])
+		if err1 != nil {
+			t.Errorf("write error: %v", err1)
+		}
+		_, err2 := h1[c.index].Write(d)
+		if err2 != nil {
+			t.Errorf("write error: %v", err2)
+		}
 		buf[c.index] = h1[c.index].Sum(nil)
 	}
 	for i := 0; i < 24; i++ {
@@ -977,8 +983,14 @@ func TestPcrGroups(t *testing.T) {
 		d, _ := hex.DecodeString(c.value)
 		p.ExtendSha256(c.index, d)
 		h1[c.index] = sha256.New()
-		h1[c.index].Write(buf[c.index])
-		h1[c.index].Write(d)
+		_, err3 := h1[c.index].Write(buf[c.index])
+		if err3 != nil {
+			t.Errorf("write error: %v", err3)
+		}
+		_, err4 := h1[c.index].Write(d)
+		if err4 != nil {
+			t.Errorf("write error: %v", err4)
+		}
 		buf[c.index] = h1[c.index].Sum(nil)
 	}
 	for i := 0; i < 24; i++ {

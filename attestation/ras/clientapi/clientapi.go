@@ -127,15 +127,27 @@ var (
 func getSockNum() int {
 	pid := os.Getpid()
 	limits := fmt.Sprintf("/proc/%d/limits", pid)
-	ioutil.WriteFile(strGetName, []byte(strGetSh), 0755)
-	out, _ := exec.Command(strGetName, limits).Output()
+	err := ioutil.WriteFile(strGetName, []byte(strGetSh), 0755)
+	if err != nil {
+		return -1
+	}
+	out, err := exec.Command(strGetName, limits).Output()
+	if err != nil {
+		return -1
+	}
 	totalStr := strings.Trim(string(out), strSpaceLine)
-	totalNum, _ := strconv.Atoi(totalStr)
+	totalNum, err := strconv.Atoi(totalStr)
+	if err != nil {
+		return -1
+	}
 	sockNum := totalNum * 9 / 10
 	if totalNum-sockNum < 50 {
 		sockNum = totalNum - 50
 	}
-	os.Remove(strGetName)
+	err1 := os.Remove(strGetName)
+	if err1 != nil {
+		return -1
+	}
 	return sockNum
 }
 

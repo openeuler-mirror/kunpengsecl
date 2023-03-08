@@ -60,11 +60,20 @@ var (
 // CreateAuthKeyFile creates auth key file.
 func CreateAuthKeyFile(privfile string, pubfile string) {
 	priv, pub = privfile, pubfile
-	initRestapiAuthKeyFile(priv, pub)
+	err := initRestapiAuthKeyFile(priv, pub)
+	if err != nil {
+		return
+	}
 }
 
 // RemoveAuthKeyFile removes auth key file.
 func RemoveAuthKeyFile() {
-	os.Remove(priv)
-	os.Remove(pub)
+	err := os.Remove(priv)
+	if err != nil {
+		return
+	}
+	err1 := os.Remove(pub)
+	if err1 != nil {
+		return
+	}
 }

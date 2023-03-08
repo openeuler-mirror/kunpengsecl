@@ -44,11 +44,17 @@ var (
 )
 
 func CreateQcaConfigFile() {
-	ioutil.WriteFile(configFilePath, []byte(QcaConfig), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(QcaConfig), 0644)
+	if err != nil {
+		return
+	}
 }
 
 func RemoveConfigFile() {
-	os.Remove(configFilePath)
+	err := os.Remove(configFilePath)
+	if err != nil {
+		return
+	}
 }
 
 func TestGetTAReport(t *testing.T) {

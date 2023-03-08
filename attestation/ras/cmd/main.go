@@ -63,7 +63,10 @@ func handleGlobalFlags() {
 
 func main() {
 	//path, _ := os.Getwd() // only for test when runing under "kunpengsecl/attestation/ras/cmd/ras".
-	fileName, _ := os.Executable()
+	fileName, err := os.Executable()
+	if err != nil {
+		return
+	}
 	fmt.Printf("exec: %s, %d\n", fileName, os.Getpid())
 
 	config.InitFlags()

@@ -191,19 +191,49 @@ var (
 )
 
 func createFiles() {
-	ioutil.WriteFile(configFilePath, []byte(serverConfig), 0644)
-	ioutil.WriteFile(asCertPath, []byte(cert), 0644)
-	ioutil.WriteFile(asprivPath, []byte(aspriv), 0644)
-	ioutil.WriteFile(huaweiPath, []byte(huaweica), 0644)
-	ioutil.WriteFile(ecdsakeyPath, []byte(ecdsakey), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(serverConfig), 0644)
+	if err != nil {
+		return
+	}
+	err1 := ioutil.WriteFile(asCertPath, []byte(cert), 0644)
+	if err1 != nil {
+		return
+	}
+	err2 := ioutil.WriteFile(asprivPath, []byte(aspriv), 0644)
+	if err2 != nil {
+		return
+	}
+	err3 := ioutil.WriteFile(huaweiPath, []byte(huaweica), 0644)
+	if err3 != nil {
+		return
+	}
+	err4 := ioutil.WriteFile(ecdsakeyPath, []byte(ecdsakey), 0644)
+	if err4 != nil {
+		return
+	}
 }
 
 func removeFiles() {
-	os.Remove(configFilePath)
-	os.Remove(asCertPath)
-	os.Remove(asprivPath)
-	os.Remove(huaweiPath)
-	os.Remove(ecdsakeyPath)
+	err := os.Remove(configFilePath)
+	if err != nil {
+		return
+	}
+	err1 := os.Remove(asCertPath)
+	if err1 != nil {
+		return
+	}
+	err2 := os.Remove(asprivPath)
+	if err2 != nil {
+		return
+	}
+	err3 := os.Remove(huaweiPath)
+	if err3 != nil {
+		return
+	}
+	err4 := os.Remove(ecdsakeyPath)
+	if err4 != nil {
+		return
+	}
 }
 
 func TestConfig(t *testing.T) {

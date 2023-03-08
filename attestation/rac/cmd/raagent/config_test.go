@@ -85,11 +85,17 @@ var (
 )
 
 func CreateClientConfigFile() {
-	ioutil.WriteFile(configFilePath, []byte(clientConfig), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(clientConfig), 0644)
+	if err != nil {
+		return
+	}
 }
 
 func RemoveConfigFile() {
-	os.Remove(configFilePath)
+	err := os.Remove(configFilePath)
+	if err != nil {
+		return
+	}
 }
 
 func TestConfigNotInTestMode(t *testing.T) {
@@ -194,8 +200,20 @@ func TestConfigInTestMode(t *testing.T) {
 	GetLogPath()
 	saveConfigs()
 
-	os.Remove(racCfg.ecTestFile)
-	os.Remove(racCfg.icTestFile)
-	os.Remove(racCfg.ecFile)
-	os.Remove(racCfg.icFile)
+	err1 := os.Remove(racCfg.ecTestFile)
+	if err1 != nil {
+		t.Errorf("remove error: %v", err1)
+	}
+	err2 := os.Remove(racCfg.icTestFile)
+	if err2 != nil {
+		t.Errorf("remove error: %v", err2)
+	}
+	err3 := os.Remove(racCfg.ecFile)
+	if err3 != nil {
+		t.Errorf("remove error: %v", err3)
+	}
+	err4 := os.Remove(racCfg.icFile)
+	if err4 != nil {
+		t.Errorf("remove error: %v", err4)
+	}
 }

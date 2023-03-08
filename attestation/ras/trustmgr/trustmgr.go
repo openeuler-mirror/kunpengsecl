@@ -406,7 +406,10 @@ func RegisterClientByID(id int64, regtime time.Time, ik string) {
 	c.SetIKeyCert(ik)
 	tmgr.cache[id] = c
 	tmgr.mu.Unlock()
-	tmgr.db.Exec(sqlRegisterClientByID, id)
+	_, err := tmgr.db.Exec(sqlRegisterClientByID, id)
+	if err != nil {
+		return
+	}
 }
 
 // UnRegisterClientByID unregisters client by setting registered to false.
@@ -418,7 +421,10 @@ func UnRegisterClientByID(id int64) {
 	tmgr.mu.Lock()
 	delete(tmgr.cache, id)
 	tmgr.mu.Unlock()
-	tmgr.db.Exec(sqlUnRegisterClientByID, id)
+	_, err1 := tmgr.db.Exec(sqlUnRegisterClientByID, id)
+	if err1 != nil {
+		return
+	}
 }
 
 // FindClientByIK gets client from database by ak.
@@ -714,7 +720,10 @@ func FindTaBaseValueByID(id int64) (*typdefs.TaBaseRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	tabasevalue.Valueinfo, _ = base64.StdEncoding.DecodeString(vi)
+	tabasevalue.Valueinfo, err = base64.StdEncoding.DecodeString(vi)
+	if err != nil {
+		return nil, err
+	}
 	return tabasevalue, nil
 }
 
@@ -737,7 +746,10 @@ func FindTaBaseValuesByCid(cid int64) ([]*typdefs.TaBaseRow, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		res.Valueinfo, _ = base64.StdEncoding.DecodeString(vi)
+		res.Valueinfo, err = base64.StdEncoding.DecodeString(vi)
+		if err != nil {
+			return nil, err
+		}
 		tabasevalues = append(tabasevalues, &res)
 	}
 	return tabasevalues, nil
@@ -762,7 +774,10 @@ func FindTaBaseValuesByUuid(cid int64, taid string) ([]*typdefs.TaBaseRow, error
 		if err2 != nil {
 			return nil, err2
 		}
-		res.Valueinfo, _ = base64.StdEncoding.DecodeString(vi)
+		res.Valueinfo, err = base64.StdEncoding.DecodeString(vi)
+		if err != nil {
+			return nil, err
+		}
 		tabasevalues = append(tabasevalues, &res)
 	}
 	return tabasevalues, nil
@@ -894,7 +909,10 @@ func checkQuote(c *cache.Cache, report *typdefs.TrustReport, row *typdefs.Report
 		return false, err
 	}*/
 	h := sha256.New()
-	h.Write(report.Quoted)
+	_, err1 := h.Write(report.Quoted)
+	if err1 != nil {
+		return false, err1
+	}
 	datahash := h.Sum(nil)
 	ikCert := c.GetIKeyCert()
 	if ikCert == nil {
@@ -970,7 +988,10 @@ func checkPcrLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, err
 		return false, err
 	}*/
 	h1 := sha256.New()
-	h1.Write(temp)
+	_, err1 := h1.Write(temp)
+	if err1 != nil {
+		return false, err1
+	}
 	newDigestBytes := h1.Sum(nil)
 	if !bytes.Equal(newDigestBytes, parsedQuote.AttestedQuoteInfo.PCRDigest) {
 		return false, typdefs.ErrPCRNotMatch
@@ -988,7 +1009,7 @@ func findManifest(report *typdefs.TrustReport, key string) []byte {
 	return []byte{}
 }
 
-//根据bios和imaLog扩展pcr并且把bios和ima存到cache中
+// 根据bios和imaLog扩展pcr并且把bios和ima存到cache中
 func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, error) {
 	bLog := findManifest(report, typdefs.StrBios)
 	btLog, _ := typdefs.TransformBIOSBinLogToTxt(bLog)
@@ -1011,10 +1032,13 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 	// if this client's AutoUpdate is true, save base value of rac which in the update list
 	if tmgr.cache[report.ClientID].GetIsAutoUpdate() {
 		tmgr.cache[report.ClientID].SetIsAutoUpdate(false)
-		DisableBaseByClientID(report.ClientID)
-		err := recordAutoUpdateReport(report)
+		err := DisableBaseByClientID(report.ClientID)
 		if err != nil {
 			return err
+		}
+		err1 := recordAutoUpdateReport(report)
+		if err1 != nil {
+			return err1
 		}
 	} else {
 		switch config.GetMgrStrategy() {
@@ -1125,7 +1149,10 @@ func VerifyTaReport(report *typdefs.TrustReport) {
 		up_buf_data_buf := C.CBytes(taReport)
 		buf_data.buf = (*C.uchar)(up_buf_data_buf)
 
-		c, _ := GetCache(report.ClientID)
+		c, err := GetCache(report.ClientID)
+		if err != nil {
+			return
+		}
 		basevalue := C.build_basevalue((*C.uchar)(C.CBytes(taReport[76:92])), (*C.uchar)(C.CBytes(c.TaBases[uuid].Valueinfo)))
 		ans := C.tee_verify_report2(&buf_data, C.int(config.GetTaVerifyType()), basevalue)
 		var trusted string
@@ -1158,8 +1185,10 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	// If the client's basevalue exists in the cache,
 	// the extraction template is consistent with the old.
 	// Otherwise, read extraction template from config.
-	extractFromOldBases(bases, &newBase, report)
-
+	err1 := extractFromOldBases(bases, &newBase, report)
+	if err1 != nil {
+		return err1
+	}
 	c.TaBases = extarcAndSaveTABase(report)
 	c.SetTrusted(cache.StrTrusted)
 
@@ -1172,10 +1201,13 @@ func extractFromOldBases(bases []*typdefs.BaseRow, newBase *typdefs.BaseRow, rep
 		if oldBase.BaseType == typdefs.StrHost && oldBase.Enabled {
 			hasEnabled = true
 			oldBase.Enabled = false
-			ModifyEnabledByID(oldBase.ID, false)
-			err := extract(report, oldBase, newBase)
+			err := ModifyEnabledByID(oldBase.ID, false)
 			if err != nil {
 				return err
+			}
+			err1 := extract(report, oldBase, newBase)
+			if err1 != nil {
+				return err1
 			}
 			if isBaseUpdate(oldBase, newBase) {
 				SaveBaseValue(newBase)
@@ -1260,7 +1292,10 @@ func GetExtractRulesFromPcr(pcrlog string) []int {
 		lines = lines[:l-1]
 	}
 	for _, line := range lines {
-		v, _ := strconv.Atoi(string(line[0]))
+		v, err := strconv.Atoi(string(line[0]))
+		if err != nil {
+			return nil
+		}
 		res = append(res, v)
 	}
 	return res
@@ -1298,9 +1333,10 @@ func verifyPCR(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 }
 
 // The bios string in BaseRow has the following fields, separated by space:
-//   column 1: hash type
-//	 column 2: filedata-hash
-// 	 column 3: filename-hint
+//
+//	  column 1: hash type
+//		 column 2: filedata-hash
+//		 column 3: filename-hint
 func extractBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	biosNames := getBiosExtractTemplate(base)
 	used := make([]bool, len(biosNames))
@@ -1350,11 +1386,12 @@ func parseBiosName(ln []byte, biosNames []string, used []bool, buf *bytes.Buffer
 // There are multiple situations
 // bios may have one to three type of hash : sha1 sha256 sm3;  sha1 sha256 N/A;  N/A sha256 sm3; ...
 // There are four cases of return value:
-// 			0: means no errors
-// 			1: means their sha1 hash not equal
-// 			2: means their second hash not equal
-// 			3: means their third hash not equal
-// 			-1: means their hash type not equal, can't verify
+//
+//	0: means no errors
+//	1: means their sha1 hash not equal
+//	2: means their second hash not equal
+//	3: means their third hash not equal
+//	-1: means their hash type not equal, can't verify
 func compareBiosHash(words1, words2 [][]byte) int {
 	if string(words1[3]) != "N/A" && string(words2[1]) != "N/A" {
 		// if both base and report have sha1 hash in bios, return the result of their comparison
@@ -1507,9 +1544,10 @@ func getIMAExtractTemplate(oldBase *typdefs.BaseRow) []string {
 }
 
 // The ima string in BaseRow has the following fields, separated by space:
-//   column 1: hash type
-//	 column 2: filedata-hash
-// 	 column 3: filename-hint
+//
+//	  column 1: hash type
+//		 column 2: filedata-hash
+//		 column 3: filename-hint
 func extractIMA(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	imaNames := getIMAExtractTemplate(base)
 	used := make([]bool, len(imaNames))
@@ -1620,7 +1658,10 @@ func releaseStorePipe() {
 		chDb = nil
 	}
 	if storeDb != nil {
-		storeDb.Close()
+		err := storeDb.Close()
+		if err != nil {
+			return
+		}
 		storeDb = nil
 	}
 }

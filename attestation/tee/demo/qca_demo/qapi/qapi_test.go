@@ -186,26 +186,59 @@ var (
 )
 
 func createQcaConfigFile() {
-	ioutil.WriteFile(configFilePath, []byte(QcaConfig), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(QcaConfig), 0644)
+	if err != nil {
+		return
+	}
 }
 
 func createTasConfigFile() {
-	ioutil.WriteFile(configFilePath, []byte(TasConfig), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(TasConfig), 0644)
+	if err != nil {
+		return
+	}
 }
 
 func createFiles() {
-	ioutil.WriteFile(asCertPath, []byte(ascert), 0644)
-	ioutil.WriteFile(asprivPath, []byte(aspriv), 0644)
-	ioutil.WriteFile(huaweiPath, []byte(huaweica), 0644)
+	err := ioutil.WriteFile(asCertPath, []byte(ascert), 0644)
+	if err != nil {
+		return
+	}
+	err1 := ioutil.WriteFile(asprivPath, []byte(aspriv), 0644)
+	if err1 != nil {
+		return
+	}
+	err2 := ioutil.WriteFile(huaweiPath, []byte(huaweica), 0644)
+	if err2 != nil {
+		return
+	}
 }
 
 func removeFiles() {
-	os.Remove(configFilePath)
-	os.Remove(asCertPath)
-	os.Remove(asprivPath)
-	os.Remove(huaweiPath)
-	os.Remove(nodaaFilePath)
-	os.Remove(daaFilePath)
+	err := os.Remove(configFilePath)
+	if err != nil {
+		return
+	}
+	err1 := os.Remove(asCertPath)
+	if err1 != nil {
+		return
+	}
+	err2 := os.Remove(asprivPath)
+	if err2 != nil {
+		return
+	}
+	err3 := os.Remove(huaweiPath)
+	if err3 != nil {
+		return
+	}
+	err4 := os.Remove(nodaaFilePath)
+	if err4 != nil {
+		return
+	}
+	err5 := os.Remove(daaFilePath)
+	if err5 != nil {
+		return
+	}
 }
 
 func TestQapi(t *testing.T) {

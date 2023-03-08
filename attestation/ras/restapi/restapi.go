@@ -673,8 +673,14 @@ func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
 }
 
 func configSet(cfg *cfgRecord) {
-	hbd, _ := time.ParseDuration(cfg.HBDuration)
-	td, _ := time.ParseDuration(cfg.TrustDuration)
+	hbd, err := time.ParseDuration(cfg.HBDuration)
+	if err != nil {
+		return
+	}
+	td, err := time.ParseDuration(cfg.TrustDuration)
+	if err != nil {
+		return
+	}
 	if cfg.HBDuration != strNull {
 		config.SetHBDuration(hbd)
 	}
@@ -976,7 +982,10 @@ func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, cid, bid
 			fmt.Sprintf("server id:%d, basevalueid:%d, modify enabled=%t", cid, bid, bv.Enabled))
 	}
 	sEnv := ctx.FormValue(strEnabled)
-	enabled, _ := strconv.ParseBool(sEnv)
+	enabled, err := strconv.ParseBool(sEnv)
+	if err != nil {
+		return err
+	}
 	c, err := trustmgr.GetCache(cid)
 	if err != nil {
 		return err
@@ -1161,8 +1170,14 @@ func (s *MyRestAPIServer) postBValueByMultiForm(ctx echo.Context, id int64) erro
 	uuid := ctx.FormValue(strUuid)
 	sEnv := ctx.FormValue(strEnabled)
 	sIsNewGroup := ctx.FormValue(strIsNewGroup)
-	enabled, _ := strconv.ParseBool(sEnv)
-	isNewGroup, _ := strconv.ParseBool(sIsNewGroup)
+	enabled, err := strconv.ParseBool(sEnv)
+	if err != nil {
+		return err
+	}
+	isNewGroup, err := strconv.ParseBool(sIsNewGroup)
+	if err != nil {
+		return err
+	}
 	pcr, err := s.getFile(ctx, strPCR)
 	if err != nil && err != http.ErrMissingFile {
 		return err
@@ -1583,7 +1598,10 @@ func (s *MyRestAPIServer) PostIdTaTauuidTabasevaluesTabasevalueid(
 				bv.Enabled))
 	}
 	sEnv := ctx.FormValue(strEnabled)
-	enabled, _ := strconv.ParseBool(sEnv)
+	enabled, err := strconv.ParseBool(sEnv)
+	if err != nil {
+		return err
+	}
 	trustmgr.ModifyTaEnabledByID(tabasevalueid, enabled)
 	return ctx.HTML(http.StatusFound, "")
 }

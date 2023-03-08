@@ -275,7 +275,10 @@ func GetIP() string {
 	}
 	for i := 0; i < len(netIfs); i++ {
 		if (netIfs[i].Flags & net.FlagUp) != 0 {
-			addrs, _ := netIfs[i].Addrs()
+			addrs, err := netIfs[i].Addrs()
+			if err != nil {
+				return ""
+			}
 			for _, addr := range addrs {
 				ip, ok := addr.(*net.IPNet)
 				if ok && !ip.IP.IsLoopback() && ip.IP.To4() != nil {
@@ -331,7 +334,10 @@ func (t *TrustReportInput) Hash(algStr string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	bHash.Write(buf.Bytes())
+	_, err1 := bHash.Write(buf.Bytes())
+	if err1 != nil {
+		return nil, err1
+	}
 	return bHash.Sum(nil), nil
 }
 
@@ -368,8 +374,14 @@ func (pcrs *PcrGroups) ExtendSha1(index int, value []byte) {
 		return
 	}
 	h := pcrs.Sha1Hash[index]
-	h.Write(pcrs.Sha1Pcrs[index])
-	h.Write(value)
+	_, err := h.Write(pcrs.Sha1Pcrs[index])
+	if err != nil {
+		return
+	}
+	_, err1 := h.Write(value)
+	if err1 != nil {
+		return
+	}
 	pcrs.Sha1Pcrs[index] = h.Sum(nil)
 	h.Reset()
 }
@@ -380,8 +392,14 @@ func (pcrs *PcrGroups) ExtendSha256(index int, value []byte) {
 		return
 	}
 	h := pcrs.Sha256Hash[index]
-	h.Write(pcrs.Sha256Pcrs[index])
-	h.Write(value)
+	_, err := h.Write(pcrs.Sha256Pcrs[index])
+	if err != nil {
+		return
+	}
+	_, err1 := h.Write(value)
+	if err1 != nil {
+		return
+	}
 	pcrs.Sha256Pcrs[index] = h.Sum(nil)
 	h.Reset()
 }
@@ -392,8 +410,14 @@ func (pcrs *PcrGroups) ExtendSM3(index int, value []byte) {
 		return
 	}
 	h := pcrs.SM3Hash[index]
-	h.Write(pcrs.SM3Pcrs[index])
-	h.Write(value)
+	_, err := h.Write(pcrs.SM3Pcrs[index])
+	if err != nil {
+		return
+	}
+	_, err1 := h.Write(value)
+	if err1 != nil {
+		return
+	}
 	pcrs.SM3Pcrs[index] = h.Sum(nil)
 	h.Reset()
 }
@@ -412,10 +436,19 @@ func (pcrs *PcrGroups) ExtendIMALog(index int, value, name []byte, algStr string
 	case Sm3AlgStr:
 		h = pcrs.SM3Hash[index]
 	}
-	h.Write(value)
-	h.Write(name)
+	_, err := h.Write(value)
+	if err != nil {
+		return
+	}
+	_, err1 := h.Write(name)
+	if err1 != nil {
+		return
+	}
 	if len(name) < imaItemNameLenMax+1 {
-		h.Write(make([]byte, imaItemNameLenMax+1-len(name)))
+		_, err2 := h.Write(make([]byte, imaItemNameLenMax+1-len(name)))
+		if err2 != nil {
+			return
+		}
 	}
 	switch algStr {
 	case Sha1AlgStr:
@@ -454,12 +487,27 @@ func (pcrs *PcrGroups) ExtendIMANGLog(index int, value, name []byte, algStr stri
 	b.Write(s) // binary hash
 	sLen := make([]byte, uint32Len)
 	binary.LittleEndian.PutUint32(sLen, uint32(b.Len()))
-	h.Write(sLen)
-	h.Write(b.Bytes())
+	_, err1 := h.Write(sLen)
+	if err1 != nil {
+		return
+	}
+	_, err2 := h.Write(b.Bytes())
+	if err2 != nil {
+		return
+	}
 	binary.LittleEndian.PutUint32(sLen, uint32(len(name))+1)
-	h.Write(sLen)
-	h.Write(name)
-	h.Write([]byte{0})
+	_, err3 := h.Write(sLen)
+	if err3 != nil {
+		return
+	}
+	_, err4 := h.Write(name)
+	if err4 != nil {
+		return
+	}
+	_, err5 := h.Write([]byte{0})
+	if err5 != nil {
+		return
+	}
 	switch algStr {
 	case Sha1AlgStr:
 		pcrs.Sha1Pcrs[index] = h.Sum(nil)
@@ -495,7 +543,10 @@ func (pcrs *PcrGroups) AggregateSha1(from, to int) string {
 	}
 	h := sha1.New()
 	for i := from; i < to; i++ {
-		h.Write(pcrs.Sha1Pcrs[i])
+		_, err := h.Write(pcrs.Sha1Pcrs[i])
+		if err != nil {
+			return ""
+		}
 	}
 	buf := h.Sum(nil)
 	return hex.EncodeToString(buf)
@@ -511,7 +562,10 @@ func (pcrs *PcrGroups) AggregateSha256(from, to int) string {
 	}
 	h := sha256.New()
 	for i := from; i < to; i++ {
-		h.Write(pcrs.Sha256Pcrs[i])
+		_, err := h.Write(pcrs.Sha256Pcrs[i])
+		if err != nil {
+			return ""
+		}
 	}
 	buf := h.Sum(nil)
 	return hex.EncodeToString(buf)
@@ -767,13 +821,15 @@ func GetHashValue(alg string, evt *BIOSManifestItem) string {
 
 // TransformBIOSBinLogToTxt transforms the bios binary log to text.
 // The text log has the following fields, separated by space:
-//   column 1: index
-//	 column 2: pcr index
-// 	 column 3: BType
-//	 column 4: sha1 hash text
-//	 column 5: sha256 hash text
-//	 column 6: sm3 hash text
-//	 column 7: data hex string
+//
+//	  column 1: index
+//		 column 2: pcr index
+//		 column 3: BType
+//		 column 4: sha1 hash text
+//		 column 5: sha256 hash text
+//		 column 6: sm3 hash text
+//		 column 7: data hex string
+//
 // Notes:
 // 1) if sha1/sha256/sm3 doesn't exist, use "N/A" string to place.
 // 2) column7 data string is hex string, needs to explain later...
@@ -838,27 +894,48 @@ func ExtendPCRWithBIOSTxtLog(pcrs *PcrGroups, biosTxtLog []byte) {
 	for _, ln := range lines {
 		words := bytes.Split(ln, Space)
 		if len(words) == BiosLogItemNum {
-			n, _ := strconv.Atoi(string(words[1]))
-			hex.Decode(s1, words[3])
+			n, err := strconv.Atoi(string(words[1]))
+			if err != nil {
+				return
+			}
+			_, err1 := hex.Decode(s1, words[3])
+			if err1 != nil {
+				return
+			}
 			pcrs.ExtendSha1(n, s1)
 			if string(words[4]) != naStr {
 				i := bytes.Index(words[4], Colon)
-				hex.Decode(s2, words[4][i+1:])
+				_, err := hex.Decode(s2, words[4][i+1:])
+				if err != nil {
+					return
+				}
 				pcrs.ExtendSha256(n, s2)
 			}
 		}
 		if len(words) == SM3BiosLogItemNum {
-			n, _ := strconv.Atoi(string(words[1]))
-			hex.Decode(s1, words[3])
+			n, err := strconv.Atoi(string(words[1]))
+			if err != nil {
+				return
+			}
+			_, err1 := hex.Decode(s1, words[3])
+			if err1 != nil {
+				return
+			}
 			pcrs.ExtendSha1(n, s1)
 			if string(words[4]) != naStr {
 				i := bytes.Index(words[4], Colon)
-				hex.Decode(s2, words[4][i+1:])
+				_, err := hex.Decode(s2, words[4][i+1:])
+				if err != nil {
+					return
+				}
 				pcrs.ExtendSha256(n, s2)
 			}
 			if string(words[5]) != naStr {
 				j := bytes.Index(words[5], Colon)
-				hex.Decode(s3, words[5][j+1:])
+				_, err := hex.Decode(s3, words[5][j+1:])
+				if err != nil {
+					return
+				}
 				pcrs.ExtendSM3(n, s3)
 			}
 		}
@@ -977,15 +1054,14 @@ func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte, algStr string) (bool, e
 }
 
 /*
-	AddPcr8And9FromPcrMap is called because of this commit in openEuler 2203 :
+		AddPcr8And9FromPcrMap is called because of this commit in openEuler 2203 :
 
-	commit 20c59ce010f84300f6c655d32db2610d3433f85c
-    ima: extend boot_aggregate with kernel measurements
-    Registers 8-9 are used to store measurements of the kernel and its
-    command line (e.g., grub2 bootloader with tpm module enabled). IMA
-    should include them in the boot aggregate. Registers 8-9 should be
-    only included in non-SHA1 digests to avoid ambiguity.
-
+		commit 20c59ce010f84300f6c655d32db2610d3433f85c
+	    ima: extend boot_aggregate with kernel measurements
+	    Registers 8-9 are used to store measurements of the kernel and its
+	    command line (e.g., grub2 bootloader with tpm module enabled). IMA
+	    should include them in the boot aggregate. Registers 8-9 should be
+	    only included in non-SHA1 digests to avoid ambiguity.
 */
 func AddPcr8And9FromPcrMap(pcrs *PcrGroups, pcrMap map[int]string, algStr string) error {
 	if algStr == Sha1AlgStr {
@@ -1054,9 +1130,12 @@ func areAllMatched(flag []bool) bool {
 
 // CompareIMALog compares the base file and IMA log of trust report, return trust or not.
 // Base file has the following format per line:
-//	 "sha1 value" + space + "sha256 value" + "/path/to/filename"
+//
+//	"sha1 value" + space + "sha256 value" + "/path/to/filename"
+//
 // IMA log report has the following format per line:
-// 	 "PCR value" + space + "sha1" + space + "type string" + "sha1/sha256" + "/path/to/filename"
+//
+//	"PCR value" + space + "sha1" + space + "type string" + "sha1/sha256" + "/path/to/filename"
 func CompareIMALog(baseFile string, imaLog string) bool {
 	base := parseFile(baseFile)
 	if base == nil {
