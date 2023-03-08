@@ -44,8 +44,11 @@ type (
 
 const (
 	// app scenario
+	// RA_SCENARIO_NO_AS means ra scenario without as
 	RA_SCENARIO_NO_AS = int32(iota)
+	// RA_SCENARIO_AS_NO_DAA means ra scenario as without daa
 	RA_SCENARIO_AS_NO_DAA
+	// RA_SCENARIO_AS_WITH_DAA means ra scenario as with daa
 	RA_SCENARIO_AS_WITH_DAA
 )
 
@@ -55,6 +58,7 @@ var (
 	srv   *grpc.Server = nil
 )
 
+// GetReport gets report from report request.
 func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
 	countConnections()
 	_ = ctx // ignore the unused warning
@@ -66,6 +70,7 @@ func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetRepo
 	return &rpy, nil
 }
 
+// StartServer starts a server to start qca demo.
 func StartServer() {
 	log.Print("Start Server......")
 	listen, err := net.Listen("tcp", qcatools.Qcacfg.Server)
@@ -89,6 +94,7 @@ func StartServer() {
 	log.Print("Stop Server......")
 }
 
+// StopServer stops the qca demo.
 func StopServer() {
 	if srv == nil {
 		return
@@ -194,6 +200,7 @@ func makesock(addr string) (*qcaConn, error) {
 	return qca, nil
 }
 
+// DoGetTeeReport using existingqca demo connection to get tee report.
 func DoGetTeeReport(addr string, in *GetReportRequest) (*GetReportReply, error) {
 	qca, err := makesock(addr)
 	if err != nil {

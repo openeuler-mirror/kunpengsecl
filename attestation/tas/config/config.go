@@ -70,14 +70,17 @@ var (
 	ascert    *x509.Certificate
 	asprivkey *rsa.PrivateKey
 	hwcert    *x509.Certificate
+	// TokenFlag means token flag
 	TokenFlag *bool
 )
 
+// InitFlags inits the tas server command flags.
 func InitFlags() {
 	TokenFlag = pflag.BoolP(lflagToken, sflagToken, false, helpToken)
 	pflag.Parse()
 }
 
+// LoadConfigs searches and loads config from config.yaml file.
 func LoadConfigs() {
 	log.Print("Load TAS configs...")
 	if tasCfg != nil {
@@ -105,6 +108,8 @@ func LoadConfigs() {
 	tasCfg.basevalue = viper.GetString(confBaseValue)
 }
 
+// InitializeAS initializes tas server by parsing as cert,
+// parsing as private key and parsing hw it ca cert.
 func InitializeAS() error {
 	// parse as cert
 	certfile := GetASCertFile()
@@ -142,10 +147,12 @@ func InitializeAS() error {
 	return nil
 }
 
+// GetConfigs gets all config from config.yaml file.
 func GetConfigs() *tasConfig {
 	return tasCfg
 }
 
+// GetServerPort returns the tas service ip:port configuration.
 func GetServerPort() string {
 	if tasCfg == nil {
 		return ""
@@ -153,6 +160,7 @@ func GetServerPort() string {
 	return tasCfg.servPort
 }
 
+// GetRestPort returns the tas restful api interface ip:port configuration.
 func GetRestPort() string {
 	if tasCfg == nil {
 		return ""
@@ -160,6 +168,7 @@ func GetRestPort() string {
 	return tasCfg.restPort
 }
 
+// GetASCertFile returns the tas service key cert file configuration.
 func GetASCertFile() string {
 	if tasCfg == nil {
 		return ""
@@ -167,6 +176,7 @@ func GetASCertFile() string {
 	return tasCfg.tasKeyCertFile
 }
 
+// GetASKeyFile returns the tas service private key file configuration.
 func GetASKeyFile() string {
 	if tasCfg == nil {
 		return ""
@@ -174,6 +184,7 @@ func GetASKeyFile() string {
 	return tasCfg.tasPrivKeyFile
 }
 
+// GetHWCertFile returns the tas service hua wei IT ca cert file configuration.
 func GetHWCertFile() string {
 	if tasCfg == nil {
 		return ""
@@ -181,22 +192,28 @@ func GetHWCertFile() string {
 	return tasCfg.hwItCACertFile
 }
 
+// GetASCert returns the as cert file in *x509.Certificate format.
 func GetASCert() *x509.Certificate {
 	return ascert
 }
 
+// GetASPrivKey returns the as private key in *rsa.PrivateKey format.
 func GetASPrivKey() *rsa.PrivateKey {
 	return asprivkey
 }
 
+// GetHWCert returns hua wei cert.
 func GetHWCert() *x509.Certificate {
 	return hwcert
 }
 
+// GetDAAGrpPrivKey returns the tas service daa crp private key x
+// and private key y configuration.
 func GetDAAGrpPrivKey() (string, string) {
 	return tasCfg.DAAGrpPrivKeyX, tasCfg.DAAGrpPrivKeyY
 }
 
+// GetAuthKeyFile returns the tas service auth key file configuration.
 func GetAuthKeyFile() string {
 	if tasCfg == nil {
 		return ""
@@ -204,6 +221,7 @@ func GetAuthKeyFile() string {
 	return tasCfg.authKeyFile
 }
 
+// GetBaseValue returns the tas service basevalue configuration.
 func GetBaseValue() string {
 	if tasCfg == nil {
 		return ""
@@ -211,6 +229,7 @@ func GetBaseValue() string {
 	return tasCfg.basevalue
 }
 
+// SetBaseValue sets the tas service basevalue configuration.
 func SetBaseValue(s string) {
 	if tasCfg == nil {
 		return

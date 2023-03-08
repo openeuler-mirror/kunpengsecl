@@ -34,6 +34,8 @@ const (
 )
 
 type (
+	// DKeyRow stores one record of device key information
+	// in database table `device_key`.
 	DKeyRow struct {
 		Id          int64
 		Device_cert string
@@ -42,6 +44,8 @@ type (
 		Reg_time    time.Time
 		Client_info string
 	}
+	// AKCertRow stores one record of ak cert key information
+	// in database table `akey_cert`.
 	AKCertRow struct {
 		Id        int64
 		Device_id int64
@@ -56,6 +60,7 @@ var (
 	db *sql.DB
 )
 
+// CreateDB opens sql service according to dname and dsname.
 func CreateDB(dname, dsname string) (*sql.DB, error) {
 	if db != nil {
 		return db, nil
@@ -67,6 +72,7 @@ func CreateDB(dname, dsname string) (*sql.DB, error) {
 	return db, nil
 }
 
+// InsertDKeyRow inserts device key row in table `device_key`.
 func InsertDKeyRow(dkcert []byte) (DKeyRow, error) {
 	var d DKeyRow = DKeyRow{
 		Device_cert: string(dkcert),
@@ -88,6 +94,7 @@ func InsertDKeyRow(dkcert []byte) (DKeyRow, error) {
 	return d, nil
 }
 
+// InsertAKCertRow inserts ak cert row in table `akey_cert`.
 func InsertAKCertRow(akcert []byte, did int64) error {
 	var a AKCertRow = AKCertRow{
 		Akey_cert: string(akcert),
@@ -118,6 +125,7 @@ func InsertAKCertRow(akcert []byte, did int64) error {
 	return nil
 }
 
+// SetAllAKCertUnavailable sets available=false in table `akey_cert` according to device id.
 func SetAllAKCertUnavailable(did int64) error {
 	_, err := db.Exec(sqlUpdateAvailable, did)
 	if err != nil {

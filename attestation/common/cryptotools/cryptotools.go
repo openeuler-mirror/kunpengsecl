@@ -42,18 +42,30 @@ import (
 
 const (
 	// algorithms define from tpm2
+	// AlgNull means nul mode
 	AlgNull = 0x0000
-	AlgRSA  = 0x0001
-	AlgAES  = 0x0006
+	// AlgRSA means RSA algorithm
+	AlgRSA = 0x0001
+	// AlgAES means AES algorithm
+	AlgAES = 0x0006
+	// AlgOAEP means OAEP algorithm
 	AlgOAEP = 0x0017
-	AlgCTR  = 0x0040
-	AlgOFB  = 0x0041
-	AlgCBC  = 0x0042
-	AlgCFB  = 0x0043
+	// AlgCTR means CTR mode
+	AlgCTR = 0x0040
+	// AlgOFB means OFB mode
+	AlgOFB = 0x0041
+	// AlgCBC means CBC mode
+	AlgCBC = 0x0042
+	// AlgCFB means CFB mode
+	AlgCFB = 0x0043
+	// KEYSIZE means the size of key
 	KEYSIZE = 16
 
-	Encrypt_Alg    = "AES128-CBC"
-	AesKeySize     = 16
+	// Encrypt_Alg means AES128 encryption algorithm with CBC mode
+	Encrypt_Alg = "AES128-CBC"
+	// AesKeySize means the size of AES algorithm key
+	AesKeySize = 16
+	// RsaKeySize means the size of RSA algorithm key
 	RsaKeySize     = 2048
 	headPrivKey    = "PRIVATE KEY"
 	headPubKey     = "PUBLIC KEY"
@@ -70,6 +82,7 @@ type (
 		SymKeyParams  SymKeyParams
 	}
 
+	// SymKeyParams means symmetric encryption key parameter
 	SymKeyParams struct {
 		CredBlob        []byte
 		EncryptedSecret []byte
@@ -81,6 +94,7 @@ type (
 		EncryptParam []byte
 	}
 
+	// TPMAsymKeyParams means asymmetric encryption key parameter in TPM
 	TPMAsymKeyParams struct {
 		TPMAsymAlgorithm string
 		TPMEncscheme     string
@@ -91,10 +105,15 @@ var (
 	serialNumber int64 = 1
 
 	// error definition
-	ErrEncodeDER   = errors.New("failed to encode DER []byte")
-	ErrEncodePEM   = errors.New("failed to encode PEM information")
-	ErrDecodePEM   = errors.New("failed to decode PEM information")
-	ErrParseKey    = errors.New("failed to parse the key")
+	// ErrEncodeDER means encoding DER []byte failed
+	ErrEncodeDER = errors.New("failed to encode DER []byte")
+	// ErrEncodePEM means encoding PEM information failed
+	ErrEncodePEM = errors.New("failed to encode PEM information")
+	// ErrDecodePEM means decoding PEM information failed
+	ErrDecodePEM = errors.New("failed to decode PEM information")
+	// ErrParseKey means parsing key failed
+	ErrParseKey = errors.New("failed to parse the key")
+	// ErrWrongParams means input parameter is wrong
 	ErrWrongParams = errors.New("wrong input parameter")
 )
 

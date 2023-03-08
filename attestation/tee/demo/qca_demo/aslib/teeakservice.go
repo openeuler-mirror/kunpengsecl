@@ -21,6 +21,8 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi"
 )
 
+// GetAKCert generates ak cert according to ak cert request
+// and returns ak cert as reply.
 func GetAKCert(addr string, oldAKCert []byte, scenario int32) ([]byte, error) {
 	req := clientapi.GetAKCertRequest{
 		Akcert:   oldAKCert,

@@ -35,11 +35,19 @@ import (
 // command:
 //     openssl ecparam -name prime256v1 -genkey -noout -out ecprivatekey.pem
 //
+// KeyID means fake key id const
 const KeyID = `fake-key-id`
+
+// FakeIssuer means fake issuer const
 const FakeIssuer = "fake-issuer"
+
+// FakeAudience means example users const
 const FakeAudience = "example-users"
+
+// PermissionsClaim means perm const
 const PermissionsClaim = "perm"
 
+// FakeAuthenticator means authentication information struct
 type FakeAuthenticator struct {
 	PrivateKey *ecdsa.PrivateKey
 	PublicKey  *ecdsa.PublicKey

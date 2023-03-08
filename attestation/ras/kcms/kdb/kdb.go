@@ -35,6 +35,8 @@ const (
 )
 
 type (
+	// required struct
+
 	// KdbManager handles all key information in key database.
 	KdbManager struct {
 		// save key information and support
@@ -47,6 +49,8 @@ var (
 	kmgr *KdbManager = nil
 )
 
+// CreateKdbManager creates a new kdb manager
+// and a database connection poll to enhance performance.
 func CreateKdbManager(dbType, dbConfig string) {
 	var err error
 	if kmgr != nil {
@@ -59,6 +63,7 @@ func CreateKdbManager(dbType, dbConfig string) {
 	}
 }
 
+// ReleaseKdbManager releases the manager database connection.
 func ReleaseKdbManager() {
 	if kmgr == nil {
 		return

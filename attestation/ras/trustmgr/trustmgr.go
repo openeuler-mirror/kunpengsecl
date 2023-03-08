@@ -221,7 +221,7 @@ func ReleaseTrustManager() {
 	releaseStorePipe()
 }
 
-// DisableBaseByClientID modify all hostbase enabled=false
+// DisableBaseByClientID modify all hostbase enabled=false.
 func DisableBaseByClientID(id int64) error {
 	if tmgr == nil {
 		return typdefs.ErrParameterWrong
@@ -233,7 +233,7 @@ func DisableBaseByClientID(id int64) error {
 	return nil
 }
 
-// DisableTaBaseByClientID modify all base enabled=false of a ta
+// DisableTaBaseByUuid modify all base enabled=false of a ta.
 func DisableTaBaseByUuid(cid int64, taid string) error {
 	if tmgr == nil {
 		return typdefs.ErrParameterWrong
@@ -350,7 +350,7 @@ func UpdateAllNodes() {
 	}
 }
 
-// UpdateeCaches sets all clients's isAutoUpdate to true.
+// UpdateCaches sets all clients's isAutoUpdate to true.
 func UpdateCaches() {
 	if tmgr == nil {
 		return
@@ -394,6 +394,8 @@ func RegisterClientByIK(ikCert, info string, registered bool) (*typdefs.ClientRo
 	return &c, nil
 }
 
+// RegisterClientByID registers a new client by client id.
+// if there is a existing client id, register will fail.
 func RegisterClientByID(id int64, regtime time.Time, ik string) {
 	if tmgr == nil {
 		return
@@ -407,6 +409,7 @@ func RegisterClientByID(id int64, regtime time.Time, ik string) {
 	tmgr.db.Exec(sqlRegisterClientByID, id)
 }
 
+// UnRegisterClientByID unregisters client by setting registered to false.
 func UnRegisterClientByID(id int64) {
 	_, err := GetCache(id)
 	if err != nil {
@@ -466,6 +469,7 @@ func FindClientsByInfo(info string) ([]typdefs.ClientRow, error) {
 	return cs, nil
 }
 
+// DeleteClientByID deletes a specific client from database ref by id.
 func DeleteClientByID(id int64) error {
 	if tmgr == nil {
 		return typdefs.ErrParameterWrong
@@ -714,7 +718,7 @@ func FindTaBaseValueByID(id int64) (*typdefs.TaBaseRow, error) {
 	return tabasevalue, nil
 }
 
-// FindTaBaseValuesByUuid returns all enabled taBasevalue by clientid.
+// FindTaBaseValuesByCid returns all enabled taBasevalue by clientid.
 func FindTaBaseValuesByCid(cid int64) ([]*typdefs.TaBaseRow, error) {
 	if tmgr == nil {
 		return nil, typdefs.ErrParameterWrong
@@ -1002,6 +1006,7 @@ func checkBiosAndImaLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bo
 	return typdefs.ExtendPCRWithIMALog(pcrs, imaLog, config.GetDigestAlgorithm())
 }
 
+// HandleBaseValue handles trust report base values.
 func HandleBaseValue(report *typdefs.TrustReport) error {
 	// if this client's AutoUpdate is true, save base value of rac which in the update list
 	if tmgr.cache[report.ClientID].GetIsAutoUpdate() {
@@ -1110,6 +1115,8 @@ func verifyReport(report *typdefs.TrustReport) {
 	tmgr.cache[report.ClientID].SetTrusted(trusted)
 }
 
+// VerifyTaReport verifies ta report by checking
+// weather report basevalue is equal to ta verify type in config.
 func VerifyTaReport(report *typdefs.TrustReport) {
 
 	for uuid, taReport := range report.TaReports {
@@ -1229,6 +1236,7 @@ func extract(report *typdefs.TrustReport, oldBase, newBase *typdefs.BaseRow) err
 	return nil
 }
 
+// Verify verifies pcr, bios and ima's basevalue in trust report.
 func Verify(baseValue *typdefs.BaseRow, report *typdefs.TrustReport) error {
 
 	if err := verifyPCR(report, baseValue); err != nil {
@@ -1244,6 +1252,7 @@ func Verify(baseValue *typdefs.BaseRow, report *typdefs.TrustReport) error {
 	return nil
 }
 
+// GetExtractRulesFromPcr gets extract rules from pcr.
 func GetExtractRulesFromPcr(pcrlog string) []int {
 	res := []int{}
 	lines := bytes.Split([]byte(pcrlog), typdefs.NewLine)
@@ -1434,6 +1443,7 @@ func getBiosErrorText(ln []byte, lines [][]byte, used []bool) error {
 	return nil
 }
 
+// GetExtractRulesFromBios gets extract rules from bios.
 func GetExtractRulesFromBios(bioslog string) []string {
 	var biosNames []string
 	lines := bytes.Split([]byte(bioslog), typdefs.NewLine)
@@ -1465,6 +1475,7 @@ func getBiosExtractTemplate(oldBase *typdefs.BaseRow) []string {
 	return biosNames
 }
 
+// GetExtractRulesFromIma gets extract rules from ima.
 func GetExtractRulesFromIma(imalog string) []string {
 	var imaNames []string
 	lines := bytes.Split([]byte(imalog), typdefs.NewLine)
@@ -1622,10 +1633,12 @@ func pushToStorePipe(v interface{}) {
 	}
 }
 
+// SaveBaseValue sets basevalue.
 func SaveBaseValue(row *typdefs.BaseRow) {
 	go pushToStorePipe(row)
 }
 
+// SaveTaBaseValue sets ta basevalue.
 func SaveTaBaseValue(row *typdefs.TaBaseRow) {
 	go pushToStorePipe(row)
 }
@@ -1697,22 +1710,22 @@ func handleTaBaseStore(v *typdefs.TaBaseRow) {
 	tmgr.cache[v.ClientID].TaBases[v.Uuid] = v
 }
 
-// InsertBaseValue inserts basevalue
+// InsertBaseValue inserts the basevalue to database.
 func InsertBaseValue(v *typdefs.BaseRow) {
 	handleBaseStore(v)
 }
 
-// InsertReport inserts report
+// InsertReport inserts trust report to database.
 func InsertReport(v *typdefs.ReportRow) {
 	handleReportStore(v)
 }
 
-// InsertTaBase inserts tabasevalue
+// InsertTaBase inserts ta basevalue to database.
 func InsertTaBase(v *typdefs.TaBaseRow) {
 	handleTaBaseStore(v)
 }
 
-// InsertTaReport inserts tareport
+// InsertTaReport inserts ta trust report to database.
 func InsertTaReport(v *typdefs.TaReportRow) {
 	handleTaReportStore(v)
 }

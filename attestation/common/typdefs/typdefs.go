@@ -131,6 +131,8 @@ type (
 		ImaLog     string // original text format of ima log
 	}
 
+	// TaReportRow stores one record of TA trust report information
+	// in database table `tareport`.
 	TaReportRow struct {
 		ID         int64
 		ClientID   int64
@@ -159,6 +161,9 @@ type (
 		Trusted    bool
 	}
 
+	// TaBaseRow stores one record of the TA base information in database
+	// table `tabase`, which is specified by customer and will be used
+	// to verify TA trust report.
 	TaBaseRow struct {
 		ID         int64
 		ClientID   int64
@@ -194,10 +199,12 @@ type (
 		// manifest extract rule
 		ManifestRules []ManifestRule `mapstructure:"manifest"`
 	}
+	// PcrRule means pcr extract rule
 	PcrRule struct {
 		// pcr number slice which is expected to be extracted
 		PcrSelection []int `mapstructure:"pcrselection"`
 	}
+	// ManifestRule means manifest extract rule
 	ManifestRule struct {
 		// manifest type : bios or ima
 		MType string `mapstructure:"type"`
@@ -207,32 +214,52 @@ type (
 )
 
 var (
-	//
-	NewLine   = []byte("\n")
-	Space     = []byte(" ")
-	Colon     = []byte(":")
+	// NewLine is used to change to a new line
+	NewLine = []byte("\n")
+	// Space is used to represent a space
+	Space = []byte(" ")
+	// Colon is used to represent a colon
+	Colon = []byte(":")
+	// SpaceZero is used to represent
 	SpaceZero = " \x00"
+	// EmptyBase means a empty Baserow
 	EmptyBase = BaseRow{}
 
-	//
-	ErrPcrIndexWrong      = errors.New("pcr index wrong")
-	ErrImaLogFormatWrong  = errors.New("ima log format wrong")
+	// ErrPcrIndexWrong means pcr index wrong error
+	ErrPcrIndexWrong = errors.New("pcr index wrong")
+	// ErrImaLogFormatWrong means ima log format wrong error
+	ErrImaLogFormatWrong = errors.New("ima log format wrong")
+	// ErrBiosLogFormatWrong means bios log format wrong error
 	ErrBiosLogFormatWrong = errors.New("bios log format wrong")
-	ErrBiosAggregateFail  = errors.New("bios aggregate not match")
-	ErrValidateIMAFail    = errors.New("validate ima log fail")
+	// ErrBiosAggregateFail means bios aggregate not match error
+	ErrBiosAggregateFail = errors.New("bios aggregate not match")
+	// ErrValidateIMAFail means pvalidate ima log fail
+	ErrValidateIMAFail = errors.New("validate ima log fail")
 
 	// client database handle errors
-	ErrParameterWrong    = errors.New("parameter is wrong")
-	ErrAlgorithmWrong    = errors.New("report algorithm is wrong")
-	ErrConnectFailed     = errors.New("create connection failed")
+	// ErrParameterWrong means parameter is wrong
+	ErrParameterWrong = errors.New("parameter is wrong")
+	// ErrAlgorithmWrong means report algorithm is wrong
+	ErrAlgorithmWrong = errors.New("report algorithm is wrong")
+	// ErrConnectFailed means create connection failed
+	ErrConnectFailed = errors.New("create connection failed")
+	// ErrDoesnotRegistered means client does not registered
 	ErrDoesnotRegistered = errors.New("client does not registered")
+	// ErrAlreadyRegistered means client already registered
 	ErrAlreadyRegistered = errors.New("client already registered")
-	ErrIKCertNull        = errors.New("client ik cert null")
-	ErrNonceNotMatch     = errors.New("report nonce not match")
-	ErrPCRNotMatch       = errors.New("report pcr not match")
-	ErrNotSupportAlg     = errors.New("algorithm is not supported")
-	ErrNotMatchAlg       = errors.New("algorithms in ima mesurement and ras don't match")
+	// ErrIKCertNull means client ik cert null
+	ErrIKCertNull = errors.New("client ik cert null")
+	// ErrNonceNotMatch means report nonce not match
+	ErrNonceNotMatch = errors.New("report nonce not match")
+	// ErrPCRNotMatch means report pcr not match
+	ErrPCRNotMatch = errors.New("report pcr not match")
+	// ErrNotSupportAlg means algorithm is not supported
+	ErrNotSupportAlg = errors.New("algorithm is not supported")
+	// ErrNotMatchAlg means algorithms in ima mesurement and ras don't match
+	ErrNotMatchAlg = errors.New("algorithms in ima mesurement and ras don't match")
 
+	// SupportAlgAndLenMap means the pairing of
+	// supported algorithms and algorithm lengths
 	SupportAlgAndLenMap = map[string]int{
 		Sha1AlgStr:   Sha1DigestLen,
 		Sha256AlgStr: Sha256DigestLen,
@@ -262,6 +289,7 @@ func GetIP() string {
 
 type (
 	// node info for rest api query.
+	// NodeInfo means one node's information
 	NodeInfo struct {
 		ID           int64  `json:"id" form:"id"`
 		RegTime      string `json:"regtime" form:"regtime"`
@@ -272,6 +300,7 @@ type (
 		IPAddress    string `json:"ipaddress" form:"ipaddress"`
 	}
 
+	// ArrNodeInfo means struct NodeInfo array
 	ArrNodeInfo []NodeInfo
 )
 
@@ -280,6 +309,7 @@ func (ni ArrNodeInfo) Swap(i, j int)      { ni[i], ni[j] = ni[j], ni[i] }
 func (ni ArrNodeInfo) Less(i, j int) bool { return ni[i].ID < ni[j].ID }
 
 type (
+	// TrustReportInput is used to describe the input of trust report
 	TrustReportInput struct {
 		ClientID   int64
 		Nonce      uint64
@@ -288,6 +318,7 @@ type (
 )
 
 // Get the hash value of TrustReportIn, as user data of Quote
+// Hash returns trustreportinput's hash value.
 func (t *TrustReportInput) Hash(algStr string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	b64 := make([]byte, 8)
@@ -306,6 +337,7 @@ func (t *TrustReportInput) Hash(algStr string) ([]byte, error) {
 
 type (
 	// PCR handle
+	// PcrGroups means groups of pcr
 	PcrGroups struct {
 		Sha1Hash   [PcrMaxNum]hash.Hash
 		Sha256Hash [PcrMaxNum]hash.Hash
@@ -316,6 +348,7 @@ type (
 	}
 )
 
+// NewPcrGroups returns one new PcrGroups.
 func NewPcrGroups() *PcrGroups {
 	pcrs := PcrGroups{}
 	for i := 0; i < PcrMaxNum; i++ {
@@ -329,6 +362,7 @@ func NewPcrGroups() *PcrGroups {
 	return &pcrs
 }
 
+// ExtendSha1 returns Sha1 hash with extending value.
 func (pcrs *PcrGroups) ExtendSha1(index int, value []byte) {
 	if index < 0 || index >= PcrMaxNum {
 		return
@@ -340,6 +374,7 @@ func (pcrs *PcrGroups) ExtendSha1(index int, value []byte) {
 	h.Reset()
 }
 
+// ExtendSha256 returns Sha256 hash with extending value.
 func (pcrs *PcrGroups) ExtendSha256(index int, value []byte) {
 	if index < 0 || index >= PcrMaxNum {
 		return
@@ -351,6 +386,7 @@ func (pcrs *PcrGroups) ExtendSha256(index int, value []byte) {
 	h.Reset()
 }
 
+// ExtendSM3 returns SM3 hash with extending value.
 func (pcrs *PcrGroups) ExtendSM3(index int, value []byte) {
 	if index < 0 || index >= PcrMaxNum {
 		return
@@ -362,6 +398,7 @@ func (pcrs *PcrGroups) ExtendSM3(index int, value []byte) {
 	h.Reset()
 }
 
+// ExtendIMALog modified PcrGroups with value and name according to algStr.
 func (pcrs *PcrGroups) ExtendIMALog(index int, value, name []byte, algStr string) {
 	if index < 0 || index >= PcrMaxNum {
 		return
@@ -434,6 +471,7 @@ func (pcrs *PcrGroups) ExtendIMANGLog(index int, value, name []byte, algStr stri
 	h.Reset()
 }
 
+// GetHFromAlg returns hash.Hash corresponding to algStr.
 func GetHFromAlg(algStr string) (hash.Hash, error) {
 	switch algStr {
 	case Sha1AlgStr:
@@ -447,6 +485,7 @@ func GetHFromAlg(algStr string) (hash.Hash, error) {
 	}
 }
 
+// AggregateSha1 returns the specified pcrs.Sha1Pcrs string.
 func (pcrs *PcrGroups) AggregateSha1(from, to int) string {
 	if from < 0 || from >= PcrMaxNum {
 		return ""
@@ -462,6 +501,7 @@ func (pcrs *PcrGroups) AggregateSha1(from, to int) string {
 	return hex.EncodeToString(buf)
 }
 
+// AggregateSha256 returns the specified pcrs.Sha256Pcrs string.
 func (pcrs *PcrGroups) AggregateSha256(from, to int) string {
 	if from < 0 || from >= PcrMaxNum {
 		return ""
@@ -477,6 +517,7 @@ func (pcrs *PcrGroups) AggregateSha256(from, to int) string {
 	return hex.EncodeToString(buf)
 }
 
+// AggregateSM3 returns the specified pcrs.SM3Pcrs string.
 func (pcrs *PcrGroups) AggregateSM3(from, to int) string {
 	if from < 0 || from >= PcrMaxNum {
 		return ""
@@ -631,6 +672,7 @@ func readSHA1BIOSEventLog(origin []byte, point *int64) (*BIOSManifestItem, error
 	return result, nil
 }
 
+// ReadBIOSEvent2Log gets Pcr, BType and Digest from origin and returns *BIOSManifestItem.
 func ReadBIOSEvent2Log(origin []byte, point *int64, algAndLenMap map[string]int) (*BIOSManifestItem, error) {
 	pcr, err := readUint32(origin, point)
 	if err != nil {
@@ -704,6 +746,9 @@ func parseDigestValues(cnt uint32, origin []byte, point *int64, algAndLenMap map
 	return dv, nil
 }
 
+// GetHashValue determines if alg and BIOSManifestItem's Digest.Item.AlgID are the same,
+// if they are, return corresponding hash value,
+// otherwise return naStr.
 func GetHashValue(alg string, evt *BIOSManifestItem) string {
 	algMap := map[string]string{
 		Sha1AlgStr:   sha1AlgID,

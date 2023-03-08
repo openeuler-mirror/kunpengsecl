@@ -118,6 +118,7 @@ type retKeyInfo struct {
 }
 
 var (
+	// ErrClientApiParameterWrong means client api parameter wrong error
 	ErrClientApiParameterWrong = errors.New("client api parameter wrong")
 
 	srv *grpc.Server = nil
@@ -352,6 +353,7 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 	return &SendReportReply{Result: true}, nil
 }
 
+// SendKCMPubKeyCert sends kcm public key cert from ras and gets reply message back.
 func (s *rasService) SendKCMPubKeyCert(
 	ctx context.Context,
 	in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
@@ -369,6 +371,7 @@ func (s *rasService) SendKCMPubKeyCert(
 	}
 }
 
+// VerifyKTAPubKeyCert verifies kta public key cert and gets reply message back.
 func (s *rasService) VerifyKTAPubKeyCert(
 	ctx context.Context,
 	in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
@@ -396,6 +399,8 @@ func (s *rasService) VerifyKTAPubKeyCert(
 	return &VerifyKTAPubKeyCertReply{Result: true}, nil
 }
 
+// KeyOperation handles operations releated to key,
+// such as generate new key, get key and delete key.
 func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) (*KeyOperationReply, error) {
 	deviceId := in.GetClientId()
 	encCmdData := in.GetEncMessage()
@@ -527,6 +532,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	return &out, nil
 }
 
+// RasConn means ras connection information
 type RasConn struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -646,6 +652,7 @@ func DoSendReportWithConn(ras *RasConn, in *SendReportRequest) (*SendReportReply
 	return bk, nil
 }
 
+// DoSendKCMPubKeyCertWithConn uses existing ras connection to send kcm public key cert from the ras server.
 func DoSendKCMPubKeyCertWithConn(ras *RasConn, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
 	//logger.L.Debug("invoke SendKCMPubKeyCert...")
 	if ras == nil {
@@ -660,6 +667,7 @@ func DoSendKCMPubKeyCertWithConn(ras *RasConn, in *SendKCMPubKeyCertRequest) (*S
 	return bk, nil
 }
 
+// DoVerifyKTAPubKeyCertWithConn uses existing ras connection to verify kta public key cert to the ras server.
 func DoVerifyKTAPubKeyCertWithConn(ras *RasConn, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
 	//logger.L.Debug("invoke VerifyKTAPubKeyCert...")
 	if ras == nil {
@@ -674,6 +682,7 @@ func DoVerifyKTAPubKeyCertWithConn(ras *RasConn, in *VerifyKTAPubKeyCertRequest)
 	return bk, nil
 }
 
+// DoKeyOperationWithConn uses existing ras connection to handle key operation.
 func DoKeyOperationWithConn(ras *RasConn, in *KeyOperationRequest) (*KeyOperationReply, error) {
 	//logger.L.Debug("invoke KeyOperation...")
 	if ras == nil {
@@ -810,6 +819,7 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 	return bk, nil
 }
 
+// DoSendKCMPubKeyCert sends kcm public key cert from the ras server.
 func DoSendKCMPubKeyCert(addr string, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
 	//logger.L.Debug("invoke SendKCMPubKeyCert...")
 	ras, err := CreateConn(addr)
@@ -828,6 +838,7 @@ func DoSendKCMPubKeyCert(addr string, in *SendKCMPubKeyCertRequest) (*SendKCMPub
 	return bk, nil
 }
 
+// DoVerifyKTAPubKeyCert verifies kta public key cert to the ras server.
 func DoVerifyKTAPubKeyCert(addr string, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
 	//logger.L.Debug("invoke VerifyKTAPubKeyCert...")
 	ras, err := CreateConn(addr)
@@ -846,6 +857,8 @@ func DoVerifyKTAPubKeyCert(addr string, in *VerifyKTAPubKeyCertRequest) (*Verify
 	return bk, nil
 }
 
+// DoKeyOperation handles key operations,
+// such as generate new key, get key and delete key.
 func DoKeyOperation(addr string, in *KeyOperationRequest) (*KeyOperationReply, error) {
 	//logger.L.Debug("invoke KeyOperation...")
 	ras, err := CreateConn(addr)
@@ -864,6 +877,7 @@ func DoKeyOperation(addr string, in *KeyOperationRequest) (*KeyOperationReply, e
 	return bk, nil
 }
 
+// GetdbConfig returns db config information.
 func GetdbConfig(strDbConfig string) string {
 	return fmt.Sprintf(strDbConfig, config.GetDBUser(), config.GetDBPassword(),
 		config.GetDBName(), config.GetDBHost(), config.GetDBPort())
@@ -909,6 +923,7 @@ func aesGCMDecrypt(key, cipherText, nonce []byte) ([]byte, error) {
 	return plain, nil
 }
 
+// RsaEncrypt is based on rsa algorithm using the key to encrypt data.
 func RsaEncrypt(data, keyBytes []byte) ([]byte, error) {
 	//解密pem格式的公钥
 	block, _ := pem.Decode(keyBytes)
@@ -929,6 +944,7 @@ func RsaEncrypt(data, keyBytes []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
+// RsaDecrypt is based on rsa algorithm using the key to decrypt ciphertext.
 func RsaDecrypt(ciphertext, keyBytes []byte) ([]byte, error) {
 	//获取私钥
 	block, _ := pem.Decode(keyBytes)
@@ -955,6 +971,9 @@ func RsaDecrypt(ciphertext, keyBytes []byte) ([]byte, error) {
 	return data, nil
 }
 
+// EncryptKeyOpOutcome firstly encrypt data with sesionkey,
+// and then uses kta public key to encrypt sessionkey with kta public key,
+// retrurns encrypted data and encrypted sessionkey.
 func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []byte) ([]byte, error) {
 	str_taId := string(retMessage.TAId)
 	jsonRetMessage, err := json.Marshal(retMessage)
@@ -1006,6 +1025,9 @@ func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []b
 	return finalRetMessage, nil
 }
 
+// DecryptKeyOpIncome firstly decrypt encrypted session key with kcm privatekey,
+// and then uses session key to decrypt encrypted data,
+// retrurns decrypted data.
 func DecryptKeyOpIncome(encCmdData, privKey []byte) (*inKeyInfo, error) {
 	var cmdData tagCmdData
 	var message inKeyInfo

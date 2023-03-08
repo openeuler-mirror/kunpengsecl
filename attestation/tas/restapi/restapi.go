@@ -51,9 +51,11 @@ var (
 	srv *echo.Echo = nil
 )
 
+// MyRestAPIServer means rest api server
 type MyRestAPIServer struct {
 }
 
+// StartServer starts a server.
 func StartServer(addr string) {
 	if srv != nil {
 		return
@@ -74,6 +76,7 @@ func StartServer(addr string) {
 	log.Debug(srv.Start(addr))
 }
 
+// CreateTestAuthToken creates test auth token and returns token.
 func CreateTestAuthToken() ([]byte, error) {
 	authKeyPubFile := config.GetAuthKeyFile()
 	authKeyFile := os.TempDir() + "/at" + strconv.FormatInt(rand.Int63(), 16)
@@ -162,6 +165,7 @@ type JWSValidator interface {
 	ValidateJWS(jws string) (jwt.Token, error)
 }
 
+// CreateAuthValidator creates auth validator in order to start the server smoothly.
 func CreateAuthValidator(v JWSValidator) (echo.MiddlewareFunc, error) {
 	spec, err := GetSwagger()
 	if err != nil {
@@ -224,7 +228,7 @@ func genConfigJSON() *cfgRecord {
 }
 
 // (GET /config)
-// get tas server configuration
+// GetConfig get tas server configuration
 //  read config as json
 //    curl -X GET -H "Content-Type: application/json" http://localhost:40009/config
 func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
@@ -235,7 +239,7 @@ func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 }
 
 // (POST /config)
-// modify tas server configuration
+// PostConfig modify tas server configuration
 //  write config as json
 //    curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -d '{"basevalue":"testvalue"}' http://localhost:40009/config
 // Notice: key name must be enclosed by "" in json format!!!

@@ -25,9 +25,9 @@ import (
 	dsig "github.com/russellhaering/goxmldsig"
 )
 
-// Validate the give rim XML with the given cert as the root signing cert,
-// with dAlg as the expected digest algorithm, return the referece value
-// in ima format string
+// ParseRIM validates the give rim XML with the given cert as the root signing cert,
+// with dAlg as the expected digest algorithm, returns the referece value
+// in ima format string.
 func ParseRIM(rim []byte, cert *x509.Certificate, dAlg string) (ima string, err error) {
 	doc := etree.NewDocument()
 	err = doc.ReadFromBytes(rim)

@@ -574,6 +574,7 @@ func GetBiosLogPath() string {
 	return *biosLogPath
 }
 
+// GetTaInputs gets ta report input from racrools.
 func GetTaInputs() map[string]ractools.TaReportInput {
 	taInputs := map[string]ractools.TaReportInput{}
 	return taInputs

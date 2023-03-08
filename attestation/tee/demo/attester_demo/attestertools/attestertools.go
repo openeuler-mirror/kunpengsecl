@@ -64,16 +64,21 @@ const (
 	helpTest  = "set a fixed nonce value for test"
 	// app name
 	appAttester = "attester"
-	// config file name
+	// ConfName means config file name
 	ConfName = "config"
-	ConfExt  = "yaml"
+	// ConfExt means config file name suffix
+	ConfExt = "yaml"
 	// attester config path
 	strPath = "."
 	// attester config key
-	Server    = "attesterconfig.server"
+	// Server means attesterconfig server
+	Server = "attesterconfig.server"
+	// Basevalue means attesterconfig basevalue
 	Basevalue = "attesterconfig.basevalue"
-	Mspolicy  = "attesterconfig.mspolicy"
-	Uuid      = "attesterconfig.uuid"
+	// Mspolicy means attesterconfig mspolicy
+	Mspolicy = "attesterconfig.mspolicy"
+	// Uuid means attesterconfig uuid
+	Uuid = "attesterconfig.uuid"
 )
 
 type (
@@ -105,17 +110,24 @@ var (
 	defaultPaths      = []string{
 		strPath,
 	}
-	VersionFlag   *bool           = nil
-	ServerFlag    *string         = nil
-	BasevalueFlag *string         = nil
-	MspolicyFlag  *int            = nil
-	UuidFlag      *string         = nil
-	TestFlag      *bool           = nil
-	attesterConf  *attesterConfig = nil
-	up_rep_buf    unsafe.Pointer
-	up_non_buf    unsafe.Pointer
+	// VersionFlag means version flag
+	VersionFlag *bool = nil
+	// ServerFlag means server flag
+	ServerFlag *string = nil
+	// BasevalueFlag means basevalue flag
+	BasevalueFlag *string = nil
+	// MspolicyFlag means mspolicy flag
+	MspolicyFlag *int = nil
+	// UuidFlag means uuid flag
+	UuidFlag *string = nil
+	// TestFlag means test flag
+	TestFlag     *bool           = nil
+	attesterConf *attesterConfig = nil
+	up_rep_buf   unsafe.Pointer
+	up_non_buf   unsafe.Pointer
 )
 
+// InitFlags inits the server command flags.
 func InitFlags() {
 	log.Print("Init attester flags......")
 	VersionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
@@ -127,6 +139,7 @@ func InitFlags() {
 	pflag.Parse()
 }
 
+// LoadConfigs searches and loads config from config.yaml file.
 func LoadConfigs() {
 	log.Print("Load attester Configs......")
 	if attesterConf != nil {
@@ -149,6 +162,7 @@ func LoadConfigs() {
 	attesterConf.uuid = viper.GetString(Uuid)
 }
 
+// HandleFlags handles the command flags.
 func HandleFlags() {
 	log.Print("Handle attester flags......")
 	if VersionFlag != nil && *VersionFlag {
@@ -179,6 +193,7 @@ func HandleFlags() {
 	}
 }
 
+// StartAttester initializes the parameters of TA and verifies ta report.
 func StartAttester() {
 	log.Print("Start Attester......")
 	test_ta, err := iniTAParameter(test_ta, testmode)
@@ -201,7 +216,7 @@ func StartAttester() {
 	log.Print("Stop Attester......")
 }
 
-// Initialize the parameters of TA
+// iniTAParameter initializes the parameters of TA
 func iniTAParameter(ta *trustApp, m bool) (*trustApp, error) {
 	id, err := uuid.Parse(attesterConf.uuid)
 	if err != nil {

@@ -101,14 +101,21 @@ import (
 
 const (
 	// config info
-	ConfName    = "config"
-	ConfExt     = "yaml"
-	strPath     = "."
-	Server      = "qcaconfig.server"
-	AKServer    = "qcaconfig.akserver"
-	Scenario    = "qcaconfig.scenario"
+	// ConfName means config file name
+	ConfName = "config"
+	// ConfExt means config file name suffix
+	ConfExt = "yaml"
+	strPath = "."
+	// Server means qcaconfig server
+	Server = "qcaconfig.server"
+	// AKServer means qcaconfig akserver
+	AKServer = "qcaconfig.akserver"
+	// Scenario means qcaconfig scenario
+	Scenario = "qcaconfig.scenario"
+	// NoDaaACFile means qcaconfig nodaaacfile
 	NoDaaACFile = "qcaconfig.nodaaacfile"
-	DaaACFile   = "qcaconfig.daaacfile"
+	// DaaACFile means qcaconfig daaacfile
+	DaaACFile = "qcaconfig.daaacfile"
 	/*** cmd flags ***/
 	// server open ip:port
 	lflagServer = "server"
@@ -122,12 +129,17 @@ const (
 
 const (
 	// app scenario
+
+	// RA_SCENARIO_NO_AS means ra scenario without as
 	RA_SCENARIO_NO_AS = int32(iota)
+	// RA_SCENARIO_AS_NO_DAA means ra scenario as without daa
 	RA_SCENARIO_AS_NO_DAA
+	// RA_SCENARIO_AS_WITH_DAA means ra scenario as with daa
 	RA_SCENARIO_AS_WITH_DAA
 )
 
 type (
+	// Go_ra_buffer_data is used to store ra buffer data
 	Go_ra_buffer_data struct {
 		Size uint32
 		Buf  []uint8
@@ -143,14 +155,18 @@ type (
 
 var (
 	// server side config
+	// Qcacfg means qca config
 	Qcacfg       *qcaConfig = nil
 	defaultPaths            = []string{
 		strPath,
 	}
-	ServerFlag   *string = nil
-	ScenarioFlag *int32  = nil
+	// ServerFlag means server flag
+	ServerFlag *string = nil
+	// ScenarioFlag means scenario flag
+	ScenarioFlag *int32 = nil
 )
 
+// InitFlags inits the qca server command flags.
 func InitFlags() {
 	log.Print("Init qca flags......")
 	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
@@ -158,6 +174,7 @@ func InitFlags() {
 	pflag.Parse()
 }
 
+// LoadConfigs searches and loads config from config.yaml file.
 func LoadConfigs() {
 	log.Print("Load qca Configs......")
 	if Qcacfg != nil {
@@ -181,6 +198,7 @@ func LoadConfigs() {
 	Qcacfg.DaaACFile = viper.GetString(DaaACFile)
 }
 
+// HandleFlags handles the command flags.
 func HandleFlags() {
 	log.Print("Handle qca flags......")
 
@@ -192,6 +210,7 @@ func HandleFlags() {
 	}
 }
 
+// GetQcaServer returns the qca service server configuration.
 func GetQcaServer() string {
 	if Qcacfg == nil {
 		return ""
@@ -199,6 +218,7 @@ func GetQcaServer() string {
 	return Qcacfg.Server
 }
 
+// SetScenario sets the qca service scenario configuration.
 func SetScenario(s int32) {
 	Qcacfg.Scenario = s
 }
@@ -215,6 +235,7 @@ func adapt2TAUUID(uuid []byte) {
 	reverseEndian(uuid[6:8])
 }
 
+// GetTAReport returns TA report according to ta uuid
 func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	// store C data which convert from Go
 	c_usr_data := C.struct_ra_buffer_data{}
@@ -314,6 +335,7 @@ func provisionDAA() ([]byte, error) {
 	return akcertByte, nil
 }
 
+// GenerateAKCert generates ak cert according to qca server scenario configuration.
 func GenerateAKCert() ([]byte, error) {
 	switch Qcacfg.Scenario {
 	case RA_SCENARIO_NO_AS:
@@ -347,6 +369,7 @@ func GenerateAKCert() ([]byte, error) {
 	return nil, errors.New("do not need to access as")
 }
 
+// SaveAKCert saves ak cert to the specified file.
 func SaveAKCert(cert []byte) error {
 	cert_buf := C.CBytes(cert)
 	cert_data := C.struct_ra_buffer_data{0, (*C.uchar)(cert_buf)}
