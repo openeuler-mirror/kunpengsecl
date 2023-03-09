@@ -293,7 +293,7 @@ TEE_Result reset(char *name){
     return TEE_SUCCESS;
 }
 
-TEE_Result Reset_All(){
+TEE_Result ResetAll(){
     TEE_Result ret;
     ret = reset("sec_storage_data/ktacert.txt");
     if (ret != TEE_SUCCESS) {
