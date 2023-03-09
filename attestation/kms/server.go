@@ -27,9 +27,12 @@ import (
 )
 
 const (
+	// AesKeySize means the key length of the Aes encryption algorithm
 	AesKeySize = 16
-	AlgAES     = 0x0006
-	AlgCBC     = 0x0042
+	// AlgAES means the code name of the AES algorithm
+	AlgAES = 0x0006
+	// AlgCBC means the code name of the CBC algorithm
+	AlgCBC = 0x0042
 )
 
 var (
@@ -37,6 +40,7 @@ var (
 	iv        = []byte{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
 )
 
+// CreateSessionKey creates a new key according to masterkey id which is sent by kcms.
 func CreateSessionKey(ctx context.Context, payload *kmip.CreateRequestPayload) (*kmip.CreateResponsePayload, error) {
 	// kmip-go源码有个BUG，存tag时用的是canonical名，但读tag时却是用的string名，因此GetTag方法会报错！
 	// 进行帐号密码身份认证处理,暂时省略
@@ -64,6 +68,7 @@ func CreateSessionKey(ctx context.Context, payload *kmip.CreateRequestPayload) (
 	return resp, nil
 }
 
+// DecryptSessionKey decrypts the old key according to masterkey id and key ciphertext which are sent by kcms.
 func DecryptSessionKey(ctx context.Context, payload *common.GetRequestPayload) (*common.GetResponsePayload, error) {
 	// 进行帐号密码身份认证处理,暂时省略
 	account := payload.TemplateAttribute.Get(kmip14.TagDeviceIdentifier.CanonicalName())
@@ -88,6 +93,7 @@ func DecryptSessionKey(ctx context.Context, payload *common.GetRequestPayload) (
 
 var srv *kmip.Server = nil
 
+// ExampleServer starts KMS service.
 func ExampleServer() {
 	if srv != nil {
 		return
@@ -112,6 +118,7 @@ func ExampleServer() {
 	}
 }
 
+// StopServer stops KMS service.
 func StopServer() {
 	if srv == nil {
 		return

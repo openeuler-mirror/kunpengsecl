@@ -32,9 +32,12 @@ import (
 
 const (
 	defaultBaseRows = 10
-	StrUnknown      = "unknown"
-	StrTrusted      = "trusted"
-	StrUntrusted    = "untrusted"
+	// StrUnknown means the string of unknown
+	StrUnknown = "unknown"
+	// StrTrusted means the string of trusted
+	StrTrusted = "trusted"
+	// StrUntrusted means the string of untrusted
+	StrUntrusted = "untrusted"
 )
 
 type (
@@ -55,9 +58,6 @@ type (
 		// for remote attestation
 		nonce  uint64
 		ikCert *x509.Certificate
-		// for key caching management service
-		teeCert    *x509.Certificate //TEE设备公钥证书
-		signedCert *x509.Certificate //签了名的随机生成的公钥
 		// for verify process
 		Bases   []*typdefs.BaseRow
 		TaBases map[string]*typdefs.TaBaseRow
@@ -76,8 +76,6 @@ func NewCache() *Cache {
 		trustExpiration: time.Now(),
 		nonce:           0,
 		ikCert:          nil,
-		teeCert:         nil,
-		signedCert:      nil,
 		Bases:           make([]*typdefs.BaseRow, 0, defaultBaseRows),
 		TaBases:         map[string]*typdefs.TaBaseRow{},
 	}
@@ -97,6 +95,7 @@ func (c *Cache) UpdateTrustReport(trust time.Duration) {
 	c.trustExpiration = time.Now().Add(trust)
 }
 
+// UpdateOnline updates online expiration.
 func (c *Cache) UpdateOnline(t time.Duration) {
 	c.onlineExpiration = time.Now().Add(t)
 }
@@ -126,16 +125,17 @@ func (c *Cache) GetCommands() uint64 {
 	return c.commands
 }
 
-// SetVerified sets the trusted field.
+// SetTrusted sets the host trusted field.
 func (c *Cache) SetTrusted(v string) {
 	c.hostTrusted = v
 }
 
+// SetTaTrusted sets the ta trusted field by uuid.
 func (c *Cache) SetTaTrusted(uuid string, v string) {
 	c.taTrusted[uuid] = v
 }
 
-// GetTrusted checks where the RAC trust report is valid or not.
+// GetTrusted checks weather the RAC trust report is valid or not.
 func (c *Cache) GetTrusted() string {
 	// After trust report expiration there is no one report received,
 	// the RAC can't be trusted any more and needs to get a new trust report.
@@ -149,6 +149,7 @@ func (c *Cache) GetTrusted() string {
 	return c.hostTrusted
 }
 
+// GetTaTrusted checks weather the TA trust report is valid or not.
 func (c *Cache) GetTaTrusted(uuid string) string {
 	if !c.online {
 		c.taTrusted[uuid] = StrUnknown
@@ -196,6 +197,7 @@ func (c *Cache) SetRegTime(v string) {
 	c.regtime = v
 }
 
+// GetOnline returns the client online expiration time.
 func (c *Cache) GetOnline() bool {
 	if time.Now().After(c.onlineExpiration) {
 		c.online = false
@@ -217,28 +219,6 @@ func (c *Cache) SetIsAutoUpdate(v bool) {
 
 func (c *Cache) GetTrustExpiration() time.Time {
 	return c.trustExpiration
-}
-
-// GetTeeCert returns the TEE device publickey certificate
-// for key caching management service.
-func (c *Cache) GetTeeCert() *x509.Certificate {
-	return c.teeCert
-}
-
-// SetTeeCert saves the TEE device publickey certificate in cache
-// to enhance performance.
-func (c *Cache) SetTeeCert(pemCert string) {
-	c.teeCert, _, _ = cryptotools.DecodeKeyCertFromPEM([]byte(pemCert))
-}
-
-// GetIKeyCert returns the signed publickey for key caching management service.
-func (c *Cache) GetSignedCert() *x509.Certificate {
-	return c.signedCert
-}
-
-// SetIKeyCert saves the signed publickey in cache to enhance performance.
-func (c *Cache) SetSignedCert(pemCert string) {
-	c.signedCert, _, _ = cryptotools.DecodeKeyCertFromPEM([]byte(pemCert))
 }
 
 // GetBases returns the baases.

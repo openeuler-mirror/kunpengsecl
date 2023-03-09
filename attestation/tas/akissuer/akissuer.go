@@ -44,43 +44,86 @@ import (
 )
 
 const (
-	ZERO_VALUE          = 0
+	// ZERO_VALUE means the value of zero.
+	ZERO_VALUE = 0
+	// UINT32_BYTES_LENGTH means the length of uint32 bytes.
 	UINT32_BYTES_LENGTH = 4
+	// UINT64_BYTES_LENGTH means the length of uint64 bytes.
 	UINT64_BYTES_LENGTH = 8
 	// tag type
+	// KEY_TAG_TYPE_MOVE_BITS means the bits of key tag type
 	KEY_TAG_TYPE_MOVE_BITS = 28
-	RA_INTEGER             = (1 << KEY_TAG_TYPE_MOVE_BITS)
-	RA_BYTES               = (2 << KEY_TAG_TYPE_MOVE_BITS)
-	RA_TAG_SIGN_TYPE       = RA_INTEGER
-	RA_TAG_HASH_TYPE       = RA_INTEGER | 1
-	RA_TAG_CURVE_TYPE      = RA_INTEGER | 2
-	RA_TAG_QTA_IMG_HASH    = RA_BYTES
-	RA_TAG_TA_IMG_HASH     = RA_BYTES | 1
-	RA_TAG_QTA_MEM_HASH    = RA_BYTES | 2
-	RA_TAG_TA_MEM_HASH     = RA_BYTES | 3
-	RA_TAG_RESERVED        = RA_BYTES | 4
-	RA_TAG_AK_PUB          = RA_BYTES | 5
-	RA_TAG_SIGN_DRK        = RA_BYTES | 6
-	RA_TAG_SIGN_AK         = RA_BYTES | 7
-	RA_TAG_CERT_DRK        = RA_BYTES | 8
-	RA_TAG_CERT_AK         = RA_BYTES | 9
+	// RA_INTEGER means ra integer
+	RA_INTEGER = (1 << KEY_TAG_TYPE_MOVE_BITS)
+	// RA_BYTES means ra bytes
+	RA_BYTES = (2 << KEY_TAG_TYPE_MOVE_BITS)
+	// RA_TAG_SIGN_TYPE means ra tag sign type
+	RA_TAG_SIGN_TYPE = RA_INTEGER
+	// RA_TAG_HASH_TYPE means ra tag hash type
+	RA_TAG_HASH_TYPE = RA_INTEGER | 1
+	// RA_TAG_CURVE_TYPE means ra tag curve type
+	RA_TAG_CURVE_TYPE = RA_INTEGER | 2
+	// RA_TAG_QTA_IMG_HASH means ra tag qta img hash
+	RA_TAG_QTA_IMG_HASH = RA_BYTES
+	// RA_TAG_TA_IMG_HASH means ra tag ta img hash
+	RA_TAG_TA_IMG_HASH = RA_BYTES | 1
+	// RA_TAG_QTA_MEM_HASH means ra tag qta mem hash
+	RA_TAG_QTA_MEM_HASH = RA_BYTES | 2
+	// RA_TAG_TA_MEM_HASH means ra tag ta mem hash
+	RA_TAG_TA_MEM_HASH = RA_BYTES | 3
+	// RA_TAG_RESERVED means ra tag reserved
+	RA_TAG_RESERVED = RA_BYTES | 4
+	// RA_TAG_AK_PUB means ra tag ak pub
+	RA_TAG_AK_PUB = RA_BYTES | 5
+	// RA_TAG_SIGN_DRK means ra tag sign drk
+	RA_TAG_SIGN_DRK = RA_BYTES | 6
+	// RA_TAG_SIGN_AK means ra tag sign ak
+	RA_TAG_SIGN_AK = RA_BYTES | 7
+	// RA_TAG_CERT_DRK means ra tag cert drk
+	RA_TAG_CERT_DRK = RA_BYTES | 8
+	// RA_TAG_CERT_AK means ra tag cert ak
+	RA_TAG_CERT_AK = RA_BYTES | 9
 	// alg type
-	RA_ALG_RSA_3072        = 0x20000
-	RA_ALG_RSA_4096        = 0x20001 // PSS padding
-	RA_ALG_SHA_256         = 0x20002
-	RA_ALG_SHA_384         = 0x20003
-	RA_ALG_SHA_512         = 0x20004
-	RA_ALG_ECDSA           = 0x20005
-	RA_ALG_ED25519         = 0x20006
-	RA_ALG_SM2_DSA_SM3     = 0x20007
-	RA_ALG_SM3             = 0x20008
+
+	// RA_ALG_RSA_3072 means the code name of
+	// RSA algorithm with thr key length of 3072
+	RA_ALG_RSA_3072 = 0x20000
+	// RA_ALG_RSA_4096 means the code name of
+	// RSA algorithm with thr key length of 4096
+	RA_ALG_RSA_4096 = 0x20001 // PSS padding
+	// RA_ALG_SHA_256 means the code name of
+	// SHA256 algorithm
+	RA_ALG_SHA_256 = 0x20002
+	// RA_ALG_SHA_384 means the code name of
+	// SHA384 algorithm
+	RA_ALG_SHA_384 = 0x20003
+	// RA_ALG_SHA_512 means the code name of
+	// SHA512 algorithm
+	RA_ALG_SHA_512 = 0x20004
+	// RA_ALG_ECDSA means the code name of
+	// ECDSA algorithm
+	RA_ALG_ECDSA = 0x20005
+	// RA_ALG_ED25519 means the code name of
+	// ED25519 algorithm
+	RA_ALG_ED25519 = 0x20006
+	// RA_ALG_SM2_DSA_SM3 means the code name of
+	// DSA SM3 algorithm
+	RA_ALG_SM2_DSA_SM3 = 0x20007
+	// RA_ALG_SM3 means the code name of
+	// SM3 algorithm
+	RA_ALG_SM3 = 0x20008
+	// RA_ALG_DAA_GRP_FP256BN means the code name of
+	// DAA GRP FP256BN algorithm
 	RA_ALG_DAA_GRP_FP256BN = 0x20009
 	// x509 cert template default value
-	strChina                = "China"
-	strCompany              = "Company"
-	strCommonName           = "AK Server"
-	RA_SCENARIO_NO_AS       = 0
-	RA_SCENARIO_AS_NO_DAA   = 1
+	strChina      = "China"
+	strCompany    = "Company"
+	strCommonName = "AK Server"
+	// RA_SCENARIO_NO_AS means the code name of ra scenario without as
+	RA_SCENARIO_NO_AS = 0
+	// RA_SCENARIO_AS_NO_DAA means the code name of ra scenario without daa
+	RA_SCENARIO_AS_NO_DAA = 1
+	// RA_SCENARIO_AS_WITH_DAA means the code name of ra scenario with daa
 	RA_SCENARIO_AS_WITH_DAA = 2
 )
 
@@ -157,7 +200,7 @@ func verifyAKCert(oldAKCert []byte) (drkpub *rsa.PublicKey, akpub []byte, err er
 }
 
 // The input parameter is the AK certificate issued by the target platform device certificate
-// After receiving the AK certificate, parse and extract the signed data fields,
+// GenerateNoDAAAKCert after receiving the AK certificate, parses and extracts the signed data fields,
 // signature fields, and DRK certificate fields
 // Parse the DRK certificate
 // Use huawei Level-2 certificate to check the DRK certificate.
@@ -381,6 +424,8 @@ func extractSignAlg(c *certificate) uint64 {
 	return 0
 }
 
+// GenerateDAAAKCert verifies old ak cert
+// and gets daa grp private key configuration to generate daa credential.
 func GenerateDAAAKCert(oldAKCert []byte) ([]byte, error) {
 	drkcertpubkey, akpubbyte, err := verifyAKCert(oldAKCert)
 	if err != nil {
@@ -611,6 +656,7 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	return cip, nil
 }
 
+// GenerateAKCert generates ak cert according to scenario.
 func GenerateAKCert(oldAKCert []byte, scenario int32) ([]byte, error) {
 	switch scenario {
 	case RA_SCENARIO_AS_NO_DAA:

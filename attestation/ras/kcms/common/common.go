@@ -17,20 +17,24 @@ import (
 	"github.com/gemalto/kmip-go"
 )
 
-// GetRequestPayload ////////////////////////////////////////
+// GetRequestPayload means kms request information.
 type GetRequestPayload struct {
 	TemplateAttribute *kmip.TemplateAttribute
 }
 
-// GetResponsePayload
+// GetResponsePayload means kms response information.
 type GetResponsePayload struct {
 	TemplateAttribute *kmip.TemplateAttribute
 }
 
+// GetHandler contains get function
+// which gets request and returns response.
 type GetHandler struct {
 	Get func(ctx context.Context, payload *GetRequestPayload) (*GetResponsePayload, error)
 }
 
+// HandleItem handles request payload
+// and returns kmip response batch item.
 func (h *GetHandler) HandleItem(ctx context.Context, req *kmip.Request) (*kmip.ResponseBatchItem, error) {
 	var payload GetRequestPayload
 

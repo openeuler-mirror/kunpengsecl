@@ -28,23 +28,37 @@ import (
 
 const (
 	// for command flags const long and strings.
-	LongIndex  = "index"
+	// LongIndex means the full name of index
+	LongIndex = "index"
+	// ShortIndex means the shorthand of index
 	ShortIndex = "i"
-	LongFile   = "file"
-	ShortFile  = "f"
-	ConstFile  = "the file to read content from, PEM format"
-	LongType   = "type"
-	ShortType  = "t"
-	ConstType  = `the output type DER/PEM (DEFAULT: DER)
+	// LongFile means the full name of file
+	LongFile = "file"
+	// ShortFile means the shorthand of file
+	ShortFile = "f"
+	// ConstFile means PEM format file
+	ConstFile = "the file to read content from, PEM format"
+	// LongType means the full name of type
+	LongType = "type"
+	// ShortType means the shorthand of type
+	ShortType = "t"
+	// ConstType is used to prompt DER, PEM and STR information
+	ConstType = `the output type DER/PEM (DEFAULT: DER)
     DER: the data needs to be transfered from PEM to DER
     PEM: the data is PEM and can directly write into NVRAM
     STR: the data is readable string for testing`
-	LongLength     = "len"
-	ShortLength    = "l"
-	LongSimulator  = "simulator"
+	// LongLength means length
+	LongLength = "len"
+	// ShortLength means the shorthand of length
+	ShortLength = "l"
+	// LongSimulator means the full name of simulator
+	LongSimulator = "simulator"
+	// ShortSimulator means the shorthand of simulator
 	ShortSimulator = "s"
+	// ConstSimulator is used to prompt simulator information
 	ConstSimulator = "use the simulator to test (DEFAULT: false)"
-	ConstExample   = `
+	// ConstExample is used to show an example
+	ConstExample = `
 For example:
     # define a 128 bytes space for storage at 0x1000001 in NVRAM.
     tbprovisioner define nvram -i 0x1000001 -l 128
@@ -62,11 +76,16 @@ For example:
     tbprovisioner undefine nvram -i 0x1000001
 `
 	// for input parameter const strings.
+	// ConstNVRAM means the string NVRAM const
 	ConstNVRAM = "NVRAM"
-	ConstPCR   = "PCR"
-	ConstPEM   = "PEM"
-	ConstDER   = "DER"
-	ConstSTR   = "STR"
+	// ConstPCR means the string PCR const
+	ConstPCR = "PCR"
+	// ConstPEM means the string PEM const
+	ConstPEM = "PEM"
+	// ConstDER means the string DER const
+	ConstDER = "DER"
+	// ConstSTR means the string STR const
+	ConstSTR = "STR"
 	// for error messages.
 	errOpenTPM    = "can't open TPM, %v\n"
 	errReadNVRAM  = "read NVRAM(0x%08X) error: %v\n"

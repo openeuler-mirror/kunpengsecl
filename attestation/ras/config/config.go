@@ -42,6 +42,8 @@ import (
 
 const (
 	// golbal definition
+
+	// RasVersion means ras version
 	RasVersion = "1.1.2"
 
 	// path
@@ -131,7 +133,10 @@ const (
 	sflagVerbose = "v"
 	helpVerbose  = "show running debug information"
 	//mgr strategy
-	AutoStrategy   = "auto"
+
+	// AutoStrategy means mgr strategy is auto
+	AutoStrategy = "auto"
+	// ManualStrategy means mgr strategy is manual
 	ManualStrategy = "manual"
 )
 
@@ -192,9 +197,11 @@ var (
 	httpsSwitch *string = nil
 	restPort    *string = nil
 	httpsPort   *string = nil
-	VersionFlag *bool   = nil
-	verboseFlag *bool   = nil
-	TokenFlag   *bool   = nil
+	// VersionFlag means version flag
+	VersionFlag *bool = nil
+	verboseFlag *bool = nil
+	// TokenFlag means token flag
+	TokenFlag *bool = nil
 )
 
 // InitFlags inits the ras server command flags.
@@ -704,6 +711,7 @@ func SetDBPassword(password string) {
 	rasCfg.dbPassword = password
 }
 
+// GetExtractRules returns the ras extract rules configuration.
 func GetExtractRules() typdefs.ExtractRules {
 	return rasCfg.extractRules
 }
@@ -748,7 +756,7 @@ func SetIsAllUpdate(b bool) {
 	rasCfg.isallupdate = b
 }
 
-// SetIsAllUpdate sets the ras isallupdate configuration.
+// GetIsAllUpdate returns the ras isallupdate configuration.
 func GetIsAllUpdate() *bool {
 	if rasCfg == nil {
 		return nil
@@ -784,11 +792,6 @@ func SetHttpsSwitch(p string) {
 	} else {
 		rasCfg.httpsSwitch = "false"
 	}
-}
-
-func EqualFold(s1, s2 string) {
-	_, _ = s1, s2 // ignore unused warning
-	panic("unimplemented")
 }
 
 // GetRestPort returns the ras restful api interface ip:port configuration.
@@ -919,7 +922,7 @@ func GetHBDuration() time.Duration {
 	return rasCfg.hbDuration
 }
 
-// SetHBDuration returns heart beat duration configuration.
+// SetHBDuration sets heart beat duration configuration.
 func SetHBDuration(v time.Duration) {
 	if rasCfg == nil {
 		return
@@ -935,7 +938,7 @@ func GetOnlineDuration() time.Duration {
 	return rasCfg.onlineDuration
 }
 
-// SetOnlineDuration returns client online expire duration configuration.
+// SetOnlineDuration sets client online expire duration configuration.
 func SetOnlineDuration(v time.Duration) {
 	if rasCfg == nil {
 		return
@@ -951,7 +954,7 @@ func GetTrustDuration() time.Duration {
 	return rasCfg.trustDuration
 }
 
-// SetTrustDuration returns trust report expire duration configuration.
+// SetTrustDuration sets trust report expire duration configuration.
 func SetTrustDuration(v time.Duration) {
 	if rasCfg == nil {
 		return
@@ -967,6 +970,7 @@ func GetDigestAlgorithm() string {
 	return rasCfg.digestAlgorithm
 }
 
+// SetDigestAlgorithm sets digest algorithm configuration.
 func SetDigestAlgorithm(s string) {
 	if rasCfg == nil {
 		return
@@ -974,6 +978,7 @@ func SetDigestAlgorithm(s string) {
 	rasCfg.digestAlgorithm = s
 }
 
+// SetLoggerMode sets ras log file configuration.
 func SetLoggerMode(testMode bool) {
 	logF := GetLogFile()
 	logD := filepath.Dir(logF)
@@ -994,6 +999,7 @@ func SetLoggerMode(testMode bool) {
 	rasCfg.logFile = logF
 }
 
+// GetLoggerMode returns ras log file configuration.
 func GetLoggerMode() *bool {
 	if rasCfg == nil {
 		return nil
@@ -1001,6 +1007,7 @@ func GetLoggerMode() *bool {
 	return verboseFlag
 }
 
+// SetExtractRules sets the ras extract rules configuration.
 func SetExtractRules(val string) {
 	byteER := []byte(val)
 	var extractRules typdefs.ExtractRules
@@ -1012,16 +1019,20 @@ func SetExtractRules(val string) {
 	rasCfg.extractRules = extractRules
 }
 
+// GetTaInputs return ta inputs.
 func GetTaInputs() map[string]ractools.TaReportInput {
 	taInputs := map[string]ractools.TaReportInput{}
 	return taInputs
 }
 
 //vtype shuold be 1/2/3
+
+// SetTaVerifyType sets ta verify type configuration.
 func SetTaVerifyType(vtype int) {
 	rasCfg.taVerifyType = vtype
 }
 
+// GetTaVerifyType returns ta verify type configuration.
 func GetTaVerifyType() int {
 	return rasCfg.taVerifyType
 }

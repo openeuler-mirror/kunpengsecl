@@ -30,6 +30,7 @@ const (
 )
 
 var (
+	// L used to output log information
 	L *zap.Logger
 )
 

@@ -46,10 +46,14 @@ var (
 )
 
 const (
+	// AesKeySize means aes algorithm key size
 	AesKeySize = 16
-	KeyIdSize  = 8
-	AlgAES     = 0x0006
-	AlgCBC     = 0x0042
+	// KeyIdSize means the size of key id
+	KeyIdSize = 8
+	// AlgAES means aes algorithm
+	AlgAES = 0x0006
+	// AlgCBC means cbc algorithm
+	AlgCBC = 0x0042
 )
 
 func dailKMS() net.Conn {
@@ -60,6 +64,7 @@ func dailKMS() net.Conn {
 	return conn
 }
 
+// SendKCMPubKeyCert sends kcm public key cert to ka.
 func SendKCMPubKeyCert() ([]byte, error) {
 	// TODO: get KCM public key cert
 	kcm_cert, err := ReadCert("../cert/kcm.crt")
@@ -70,6 +75,8 @@ func SendKCMPubKeyCert() ([]byte, error) {
 	return kcm_cert, nil
 }
 
+// VerifyKTAPubKeyCert verifies weather kta public key cert
+// which is signed by ca cert.
 func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 	// unmarshal cert to *x509.Certificate
 	_, _, err := cryptotools.DecodeKeyCertFromPEM(ktaPubKeyCert)
@@ -100,6 +107,10 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 	return nil
 }
 
+// GenerateNewKey firstly asks KMS to generate a new key for the specific TA
+// according to host key id, then generates a random key id to save key
+// ciphertext in the database, and returns plaintext of key, key id and session key
+// which is generated randomly by kcms.
 func GenerateNewKey(
 	taid []byte,
 	account []byte,
@@ -158,6 +169,10 @@ func GenerateNewKey(
 	return taid, K, KtaPublickeyCert, plaintext, []byte(keyid), nil
 }
 
+// GetKey firstly queries the database according to the key id
+// to get the key ciphertext, then asks KMS to decrypt the ciphertext
+// of key according to host key id, and returns plaintext of key, key id and session key
+// which is generated randomly by kcms.
 func GetKey(
 	taid []byte,
 	account []byte,
@@ -214,6 +229,7 @@ func GetKey(
 	return taid, K, KtaPublickeyCert, plaintext, keyid, nil
 }
 
+// DeleteKey deletes the key ciphertext which is stored in kcms.
 func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte, []byte, error) {
 	err := GetKTATrusted(deviceId, ktaid)
 	if err != nil {
@@ -258,6 +274,8 @@ func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte,
 
 }
 
+// KmsGenerateKey creates a new key based on master key(host key),
+// and returns key ciphertext and key plaintext.
 func KmsGenerateKey(account, passwd, hostkeyid []byte) ([]byte, []byte, []byte, error) {
 	conn := dailKMS()
 	payload := kmip.CreateRequestPayload{
@@ -322,6 +340,8 @@ func KmsGenerateKey(account, passwd, hostkeyid []byte) ([]byte, []byte, []byte, 
 	return mid, cipherKey, rawKey, nil
 }
 
+// KmsGetKey decrypts key ciphertext based on master key(host key),
+// and returns key ciphertext and key plaintext.
 func KmsGetKey(account []byte, passwd []byte, ciphertext string, hostkeyid []byte) ([]byte, []byte, []byte, error) {
 	conn := dailKMS()
 	cipherByte, err := base64.StdEncoding.DecodeString(ciphertext)
@@ -385,6 +405,8 @@ func KmsGetKey(account []byte, passwd []byte, ciphertext string, hostkeyid []byt
 	return mid, cipherKey, rawKey, nil
 }
 
+// EncryptWithAES256GCM encrypts plaintext with the session key,
+// and returns the ciphertext of the key.
 func EncryptWithAES256GCM(plaintext []byte, sessionkey []byte) ([]byte, error) {
 	c, err := aes.NewCipher(sessionkey)
 	if err != nil {
@@ -406,6 +428,9 @@ func EncryptWithAES256GCM(plaintext []byte, sessionkey []byte) ([]byte, error) {
 	return gcm.Seal(nonce, nonce, plaintext, nil), nil
 }
 
+// VerifyPubCert verifies kta public key cert
+// and returns ok if validation passes,
+// otherwise returns an error message or null character.
 func VerifyPubCert(cacertpath string, pubcertpath string) (string, error) {
 	cmd := exec.Command("openssl", "verify", "-CAfile", cacertpath, pubcertpath)
 	verify, err := cmd.Output()
@@ -424,6 +449,8 @@ func VerifyPubCert(cacertpath string, pubcertpath string) (string, error) {
 	}
 }
 
+// PathExists checks if the path exists,
+// returns true if exists, otherwise return false.
 func PathExists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
@@ -435,6 +462,7 @@ func PathExists(path string) (bool, error) {
 	return false, err
 }
 
+// SaveCert saves the certificate contents to the specified path.
 func SaveCert(param []byte, certpath string, filename string) error {
 	exist, err := PathExists(certpath)
 	if err != nil {
@@ -454,6 +482,7 @@ func SaveCert(param []byte, certpath string, filename string) error {
 	}
 }
 
+// ReadCert reads the certificate contents from the specified file pathname.
 func ReadCert(pathname string) ([]byte, error) {
 	file, err := os.Open(pathname)
 	if err != nil {
@@ -476,6 +505,8 @@ func ReadCert(pathname string) ([]byte, error) {
 	return buffer, nil
 }
 
+// GetKTATrusted gets the trusted status of the KTA
+// and verifies weather it is trusted.
 func GetKTATrusted(deviceId int64, ktaid string) error {
 	// bypass by far
 	if deviceId >= 0 {

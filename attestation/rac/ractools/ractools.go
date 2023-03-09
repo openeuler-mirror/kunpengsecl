@@ -54,19 +54,32 @@ const (
 	//      0x01C0001A      ECC SM2_P256 EK Certificate (H-5)
 	//      0x01C0001C      RSA 3072 EK Certificate (H-6)
 	//      0x01C0001E      RSA 4096 EK Certificate (H-7)
-	IndexRsa2048EKCert     uint32 = 0x01C00002
-	IndexRsa2048EKNonce    uint32 = 0x01C00003
+	// IndexRsa2048EKCert means RSA 2048 EK Certificate index
+	IndexRsa2048EKCert uint32 = 0x01C00002
+	// IndexRsa2048EKNonce means RSA 2048 EK Nonce index
+	IndexRsa2048EKNonce uint32 = 0x01C00003
+	// IndexRsa2048EKTemplate means RSA 2048 EK Template index
 	IndexRsa2048EKTemplate uint32 = 0x01C00004
-	IndexECCP256EKCert     uint32 = 0x01C0000A
-	IndexECCP256EKNonce    uint32 = 0x01C0000B
+	// IndexECCP256EKCert means ECC NIST P256 EK Certificate index
+	IndexECCP256EKCert uint32 = 0x01C0000A
+	// IndexECCP256EKNonce means ECC NIST P256 EK Nonce index
+	IndexECCP256EKNonce uint32 = 0x01C0000B
+	// IndexECCP256EKTemplate means ECC NIST P256 EK Template index
 	IndexECCP256EKTemplate uint32 = 0x01C0000C
-	IndexRsa2048EKCertH1   uint32 = 0x01C00012
-	IndexECCP256EKCertH2   uint32 = 0x01C00014
-	IndexECCP384EKCertH3   uint32 = 0x01C00016
-	IndexECCP512EKCertH4   uint32 = 0x01C00018
-	IndexSM2P256EKCertH5   uint32 = 0x01C0001A
-	IndexRsa3072EKCertH6   uint32 = 0x01C0001C
-	IndexRsa4096EKCertH7   uint32 = 0x01C0001E
+	// IndexRsa2048EKCertH1 means RSA 2048 EK Certificate (H-1) index
+	IndexRsa2048EKCertH1 uint32 = 0x01C00012
+	// IndexECCP256EKCertH2 means ECC NIST P256 EK Certificate (H-2) index
+	IndexECCP256EKCertH2 uint32 = 0x01C00014
+	// IndexECCP384EKCertH3 means ECC NIST P384 EK Certificate (H-3) index
+	IndexECCP384EKCertH3 uint32 = 0x01C00016
+	// IndexECCP512EKCertH4 means ECC NIST P512 EK Certificate (H-4) index
+	IndexECCP512EKCertH4 uint32 = 0x01C00018
+	// IndexSM2P256EKCertH5 means ECC SM2_P256 EK Certificate (H-5) index
+	IndexSM2P256EKCertH5 uint32 = 0x01C0001A
+	// IndexRsa3072EKCertH6 means RSA 3072 EK Certificate (H-6) index
+	IndexRsa3072EKCertH6 uint32 = 0x01C0001C
+	// IndexRsa4096EKCertH7 means RSA 4096 EK Certificate (H-7) index
+	IndexRsa4096EKCertH7 uint32 = 0x01C0001E
 
 	tpmDevPath1  = "/dev/tpmrm0"
 	tpmDevPath2  = "/dev/tpm0"
@@ -114,20 +127,26 @@ System Information
 	SKU Number: Not Applicable
 	Family: Not Applicable`
 
-	emptyPassword   = ""
-	talistpath      = "./talist"
-	TestImaLogPath  = "./ascii_runtime_measurements"
+	emptyPassword = ""
+	talistpath    = "./talist"
+	// TestImaLogPath means the path to the test case ima log
+	TestImaLogPath = "./ascii_runtime_measurements"
+	// TestBiosLogPath means the path to the test case bios log
 	TestBiosLogPath = "./binary_bios_measurements"
-	TestSeedPath    = "./simulator_seed"
-	ImaLogPath      = "/sys/kernel/security/ima/ascii_runtime_measurements"
-	BiosLogPath     = "/sys/kernel/security/tpm0/binary_bios_measurements"
-	AlgSM3          = 0x0012
-	algSHA1Str      = "sha1"
-	algSHA256Str    = "sha256"
-	algSHA384Str    = "sha384"
-	algSHA512Str    = "sha512"
-	algSM3Str       = "sm3"
-	strfalse        = "false"
+	// TestSeedPath means the path to the test case seed
+	TestSeedPath = "./simulator_seed"
+	// ImaLogPath means the path to the ima log
+	ImaLogPath = "/sys/kernel/security/ima/ascii_runtime_measurements"
+	// BiosLogPath means the path to the bios log
+	BiosLogPath = "/sys/kernel/security/tpm0/binary_bios_measurements"
+	// AlgSM3 means the code name of the SM3 algorithm
+	AlgSM3       = 0x0012
+	algSHA1Str   = "sha1"
+	algSHA256Str = "sha256"
+	algSHA384Str = "sha384"
+	algSHA512Str = "sha512"
+	algSM3Str    = "sm3"
+	strfalse     = "false"
 )
 
 var (
@@ -372,6 +391,7 @@ type (
 		ik     attestationKey
 	}
 
+	// TPMConfig means tpm config information
 	TPMConfig struct {
 		IMALogPath    string
 		BIOSLogPath   string
@@ -394,6 +414,8 @@ type (
 		name     []byte
 	}
 
+	// IKCertInput means ik cert information,
+	// and will be used to activate ik cert
 	IKCertInput struct {
 		// CredBlob & EncryptedSecret are created by MakeCredential, and will be given as input to ActivateCredential
 		CredBlob        []byte // the protected key used to encrypt IK Cert
@@ -408,6 +430,7 @@ type (
 		DecryptParam []byte // the parameter required by the decrypt algorithm to decrypt the IK Cert
 	}
 
+	// TaReportInput means ta report information
 	TaReportInput struct {
 		Uuid     string
 		UserData []byte
@@ -416,9 +439,13 @@ type (
 )
 
 var (
-	ErrWrongParams         = errors.New("wrong input parameter")
-	ErrFailTPMInit         = errors.New("couldn't start tpm or init key/certificate")
-	ErrReadPCRFail         = errors.New("failed to read all PCRs")
+	// ErrWrongParams means wrong input parameter error
+	ErrWrongParams = errors.New("wrong input parameter")
+	// ErrFailTPMInit means couldn't start tpm or init key/certificate
+	ErrFailTPMInit = errors.New("couldn't start tpm or init key/certificate")
+	// ErrReadPCRFail means failed to read all PCRs
+	ErrReadPCRFail = errors.New("failed to read all PCRs")
+	// ErrNotSupportedHashAlg means the set hash algorithm  is not supported
 	ErrNotSupportedHashAlg = errors.New("the set hash algorithm  is not supported")
 
 	algStrMap = map[tpm2.Algorithm]string{
@@ -447,6 +474,7 @@ var (
 
 	// according to TCG specification, B.3.3  Template L-1: RSA 2048 (Storage)
 	// https://trustedcomputinggroup.org/wp-content/uploads/TCG_IWG_EKCredentialProfile_v2p4_r3.pdf
+	// EKParams means ek parameters
 	EKParams = tpm2.Public{
 		Type:    tpm2.AlgRSA,
 		NameAlg: tpm2.AlgSHA256,
@@ -489,6 +517,7 @@ var (
 
 	// according to TCG specification, 7.3.4.2 Template H-1: RSA 2048
 	// https://trustedcomputinggroup.org/wp-content/uploads/TPM-2p0-Keys-for-Device-Identity-and-Attestation_v1_r12_pub10082021.pdf
+	// IKParams means ik parameters
 	IKParams = tpm2.Public{
 		Type:    tpm2.AlgRSA,
 		NameAlg: tpm2.AlgSHA256,

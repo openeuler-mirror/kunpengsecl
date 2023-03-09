@@ -42,6 +42,8 @@ var (
 	akServer *grpc.Server
 )
 
+// GetAKCert generates ak cert according to ak cert request
+// and returns ak cert as reply.
 func (s *service) GetAKCert(ctx context.Context, in *GetAKCertRequest) (*GetAKCertReply, error) {
 	akcert, err := akissuer.GenerateAKCert(in.Akcert, in.Scenario)
 	if err != nil {
@@ -50,6 +52,7 @@ func (s *service) GetAKCert(ctx context.Context, in *GetAKCertRequest) (*GetAKCe
 	return &GetAKCertReply{Akcert: akcert}, nil
 }
 
+// StartServer starts a server to provide tee ak services.
 func StartServer(addr string) {
 	log.Print("Start tee ak server...")
 	listen, err := net.Listen("tcp", addr)
@@ -63,6 +66,7 @@ func StartServer(addr string) {
 	}
 }
 
+// StopServer stops the tee ak server.
 func StopServer() {
 	if akServer == nil {
 		return
@@ -84,6 +88,7 @@ func makesock(addr string) (*tasConn, error) {
 	return tas, nil
 }
 
+// DoGetAKCert using existing tee ak service connection to get ak cert.
 func DoGetAKCert(addr string, in *GetAKCertRequest) (*GetAKCertReply, error) {
 	tas, err := makesock(addr)
 	if err != nil {

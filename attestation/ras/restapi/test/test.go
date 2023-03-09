@@ -57,11 +57,13 @@ var (
 	pub  string
 )
 
+// CreateAuthKeyFile creates auth key file.
 func CreateAuthKeyFile(privfile string, pubfile string) {
 	priv, pub = privfile, pubfile
 	initRestapiAuthKeyFile(priv, pub)
 }
 
+// RemoveAuthKeyFile removes auth key file.
 func RemoveAuthKeyFile() {
 	os.Remove(priv)
 	os.Remove(pub)

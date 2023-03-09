@@ -32,37 +32,44 @@ type rahub struct {
 	rasAddr string
 }
 
+// GenerateEKCert returns ek cert.
 func (s *rahub) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
 	logger.L.Debug("rahub: receive GenerateEKCert")
 	return DoGenerateEKCert(s.rasAddr, in)
 }
 
+// GenerateIKCert returns ik cert.
 func (s *rahub) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
 	logger.L.Debug("rahub: receive GenerateIKCert")
 	return DoGenerateIKCert(s.rasAddr, in)
 }
 
+// RegisterClient creates a new client in database.
 func (s *rahub) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
 	logger.L.Debug("rahub: receive RegisterClient")
 	return DoRegisterClient(s.rasAddr, in)
 }
 
+// UnregisterClient unregisters client
+// by setting client's registration status to false.
 func (s *rahub) UnregisterClient(ctx context.Context, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
 	logger.L.Debug("rahub: receive UnregisterClient")
 	return DoUnregisterClient(s.rasAddr, in)
 }
 
+// SendHeartbeat sends a heart beat message to the ras server.
 func (s *rahub) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
 	logger.L.Debug("rahub: receive SendHeartbeat")
 	return DoSendHeartbeat(s.rasAddr, in)
 }
 
+// SendReport sends a trust report message to the ras server.
 func (s *rahub) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
 	logger.L.Debug("rahub: receive SendReport")
 	return DoSendReport(s.rasAddr, in)
 }
 
-// StartServer starts ras server and provides rpc services.
+// StartRaHub starts ras server and provides rpc services.
 func StartRaHub(addr, rasAddr string) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {

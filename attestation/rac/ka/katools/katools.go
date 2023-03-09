@@ -40,10 +40,13 @@ import (
 )
 
 const (
+	// CMD_DATA_SIZE means the size of cmd data
 	CMD_DATA_SIZE = 2048
 )
 
 // KA主函数
+// KaMain invokes KTA, establishes a connection to the clientapi,
+// initializes ka, handles the polling key request process.
 func KaMain(addr string, id int64, ktaShutdown bool) {
 	logger.L.Debug("start ka...")
 	loadConfigs()
