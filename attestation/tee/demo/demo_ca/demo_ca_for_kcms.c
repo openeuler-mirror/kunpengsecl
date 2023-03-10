@@ -17,8 +17,9 @@ See the Mulan PSL v2 for more details.
 #define OPERATION_START_FLAG 1
 #define MAX_STR_LEN 64
 #define HASH_SIZE 65
+#define HASH_NAMELEN 9
 #define MEMHASH_PARAM 0
-#define IMGHASH_PARAM 0
+#define IMGHASH_PARAM 1
 #define SYMBOL_PARAM 3
 #define VALUE_INIT 0x7fffffff
 
@@ -36,22 +37,26 @@ enum {
 //read two hash values from hash file
 bool readfile(char *ta_mem, char *ta_img) {
     FILE *f;
-    char *mem_name = NULL;
-    char *img_name = NULL;
+    char mem_name[HASH_NAMELEN] = {0};
+    char img_name[HASH_NAMELEN] = {0};
     char punc;
     if((f = fopen(hash_file, "r")) == NULL) {
         TEEC_Error("read hash file failed!\n");
         return 1;
     }
-    fscanf(f,"%s%c%s", mem_name, punc, ta_mem);
+    (void)fscanf(f,"%s %c %s", mem_name, &punc, ta_mem);
     if((strcmp(mem_name, "mem_hash") != 0) || strlen(ta_mem) != 64) {
         TEEC_Error("read mem_hash from hash file failed!\n");
         return 1;
     }
-
-    fscanf(f,"%s%c%s", img_name, punc, ta_img);
+    (void)fscanf(f,"%s %c %s", img_name, &punc, ta_img);
     if((strcmp(img_name, "img_hash") != 0) || strlen(ta_img) != 64) {
         TEEC_Error("read img_hash from hash file failed!\n");
+        return 1;
+    }
+    int ret = fclose(f);
+    if(ret != 0) {
+        TEEC_Error("close hash file failed!\n");
         return 1;
     }
     return 0;
@@ -64,8 +69,8 @@ int main(){
     uint32_t origin = 0;
     TEEC_Result result;
     int32_t i = 0;
-    char mem_hash[HASH_SIZE];
-    char img_hash[HASH_SIZE];
+    char mem_hash[HASH_SIZE] = {0};
+    char img_hash[HASH_SIZE] = {0};
     bool symbol = 1;
 
     result = TEEC_InitializeContext(NULL, &context);
@@ -91,7 +96,6 @@ int main(){
     if(symbol == 1) {
         goto end3;
     }
-
     //Demonstrate twice, first for key generation, second for key search
     for(; i < 2; i++) {
         operation.started = OPERATION_START_FLAG;

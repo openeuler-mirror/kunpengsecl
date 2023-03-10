@@ -113,6 +113,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
             break;
         case CMD_KILL:
             TEE_Panic(TEE_FAIL);
+            return TEE_SUCCESS;
             break;
         default:
             tloge("Unknown cmd is %u", cmd);

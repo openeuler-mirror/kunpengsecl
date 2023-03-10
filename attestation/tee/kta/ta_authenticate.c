@@ -49,7 +49,6 @@ bool checkUuid(TEE_UUID id1,TEE_UUID id2)
 
 // return -1 when ta is not exist, return 0 when success, return 1 when account is not match
 int32_t verifyTAPasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
-    //todo: search a ta state from tacache
     //step1: check the queue is or not is empty
     if (cache.head == END_NULL && cache.tail == END_NULL)
     {
@@ -67,8 +66,7 @@ int32_t verifyTAPasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
         tloge("Failed to verify the TA password!\n");
         return -1;
     }
-    ////step3: compare the cache's value with account and password
-    //find the TA_uuid in the cache
+    //step3: compare the cache's value with account and password
     if(!memcmp(account,cache.ta[front].account,sizeof(cache.ta[front].account)) 
     && !memcmp(password,cache.ta[front].password,sizeof(cache.ta[front].password)))
     {
@@ -209,6 +207,7 @@ end:
 }
 
 //verify drk signature using ak_pub, drk_sign, drk_cert, and payload in akcert
+/*
 bool verifydrksign(char *drk_data, char *ak_pub, char *drk_sign, char *drk_cert) {
     //bool status = CHECK_FAIL;
     (void)drk_data;
@@ -217,6 +216,7 @@ bool verifydrksign(char *drk_data, char *ak_pub, char *drk_sign, char *drk_cert)
     (void)drk_cert;
     return CHECK_SUCCESS;
 }
+*/
 
 //check whether fields of out buffer are valid
 bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_buffer_data *out) {
@@ -280,6 +280,7 @@ bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_b
         tloge("compare ta hash values failed!\n");
         goto end1;
     }
+/*
     akcert_noas = cJSON_GetObjectItemCaseSensitive(akcert, "sce_no_as");
     if(akcert_noas == NULL) {
         tloge("check akcert failed!\n");
@@ -316,10 +317,12 @@ bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_b
         tloge("verify drk signature failed!\n");
         goto end2;
     }
+*/
     status = CHECK_SUCCESS;
-
+/*
 end2:
     cJSON_free(drk_datastring);
+*/
 end1:
     cJSON_Delete(outdata);
     return status;

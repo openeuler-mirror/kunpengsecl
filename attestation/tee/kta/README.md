@@ -37,7 +37,7 @@ param_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT, //存放请求结果
         TEE_PARAM_TYPE_VALUE_OUTPUT, //存放KTA处理结果, 0表示失败，1表示成功
         TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE
+        TEE_PARAM_TYPE_MEMREF_INPUT  //存放TA的两个哈希值
         );
 ```
 ### 与TA交互接口
@@ -50,7 +50,7 @@ parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放是否需要向kcm生成请求：固定为1（需要）
                                       //b为0表示生成请求结果失败，1表示生成请求结果成功（详见数据结构TEE_Param）
-        TEE_PARAM_TYPE_NONE
+        TEE_PARAM_TYPE_MEMREF_INPUT  //存放TA的两个哈希值
         );
 ```
 
@@ -63,7 +63,7 @@ parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_OUTPUT, //存放返回密钥明文
         TEE_PARAM_TYPE_VALUE_OUTPUT,  //存放是否需要向kcm生成请求：a为0表示不需要向kcm生成请求，1表示需要向kcm生成请求
                                       //b为0表示生成请求结果失败，1表示生成请求结果成功（详见数据结构TEE_Param）
-        TEE_PARAM_TYPE_NONE
+        TEE_PARAM_TYPE_MEMREF_INPUT  //存放TA的两个哈希值
         );
 ```
 6、描述：TA请求删除密钥缓存
@@ -73,7 +73,7 @@ parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT, //存放cmd结构体
         TEE_PARAM_TYPE_VALUE_OUTPUT, //返回删除结果
         TEE_PARAM_TYPE_VALUE_OUTPUT, //存放是否需要向kcm生成请求：固定为0（不需要）
-        TEE_PARAM_TYPE_NONE
+        TEE_PARAM_TYPE_MEMREF_INPUT  //存放TA的两个哈希值
         );
 ```
 7、描述：KTA向TA返回结果
@@ -83,7 +83,7 @@ parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
         TEE_PARAM_TYPE_MEMREF_OUTPUT, //返回请求结果
         TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE
+        TEE_PARAM_TYPE_MEMREF_INPUT  //存放TA的两个哈希值
         );
 ```
 8、描述：TA删除所有kta内部保存的信息
@@ -93,7 +93,7 @@ parm_type = TEE_PARAM_TYPES(
         TEE_PARAM_TYPE_MEMREF_INPUT,  //存放cmd结构体
         TEE_PARAM_TYPE_VALUE_OUTPUT,  //返回请求结果：0表示失败，1表示成功
         TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE
+        TEE_PARAM_TYPE_MEMREF_INPUT  //存放TA的两个哈希值
         );
 ```
 
@@ -103,12 +103,32 @@ parm_type = TEE_PARAM_TYPES(
 使用多重数组实现密钥/TA信息本地缓存
 
 ```C
-/* command queue to store the commands */
+/* Cache to store the info of Ta and key */
+typedef struct _tagKeyInfo{
+    TEE_UUID    id;
+    uint8_t value[KEY_SIZE];
+    int32_t next;   // -1: empty; 0~MAX_TA_NUM: next key for search operation.
+} KeyInfo;
 
-typedef struct _tagCmdData{
-    uint8_t key[KEY_SIZE];  //key_size need to be reset
-    uint8_t cmdparse[MAX_DATA_LEN];//data_len need to be reset
-} CmdData;
+typedef struct _tagTaInfo{
+    TEE_UUID    id;
+    TEE_UUID    masterkey;
+    uint8_t account[MAX_STR_LEN];
+    uint8_t password[MAX_STR_LEN];
+    int32_t next;   // -1: empty; 0~MAX_TA_NUM: next ta for search operation.
+    KeyInfo key[MAX_KEY_NUM];
+    int32_t head;   // -1: empty; 0~MAX_TA_NUM: first key for dequeue operation.
+    int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last key for enqueue operation.
+} TaInfo;
+
+
+typedef struct _tagCache{
+    TaInfo  ta[MAX_TA_NUM];
+    int32_t head;   // -1: empty; 0~MAX_TA_NUM: first ta for dequeue operation.
+    int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last ta for enqueue operation.
+} Cache;
+
+/* CmdQueue to store the commands */
 
 typedef struct _tagCmdNode{
     int32_t     cmd;
@@ -125,6 +145,15 @@ typedef struct _tagCmdQueue{
     int32_t tail;   // 0~MAX_TA_NUM: last cmd for enqueue operation.
 } CmdQueue;
 
+/* HashValue to store the hash values of ta */
+
+typedef struct _tagHashValues{
+    char mem_hash[HASH_SIZE];
+    char img_hash[HASH_SIZE];
+} HashValue;
+
+/* ReplyCache to store the reply of ta's request */
+
 typedef struct _tagReplyNode{
     int32_t tag;    //a tag to identify reply: 1 for generate reply, 2 for delete reply
     TEE_UUID    taId;
@@ -132,14 +161,13 @@ typedef struct _tagReplyNode{
     union {
         uint8_t keyvalue[KEY_SIZE];
         int32_t flag;   //a flag to identify if the key is deleted successfully: 1 for deleted, 0 for not
-    }
+    };
     int32_t next;   // -1: empty; 0~MAX_TA_NUM: next reply for search operation.
 } ReplyNode;
 
-typedef struct _tagCmdQueue{
-    ReplyNode queue[MAX_QUEUE_SIZE];
+typedef struct _tagReplyQueue{
+    ReplyNode list[MAX_QUEUE_SIZE];
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first reply for key generate.
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last reply for key generate.
 } ReplyCache;
-
 ```
