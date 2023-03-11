@@ -1,6 +1,6 @@
 
 PKGPATH=pkg
-TESTEES=./ractools
+TESTEES=./ractools ./ka/katools
 RACPATH = ./cmd/raagent
 KTALIBPATH = ka/ktalib
 HUBPATH = ./cmd/rahub
