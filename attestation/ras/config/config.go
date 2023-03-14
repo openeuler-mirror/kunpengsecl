@@ -331,7 +331,10 @@ func createRootCertKey() {
 		// modify rootTemplate fields
 		t := time.Now()
 		rootTemplate := createCertTemplate(t, "root")
-		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
+		priv, err := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
+		if err != nil {
+			return
+		}
 		// self signing
 		certDer, err := x509.CreateCertificate(rand.Reader, rootTemplate,
 			rootTemplate, &priv.PublicKey, priv)
@@ -415,7 +418,10 @@ func createPcaCertKey() {
 		t := time.Now()
 		rootTemplate := createCertTemplate(t, "root")
 		pcaTemplate := createCertTemplate(t, "ek")
-		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
+		priv, err := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
+		if err != nil {
+			return
+		}
 		// sign by root ca
 		certDer, err := x509.CreateCertificate(rand.Reader, pcaTemplate,
 			rootTemplate, &priv.PublicKey, rasCfg.rootPrivKey)
@@ -481,7 +487,10 @@ func createHttpsCertKey() {
 		t := time.Now()
 		rootTemplate := createCertTemplate(t, "root")
 		httpsTemplate := createCertTemplate(t, "ek")
-		priv, _ := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
+		priv, err := rsa.GenerateKey(rand.Reader, cryptotools.RsaKeySize)
+		if err != nil {
+			return
+		}
 		// sign by root ca
 		certDer, err := x509.CreateCertificate(rand.Reader, httpsTemplate,
 			rootTemplate, &priv.PublicKey, rasCfg.rootPrivKey)
@@ -1025,8 +1034,7 @@ func GetTaInputs() map[string]ractools.TaReportInput {
 	return taInputs
 }
 
-//vtype shuold be 1/2/3
-
+// vtype shuold be 1/2/3
 // SetTaVerifyType sets ta verify type configuration.
 func SetTaVerifyType(vtype int) {
 	rasCfg.taVerifyType = vtype

@@ -85,7 +85,6 @@ var (
 	pubKeyFile    = "./pubKey.pem"
 	pubInFlag     = "-pubin"
 	pubOutFlag    = "-pubout" // PKCS#8
-	//pubOutFlag = "-RSAPublicKey_out"	// PKCS#1
 	algorithmFlag = "-algorithm"
 	rsaFlag       = "RSA"
 	encryptFlag   = "-encrypt"
@@ -189,8 +188,14 @@ func TestSymEnc(t *testing.T) {
 			plainText, key32Value, ivValue, AlgAES, AlgCTR},
 	}
 	defer func() {
-		os.Remove(textFile)
-		os.Remove(decFile)
+		err := os.Remove(textFile)
+		if err != nil {
+			t.Errorf("remove error: %v", err)
+		}
+		err1 := os.Remove(decFile)
+		if err1 != nil {
+			t.Errorf("remove error: %v", err1)
+		}
 	}()
 	for _, tc := range testCases {
 		ciphertext, err := SymmetricEncrypt(tc.alg, tc.mod, []byte(tc.key), []byte(tc.iv), []byte(tc.text))
@@ -253,8 +258,14 @@ func TestSymDec(t *testing.T) {
 			plainText, key32Value, ivValue, AlgAES, AlgCTR},
 	}
 	defer func() {
-		os.Remove(textFile)
-		os.Remove(encFile)
+		err := os.Remove(textFile)
+		if err != nil {
+			t.Errorf("remove error: %v", err)
+		}
+		err1 := os.Remove(encFile)
+		if err1 != nil {
+			t.Errorf("remove error: %v", err1)
+		}
 	}()
 	for _, tc := range testCases {
 		err := ioutil.WriteFile(textFile, []byte(tc.text), 0644)
@@ -266,8 +277,14 @@ func TestSymDec(t *testing.T) {
 		params = append(params, ivFlag)
 		params = append(params, hex.EncodeToString([]byte(tc.iv)))
 		runCmd(t, params)
-		base64text, _ := ioutil.ReadFile(encFile)
-		ciphertext, _ := base64.StdEncoding.DecodeString(string(base64text))
+		base64text, err := ioutil.ReadFile(encFile)
+		if err != nil {
+			t.Errorf("ReadFile error: %v", err)
+		}
+		ciphertext, err := base64.StdEncoding.DecodeString(string(base64text))
+		if err != nil {
+			t.Errorf("DecodeString error: %v", err)
+		}
 		plaintext, err := SymmetricDecrypt(tc.alg, tc.mod, []byte(tc.key), []byte(tc.iv), ciphertext)
 		if err != nil {
 			t.Errorf(constINVOKE, constSD, err)
@@ -408,18 +425,48 @@ func pKeyDecOAEP(t *testing.T) {
 	runCmd(t, genRsaDecryptParams)
 }
 func delRsaKeys() {
-	os.Remove(rsaKeyFile)
-	os.Remove(rsaPubKeyFile)
-	os.Remove(pKeyFile)
-	os.Remove(pubKeyFile)
-	os.Remove(textFile)
-	os.Remove(encFile)
-	os.Remove(decFile)
-	os.Remove(encPKeyFile)
-	os.Remove(decPKeyFile)
+	err := os.Remove(rsaKeyFile)
+	if err != nil {
+		return
+	}
+	err1 := os.Remove(rsaPubKeyFile)
+	if err1 != nil {
+		return
+	}
+	err2 := os.Remove(pKeyFile)
+	if err2 != nil {
+		return
+	}
+	err3 := os.Remove(pubKeyFile)
+	if err3 != nil {
+		return
+	}
+	err4 := os.Remove(textFile)
+	if err4 != nil {
+		return
+	}
+	err5 := os.Remove(encFile)
+	if err5 != nil {
+		return
+	}
+	err6 := os.Remove(decFile)
+	if err6 != nil {
+		return
+	}
+	err7 := os.Remove(encPKeyFile)
+	if err7 != nil {
+		return
+	}
+	err8 := os.Remove(decPKeyFile)
+	if err8 != nil {
+		return
+	}
 }
 func testAsymEncSchemeNull(t *testing.T, alg, mod uint16, text string) {
-	rsaPubKeyPEM, _ := ioutil.ReadFile(rsaPubKeyFile)
+	rsaPubKeyPEM, err := ioutil.ReadFile(rsaPubKeyFile)
+	if err != nil {
+		t.Errorf("ReadFile error: %v", err)
+	}
 	keyBlock, _ := pem.Decode(rsaPubKeyPEM)
 	if keyBlock == nil || keyBlock.Type != constPUBLIC {
 		t.Errorf(constPUBLICERR)
@@ -437,14 +484,20 @@ func testAsymEncSchemeNull(t *testing.T, alg, mod uint16, text string) {
 		t.Errorf(constINVOKE, constWT+encFile, err)
 	}
 	rsaDecrypt(t)
-	plaintext, _ := ioutil.ReadFile(decFile)
+	plaintext, err := ioutil.ReadFile(decFile)
+	if err != nil {
+		t.Errorf("ReadFile error: %v", err)
+	}
 	if string(plaintext) != text {
 		t.Errorf(constRESULT, len(plaintext), string(plaintext), len(text), text)
 	}
 }
 
 func testAsymEncSchemeAll(t *testing.T, alg, mod uint16, text string) {
-	pubKeyPEM, _ := ioutil.ReadFile(pubKeyFile)
+	pubKeyPEM, err := ioutil.ReadFile(pubKeyFile)
+	if err != nil {
+		t.Errorf("ReadFile error: %v", err)
+	}
 	pKeyBlock, _ := pem.Decode(pubKeyPEM)
 	if pKeyBlock == nil || pKeyBlock.Type != constPUBLIC {
 		t.Errorf(constPUBLICERR)
@@ -466,7 +519,10 @@ func testAsymEncSchemeAll(t *testing.T, alg, mod uint16, text string) {
 	} else {
 		pKeyDecPKCS1(t)
 	}
-	plaintext2, _ := ioutil.ReadFile(decPKeyFile)
+	plaintext2, err := ioutil.ReadFile(decPKeyFile)
+	if err != nil {
+		t.Errorf("ReadFile error: %v", err)
+	}
 	if string(plaintext2) != text {
 		t.Errorf(constRESULT, len(plaintext2), string(plaintext2), len(text), text)
 	}
@@ -492,7 +548,10 @@ func TestAsymEnc(t *testing.T) {
 }
 func testAsymDecSchemeNull(t *testing.T, alg, mod uint16, text string) {
 	rsaEncrypt(t)
-	rsaKeyPEM, _ := ioutil.ReadFile(rsaKeyFile)
+	rsaKeyPEM, err := ioutil.ReadFile(rsaKeyFile)
+	if err != nil {
+		t.Errorf("ReadFile error: %v", err)
+	}
 	keyBlock, _ := pem.Decode(rsaKeyPEM)
 	if keyBlock == nil || keyBlock.Type != constRSAPRIVATE {
 		t.Errorf(constPRIVATEERR)
@@ -502,7 +561,10 @@ func testAsymDecSchemeNull(t *testing.T, alg, mod uint16, text string) {
 	if err1 != nil {
 		t.Errorf(constINVOKE, constP1K, err1)
 	}
-	ciphertext, _ := ioutil.ReadFile(encFile)
+	ciphertext, err := ioutil.ReadFile(encFile)
+	if err != nil {
+		t.Errorf("ReadFile error: %v", err)
+	}
 	plaintext, err1 := AsymmetricDecrypt(alg, mod, rsaPriKey, ciphertext, nil)
 	if err1 != nil {
 		t.Errorf(constINVOKE, constAD, err1)
@@ -518,7 +580,10 @@ func testAsymDecSchemeAll(t *testing.T, alg, mod uint16, text string) {
 	} else {
 		pKeyEncPKCS1(t)
 	}
-	pKeyPEM, _ := ioutil.ReadFile(pKeyFile)
+	pKeyPEM, err := ioutil.ReadFile(pKeyFile)
+	if err != nil {
+		t.Errorf("ReadFile error: %v", err)
+	}
 	pKeyBlock, _ := pem.Decode(pKeyPEM)
 	if pKeyBlock == nil || pKeyBlock.Type != constPRIVATE {
 		t.Errorf(constPRIVATEERR)
@@ -528,7 +593,10 @@ func testAsymDecSchemeAll(t *testing.T, alg, mod uint16, text string) {
 	if err != nil {
 		t.Errorf(constINVOKE, constP8K, err)
 	}
-	ciphertext2, _ := ioutil.ReadFile(encPKeyFile)
+	ciphertext2, err := ioutil.ReadFile(encPKeyFile)
+	if err != nil {
+		t.Errorf("ReadFile error: %v", err)
+	}
 	plaintext2, err := AsymmetricDecrypt(alg, mod, priKey, ciphertext2, nil)
 	if err != nil {
 		t.Errorf(constINVOKE, constAD, err)
@@ -679,7 +747,6 @@ func TestMakeCredential(t *testing.T) {
 		a1, b1, err1 := MakeCredential(tc.pubkey, tc.credential, tc.name)
 		a2, b2, err2 := Tpm2MakeCredential(tc.pubkey, tc.credential, tc.name)
 		if err1 != nil || err2 != nil || !bytes.Equal(a1, a2) || !bytes.Equal(b1, b2) {
-			//t.Errorf("blob & secret can't match:\n (%v, %v)\n (%v, %v)\n", a1, b1, a2, b2)
 			t.Logf("blob & secret can't match:\n (%v, %v)\n (%v, %v)\n", a1, b1, a2, b2)
 		}
 

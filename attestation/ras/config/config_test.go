@@ -116,19 +116,31 @@ var (
 )
 
 func CreateClientConfigFile() {
-	ioutil.WriteFile(configFilePath, []byte(clientConfig), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(clientConfig), 0644)
+	if err != nil {
+		return
+	}
 }
 
 func CreateHubConfigFile() {
-	ioutil.WriteFile(configFilePath, []byte(hubConfig), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(hubConfig), 0644)
+	if err != nil {
+		return
+	}
 }
 
 func CreateServerConfigFile() {
-	ioutil.WriteFile(configFilePath, []byte(serverConfig), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(serverConfig), 0644)
+	if err != nil {
+		return
+	}
 }
 
 func RemoveConfigFile() {
-	os.Remove(configFilePath)
+	err := os.Remove(configFilePath)
+	if err != nil {
+		return
+	}
 }
 
 func TestRASConfig1(t *testing.T) {
@@ -225,12 +237,30 @@ func TestRASConfig2(t *testing.T) {
 	fmt.Println(tt)
 	assert.Equal(t, testExRule, GetExtractRules())
 
-	os.Remove(rasCfg.rootKeyCertFile)
-	os.Remove(rasCfg.rootPrivKeyFile)
-	os.Remove(rasCfg.pcaKeyCertFile)
-	os.Remove(rasCfg.pcaPrivKeyFile)
-	os.Remove(rasCfg.httpsKeyCertFile)
-	os.Remove(rasCfg.httpsPrivKeyFile)
+	err := os.Remove(rasCfg.rootKeyCertFile)
+	if err != nil {
+		t.Errorf("Remove error %v", err)
+	}
+	err1 := os.Remove(rasCfg.rootPrivKeyFile)
+	if err1 != nil {
+		t.Errorf("Remove error %v", err1)
+	}
+	err2 := os.Remove(rasCfg.pcaKeyCertFile)
+	if err2 != nil {
+		t.Errorf("Remove error %v", err2)
+	}
+	err3 := os.Remove(rasCfg.pcaPrivKeyFile)
+	if err3 != nil {
+		t.Errorf("Remove error %v", err3)
+	}
+	err4 := os.Remove(rasCfg.httpsKeyCertFile)
+	if err4 != nil {
+		t.Errorf("Remove error %v", err4)
+	}
+	err5 := os.Remove(rasCfg.httpsPrivKeyFile)
+	if err5 != nil {
+		t.Errorf("Remove error %v", err5)
+	}
 }
 
 func testHBDuration(t *testing.T) {
@@ -286,4 +316,5 @@ func TestRACConfig(t *testing.T) {
 	os.Remove(rasCfg.pcaPrivKeyFile)
 	os.Remove(rasCfg.httpsKeyCertFile)
 	os.Remove(rasCfg.httpsPrivKeyFile)
+
 }

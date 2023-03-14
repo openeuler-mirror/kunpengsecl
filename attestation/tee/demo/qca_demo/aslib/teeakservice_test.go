@@ -610,17 +610,41 @@ var (
 )
 
 func createFiles() {
-	ioutil.WriteFile(ConfigPath, []byte(tasconfig), 0644)
-	ioutil.WriteFile(asCertPath, []byte(ascert), 0644)
-	ioutil.WriteFile(asprivPath, []byte(aspriv), 0644)
-	ioutil.WriteFile(huaweiPath, []byte(huaweica), 0644)
+	err := ioutil.WriteFile(ConfigPath, []byte(tasconfig), 0644)
+	if err != nil {
+		return
+	}
+	err1 := ioutil.WriteFile(asCertPath, []byte(ascert), 0644)
+	if err1 != nil {
+		return
+	}
+	err2 := ioutil.WriteFile(asprivPath, []byte(aspriv), 0644)
+	if err2 != nil {
+		return
+	}
+	err3 := ioutil.WriteFile(huaweiPath, []byte(huaweica), 0644)
+	if err3 != nil {
+		return
+	}
 }
 
 func removeFiles() {
-	os.Remove(ConfigPath)
-	os.Remove(asCertPath)
-	os.Remove(asprivPath)
-	os.Remove(huaweiPath)
+	err := os.Remove(ConfigPath)
+	if err != nil {
+		return
+	}
+	err1 := os.Remove(asCertPath)
+	if err1 != nil {
+		return
+	}
+	err2 := os.Remove(asprivPath)
+	if err2 != nil {
+		return
+	}
+	err3 := os.Remove(huaweiPath)
+	if err3 != nil {
+		return
+	}
 }
 
 func TestGetAKCert(t *testing.T) {

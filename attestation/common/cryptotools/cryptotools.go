@@ -293,9 +293,10 @@ Family "2.0"
 Level 00 Revision 01.59
 November 8, 2019
 Published
-  Contact admin@trustedcomputinggroup.org
-  TCG Published
-  Copyright(c) TCG 2006-2020
+
+	Contact admin@trustedcomputinggroup.org
+	TCG Published
+	Copyright(c) TCG 2006-2020
 
 Page 43
 11.4.10 Key Derivation Function
@@ -311,16 +312,20 @@ KDFa().
 With the exception of ECDH, KDFa() is used in all cases where a KDF is required.
 KDFa() uses Counter mode from SP800-108, with HMAC as the PRF.
 As defined in SP800-108, the inner loop for building the key stream is:
-        K(i) := HMAC(K, [i] || Label || 00 || Context || [L])           (6)
+
+	K(i) := HMAC(K, [i] || Label || 00 || Context || [L])           (6)
+
 where
-    K(i)    the i(th) iteration of the KDF inner loop
-    HMAC()  the HMAC algorithm using an approved hash algorithm
-    K       the secret key material
-    [i]     a 32-bit counter that starts at 1 and increments on each iteration
-    Label   a octet stream indicating the use of the key produced by this KDF
-    00      Added only if Label is not present or if the last octect of Label is not zero
-    Context a binary string containing information relating to the derived keying material
-    [L]     a 32-bit value indicating the number of bits to be returned from the KDF
+
+	K(i)    the i(th) iteration of the KDF inner loop
+	HMAC()  the HMAC algorithm using an approved hash algorithm
+	K       the secret key material
+	[i]     a 32-bit counter that starts at 1 and increments on each iteration
+	Label   a octet stream indicating the use of the key produced by this KDF
+	00      Added only if Label is not present or if the last octect of Label is not zero
+	Context a binary string containing information relating to the derived keying material
+	[L]     a 32-bit value indicating the number of bits to be returned from the KDF
+
 NOTE1
 Equation (6) is not KDFa(). KDFa() is the function call defined below.
 
@@ -336,23 +341,27 @@ returned.
 
 When this specification calls for use of this KDF, it uses a function reference
 to KDFa(). The function prototype is:
-        KDFa(hashAlg, key, label, contextU, contextV, bits)             (7)
+
+	KDFa(hashAlg, key, label, contextU, contextV, bits)             (7)
+
 where
-    hashAlg  a TPM_ALG_ID to be used in the HMAC in the KDF
-    key      a variable-sized value used as K
-    label    a variable-sized octet stream used as Label
-    contextU a variable-sized value concatenated with contextV to create the
-             Context parameter used in equation (6) above
-    contextV a variable-sized value concatenated with contextU to create the
-             Context parameter used in equation (6) above
-    bits     a 32-bit value used as [L], and is the number of bits returned
-             by the function
+
+	hashAlg  a TPM_ALG_ID to be used in the HMAC in the KDF
+	key      a variable-sized value used as K
+	label    a variable-sized octet stream used as Label
+	contextU a variable-sized value concatenated with contextV to create the
+	         Context parameter used in equation (6) above
+	contextV a variable-sized value concatenated with contextU to create the
+	         Context parameter used in equation (6) above
+	bits     a 32-bit value used as [L], and is the number of bits returned
+	         by the function
 
 The values of contextU and contextV are passed as sized buffers and only the
 buffer data is used to construct the Context parameter used in equation (6)
 above. The size fields of contextU and contextV are not included in the
 computation. That is:
-        Context := contextU.buffer || contextV.buffer                   (8)
+
+	Context := contextU.buffer || contextV.buffer                   (8)
 
 The 32-bit value of bits is in TPM canonical form, with the least significant
 bits of the value in the highest numbered octet.
@@ -377,18 +386,36 @@ func KDFa(alg crypto.Hash, key []byte, label string, contextU, contextV []byte, 
 	h := hmac.New(alg.New, key)
 	for i := 1; len(buf) < bufLen; i++ {
 		h.Reset()
-		binary.Write(h, binary.BigEndian, uint32(i))
+		err := binary.Write(h, binary.BigEndian, uint32(i))
+		if err != nil {
+			return nil, errors.New("failed to write")
+		}
 		if len(label) > 0 {
-			h.Write([]byte(label))
-			h.Write([]byte{0})
+			_, err1 := h.Write([]byte(label))
+			if err1 != nil {
+				return nil, errors.New("failed to write")
+			}
+			_, err2 := h.Write([]byte{0})
+			if err2 != nil {
+				return nil, errors.New("failed to write")
+			}
 		}
 		if len(contextU) > 0 {
-			h.Write(contextU)
+			_, err3 := h.Write(contextU)
+			if err3 != nil {
+				return nil, errors.New("failed to write")
+			}
 		}
 		if len(contextV) > 0 {
-			h.Write(contextV)
+			_, err4 := h.Write(contextV)
+			if err4 != nil {
+				return nil, errors.New("failed to write")
+			}
 		}
-		binary.Write(h, binary.BigEndian, uint32(bits))
+		err5 := binary.Write(h, binary.BigEndian, uint32(bits))
+		if err5 != nil {
+			return nil, errors.New("failed to write")
+		}
 		buf = h.Sum(buf)
 	}
 	buf = buf[:bufLen]
@@ -407,9 +434,10 @@ Family "2.0"
 Level 00 Revision 01.59
 November 8, 2019
 Published
-  Contact admin@trustedcomputinggroup.org
-  TCG Published
-  Copyright(c) TCG 2006-2020
+
+	Contact admin@trustedcomputinggroup.org
+	TCG Published
+	Copyright(c) TCG 2006-2020
 
 Page 161
 24 Credential Protection
@@ -433,7 +461,9 @@ public area is a valid object on the same TPM as the "EK". To ensure this, the
 credential provider encrypts a challenge and then "wraps" the challenge
 encryption key with the public key of the "EK".
 NOTE:
-  "EK" is used to indicate that an EK is typically used for this process but
+
+	"EK" is used to indicate that an EK is typically used for this process but
+
 any storage key may be used. It is up to the credential provider to decide
 what is acceptable for an "EK".
 
@@ -474,66 +504,85 @@ of the "EK". The methods of generating the SEED are determined by the
 asymmetric algorithm of the "EK" and are described in an annex to this TPM 2.0
 Part 1. In the process of creating SEED, the label is required to be "INTEGRITY".
 NOTE:
-  If a duplication blob is given to the TPM, its HMAC key will be wrong and
+
+	If a duplication blob is given to the TPM, its HMAC key will be wrong and
+
 the HMAC check will fail.
 
 Given a value for SEED, a key is created by:
-        symKey := KDFa(ekNameAlg, SEED, "STORAGE", name, NULL, bits)    (44)
+
+	symKey := KDFa(ekNameAlg, SEED, "STORAGE", name, NULL, bits)    (44)
+
 where
-    ekNameAlg  the nameAlg of the key serving as the "EK"
-    SEED       the symmetric seed value produced using methods specific to
-               the type of asymmetric algorithms of the "EK"
-    "STORAGE"  a value used to differentiate the uses of the KDF
-    name       the Name of the object associated with the credential
-    bits       the number of bits required for the symmetric key
+
+	ekNameAlg  the nameAlg of the key serving as the "EK"
+	SEED       the symmetric seed value produced using methods specific to
+	           the type of asymmetric algorithms of the "EK"
+	"STORAGE"  a value used to differentiate the uses of the KDF
+	name       the Name of the object associated with the credential
+	bits       the number of bits required for the symmetric key
+
 The symKey is used to encrypt the CV. The IV is set to 0.
-        encIdentity := CFB(symKey, 0, CV)                               (45)
+
+	encIdentity := CFB(symKey, 0, CV)                               (45)
+
 where
-    CFB        symmetric encryption in CFB mode using the symmetric
-               algorithm of the key serving as "EK"
-    symKey     symmetric key from (44)
-    CV         the credential value (a TPM2B_DIGEST)
+
+	CFB        symmetric encryption in CFB mode using the symmetric
+	           algorithm of the key serving as "EK"
+	symKey     symmetric key from (44)
+	CV         the credential value (a TPM2B_DIGEST)
 
 24.5 HMAC
 A final HMAC operation is applied to the encIdentity value. This is to ensure
 that the TPM can properly associate the credential with a loaded object and
 to prevent misuse of or tampering with the CV.
 The HMAC key (HMACkey) for the integrity is computed by:
-        HMACkey := KDFa(ekNameAlg, SEED, "INTEGRITY", NULL, NULL, bits) (46)
+
+	HMACkey := KDFa(ekNameAlg, SEED, "INTEGRITY", NULL, NULL, bits) (46)
+
 where
-    ekNameAlg    the nameAlg of the target "EK"
-    SEED         the symmetric seed value used in (44); produced using
-                 methods specific to the type of asymmetric algorithms
-                 of the "EK"
-    "INTEGRITY"  a value used to differentiate the uses of the KDF
-    bits         the number of bits in the digest produced by ekNameAlg
+
+	ekNameAlg    the nameAlg of the target "EK"
+	SEED         the symmetric seed value used in (44); produced using
+	             methods specific to the type of asymmetric algorithms
+	             of the "EK"
+	"INTEGRITY"  a value used to differentiate the uses of the KDF
+	bits         the number of bits in the digest produced by ekNameAlg
+
 NOTE:
-  Even though the same value for label is used for each integrit HMAC, SEED
+
+	Even though the same value for label is used for each integrit HMAC, SEED
+
 is created in a manner that is unique to the application. Since SEED is
 unique to the application, the HMAC is unique to the application.
 
 HMACkey is then used in the integrity computation.
-        identityHMAC := HMAC(HMACkey, encIdentity || Name)              (47)
+
+	identityHMAC := HMAC(HMACkey, encIdentity || Name)              (47)
+
 where
-    HMAC         the HMAC function using nameAlg of the "EK"
-    HMACkey      a value derived from the "EK" symmetric protection
-                 value according to equation (46)
-    encIdentity  symmetrically encrypted sensitive area produced in (45)
-    Name         the Name of the object being protected
+
+	HMAC         the HMAC function using nameAlg of the "EK"
+	HMACkey      a value derived from the "EK" symmetric protection
+	             value according to equation (46)
+	encIdentity  symmetrically encrypted sensitive area produced in (45)
+	Name         the Name of the object being protected
+
 The integrity structure is constructed by placing the identityHMAC (size and
 hash) in the buffer ahead of the encIdentity.
 
 24.6 Summary of Protection Process
-1. Marshal the CV(credential value) into a TPM2B_DIGEST
-2. Using methods of the asymmetric "EK", create a SEED value
-3. Create a symmetric key for encryption:
-     symKey := KDFa(ekNameAlg, SEED, "STORAGE", Name, NULL, bits)
-4. Create encIdentity by encryption the CV
-     encIdentity := CFB(symKey, 0, CV)
-5. Compute the HMACkey
-     HMACkey := KDFa(ekNameAlg, SEED, "INTEGRITY", NULL, NULL, bits)
-6. Compute the HMAC over the encIdentity from step 4
-     outerHMAC := HMAC(HMACkey, encIdentity || Name)
+ 1. Marshal the CV(credential value) into a TPM2B_DIGEST
+ 2. Using methods of the asymmetric "EK", create a SEED value
+ 3. Create a symmetric key for encryption:
+    symKey := KDFa(ekNameAlg, SEED, "STORAGE", Name, NULL, bits)
+ 4. Create encIdentity by encryption the CV
+    encIdentity := CFB(symKey, 0, CV)
+ 5. Compute the HMACkey
+    HMACkey := KDFa(ekNameAlg, SEED, "INTEGRITY", NULL, NULL, bits)
+ 6. Compute the HMAC over the encIdentity from step 4
+    outerHMAC := HMAC(HMACkey, encIdentity || Name)
 
 ---
 Also reference
@@ -547,34 +596,37 @@ Page 72
 
 ---
 Another book: <<A Practical Guide to TPM2.0>>
+
 	Using the Trusted Platform Module in the New Age of Security
 		Will Arthur and David Challener
 		With Kenneth Goldman
 
 FIGURE 9-1. Activating a Credential (CHAPTER 9/Page 109)
-        Credential Provider(Privacy CA)                 TPM
-                            Public Key, TPM Encryption Key Certificate
-                                            <<===
+
+	Credential Provider(Privacy CA)                 TPM
+	                    Public Key, TPM Encryption Key Certificate
+	                                    <<===
+
 1.         Validate Certificate chain <=
 2.                 Examine Public Key <=
 3.                Generate Credential <=
 4.Generate Secret and wrap Credential <=
-5.        Generate Seed, encrypt Seed <=
-              with TPM Encryption Key
-6.     Use Seed in KDF (with Name) to <=
-        derive HMAC key and Symmetric
-        Key, Wrap Secret in Symmetric
-        Key and protect with HMAC Key
-                                Credential wrapped by Secret,
-                    Secret wrapped by Symmetric Key derived from Seed,
-                            Seed encrypted by TPM Encryption Key.
-                                            ===>>
-                                                    1.=> Decrypt Seed using TPM Encryption Key.
-                                                    2.=> Compute Name.
-                                                    3.=> Use Seed KDF (with Name) to derive
-                                                         HMAC Key and Symmetric Key.
-                                                    4.=> Use Symmetric Key to unwrap Secret.
-                                                    5.=> Use Secret to unwrap Credential.
+ 5. Generate Seed, encrypt Seed <=
+    with TPM Encryption Key
+ 6. Use Seed in KDF (with Name) to <=
+    derive HMAC key and Symmetric
+    Key, Wrap Secret in Symmetric
+    Key and protect with HMAC Key
+    Credential wrapped by Secret,
+    Secret wrapped by Symmetric Key derived from Seed,
+    Seed encrypted by TPM Encryption Key.
+    ===>>
+    1.=> Decrypt Seed using TPM Encryption Key.
+    2.=> Compute Name.
+    3.=> Use Seed KDF (with Name) to derive
+    HMAC Key and Symmetric Key.
+    4.=> Use Symmetric Key to unwrap Secret.
+    5.=> Use Secret to unwrap Credential.
 
 The following happens at the credential provider: (Page 110)
 1. The credential provider receives the Key's public area and a certificate for
@@ -664,29 +716,68 @@ func MakeCredential(ekPubKey crypto.PublicKey, credential, name []byte) ([]byte,
 	}
 	// step 1, size(uint16) + content
 	plaintext := new(bytes.Buffer)
-	binary.Write(plaintext, binary.BigEndian, uint16(len(credential)))
-	binary.Write(plaintext, binary.BigEndian, credential)
+	err := binary.Write(plaintext, binary.BigEndian, uint16(len(credential)))
+	if err != nil {
+		return nil, nil, errors.New("failed to write")
+	}
+	err1 := binary.Write(plaintext, binary.BigEndian, credential)
+	if err1 != nil {
+		return nil, nil, errors.New("failed to write")
+	}
 	// step 2,
-	seed, _ := GetRandomBytes(KEYSIZE)
-	encSeed, _ := AsymmetricEncrypt(AlgRSA, AlgOAEP, ekPubKey, seed, []byte("IDENTITY\x00"))
+	seed, err2 := GetRandomBytes(KEYSIZE)
+	if err2 != nil {
+		return nil, nil, errors.New("failed to get random bytes")
+	}
+	encSeed, err3 := AsymmetricEncrypt(AlgRSA, AlgOAEP, ekPubKey, seed, []byte("IDENTITY\x00"))
+	if err3 != nil {
+		return nil, nil, errors.New("failed to AsymmetricEncrypt")
+	}
 	// step 3
-	symKey, _ := KDFa(crypto.SHA256, seed, "STORAGE", name, nil, KEYSIZE*8)
+	symKey, err4 := KDFa(crypto.SHA256, seed, "STORAGE", name, nil, KEYSIZE*8)
+	if err4 != nil {
+		return nil, nil, errors.New("failed to KDFa")
+	}
 	// step 4
-	encIdentity, _ := SymmetricEncrypt(AlgAES, AlgCFB, symKey, nil, plaintext.Bytes())
+	encIdentity, err5 := SymmetricEncrypt(AlgAES, AlgCFB, symKey, nil, plaintext.Bytes())
+	if err5 != nil {
+		return nil, nil, errors.New("failed to SymmetricEncrypt")
+	}
 	// step 5
-	hmacKey, _ := KDFa(crypto.SHA256, seed, "INTEGRITY", nil, nil, crypto.SHA256.Size()*8)
+	hmacKey, err6 := KDFa(crypto.SHA256, seed, "INTEGRITY", nil, nil, crypto.SHA256.Size()*8)
+	if err6 != nil {
+		return nil, nil, errors.New("failed to KDFa")
+	}
 	// step 6
 	integrityBuf := new(bytes.Buffer)
-	binary.Write(integrityBuf, binary.BigEndian, encIdentity)
-	binary.Write(integrityBuf, binary.BigEndian, name)
+	err7 := binary.Write(integrityBuf, binary.BigEndian, encIdentity)
+	if err7 != nil {
+		return nil, nil, errors.New("failed to write")
+	}
+	err8 := binary.Write(integrityBuf, binary.BigEndian, name)
+	if err8 != nil {
+		return nil, nil, errors.New("failed to write")
+	}
 	mac := hmac.New(sha256.New, hmacKey)
-	mac.Write(integrityBuf.Bytes())
+	_, err9 := mac.Write(integrityBuf.Bytes())
+	if err9 != nil {
+		return nil, nil, errors.New("failed to write")
+	}
 	integrity := mac.Sum(nil)
 	// last step: prepare output
 	allBlob := new(bytes.Buffer)
-	binary.Write(allBlob, binary.BigEndian, uint16(len(integrity)))
-	binary.Write(allBlob, binary.BigEndian, integrity)
-	binary.Write(allBlob, binary.BigEndian, encIdentity)
+	err10 := binary.Write(allBlob, binary.BigEndian, uint16(len(integrity)))
+	if err10 != nil {
+		return nil, nil, errors.New("failed to write")
+	}
+	err11 := binary.Write(allBlob, binary.BigEndian, integrity)
+	if err11 != nil {
+		return nil, nil, errors.New("failed to write")
+	}
+	err12 := binary.Write(allBlob, binary.BigEndian, encIdentity)
+	if err12 != nil {
+		return nil, nil, errors.New("failed to write")
+	}
 	return allBlob.Bytes(), encSeed, nil
 }
 
@@ -731,7 +822,10 @@ func EncodePublicKeyToPEM(pub crypto.PublicKey) ([]byte, error) {
 
 // EncodePublicKeyToFile encodes the public key to a file as pem format.
 func EncodePublicKeyToFile(pub crypto.PublicKey, fileName string) error {
-	data, _ := EncodePublicKeyToPEM(pub)
+	data, err := EncodePublicKeyToPEM(pub)
+	if err != nil {
+		return errors.New("failed to encode public key to pem")
+	}
 	return ioutil.WriteFile(fileName, data, modKey)
 }
 
@@ -759,7 +853,10 @@ func EncodePrivateKeyToPEM(priv crypto.PrivateKey) ([]byte, error) {
 
 // EncodePrivateKeyToFile encodes the private key to a file as pem format.
 func EncodePrivateKeyToFile(priv crypto.PrivateKey, fileName string) error {
-	data, _ := EncodePrivateKeyToPEM(priv)
+	data, err := EncodePrivateKeyToPEM(priv)
+	if err != nil {
+		return errors.New("failed to encode private key to pem")
+	}
 	return ioutil.WriteFile(fileName, data, modKey)
 }
 
@@ -849,7 +946,7 @@ func DecodeKeyCertFromFile(fileName string) (*x509.Certificate, []byte, error) {
 	return DecodeKeyCertFromPEM(data)
 }
 
-//DecodeKeyCertFromNVFile decode the cert from NVRAM's file
+// DecodeKeyCertFromNVFile decode the cert from NVRAM's file
 func DecodeKeyCertFromNVFile(fileName string) (*x509.Certificate, []byte, error) {
 	data, err := ioutil.ReadFile(fileName)
 	if err != nil {
@@ -902,8 +999,14 @@ func GenerateCertificate(template, parent *x509.Certificate, pubDer []byte, sign
 // Then only the coresponding TPM which has the EK could unseal this random key with ActiveCredential
 // and decrypt the IKCert.
 func EncryptIKCert(ekPubKey crypto.PublicKey, ikCert []byte, ikName []byte) (*IKCertChallenge, error) {
-	key, _ := GetRandomBytes(AesKeySize)
-	iv, _ := GetRandomBytes(AesKeySize)
+	key, err := GetRandomBytes(AesKeySize)
+	if err != nil {
+		return nil, err
+	}
+	iv, err := GetRandomBytes(AesKeySize)
+	if err != nil {
+		return nil, err
+	}
 	encIKCert, err := SymmetricEncrypt(AlgAES, AlgCBC, key, iv, ikCert)
 	if err != nil {
 		return nil, err
@@ -931,7 +1034,7 @@ func EncryptIKCert(ekPubKey crypto.PublicKey, ikCert []byte, ikName []byte) (*IK
 	return &ikCertChallenge, nil
 }
 
-//verifyComCert will get the all cert from certificate file to verify the cert is validated
+// verifyComCert will get the all cert from certificate file to verify the cert is validated
 func verifyComCert(pathname string, cert *x509.Certificate) bool {
 	timeNow := time.Now()
 	if !timeNow.Before(cert.NotAfter) {
@@ -956,7 +1059,7 @@ func verifyComCert(pathname string, cert *x509.Certificate) bool {
 	return false
 }
 
-//validateCert will check the signature is or not validated by parent cert
+// validateCert will check the signature is or not validated by parent cert
 func validateCert(cert, parent *x509.Certificate) error {
 	//check the period validate
 	timeNow := time.Now()

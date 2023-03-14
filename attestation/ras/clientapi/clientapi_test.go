@@ -824,8 +824,14 @@ func TestClientapi(t *testing.T) {
 		t.Errorf("test SendReport with empty report failed")
 	}
 
-	testbios, _ := ioutil.ReadFile(BIOSLogPath)
-	testima, _ := ioutil.ReadFile(IMALogPath)
+	testbios, err := ioutil.ReadFile(BIOSLogPath)
+	if err != nil {
+		t.Errorf("ReadFile error %v", err)
+	}
+	testima, err := ioutil.ReadFile(IMALogPath)
+	if err != nil {
+		t.Errorf("ReadFile error %v", err)
+	}
 	srRep, _ = ras.c.SendReport(ctx, &SendReportRequest{
 		ClientId:   r2.GetClientId(),
 		Nonce:      HBrep.ClientConfig.Nonce,
@@ -1122,8 +1128,14 @@ func TestDoClientapi(t *testing.T) {
 		t.Errorf("test DoSendReport with empty report failed")
 	}
 
-	testbios, _ := ioutil.ReadFile(BIOSLogPath)
-	testima, _ := ioutil.ReadFile(IMALogPath)
+	testbios, err := ioutil.ReadFile(BIOSLogPath)
+	if err != nil {
+		t.Errorf("ReadFile error %v", err)
+	}
+	testima, err := ioutil.ReadFile(IMALogPath)
+	if err != nil {
+		t.Errorf("ReadFile error %v", err)
+	}
 	srRep, _ = DoSendReport(server, &SendReportRequest{
 		ClientId:   r2.GetClientId(),
 		Nonce:      HBrep.ClientConfig.Nonce,
@@ -1414,8 +1426,14 @@ func TestClientapiWithConn(t *testing.T) {
 		t.Errorf("test DoSendReportWithConn with empty report failed")
 	}
 
-	testbios, _ := ioutil.ReadFile(BIOSLogPath)
-	testima, _ := ioutil.ReadFile(IMALogPath)
+	testbios, err := ioutil.ReadFile(BIOSLogPath)
+	if err != nil {
+		t.Errorf("ReadFile error %v", err)
+	}
+	testima, err := ioutil.ReadFile(IMALogPath)
+	if err != nil {
+		t.Errorf("ReadFile error %v", err)
+	}
 	srRep, _ = DoSendReportWithConn(ras, &SendReportRequest{
 		ClientId:   r2.GetClientId(),
 		Nonce:      HBrep.ClientConfig.Nonce,
@@ -1622,7 +1640,10 @@ func TestClientapiWithConnKeyOp(t *testing.T) {
 
 func createCert() []byte {
 	max := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, _ := rand.Int(rand.Reader, max)
+	serialNumber, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return nil
+	}
 	subject := pkix.Name{
 		Organization: []string{"Company"},
 		Country:      []string{"China"},
@@ -1637,18 +1658,42 @@ func createCert() []byte {
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
-	key, _ := rsa.GenerateKey(rand.Reader, 2048)
-	cert, _ := x509.CreateCertificate(rand.Reader, &Template, &Template, &key.PublicKey, key)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil
+	}
+	cert, err := x509.CreateCertificate(rand.Reader, &Template, &Template, &key.PublicKey, key)
+	if err != nil {
+		return nil
+	}
 	return cert
 }
 
 func RemoveFiles() {
-	os.Remove("./pca-root.crt")
-	os.Remove("./pca-root.key")
-	os.Remove("./pca-ek.crt")
-	os.Remove("./pca-ek.key")
-	os.Remove("./https.crt")
-	os.Remove("./https.key")
+	err := os.Remove("./pca-root.crt")
+	if err != nil {
+		return
+	}
+	err1 := os.Remove("./pca-root.key")
+	if err1 != nil {
+		return
+	}
+	err2 := os.Remove("./pca-ek.crt")
+	if err2 != nil {
+		return
+	}
+	err3 := os.Remove("./pca-ek.key")
+	if err3 != nil {
+		return
+	}
+	err4 := os.Remove("./https.crt")
+	if err4 != nil {
+		return
+	}
+	err5 := os.Remove("./https.key")
+	if err5 != nil {
+		return
+	}
 }
 
 func GenRsaKey() (prvkey, pubkey []byte) {

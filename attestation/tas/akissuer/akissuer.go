@@ -492,7 +492,10 @@ func (dcre *daacre) combineu(P1 *FP256BN.ECP, Qs *FP256BN.ECP, R_B *FP256BN.ECP,
 func int2bytes(n int) []byte {
 	x := int32(n)
 	bytesBuffer := new(bytes.Buffer)
-	binary.Write(bytesBuffer, binary.LittleEndian, x)
+	err := binary.Write(bytesBuffer, binary.LittleEndian, x)
+	if err != nil {
+		return nil
+	}
 	return bytesBuffer.Bytes()
 }
 

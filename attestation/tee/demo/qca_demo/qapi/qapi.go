@@ -170,12 +170,15 @@ func createFile(path string, con []byte) error {
 		log.Print("Create AKCert file failed!")
 		return err
 	}
-	_, err = f.Write(con)
-	if err != nil {
+	_, err1 := f.Write(con)
+	if err1 != nil {
 		log.Print("Write AKCert to file failed!")
-		return err
+		return err1
 	}
-	f.Close()
+	err2 := f.Close()
+	if err2 != nil {
+		return err2
+	}
 	return nil
 }
 

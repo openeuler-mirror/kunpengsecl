@@ -913,21 +913,39 @@ func TestFindClient(t *testing.T) {
 }
 
 func CreateBiosAndImaFile() {
-	ioutil.WriteFile(testImaLogPath, []byte("test ima"), 0644)
-	ioutil.WriteFile(testBiosLogPath, []byte("test bios"), 0644)
+	err := ioutil.WriteFile(testImaLogPath, []byte("test ima"), 0644)
+	if err != nil {
+		return
+	}
+	err1 := ioutil.WriteFile(testBiosLogPath, []byte("test bios"), 0644)
+	if err1 != nil {
+		return
+	}
 }
 
 func RemoveBiosAndImaFile() {
-	os.Remove(testImaLogPath)
-	os.Remove(testBiosLogPath)
+	err := os.Remove(testImaLogPath)
+	if err != nil {
+		return
+	}
+	err1 := os.Remove(testBiosLogPath)
+	if err1 != nil {
+		return
+	}
 }
 
 func CreateRasConfigFile() {
-	ioutil.WriteFile(configFilePath, []byte(rasConfig), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(rasConfig), 0644)
+	if err != nil {
+		return
+	}
 }
 
 func RemoveConfigFile() {
-	os.Remove(configFilePath)
+	err := os.Remove(configFilePath)
+	if err != nil {
+		return
+	}
 }
 
 func TestReport(t *testing.T) {
