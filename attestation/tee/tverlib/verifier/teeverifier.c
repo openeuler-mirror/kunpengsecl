@@ -11,7 +11,7 @@ See the Mulan PSL v2 for more details.
 
 #include "teeverifier.h"
 #include "common.h"
-#include "pair_FP256BN.h"
+#include "pair_FP512BN.h"
 
 #define _SHA256(d, n, md)        \
    {                             \
@@ -259,25 +259,25 @@ char *DEFAULT_DAA_ISSUER_PUBKEY_FILE = "./daa-pubkey";
 
 typedef struct
 {
-   ECP_FP256BN *a;
-   ECP_FP256BN *b;
-   ECP_FP256BN *c;
-   ECP_FP256BN *d;
+   ECP_FP512BN *a;
+   ECP_FP512BN *b;
+   ECP_FP512BN *c;
+   ECP_FP512BN *d;
 } daa_ak_cert;
 
 typedef struct
 {
-   BIG_256_56 h2;
-   BIG_256_56 s;
-   BIG_256_56 nm;
-   ECP_FP256BN *j;
-   ECP_FP256BN *k;
+   BIG_512_60 h2;
+   BIG_512_60 s;
+   BIG_512_60 nm;
+   ECP_FP512BN *j;
+   ECP_FP512BN *k;
 } daa_signature;
 
 typedef struct
 {
-   ECP2_FP256BN *x;
-   ECP2_FP256BN *y;
+   ECP2_FP512BN *x;
+   ECP2_FP512BN *y;
 } daa_pub;
 
 static int
@@ -300,13 +300,13 @@ hex2bin_append(const char *hexbuf, size_t *offset, size_t buflen, octet *oct)
    return 32;
 }
 
-static ECP2_FP256BN *
+static ECP2_FP512BN *
 get_p2_from_fbuf(char *buf, size_t *offset, size_t buflen)
 {
-   ECP2_FP256BN *pt = malloc(sizeof(ECP2_FP256BN));
+   ECP2_FP512BN *pt = malloc(sizeof(ECP2_FP512BN));
    if (pt == NULL)
       goto err1;
-   uint8_t val[32 * 4 + 1];
+   uint8_t val[64 * 4 + 1];
    octet oct = {0, sizeof(val), val};
 
    val[0] = 0x04;
@@ -314,20 +314,20 @@ get_p2_from_fbuf(char *buf, size_t *offset, size_t buflen)
    int i;
    for (i = 0; i < 4; i++)
    {
-      if (32 != hex2bin_append(buf, offset, buflen, &oct))
+      if (64 != hex2bin_append(buf, offset, buflen, &oct))
          goto err2;
    }
 
-   FP2_FP256BN x, y;
-   BIG_256_56 x0, x1, y0, y1;
-   BIG_256_56_fromBytes(x0, oct.val+1);
-   BIG_256_56_fromBytes(x1, oct.val+1+32);
-   BIG_256_56_fromBytes(y0, oct.val+1+64);
-   BIG_256_56_fromBytes(y1, oct.val+1+96);
-   FP2_FP256BN_from_BIGs(&x, x0, x1);
-   FP2_FP256BN_from_BIGs(&y, y0, y1);
-   ECP2_FP256BN_set(pt, &x, &y);
-   //ECP2_FP256BN_fromOctet(pt, &oct);
+   FP2_FP512BN x, y;
+   BIG_512_60 x0, x1, y0, y1;
+   BIG_512_60_fromBytes(x0, oct.val+1);
+   BIG_512_60_fromBytes(x1, oct.val+1+64);
+   BIG_512_60_fromBytes(y0, oct.val+1+128);
+   BIG_512_60_fromBytes(y1, oct.val+1+192);
+   FP2_FP512BN_from_BIGs(&x, x0, x1);
+   FP2_FP512BN_from_BIGs(&y, y0, y1);
+   ECP2_FP512BN_set(pt, &x, &y);
+   //ECP2_FP512BN_fromOctet(pt, &oct);
 
    return pt;
 
@@ -384,7 +384,7 @@ err1:
 }
 
 static void
-free_p1(ECP_FP256BN *p1)
+free_p1(ECP_FP512BN *p1)
 {
    if (p1 == NULL)
       return;
@@ -393,17 +393,17 @@ free_p1(ECP_FP256BN *p1)
 }
 
 static int
-unmarshal_bn_from_bd(BIG_256_56 bn, buffer_data *bd, uint32_t *offset)
+unmarshal_bn_from_bd(BIG_512_60 bn, buffer_data *bd, uint32_t *offset)
 {
-   if (*offset >= bd->size || *offset + 0x24 > bd->size)
+   if (*offset >= bd->size || *offset + 0x44 > bd->size)
       goto err1;
 
    uint32_t size = 0;
    memcpy((void *)&size, bd->buf + *offset, sizeof(uint32_t));
-   if (size != 0x20)
+   if (size != 0x40)
       goto err1;
    *offset += sizeof(uint32_t);
-   BIG_256_56_fromBytes(bn, bd->buf + *offset);
+   BIG_512_60_fromBytes(bn, bd->buf + *offset);
    *offset += size;
 
    return 1;
@@ -412,28 +412,28 @@ err1:
    return 0;
 }
 
-static ECP_FP256BN *
+static ECP_FP512BN *
 unmarshal_p1_from_bd(buffer_data *bd, uint32_t *offset)
 {
-   if (*offset >= bd->size || *offset + 0x4c > bd->size)
+   if (*offset >= bd->size || *offset + 0x8c > bd->size)
       goto err1;
 
-   ECP_FP256BN *p1 = malloc(sizeof(ECP_FP256BN));
+   ECP_FP512BN *p1 = malloc(sizeof(ECP_FP512BN));
    if (p1 == NULL)
       goto err1;
 
    uint32_t size = 0;
    memcpy((void *)&size, bd->buf + *offset, sizeof(uint32_t));
    *offset += sizeof(uint32_t);
-   if (size != 0x48)
+   if (size != 0x88)
       goto err2;
-   BIG_256_56 x, y;
+   BIG_512_60 x, y;
    if (unmarshal_bn_from_bd(x, bd, offset) == 0)
       goto err2;
    if (unmarshal_bn_from_bd(y, bd, offset) == 0)
       goto err2;
 
-   if (0 == ECP_FP256BN_set(p1, x, y))
+   if (0 == ECP_FP512BN_set(p1, x, y))
       goto err2;
 
    return p1;
@@ -543,31 +543,31 @@ verify_daacert(daa_ak_cert *cert)
    if (ispubkey == NULL)
       goto err1;
 
-   ECP2_FP256BN p2;
-   ECP2_FP256BN_generator(&p2);
+   ECP2_FP512BN p2;
+   ECP2_FP512BN_generator(&p2);
 
-   FP12_FP256BN lhs, rhs;
+   FP12_FP512BN lhs, rhs;
 
-   PAIR_FP256BN_ate(&lhs, ispubkey->y, cert->a);
-   PAIR_FP256BN_fexp(&lhs);
+   PAIR_FP512BN_ate(&lhs, ispubkey->y, cert->a);
+   PAIR_FP512BN_fexp(&lhs);
 
-   PAIR_FP256BN_ate(&rhs, &p2, cert->b);
-   PAIR_FP256BN_fexp(&rhs);
+   PAIR_FP512BN_ate(&rhs, &p2, cert->b);
+   PAIR_FP512BN_fexp(&rhs);
 
-   if (!FP12_FP256BN_equals(&lhs, &rhs))
+   if (!FP12_FP512BN_equals(&lhs, &rhs))
       goto err2;
 
-   ECP_FP256BN ptemp;
+   ECP_FP512BN ptemp;
 
-   ECP_FP256BN_copy(&ptemp, cert->d);
-   ECP_FP256BN_add(&ptemp, cert->a);
-   PAIR_FP256BN_ate(&lhs, ispubkey->x, &ptemp);
-   PAIR_FP256BN_fexp(&lhs);
+   ECP_FP512BN_copy(&ptemp, cert->d);
+   ECP_FP512BN_add(&ptemp, cert->a);
+   PAIR_FP512BN_ate(&lhs, ispubkey->x, &ptemp);
+   PAIR_FP512BN_fexp(&lhs);
 
-   PAIR_FP256BN_ate(&rhs, &p2, cert->c);
-   PAIR_FP256BN_fexp(&rhs);
+   PAIR_FP512BN_ate(&rhs, &p2, cert->c);
+   PAIR_FP512BN_fexp(&rhs);
 
-   if (!FP12_FP256BN_equals(&lhs, &rhs))
+   if (!FP12_FP512BN_equals(&lhs, &rhs))
       goto err2;
 
    rt = true;
@@ -578,32 +578,32 @@ err1:
    return rt;
 }
 
-static void hash_update_buf(SHA256_CTX *ctx, char *buf, int size)
+static void hash_update_buf(SHA512_CTX *ctx, char *buf, int size)
 {
-   SHA256_Update(ctx, (char *)&size, sizeof(int));
+   SHA512_Update(ctx, (char *)&size, sizeof(int));
    if (size > 0)
-      SHA256_Update(ctx, buf, size);
+      SHA512_Update(ctx, buf, size);
 }
 
-static void hash_update_p1(SHA256_CTX *ctx, ECP_FP256BN *p1)
+static void hash_update_p1(SHA512_CTX *ctx, ECP_FP512BN *p1)
 {
-   BIG_256_56 x, y;
-   char v_tmp[SHA256_DIGEST_LENGTH];
+   BIG_512_60 x, y;
+   char v_tmp[SHA512_DIGEST_LENGTH];
    int p1_size = 2 * (sizeof(v_tmp) + sizeof(int));
 
-   ECP_FP256BN_get(x, y, p1);
+   ECP_FP512BN_get(x, y, p1);
 
-   SHA256_Update(ctx, (char *)&p1_size, sizeof(int));
-   BIG_256_56_toBytes(v_tmp, x);
+   SHA512_Update(ctx, (char *)&p1_size, sizeof(int));
+   BIG_512_60_toBytes(v_tmp, x);
    hash_update_buf(ctx, v_tmp, sizeof(v_tmp));
-   BIG_256_56_toBytes(v_tmp, y);
+   BIG_512_60_toBytes(v_tmp, y);
    hash_update_buf(ctx, v_tmp, sizeof(v_tmp));
 }
 
 static bool
 verify_daasig(buffer_data *mhash, daa_signature *sig, daa_ak_cert *cert)
 {
-   ECP_FP256BN l, e, s_j, h2_k, s_b, h2_d;
+   ECP_FP512BN l, e, s_j, h2_k, s_b, h2_d;
 
    // may need additional step to verify J while bsn is available
    // s1,y1=Hs(bsn); verify J=(Hp(s1),y1)
@@ -611,24 +611,24 @@ verify_daasig(buffer_data *mhash, daa_signature *sig, daa_ak_cert *cert)
    // skip J, K, L caculation while J is null.
    if (sig->j != NULL)
    {
-      ECP_FP256BN_copy(&s_j, sig->j);
-      ECP_FP256BN_mul(&s_j, sig->s);
-      ECP_FP256BN_copy(&h2_k, sig->k);
-      ECP_FP256BN_mul(&h2_k, sig->h2);
-      ECP_FP256BN_copy(&l, &s_j);
-      ECP_FP256BN_sub(&l, &h2_k);
+      ECP_FP512BN_copy(&s_j, sig->j);
+      ECP_FP512BN_mul(&s_j, sig->s);
+      ECP_FP512BN_copy(&h2_k, sig->k);
+      ECP_FP512BN_mul(&h2_k, sig->h2);
+      ECP_FP512BN_copy(&l, &s_j);
+      ECP_FP512BN_sub(&l, &h2_k);
    }
 
-   ECP_FP256BN_copy(&s_b, cert->b);
-   ECP_FP256BN_mul(&s_b, sig->s);
-   ECP_FP256BN_copy(&h2_d, cert->d);
-   ECP_FP256BN_mul(&h2_d, sig->h2);
-   ECP_FP256BN_copy(&e, &s_b);
-   ECP_FP256BN_sub(&e, &h2_d);
+   ECP_FP512BN_copy(&s_b, cert->b);
+   ECP_FP512BN_mul(&s_b, sig->s);
+   ECP_FP512BN_copy(&h2_d, cert->d);
+   ECP_FP512BN_mul(&h2_d, sig->h2);
+   ECP_FP512BN_copy(&e, &s_b);
+   ECP_FP512BN_sub(&e, &h2_d);
 
    // calculate c=H(H(m),A,B,C,D,J,K,L,E))
-   SHA256_CTX ctx;
-   SHA256_Init(&ctx);
+   SHA512_CTX ctx;
+   SHA512_Init(&ctx);
    // H(m)
    hash_update_buf(&ctx, mhash->buf, mhash->size);
    // A
@@ -655,32 +655,32 @@ verify_daasig(buffer_data *mhash, daa_signature *sig, daa_ak_cert *cert)
    // E
    hash_update_p1(&ctx, &e);
 
-   uint8_t c[SHA256_DIGEST_LENGTH];
-   SHA256_Final(c, &ctx);
+   uint8_t c[SHA512_DIGEST_LENGTH];
+   SHA512_Final(c, &ctx);
 
-   octet tmp = {SHA256_DIGEST_LENGTH, SHA256_DIGEST_LENGTH, mhash->buf};
+   octet tmp = {SHA512_DIGEST_LENGTH, SHA512_DIGEST_LENGTH, mhash->buf};
 
    // caclulate h1=H(c); h2=Hn(nm || h1)
    // uint8_t h1[SHA256_DIGEST_LENGTH];
    // _SHA256(c, sizeof(c), h1);
 
-   SHA256_Init(&ctx);
+   SHA512_Init(&ctx);
 
-   uint8_t nm[SHA256_DIGEST_LENGTH];
-   BIG_256_56_toBytes(nm, sig->nm);
+   uint8_t nm[SHA512_DIGEST_LENGTH];
+   BIG_512_60_toBytes(nm, sig->nm);
    hash_update_buf(&ctx, nm, sizeof(nm));
    // currently h1=c, so use c directly
    hash_update_buf(&ctx, c, sizeof(c));
 
-   uint8_t h2[SHA256_DIGEST_LENGTH];
-   SHA256_Final(h2, &ctx);
+   uint8_t h2[SHA512_DIGEST_LENGTH];
+   SHA512_Final(h2, &ctx);
 
-   BIG_256_56 b_h2, n;
-   BIG_256_56_fromBytes(b_h2, h2);
-   BIG_256_56_rcopy(n, CURVE_Order_FP256BN);
-   BIG_256_56_mod(b_h2, n);
+   BIG_512_60 b_h2, n;
+   BIG_512_60_fromBytes(b_h2, h2);
+   BIG_512_60_rcopy(n, CURVE_Order_FP512BN);
+   BIG_512_60_mod(b_h2, n);
 
-   if (BIG_256_56_comp(b_h2, sig->h2) != 0)
+   if (BIG_512_60_comp(b_h2, sig->h2) != 0)
       return false;
 
    return true;
