@@ -116,6 +116,7 @@ TEE_Result encrypt(uint8_t *keyvalue) {
     return TEE_SUCCESS;
 }
 
+//simulate a scenario in which a key needs to be deleted
 TEE_Result delete_key_opt(TEE_UUID *keyid, TEE_Param params[PARAM_COUNT] ) {
     TEE_Result ret;
     char mem_hash[HASH_SIZE] = {0};
@@ -132,7 +133,9 @@ TEE_Result delete_key_opt(TEE_UUID *keyid, TEE_Param params[PARAM_COUNT] ) {
     return TEE_SUCCESS;
 }
 
-//
+//simulate a scenario in which a key is needed
+//when the key hasn't been generated, set variable new_key_flag to 1
+//when the key has been generated, set variable new_key_flag to 0
 TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     uint8_t *keyvalue = NULL;
@@ -166,7 +169,7 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
     strncpy_s(img_hash, HASH_SIZE, params[PARAMETER_SECOND].memref.buffer, params[PARAMETER_SECOND].memref.size);
     uint32_t twice_search_flag = 0;
 
-    if(new_key_flag == 1) {
+    if(new_key_flag == 1) { //if new_key_flag=1, generate a generate_key request
         ret = generate_key(&localUuid, account, password, &masterkey, mem_hash, img_hash);
         if(ret != TEE_SUCCESS) {
             tloge("generate key command failed");
@@ -178,7 +181,7 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
         tlogd("prepare to encrypt data success");
         return TEE_SUCCESS;
     }
-    if(new_key_flag == 0) {
+    if(new_key_flag == 0) { //if new_key_flag=0, restore the key id from the storage
         ret = TEE_OpenPersistentObject(TEE_OBJECT_STORAGE_PRIVATE, keyid_storage_path, strlen(keyid_storage_path),
                 TEE_DATA_FLAG_ACCESS_READ, &keyid_data);
         if (ret != TEE_SUCCESS) {
@@ -225,6 +228,7 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
     return TEE_SUCCESS;
 }
 
+//if kta needs to get key from kms, this ta needs to be call back to get the result
 TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     TEE_UUID keyid = {0};
@@ -357,6 +361,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     return TEE_SUCCESS;
 }
 
+//simulate a scenario in which ta exits
 TEE_Result ta_exit(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     TEE_ObjectHandle keyid_data = NULL;

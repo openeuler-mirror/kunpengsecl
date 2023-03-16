@@ -303,6 +303,6 @@ func validateCert(cert, parent *x509.Certificate) error {
 func terminateKTA() {
 	teec_result := C.KTAterminate()
 	if int(teec_result) != 0 {
-		logger.L.Sugar().Debugf("terminate kta success")
+		logger.L.Sugar().Errorf("terminate kta error, teec_result=%v", int(teec_result))
 	}
 }

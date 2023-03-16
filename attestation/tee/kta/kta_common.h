@@ -36,7 +36,7 @@ Description: initialize module in kta.
 #define END_NULL            -1
 #define RSA_PUB_SIZE        256
 
-
+/* Cache to store the info of Ta and key */
 typedef struct _tagKeyInfo{
     TEE_UUID    id;
     uint8_t value[KEY_SIZE];
@@ -59,10 +59,9 @@ typedef struct _tagCache{
     TaInfo  ta[MAX_TA_NUM];
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first ta for dequeue operation.
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last ta for enqueue operation.
-    
 } Cache;
 
-/* command queue to store the commands */
+/* CmdQueue to store the commands */
 
 typedef struct _tagCmdNode{
     int32_t     cmd;
@@ -73,16 +72,20 @@ typedef struct _tagCmdNode{
     uint8_t password[MAX_STR_LEN];
 } CmdNode;
 
-typedef struct _tagHashValues{
-    char mem_hash[HASH_SIZE];
-    char img_hash[HASH_SIZE];
-} HashValue;
-
 typedef struct _tagCmdQueue{
     CmdNode queue[MAX_QUEUE_SIZE];
     int32_t head;   // 0~MAX_TA_NUM: first cmd for dequeue operation.
     int32_t tail;   // 0~MAX_TA_NUM: last cmd for enqueue operation.
 } CmdQueue;
+
+/* HashValue to store the hash values of ta */
+
+typedef struct _tagHashValues{
+    char mem_hash[HASH_SIZE];
+    char img_hash[HASH_SIZE];
+} HashValue;
+
+/* ReplyCache to store the reply of ta's request */
 
 typedef struct _tagReplyNode{
     int32_t tag;    //a tag to identify reply: 1 for generate reply, 2 for delete reply
