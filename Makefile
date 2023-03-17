@@ -22,7 +22,7 @@ clean:
 
 test: build
 
-bat: build test
+bat: test
 
 prepare:
 	for name in $(subdir); do\
