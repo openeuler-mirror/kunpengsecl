@@ -27,7 +27,8 @@ Description: key managing module in kta.
 #include <cJSON.h>
 
 #define PARAM_COUNT 4
-#define AES_KEY_SIZE 32
+#define AES_32_SIZE 32
+#define AES_16_SIZE 16
 #define RSA_KEY_SIZE 256
 #define NONCE_SIZE 12
 #define TAG_SIZE 16
@@ -61,7 +62,7 @@ TEE_Result encryptCmd(uint8_t *jsoncmd, uint32_t jsoncmd_size, TEE_ObjectHandle 
     size_t nonce_size = NONCE_SIZE;
     size_t tag_size = TAG_SIZE;
 
-    ret = TEE_AllocateOperation(&oper_enc, TEE_ALG_AES_GCM, TEE_MODE_ENCRYPT, AES_KEY_SIZE);
+    ret = TEE_AllocateOperation(&oper_enc, TEE_ALG_AES_GCM, TEE_MODE_ENCRYPT, AES_32_SIZE);
     if (ret != TEE_SUCCESS) {
         tloge("fail to allocate aes encrypt operation, ret 0x%x\n", ret);
         return ret;
@@ -198,13 +199,13 @@ TEE_Result generateFinalRequest(CmdNode cmdnode, char *finalrequest){
     TEE_Attribute attr = {0};
 
     /* get request data from cmdqueue,and generate final request*/
-    ret = TEE_AllocateTransientObject(TEE_TYPE_AES, AES_KEY_SIZE, &data_key);
+    ret = TEE_AllocateTransientObject(TEE_TYPE_AES, AES_32_SIZE, &data_key);
     if (ret != TEE_SUCCESS) {
         tloge("fail to allocate aes transient object, ret 0x%x\n", ret);
         return ret;
     }
 
-    ret = TEE_GenerateKey(data_key, AES_KEY_SIZE, &attr, 1);
+    ret = TEE_GenerateKey(data_key, AES_32_SIZE, &attr, 1);
     if (ret != TEE_SUCCESS) {
         tloge("fail to generate aes key, ret 0x%x\n", ret);
         return ret;
@@ -226,10 +227,10 @@ TEE_Result generateFinalRequest(CmdNode cmdnode, char *finalrequest){
     str2hex(nonce_buff, NONCE_SIZE, hexnonce);
     char hextag[TAG_SIZE*2+1] = {0};
     str2hex(tag_buff, TAG_SIZE, hextag);
-    uint8_t final_aeskey[AES_KEY_SIZE+NONCE_SIZE+TAG_SIZE+1] = {0};
-    memcpy_s(final_aeskey, AES_KEY_SIZE+NONCE_SIZE+TAG_SIZE+1, nonce_buff, NONCE_SIZE);
-    memcpy_s(final_aeskey+NONCE_SIZE, AES_KEY_SIZE+TAG_SIZE+1, data_key->Attribute->content.ref.buffer, AES_KEY_SIZE);
-    memcpy_s(final_aeskey+NONCE_SIZE+AES_KEY_SIZE, TAG_SIZE+1, tag_buff, TAG_SIZE);
+    uint8_t final_aeskey[AES_32_SIZE+NONCE_SIZE+TAG_SIZE+1] = {0};
+    memcpy_s(final_aeskey, AES_32_SIZE+NONCE_SIZE+TAG_SIZE+1, nonce_buff, NONCE_SIZE);
+    memcpy_s(final_aeskey+NONCE_SIZE, AES_32_SIZE+TAG_SIZE+1, data_key->Attribute->content.ref.buffer, AES_32_SIZE);
+    memcpy_s(final_aeskey+NONCE_SIZE+AES_32_SIZE, TAG_SIZE+1, tag_buff, TAG_SIZE);
     ret = encryptKey(final_aeskey, encrypted_key);
     if (ret != TEE_SUCCESS) {
         tloge("encrypt key failed");
@@ -362,25 +363,25 @@ TEE_Result decryptcmd(uint8_t *decrypted_key, uint8_t *encrypted_cmd, uint8_t *d
     size_t nonce_size = NONCE_SIZE;
     uint8_t tag_buf[TAG_SIZE] = {0};
     size_t tag_size = TAG_SIZE;
-    uint8_t key_buf[AES_KEY_SIZE] = {0};
+    uint8_t key_buf[AES_32_SIZE] = {0};
     TEE_ObjectHandle key_obj = NULL;
     TEE_Attribute attr = {0};
 
-    ret = TEE_AllocateTransientObject(TEE_TYPE_AES, AES_KEY_SIZE, &key_obj);
+    ret = TEE_AllocateTransientObject(TEE_TYPE_AES, AES_32_SIZE, &key_obj);
     if (ret != TEE_SUCCESS) {
         tloge("fail to allocate aes transient object, ret 0x%x\n", ret);
         return ret;
     }
     memcpy_s(nonce_buf, nonce_size, decrypted_key, nonce_size);
-    memcpy_s(key_buf, AES_KEY_SIZE, decrypted_key+12, AES_KEY_SIZE);
-    memcpy_s(tag_buf, tag_size, decrypted_key+AES_KEY_SIZE+12, tag_size);
-    TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, key_buf, AES_KEY_SIZE);
+    memcpy_s(key_buf, AES_32_SIZE, decrypted_key+12, AES_32_SIZE);
+    memcpy_s(tag_buf, tag_size, decrypted_key+AES_32_SIZE+12, tag_size);
+    TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, key_buf, AES_32_SIZE);
     ret = TEE_PopulateTransientObject(key_obj, &attr, 1);
     if (ret != TEE_SUCCESS) {
         tloge("fail to populata attrs, ret 0x%x\n", ret);
         return ret;
     }
-    ret = TEE_AllocateOperation(&oper_dec, TEE_ALG_AES_GCM, TEE_MODE_DECRYPT, AES_KEY_SIZE);
+    ret = TEE_AllocateOperation(&oper_dec, TEE_ALG_AES_GCM, TEE_MODE_DECRYPT, AES_32_SIZE);
     if (ret != TEE_SUCCESS) {
         tloge("fail to allocate aes decrypt operation, ret 0x%x\n", ret);
         return ret;
@@ -439,7 +440,7 @@ void parsejson(uint8_t *decrypted_cmd, uint32_t *cmd, TEE_UUID *taid, TEE_UUID *
         *cmd = 3;
     }
     cJSON *cjkey = cJSON_GetObjectItemCaseSensitive(cj, "PlainText");
-    memcpy_s(key, AES_KEY_SIZE*2+1, cjkey->valuestring, strlen(cjkey->valuestring));
+    memcpy_s(key, AES_16_SIZE*2+1, cjkey->valuestring, strlen(cjkey->valuestring));
     cJSON_Delete(cj);
 }
 
@@ -464,19 +465,19 @@ TEE_Result saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
         tloge("ta info is not exist");
         return TEE_ERROR_ITEM_NOT_FOUND; 
     }
-    TaInfo ta = cache.ta[head];
-    int32_t thead = ta.head;
+    head = cache.head;
+    int32_t thead = cache.ta[head].head;
     int32_t cur2 = thead;
-    int32_t nxt2 = ta.key[cur2].next;
+    int32_t nxt2 = cache.ta[head].key[cur2].next;
     while (nxt2 != -1) {
         cur2 = nxt2;
-        nxt2 = ta.key[nxt2].next;
+        nxt2 = cache.ta[head].key[nxt2].next;
     }
     for(int32_t i=0; i<MAX_KEY_NUM; i++) {
-        if(ta.key[i].next == -1 || i != cur2) {
+        if(cache.ta[head].key[i].next == -1 || i != cur2) {
             cache.ta[head].head = i;
             cache.ta[head].key[i].id = keyid;
-            memcpy_s(cache.ta[thead].key[i].value, KEY_SIZE, keyvalue, AES_KEY_SIZE);
+            memcpy_s(cache.ta[head].key[i].value, KEY_SIZE, keyvalue, AES_16_SIZE);
             cache.ta[head].key[i].next = thead;
         }
     }
@@ -505,7 +506,7 @@ save:
     replycache.list[i].tag = 1;
     replycache.list[i].keyId = keyid;
     replycache.list[i].taId = TA_uuid;
-    memcpy_s(replycache.list[i].keyvalue, KEY_SIZE, keyvalue, AES_KEY_SIZE);
+    memcpy_s(replycache.list[i].keyvalue, KEY_SIZE, keyvalue, AES_16_SIZE);
     replycache.list[i].next = replycache.head;
     if(replycache.head == -1) {
         replycache.tail = i;
@@ -583,11 +584,11 @@ TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return ret;
     }
     TEE_UUID taid = {0}, keyid = {0};
-    uint8_t *key = TEE_Malloc(AES_KEY_SIZE, 0);
-    char hexkey[2*AES_KEY_SIZE+1] = {0};
+    uint8_t *key = TEE_Malloc(AES_16_SIZE, 0);
+    char hexkey[2*AES_16_SIZE+1] = {0};
     uint32_t cmd = 0;
     parsejson(decrypted_cmd, &cmd, &taid, &keyid, hexkey);
-    hex2str(hexkey, AES_KEY_SIZE, key);
+    hex2str(hexkey, AES_16_SIZE, key);
     switch(cmd) {
     case 1:
         ret = saveTaKey(taid, keyid, key);
@@ -595,8 +596,6 @@ TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
             tloge("save ta key operation failed!");
             return ret;
         }
-        uint8_t uuidd[33] = {0};
-        uuid2char(taid, uuidd);
         saveGenReplyCache(taid, keyid, key);
         break;
     case 2:
