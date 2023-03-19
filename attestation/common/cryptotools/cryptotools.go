@@ -952,7 +952,7 @@ func DecodeKeyCertFromNVFile(fileName string) (*x509.Certificate, []byte, error)
 	if err != nil {
 		return nil, nil, err
 	}
-	//remove excess 0
+	// remove excess 0
 	for i := range data {
 		if data[i] == 0 && data[i+1] == 0 {
 			data = data[:i]
@@ -1061,16 +1061,11 @@ func verifyComCert(pathname string, cert *x509.Certificate) bool {
 
 // validateCert will check the signature is or not validated by parent cert
 func validateCert(cert, parent *x509.Certificate) error {
-	//check the period validate
+	// check the period validate
 	timeNow := time.Now()
 	if !timeNow.Before(parent.NotAfter) {
-		return errors.New("The certificate has expired!")
+		return errors.New("The certificate has expired")
 	}
-	// er := cert.CheckSignatureFrom(parent)
-	// if er == nil {
-	// 	fmt.Println("success")
-	// 	return er
-	// }
 	if cert.Issuer.CommonName != parent.Subject.CommonName {
 		return errors.New("cert issuer name is not the parent subject name")
 	}

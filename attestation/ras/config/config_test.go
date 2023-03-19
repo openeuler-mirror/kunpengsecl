@@ -301,7 +301,6 @@ func testTrustDuration(t *testing.T) {
 func TestRACConfig(t *testing.T) {
 	CreateClientConfigFile()
 	defer RemoveConfigFile()
-	//InitRasFlags()
 
 	LoadConfigs()
 	HandleFlags()

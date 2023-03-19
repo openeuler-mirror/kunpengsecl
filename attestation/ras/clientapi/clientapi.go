@@ -86,10 +86,6 @@ var (
 	kcmKeyName   = "kcm.key"
 )
 
-// var Nonce []byte
-//var privKey []byte
-//var kcmPublicKey []byte
-
 type rasService struct {
 	UnimplementedRasServer
 }
@@ -176,7 +172,6 @@ func StartServer(addr string) {
 	trustmgr.CreateTrustManager("postgres", dbConfig)
 	srv := grpc.NewServer()
 	RegisterRasServer(srv, newRasService())
-	//logger.L.Sugar().Debugf("listen at %s", addr)
 	lis = netutil.LimitListener(lis, getSockNum())
 	err = srv.Serve(lis)
 	if err != nil {
@@ -196,7 +191,6 @@ func StopServer() {
 
 // GenerateEKCert handles the generation of the EK certificate for client.
 func (s *rasService) GenerateEKCert(ctx context.Context, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
-	//logger.L.Debug("get GenerateEKCert request")
 	t := time.Now()
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
@@ -214,13 +208,11 @@ func (s *rasService) GenerateEKCert(ctx context.Context, in *GenerateEKCertReque
 		logger.L.Sugar().Errorf("generate EK Cert fail, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("send GenerateEKCert reply")
 	return &GenerateEKCertReply{EkCert: ekCert}, nil
 }
 
 // GenerateIKCert handles the generation of the IK certificate for client.
 func (s *rasService) GenerateIKCert(ctx context.Context, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
-	//logger.L.Debug("get GenerateIKCert request")
 	t := time.Now()
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(cryptotools.GetSerialNumber()),
@@ -249,7 +241,6 @@ func (s *rasService) GenerateIKCert(ctx context.Context, in *GenerateIKCertReque
 		logger.L.Sugar().Errorf("encrypt IK Cert with EK public key fail, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("send GenerateIKCert reply")
 	return &GenerateIKCertReply{
 		EncryptedIC:     encIkCert.EncryptedCert,
 		CredBlob:        encIkCert.SymKeyParams.CredBlob,
@@ -261,7 +252,6 @@ func (s *rasService) GenerateIKCert(ctx context.Context, in *GenerateIKCertReque
 
 // RegisterClient registers a new client by IK certificate and its client information string.
 func (s *rasService) RegisterClient(ctx context.Context, in *RegisterClientRequest) (*RegisterClientReply, error) {
-	//logger.L.Debug("get RegisterClient request")
 	registered := false
 	if config.GetMgrStrategy() == config.AutoStrategy {
 		registered = true
@@ -277,7 +267,6 @@ func (s *rasService) RegisterClient(ctx context.Context, in *RegisterClientReque
 		logger.L.Sugar().Errorf("register client fail, %v", err)
 		return &RegisterClientReply{ClientId: -1}, err
 	}
-	//logger.L.Sugar().Debugf("send RegisterClient reply, ClientID=%d", client.ID)
 	return &RegisterClientReply{
 		ClientId: client.ID,
 		ClientConfig: &ClientConfig{
@@ -294,9 +283,7 @@ func (s *rasService) UnregisterClient(
 	ctx context.Context,
 	in *UnregisterClientRequest) (*UnregisterClientReply, error) {
 	cid := in.GetClientId()
-	//logger.L.Sugar().Debugf("get UnregisterClient %d request", cid)
 	trustmgr.UnRegisterClientByID(cid)
-	//logger.L.Sugar().Debugf("send UnregisterClient reply")
 	return &UnregisterClientReply{Result: true}, nil
 }
 
@@ -304,13 +291,11 @@ func (s *rasService) UnregisterClient(
 func (s *rasService) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
 	var out SendHeartbeatReply
 	cid := in.GetClientId()
-	//logger.L.Sugar().Debugf("get hb from %d", cid)
 	cmds, nonce := trustmgr.HandleHeartbeat(cid)
 	if cmds == typdefs.CmdNone {
 		out = SendHeartbeatReply{
 			NextAction: cmds,
 		}
-		//logger.L.Sugar().Debugf("send reply to %d, NextActions=%d", cid, cmds)
 	} else {
 		out = SendHeartbeatReply{
 			NextAction: cmds,
@@ -321,7 +306,6 @@ func (s *rasService) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest
 				DigestAlgorithm:      config.GetDigestAlgorithm(),
 			},
 		}
-		//logger.L.Sugar().Debugf("send reply to %d, NextActions=%d ClientConfig=%+v", cid, cmds, out.ClientConfig)
 	}
 	return &out, nil
 }
@@ -329,7 +313,6 @@ func (s *rasService) SendHeartbeat(ctx context.Context, in *SendHeartbeatRequest
 // SendReport saves the trust report from client into database/files and verifies it.
 func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*SendReportReply, error) {
 	cid := in.GetClientId()
-	//logger.L.Sugar().Debugf("get SendReport %d request", cid)
 	var ms []typdefs.Manifest
 	ms = make([]typdefs.Manifest, 0, 3)
 	inms := in.GetManifests()
@@ -349,7 +332,6 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 		Manifests:  ms,
 		TaReports:  in.GetTaReports(),
 	}
-	//logger.L.Debug("validate report and save...")
 	_, err := trustmgr.ValidateReport(&trustReport)
 	if err != nil {
 		logger.L.Sugar().Errorf("validate client(%d) report error, %v", cid, err)
@@ -361,7 +343,6 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 		logger.L.Sugar().Errorf("handle client(%d) basevalue error, %v", cid, err)
 		return &SendReportReply{Result: false}, nil
 	}
-	//logger.L.Sugar().Debugf("validate success and send reply to %d", cid)
 	return &SendReportReply{Result: true}, nil
 }
 
@@ -389,7 +370,6 @@ func (s *rasService) VerifyKTAPubKeyCert(
 	in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
 	deviceId := in.GetClientId()
 	if deviceId == 0 {
-		//logger.L.Sugar().Errorf("Outside json is empty")
 		return &VerifyKTAPubKeyCertReply{Result: false}, nil
 	}
 
@@ -407,7 +387,6 @@ func (s *rasService) VerifyKTAPubKeyCert(
 	} else {
 		logger.L.Sugar().Debugf("Have already verified cert of KTA %x", deviceId)
 	}
-	//defer kdb.DeletePubKeyInfo(deviceId)
 	return &VerifyKTAPubKeyCertReply{Result: true}, nil
 }
 
@@ -417,7 +396,6 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	deviceId := in.GetClientId()
 	encCmdData := in.GetEncMessage()
 	if len(encCmdData) == 0 {
-		//logger.L.Sugar().Errorf("Outside json is empty")
 		return &KeyOperationReply{Result: false}, nil
 	}
 
@@ -426,7 +404,6 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	var pubkeycert []byte
 	var retMessage retKeyInfo
 
-	// TODO: get kcm private key(kcm private key is a global variable now)
 	privKey, err := kcmstools.ReadCert(certPath + kcmKeyName)
 	if privKey == nil {
 		logger.L.Sugar().Errorf("private key is nil, %v", err)
@@ -563,7 +540,6 @@ func CreateConn(addr string) (*RasConn, error) {
 	ras.conn = conn
 	ras.c = NewRasClient(conn)
 	ras.ctx, ras.cancel = context.WithTimeout(context.Background(), constTimeOut)
-	//logger.L.Sugar().Debugf("connect %s ok", addr)
 	return ras, nil
 }
 
@@ -577,7 +553,6 @@ func ReleaseConn(ras *RasConn) {
 
 // DoGenerateEKCertWithConn uses existing ras connection to generate an ek certificate from ras server for client.
 func DoGenerateEKCertWithConn(ras *RasConn, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
-	//logger.L.Debug("invoke GenerateEKCert...")
 	if ras == nil {
 		return nil, ErrClientApiParameterWrong
 	}
@@ -586,13 +561,11 @@ func DoGenerateEKCertWithConn(ras *RasConn, in *GenerateEKCertRequest) (*Generat
 		logger.L.Sugar().Errorf("invoke GenerateEKCert error, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("invoke GenerateEKCert ok")
 	return bk, nil
 }
 
 // DoGenerateIKCertWithConn uses existing ras connection to generate an identity certificate from ras server for client.
 func DoGenerateIKCertWithConn(ras *RasConn, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
-	//logger.L.Debug("invoke GenerateIKCert...")
 	if ras == nil {
 		return nil, ErrClientApiParameterWrong
 	}
@@ -601,13 +574,11 @@ func DoGenerateIKCertWithConn(ras *RasConn, in *GenerateIKCertRequest) (*Generat
 		logger.L.Sugar().Errorf("invoke GenerateIKCert error, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("invoke GenerateIKCert ok")
 	return bk, nil
 }
 
 // DoRegisterClientWithConn uses existing ras connection to register the rac to the ras server.
 func DoRegisterClientWithConn(ras *RasConn, in *RegisterClientRequest) (*RegisterClientReply, error) {
-	//logger.L.Debug("invoke RegisterClient...")
 	if ras == nil {
 		return nil, ErrClientApiParameterWrong
 	}
@@ -616,13 +587,11 @@ func DoRegisterClientWithConn(ras *RasConn, in *RegisterClientRequest) (*Registe
 		logger.L.Sugar().Errorf("invoke RegisterClient error, %v", err)
 		return nil, err
 	}
-	//logger.L.Sugar().Debugf("invoke RegisterClient ok, ClientID=%d", bk.GetClientId())
 	return bk, nil
 }
 
 // DoUnregisterClientWithConn uses existing ras connection to unregister the rac from the ras server.
 func DoUnregisterClientWithConn(ras *RasConn, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
-	//logger.L.Debug("invoke UnregisterClient...")
 	if ras == nil {
 		return nil, ErrClientApiParameterWrong
 	}
@@ -631,13 +600,11 @@ func DoUnregisterClientWithConn(ras *RasConn, in *UnregisterClientRequest) (*Unr
 		logger.L.Sugar().Errorf("invoke UnregisterClient error, %v", err)
 		return nil, err
 	}
-	//logger.L.Sugar().Debugf("invoke UnregisterClient %v", bk.Result)
 	return bk, nil
 }
 
 // DoSendHeartbeatWithConn uses existing ras connection to send a heart beat message to the ras server.
 func DoSendHeartbeatWithConn(ras *RasConn, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
-	//logger.L.Debug("invoke SendHeartbeat...")
 	if ras == nil {
 		return nil, ErrClientApiParameterWrong
 	}
@@ -651,7 +618,6 @@ func DoSendHeartbeatWithConn(ras *RasConn, in *SendHeartbeatRequest) (*SendHeart
 
 // DoSendReportWithConn uses existing ras connection to send a trust report message to the ras server.
 func DoSendReportWithConn(ras *RasConn, in *SendReportRequest) (*SendReportReply, error) {
-	//logger.L.Debug("invoke SendReport...")
 	if ras == nil {
 		return nil, ErrClientApiParameterWrong
 	}
@@ -660,13 +626,11 @@ func DoSendReportWithConn(ras *RasConn, in *SendReportRequest) (*SendReportReply
 		logger.L.Sugar().Errorf("invoke SendReport error, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("invoke SendReport ok")
 	return bk, nil
 }
 
 // DoSendKCMPubKeyCertWithConn uses existing ras connection to send kcm public key cert from the ras server.
 func DoSendKCMPubKeyCertWithConn(ras *RasConn, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
-	//logger.L.Debug("invoke SendKCMPubKeyCert...")
 	if ras == nil {
 		return nil, ErrClientApiParameterWrong
 	}
@@ -675,13 +639,11 @@ func DoSendKCMPubKeyCertWithConn(ras *RasConn, in *SendKCMPubKeyCertRequest) (*S
 		logger.L.Sugar().Errorf("invoke SendKCMPubKeyCert error, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("invoke SendKCMPubKeyCert ok")
 	return bk, nil
 }
 
 // DoVerifyKTAPubKeyCertWithConn uses existing ras connection to verify kta public key cert to the ras server.
 func DoVerifyKTAPubKeyCertWithConn(ras *RasConn, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
-	//logger.L.Debug("invoke VerifyKTAPubKeyCert...")
 	if ras == nil {
 		return nil, ErrClientApiParameterWrong
 	}
@@ -690,13 +652,11 @@ func DoVerifyKTAPubKeyCertWithConn(ras *RasConn, in *VerifyKTAPubKeyCertRequest)
 		logger.L.Sugar().Errorf("invoke VerifyKTAPubKeyCert error, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("invoke VerifyKTAPubKeyCert ok")
 	return bk, nil
 }
 
 // DoKeyOperationWithConn uses existing ras connection to handle key operation.
 func DoKeyOperationWithConn(ras *RasConn, in *KeyOperationRequest) (*KeyOperationReply, error) {
-	//logger.L.Debug("invoke KeyOperation...")
 	if ras == nil {
 		return nil, ErrClientApiParameterWrong
 	}
@@ -705,13 +665,11 @@ func DoKeyOperationWithConn(ras *RasConn, in *KeyOperationRequest) (*KeyOperatio
 		logger.L.Sugar().Errorf("invoke KeyOperation error, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("invoke KeyOperation ok")
 	return bk, nil
 }
 
 // DoGenerateEKCert generates an ek certificate from ras server for client.
 func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertReply, error) {
-	//logger.L.Debug("invoke GenerateEKCert...")
 	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
@@ -724,13 +682,11 @@ func DoGenerateEKCert(addr string, in *GenerateEKCertRequest) (*GenerateEKCertRe
 		logger.L.Sugar().Errorf("invoke GenerateEKCert error, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("invoke GenerateEKCert ok")
 	return bk, nil
 }
 
 // DoGenerateIKCert generates an identity certificate from ras server for client.
 func DoGenerateIKCert(addr string, in *GenerateIKCertRequest) (*GenerateIKCertReply, error) {
-	//logger.L.Debug("invoke GenerateIKCert...")
 	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
@@ -743,13 +699,11 @@ func DoGenerateIKCert(addr string, in *GenerateIKCertRequest) (*GenerateIKCertRe
 		logger.L.Sugar().Errorf("invoke GenerateIKCert error, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("invoke GenerateIKCert ok")
 	return bk, nil
 }
 
 // DoRegisterClient registers the rac to the ras server.
 func DoRegisterClient(addr string, in *RegisterClientRequest) (*RegisterClientReply, error) {
-	//logger.L.Debug("invoke RegisterClient...")
 	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
@@ -762,13 +716,11 @@ func DoRegisterClient(addr string, in *RegisterClientRequest) (*RegisterClientRe
 		logger.L.Sugar().Errorf("invoke RegisterClient error, %v", err)
 		return nil, err
 	}
-	//logger.L.Sugar().Debugf("invoke RegisterClient ok, ClientID=%d", bk.GetClientId())
 	return bk, nil
 }
 
 // DoUnregisterClient unregisters the rac from the ras server.
 func DoUnregisterClient(addr string, in *UnregisterClientRequest) (*UnregisterClientReply, error) {
-	//logger.L.Debug("invoke UnregisterClient...")
 	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
@@ -781,13 +733,11 @@ func DoUnregisterClient(addr string, in *UnregisterClientRequest) (*UnregisterCl
 		logger.L.Sugar().Errorf("invoke UnregisterClient error, %v", err)
 		return nil, err
 	}
-	//logger.L.Sugar().Debugf("invoke UnregisterClient %v", bk.Result)
 	return bk, nil
 }
 
 // DoSendHeartbeat sends a heart beat message to the ras server.
 func DoSendHeartbeat(addr string, in *SendHeartbeatRequest) (*SendHeartbeatReply, error) {
-	//logger.L.Debug("invoke SendHeartbeat...")
 	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
@@ -800,21 +750,11 @@ func DoSendHeartbeat(addr string, in *SendHeartbeatRequest) (*SendHeartbeatReply
 		logger.L.Sugar().Errorf("invoke SendHeartbeat error, %v", err)
 		return nil, err
 	}
-	/*
-		if bk.GetClientConfig() != nil {
-			logger.L.Sugar().Debugf("invoke SendHeartbeat ok, NextActions=%d ClientConfig=%+v",
-				bk.GetNextAction(), bk.GetClientConfig())
-		} else {
-			logger.L.Sugar().Debugf("invoke SendHeartbeat ok, NextActions=%d",
-				bk.GetNextAction())
-		}
-	*/
 	return bk, nil
 }
 
 // DoSendReport sends a trust report message to the ras server.
 func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) {
-	//logger.L.Debug("invoke SendReport...")
 	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
@@ -827,13 +767,11 @@ func DoSendReport(addr string, in *SendReportRequest) (*SendReportReply, error) 
 		logger.L.Sugar().Errorf("invoke SendReport error, %v", err)
 		return nil, err
 	}
-	//logger.L.Debug("invoke SendReport ok")
 	return bk, nil
 }
 
 // DoSendKCMPubKeyCert sends kcm public key cert from the ras server.
 func DoSendKCMPubKeyCert(addr string, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error) {
-	//logger.L.Debug("invoke SendKCMPubKeyCert...")
 	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
@@ -846,13 +784,11 @@ func DoSendKCMPubKeyCert(addr string, in *SendKCMPubKeyCertRequest) (*SendKCMPub
 		logger.L.Sugar().Errorf("invoke SendKCMPubKeyCert error, %v", err)
 		return nil, err
 	}
-	//logger.L.Sugar().Debugf("invoke SendKCMPubKeyCert %v", bk.Result)
 	return bk, nil
 }
 
 // DoVerifyKTAPubKeyCert verifies kta public key cert to the ras server.
 func DoVerifyKTAPubKeyCert(addr string, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error) {
-	//logger.L.Debug("invoke VerifyKTAPubKeyCert...")
 	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
@@ -865,14 +801,12 @@ func DoVerifyKTAPubKeyCert(addr string, in *VerifyKTAPubKeyCertRequest) (*Verify
 		logger.L.Sugar().Errorf("invoke VerifyKTAPubKeyCert error, %v", err)
 		return nil, err
 	}
-	//logger.L.Sugar().Debugf("invoke VerifyKTAPubKeyCert %v", bk.Result)
 	return bk, nil
 }
 
 // DoKeyOperation handles key operations,
 // such as generate new key, get key and delete key.
 func DoKeyOperation(addr string, in *KeyOperationRequest) (*KeyOperationReply, error) {
-	//logger.L.Debug("invoke KeyOperation...")
 	ras, err := CreateConn(addr)
 	if err != nil {
 		return nil, err
@@ -885,7 +819,6 @@ func DoKeyOperation(addr string, in *KeyOperationRequest) (*KeyOperationReply, e
 		logger.L.Sugar().Errorf("invoke KeyOperation error, %v", err)
 		return nil, err
 	}
-	//logger.L.Sugar().Debugf("invoke KeyOperation %v", bk.Result)
 	return bk, nil
 }
 
@@ -937,7 +870,7 @@ func aesGCMDecrypt(key, cipherText, nonce []byte) ([]byte, error) {
 
 // RsaEncrypt is based on rsa algorithm using the key to encrypt data.
 func RsaEncrypt(data, keyBytes []byte) ([]byte, error) {
-	//解密pem格式的公钥
+	// 解密pem格式的公钥
 	block, _ := pem.Decode(keyBytes)
 	// 解析公钥
 	pubInterface, err := x509.ParsePKIXPublicKey(block.Bytes)
@@ -947,7 +880,7 @@ func RsaEncrypt(data, keyBytes []byte) ([]byte, error) {
 	}
 	// 类型断言
 	pub := pubInterface.(*rsa.PublicKey)
-	//加密
+	// 加密
 	ciphertext, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, pub, data, nil)
 	if err != nil {
 		logger.L.Sugar().Errorf("rsa encode error, %v", err)
@@ -958,9 +891,9 @@ func RsaEncrypt(data, keyBytes []byte) ([]byte, error) {
 
 // RsaDecrypt is based on rsa algorithm using the key to decrypt ciphertext.
 func RsaDecrypt(ciphertext, keyBytes []byte) ([]byte, error) {
-	//获取私钥
+	// 获取私钥
 	block, _ := pem.Decode(keyBytes)
-	//解析PKCS1格式的私钥
+	// 解析PKCS1格式的私钥
 	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		logger.L.Sugar().Errorf("x509 decode fail, %v", err)
@@ -999,7 +932,6 @@ func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []b
 		return nil, err
 	}
 
-	//TODO: use sessionKey to encrypt jsonRetMessage
 	encRetMessage, tag, nonce, err := aesGCMEncrypt(sessionKey, jsonRetMessage)
 	if err != nil {
 		logger.L.Sugar().Errorf("Encode return message(json format) of TA %s after get key, error, %v", str_taId, err)
@@ -1021,13 +953,11 @@ func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []b
 	encKey := hex.EncodeToString(encSessionKey)
 	encMessage := hex.EncodeToString(encRetMessage)
 
-	//TODO: pack encrypted encRetMessage and encSessionKey as struct
 	finalMessage := tagCmdData{
 		Key:        encKey,
 		EncCmdData: encMessage,
 	}
 
-	//TODO encrypt the struct to json format
 	finalRetMessage, err := json.Marshal(finalMessage)
 	if err != nil {
 		logger.L.Sugar().Errorf("Encode outside json message of TA %s error, %v", str_taId, err)
@@ -1058,8 +988,6 @@ func DecryptKeyOpIncome(encCmdData, privKey []byte) (*inKeyInfo, error) {
 		logger.L.Sugar().Errorf("decode cmd data from hex error, %v", err)
 		return nil, err
 	}
-	// TODO: use kcm private key to decode key
-	// decKey := RsaDecrypt(cmdData.Key, privKey)
 	block, _ := pem.Decode(privKey)
 	// 解析PKCS1格式的私钥
 	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
@@ -1082,7 +1010,6 @@ func DecryptKeyOpIncome(encCmdData, privKey []byte) (*inKeyInfo, error) {
 
 	appendCmdData := append(decCmdData, tag...)
 
-	// TODO: use decoded key to decode cmdData.encCmdData and save the result in encMessage
 	encMessage, err := aesGCMDecrypt(decKey, appendCmdData, nonce) // Encrypt algorithm: AES GCM (256bit) (AES256GCM)
 	if err != nil {
 		logger.L.Sugar().Errorf("Decode AESGCM error, %v", err)

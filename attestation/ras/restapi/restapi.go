@@ -251,7 +251,6 @@ $.ajax({url:this.value,type:"DELETE",success:function(result,status,xhr){if(stat
 	htmlReportValue = `<tr><td align="center">%s</td><td>%v</td></tr>`
 
 	// (GET /{id}/ta/{tauuid}/newtabasevalue)
-	// TODO
 	htmlNewTaBaseValue = "NewTaBaseValue, id:%d, tauuid:%s\n"
 
 	strHBDuration     = `Heart Beat Duration(s)`
@@ -322,10 +321,10 @@ var (
 // StartServer starts a server.
 func StartServer(https bool) {
 	if !https {
-		//https off ,use http protocol
+		// https off ,use http protocol
 		StartServerHttp(config.GetRestPort())
 	} else {
-		//https on
+		// https on
 		StartServerHttps(config.GetHttpsPort())
 	}
 }
@@ -336,7 +335,6 @@ func StartServerHttp(port string) {
 		return
 	}
 	srv = echo.New()
-	// TODO: need to be replaced with a formal authenticator implementation
 	v, err := internal.NewFakeAuthenticator(config.GetAuthKeyFile())
 	if err != nil {
 		fmt.Println(err)
@@ -361,7 +359,6 @@ func StartServerHttps(httpsPort string) {
 		return
 	}
 	srv = echo.New()
-	// TODO: need to be replaced with a formal authenticator implementation
 	v, err := internal.NewFakeAuthenticator(config.GetAuthKeyFile())
 	if err != nil {
 		fmt.Println(err)
@@ -572,18 +569,16 @@ func showListNodesByRange(ctx echo.Context, from, to int64) error {
 }
 
 // (GET /)
-
 // Get gets all nodes information
 //
-//	read all nodes information as html
-//	  curl -X GET http://localhost:40002
-//	read all nodes information as json
-//	  curl -X GET -H "Content-type: application/json" http://localhost:40002
+// read all nodes information as html
+// curl -X GET http://localhost:40002
+// read all nodes information as json
+// curl -X GET -H "Content-type: application/json" http://localhost:40002
 func (s *MyRestAPIServer) Get(ctx echo.Context) error {
 	return showListNodesByRange(ctx, math.MinInt64, math.MaxInt64)
 }
 
-// TODO: add more parameters in this struct to export to outside control.
 type cfgRecord struct {
 	HBDuration      string `json:"hbduration" form:"hbduration"`
 	TrustDuration   string `json:"trustduration" form:"trustduration"`
@@ -630,13 +625,12 @@ func genConfigHtml() string {
 }
 
 // (GET /config)
-
 // GetConfig gets ras server configuration
 //
-//	read config as html
-//	  curl -X GET http://localhost:40002/config
-//	read config as json
-//	  curl -k -X GET -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" https://localhost:40003/config
+// read config as html
+// curl -X GET http://localhost:40002/config
+// read config as json
+// curl -k -X GET -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" https://localhost:40003/config
 func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 	if checkJSON(ctx) {
 		return ctx.JSON(http.StatusOK, genConfigJson())
@@ -645,13 +639,12 @@ func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error {
 }
 
 // (POST /config)
-
 // PostConfig modifies ras server configuration
 //
-//	write config as html/form
-//	  curl -X POST -d "hbduration=10s" -d "trustduration=2m0s"  -d"isallupdate=true" http://localhost:40002/config
-//	write config as json
-//	  curl -X POST -k -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" -d '{"hbduration":"10s", "trustduration":"2m0s", "isallupdate": true}' https://localhost:40003/config
+// write config as html/form
+// curl -X POST -d "hbduration=10s" -d "trustduration=2m0s"  -d"isallupdate=true" http://localhost:40002/config
+// write config as json
+// curl -X POST -k -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" -d '{"hbduration":"10s", "trustduration":"2m0s", "isallupdate": true}' https://localhost:40003/config
 //
 // Notice: key name must be enclosed by "" in json format!!!
 func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error {
@@ -710,7 +703,6 @@ func configSet(cfg *cfgRecord) {
 }
 
 // (GET /login)
-
 // GetLogin gets login/logout ras server as admin information.
 func (s *MyRestAPIServer) GetLogin(ctx echo.Context) error {
 	if checkJSON(ctx) {
@@ -720,13 +712,12 @@ func (s *MyRestAPIServer) GetLogin(ctx echo.Context) error {
 }
 
 // (GET /version)
-
 // GetVersion gets ras server version information
 //
-//	read version as html
-//	  curl -X GET http://localhost:40002/version
-//	read version as json
-//	  curl -X GET -H "Content-type: application/json" http://localhost:40002/version
+// read version as html
+// curl -X GET http://localhost:40002/version
+// read version as json
+// curl -X GET -H "Content-type: application/json" http://localhost:40002/version
 func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
 	if checkJSON(ctx) {
 		res := struct {
@@ -741,25 +732,23 @@ func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
 }
 
 // (GET /{from}/{to})
-
 // GetFromTo gets nodes information from "from" node to "to" node sequentially
 //
-//	read a range nodes info as html
-//	  curl -X GET http://localhost:40002/{from}/{to}
-//	read a range nodes info as json
-//	  curl -X GET -H "Content-type: application/json" http://localhost:40002/{from}/{to}
+// read a range nodes info as html
+// curl -X GET http://localhost:40002/{from}/{to}
+// read a range nodes info as json
+// curl -X GET -H "Content-type: application/json" http://localhost:40002/{from}/{to}
 func (s *MyRestAPIServer) GetFromTo(ctx echo.Context, from int64, to int64) error {
 	return showListNodesByRange(ctx, from, to)
 }
 
 // (DELETE /{id})
-
 // DeleteId delete node {id}
 //
-//	delete a node by html
-//	  curl -X DELETE http://localhost:40002/{id}
-//	delete a node by json
-//	  curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}
+// delete a node by html
+// curl -X DELETE http://localhost:40002/{id}
+// delete a node by json
+// curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) DeleteId(ctx echo.Context, id int64) error {
 	trustmgr.UnRegisterClientByID(id)
 	if checkJSON(ctx) {
@@ -770,7 +759,6 @@ func (s *MyRestAPIServer) DeleteId(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, fmt.Sprintf(strDeleteClientSuccess, id))
 }
 
-// TODO: add more information of the node
 func genNodeHtml(c *cache.Cache) string {
 	var buf bytes.Buffer
 	buf.WriteString(htmlOneNode)
@@ -785,10 +773,10 @@ func genNodeHtml(c *cache.Cache) string {
 
 // GetId gets node {id} information
 //
-//	read node {id} info as html
-//	  curl -X GET http://localhost:40002/{id}
-//	read node {id} info as json
-//	  curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}
+// read node {id} info as html
+// curl -X GET http://localhost:40002/{id}
+// read node {id} info as json
+// curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) GetId(ctx echo.Context, id int64) error {
 	cr, err1 := trustmgr.FindClientByID(id)
 	c, err2 := trustmgr.GetCache(id)
@@ -827,11 +815,10 @@ type clientInfo struct {
 }
 
 // (POST /{id})
-
 // PostId modifies node {id} information
 //
-//	modify node {id} information by json
-//	  curl -X POST -H "Content-type: multipart/form-data" -F "IsAutoUpdate=true;type=application/json" http://localhost:40002/{id}
+// modify node {id} information by json
+// curl -X POST -H "Content-type: multipart/form-data" -F "IsAutoUpdate=true;type=application/json" http://localhost:40002/{id}
 func (s *MyRestAPIServer) PostId(ctx echo.Context, id int64) error {
 	cinfo := new(clientInfo)
 	err := ctx.Bind(cinfo)
@@ -881,7 +868,6 @@ func genBaseValuesHtml(id int64, rows []*typdefs.BaseRow) string {
 }
 
 // (GET /{id}/basevalues)
-
 // GetIdBasevalues gets node {id} all base values
 func (s *MyRestAPIServer) GetIdBasevalues(ctx echo.Context, id int64) error {
 	rows, err := trustmgr.FindBaseValuesByClientID(id)
@@ -898,7 +884,6 @@ func (s *MyRestAPIServer) GetIdBasevalues(ctx echo.Context, id int64) error {
 }
 
 // (DELETE /{id}/basevalues/{basevalueid})
-
 // DeleteIdBasevaluesBasevalueid deletes node {id} one base value {basevalueid}.
 func (s *MyRestAPIServer) DeleteIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
 	err := trustmgr.DeleteBaseValueByID(basevalueid)
@@ -935,7 +920,6 @@ func genBaseValueHtml(basevalue *typdefs.BaseRow) string {
 }
 
 // (GET /{id}/basevalues/{basevalueid})
-
 // GetIdBasevaluesBasevalueid gets node {id} one base value {basevalueid}
 func (s *MyRestAPIServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64, basevalueid int64) error {
 	row, err := trustmgr.FindBaseValueByID(basevalueid)
@@ -952,12 +936,11 @@ func (s *MyRestAPIServer) GetIdBasevaluesBasevalueid(ctx echo.Context, id int64,
 }
 
 // (POST /{id}/basevalues/{basevalueid})
-
 // PostIdBasevaluesBasevalueid modifies node {id} one base value {basevalueid}
 //
-//	  curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=XX"  -F "BaseType=XX" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/{uuid}/device/basevalue
-//	save node {id} a new base value by json
-//	  curl -X POST -k -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" https://localhost:40003/{id}/basevalues/{basevalueid} --data '{"enabled":true}'
+// curl -X POST -H "Content-type: multipart/form-data" -F "ClientID=XX"  -F "BaseType=XX" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/{uuid}/device/basevalue
+// save node {id} a new base value by json
+// curl -X POST -k -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" https://localhost:40003/{id}/basevalues/{basevalueid} --data '{"enabled":true}'
 //
 // 因为这里只需要传enabled一个参数，所以不需要检查其是否为空,默认为false
 func (s *MyRestAPIServer) PostIdBasevaluesBasevalueid(ctx echo.Context, cid, bid int64) error {
@@ -1008,7 +991,8 @@ func genNewBaseValueHtml(id int64) string {
 // (GET /{id}/newbasevalue)
 
 // GetIdNewbasevalue gets a empty page as html for new base value, no need for json!!!
-//	  curl -X GET http://localhost:40002/{id}/newbasevalue
+//
+// curl -X GET http://localhost:40002/{id}/newbasevalue
 func (s *MyRestAPIServer) GetIdNewbasevalue(ctx echo.Context, id int64) error {
 	return ctx.HTML(http.StatusOK, genNewBaseValueHtml(id))
 }
@@ -1051,18 +1035,18 @@ type tabaseValueJson struct {
 }
 
 // (POST /{id}/newbasevalue)
-
 // PostIdNewbasevalue save node {id} a new base value by html
-//	  curl -X POST -H "Content-type: multipart/form-data" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/1/newbasevalue
-//	save node {id} a new base value by json
+//
+// curl -X POST -H "Content-type: multipart/form-data" -F "Name=XX" -F "Enabled=true" -F "Pcr=@./filename" -F "Bios=@./filename" -F "Ima=@./filename" http://localhost:40002/1/newbasevalue
+// save node {id} a new base value by json
 //
 // (pcr,bios,ima的赋值要经过安全检查，不满足的会发出解析错误，可以参考attestation\test\integration\manual_mode_test.sh的测试样例)
 //
-//		  curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -k https://localhost:40003/{id}/newbasevalue -d '{"name":"test", "enabled":true,"isnewgroup":false}'
-//		save node {id} a new base value by xml
-//	 (a simple base RIM file according to TCG Reference Integrity Manifest (RIM) Information Model
-//	 https://trustedcomputinggroup.org/wp-content/uploads/TCG_RIM_Model_v1p01_r0p16_pub.pdf)
-//		  curl -X POST -H "Content-Type: text/xml" -k https://localhost:40003/{id}/newbasevalue -d [Signed base RIM according to TCG RIM spec]
+// curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -k https://localhost:40003/{id}/newbasevalue -d '{"name":"test", "enabled":true,"isnewgroup":false}'
+// save node {id} a new base value by xml
+// (a simple base RIM file according to TCG Reference Integrity Manifest (RIM) Information Model
+// https://trustedcomputinggroup.org/wp-content/uploads/TCG_RIM_Model_v1p01_r0p16_pub.pdf)
+// curl -X POST -H "Content-Type: text/xml" -k https://localhost:40003/{id}/newbasevalue -d [Signed base RIM according to TCG RIM spec]
 func (s *MyRestAPIServer) PostIdNewbasevalue(ctx echo.Context, id int64) error {
 	if checkJSON(ctx) {
 		return s.postBValueByJson(ctx, id)
@@ -1150,7 +1134,6 @@ func (s *MyRestAPIServer) postBValueByJson(ctx echo.Context, id int64) error {
 	}
 	if bv.IsNewGroup {
 		// set other base value records' enabled field to false.
-		// TODO: need a interface to do the above operation!
 		c, err := trustmgr.GetCache(id)
 		if err == nil {
 			for _, base := range c.Bases {
@@ -1203,7 +1186,6 @@ func (s *MyRestAPIServer) postBValueByMultiForm(ctx echo.Context, id int64) erro
 	}
 	if isNewGroup {
 		// set other base value records' enabled field to false.
-		// TODO: need a interface to do the above operation!
 		c, err := trustmgr.GetCache(id)
 		if err == nil {
 			for _, base := range c.Bases {
@@ -1214,11 +1196,6 @@ func (s *MyRestAPIServer) postBValueByMultiForm(ctx echo.Context, id int64) erro
 		logger.L.Debug(strDisableBaseByClientID)
 	}
 	trustmgr.SaveBaseValue(row)
-	/* // no use???
-	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusFound, row)
-	}
-	*/
 	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/basevalues", id))
 }
 
@@ -1234,7 +1211,6 @@ func (s *MyRestAPIServer) postTaBValueByXml(ctx echo.Context, id int64, tauuid s
 		Uuid:       tauuid,
 		CreateTime: time.Now(),
 	}
-	//TODO: 从rim中获取bv.valueinfo和bv.name
 
 	// set other base value records' enabled field to false.
 	err = trustmgr.DisableTaBaseByUuid(id, tauuid)
@@ -1272,9 +1248,6 @@ func (s *MyRestAPIServer) postTaBValueByJson(ctx echo.Context, id int64, tauuid 
 
 func (s *MyRestAPIServer) postTaBValueByMultiForm(ctx echo.Context, id int64, tauuid string) error {
 	name := ctx.FormValue(strName)
-	//sEnv := ctx.FormValue(strEnabled)
-	//enabled, _ := strconv.ParseBool(sEnv)
-	//这里的enabled不需要post
 	valueinfo, err := s.getFile(ctx, strVInfo)
 	if err != nil && err != http.ErrMissingFile {
 		return err
@@ -1290,11 +1263,6 @@ func (s *MyRestAPIServer) postTaBValueByMultiForm(ctx echo.Context, id int64, ta
 	logger.L.Debug(strDisableTaBaseByUuid)
 
 	trustmgr.SaveTaBaseValue(row)
-	/* // no use???
-	if checkJSON(ctx) {
-		return ctx.JSON(http.StatusFound, row)
-	}
-	*/
 	return ctx.Redirect(http.StatusFound, fmt.Sprintf("/%d/ta/%s/tabasevalues", id, tauuid))
 }
 
@@ -1311,14 +1279,13 @@ func genReportsHtml(id int64, rows []typdefs.ReportRow) string {
 }
 
 // (GET /{id}/reports)
-
 // GetIdReports get node {id} all reports
 //
-//	get node {id} all reports as html
-//	  curl -X GET http://localhost:40002/{id}/reports
-//	get node {id} all reports as json
-//	  curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/reports
-//	  curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/reports
+// get node {id} all reports as html
+// curl -X GET http://localhost:40002/{id}/reports
+// get node {id} all reports as json
+// curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/reports
+// curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/reports
 func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
 	rows, err := trustmgr.FindReportsByClientID(id)
 	if checkJSON(ctx) {
@@ -1334,13 +1301,12 @@ func (s *MyRestAPIServer) GetIdReports(ctx echo.Context, id int64) error {
 }
 
 // (DELETE /{id}/reports/{reportid})
-
 // DeleteIdReportsReportid delete node {id} one report {reportid}
 //
-//	delete node {id} report {reportid} by html
-//	  curl -X DELETE http://localhost:40002/{id}/reports/{reportid}
-//	delete node {id} report {reportid} by json
-//	  curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}/reports/{reportid}
+// delete node {id} report {reportid} by html
+// curl -X DELETE http://localhost:40002/{id}/reports/{reportid}
+// delete node {id} report {reportid} by json
+// curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}/reports/{reportid}
 func (s *MyRestAPIServer) DeleteIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
 	err := trustmgr.DeleteReportByID(reportid)
 	if checkJSON(ctx) {
@@ -1376,13 +1342,12 @@ func genReportHtml(report *typdefs.ReportRow) string {
 }
 
 // (GET /{id}/reports/{reportid})
-
 // GetIdReportsReportid get node {id} one report {reportid}
 //
-//	get node {id} report {reportid} as html
-//	  curl -X GET http://localhost:40002/{id}/reports/{reportid}
-//	get node {id} report {reportid} as json
-//	  curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/reports/{reportid}
+// get node {id} report {reportid} as html
+// curl -X GET http://localhost:40002/{id}/reports/{reportid}
+// get node {id} report {reportid} as json
+// curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/reports/{reportid}
 func (s *MyRestAPIServer) GetIdReportsReportid(ctx echo.Context, id int64, reportid int64) error {
 	row, err := trustmgr.FindReportByID(reportid)
 	if checkJSON(ctx) {
@@ -1414,7 +1379,7 @@ func (s *MyRestAPIServer) GetIdContainerStatus(ctx echo.Context, cid int64) erro
 		if !rows[i].Verified {
 			status = strUnknown
 		} else {
-			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) { //Verified and not timed out
+			if rows[i].Trusted && !time.Now().After(c.GetTrustExpiration()) { // Verified and not timed out
 				status = strTrusted
 			} else if !rows[i].Trusted {
 				status = strUntrusted
@@ -1464,19 +1429,17 @@ func genNewTaBaseValueHtml(id int64, tauuid string) string {
 }
 
 // (GET /{id}/ta/{tauuid}/newtabasevalue)
-
 // GetIdTaTauuidNewtabasevalue gets ta basevalue.
 // curl -k -X GET  -H "Content-type: application/json" https://localhost:40003/30/ta/test/newtabasevalue
-// test pass, TODO: HTML implementation
 func (s *MyRestAPIServer) GetIdTaTauuidNewtabasevalue(ctx echo.Context, id int64, tauuid string) error {
 	return ctx.HTML(http.StatusOK, genNewTaBaseValueHtml(id, tauuid))
 }
 
 // (POST /{id}/ta/{tauuid}/newtabasevalue)
-
 // PostIdTaTauuidNewtabasevalue saves node {id} a new base value by json
-//	curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/ta/{tauuid}/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
-//	curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -k https://localhost:40003/24/ta/test/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
+//
+// curl -X POST -H "Content-Type: application/json" -k https://localhost:40003/{id}/ta/{tauuid}/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
+// curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -k https://localhost:40003/24/ta/test/newtabasevalue -d '{"name":"testname", "enabled":true, "valueinfo":"test info", "isnewgroup":false}'
 func (s *MyRestAPIServer) PostIdTaTauuidNewtabasevalue(ctx echo.Context, id int64, tauuid string) error {
 	if checkJSON(ctx) {
 		return s.postTaBValueByJson(ctx, id, tauuid)
@@ -1519,8 +1482,6 @@ func (s *MyRestAPIServer) GetIdTaTauuidTabasevalues(ctx echo.Context, id int64, 
 		return err
 	}
 	return ctx.HTML(http.StatusOK, "")
-	//return ctx.HTML(http.StatusOK, genBaseValuesHtml(id, rows))
-	//TODO: genTaBaseValuesHtml(id, rows)
 }
 
 // DeleteIdTaTauuidTabasevaluesTabasevalueid deletes ta basevalue.
@@ -1568,8 +1529,6 @@ func (s *MyRestAPIServer) GetIdTaTauuidTabasevaluesTabasevalueid(
 		return err
 	}
 	return ctx.HTML(http.StatusOK, "")
-	//return ctx.HTML(http.StatusOK, genBaseValueHtml(row))
-	//TODO: genTaBaseValuesHtml(row)
 }
 
 // PostIdTaTauuidTabasevaluesTabasevalueid modifies ta basevalues by ta basevalue id.
@@ -1607,10 +1566,10 @@ func (s *MyRestAPIServer) PostIdTaTauuidTabasevaluesTabasevalueid(
 }
 
 // (GET /{id}/ta/{tauuid}/tareports)
-
 // GetIdTaTauuidTareports gets node {id} all reports as json
-//	  curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/ta/test/tareports
-//	  curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/ta/test/tareports
+//
+// curl -X GET -H "Content-type: application/json" http://localhost:40002/{id}/ta/test/tareports
+// curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/ta/test/tareports
 //
 // test pass
 func (s *MyRestAPIServer) GetIdTaTauuidTareports(ctx echo.Context, id int64, tauuid string) error {
@@ -1625,12 +1584,9 @@ func (s *MyRestAPIServer) GetIdTaTauuidTareports(ctx echo.Context, id int64, tau
 		return err
 	}
 	return ctx.HTML(http.StatusOK, "")
-	//return ctx.HTML(http.StatusOK, genReportsHtml(id, rows))
-	//TODO: genTaReportsHtml(id, rows)
 }
 
 // (DELETE /{id}/ta/{tauuid}/tareports/{tareportid})
-
 // DeleteIdTaTauuidTareportsTareportid deletes ta report by ta report id.
 // curl -X DELETE -H "Content-type: application/json" http://localhost:40002/{id}/ta/{tauuid}/tareports/{tareportid}
 // curl -k -X GET -H "Content-type: application/json" https://localhost:40003/28/ta/test/tareports/2
@@ -1676,6 +1632,4 @@ func (s *MyRestAPIServer) GetIdTaTauuidTareportsTareportid(
 		return err
 	}
 	return ctx.HTML(http.StatusOK, "")
-	//return ctx.HTML(http.StatusOK, genReportsHtml(id, rows))
-	//TODO: genTaReportsHtml(id, rows)
 }

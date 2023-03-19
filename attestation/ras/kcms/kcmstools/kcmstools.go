@@ -66,12 +66,10 @@ func dailKMS() net.Conn {
 
 // SendKCMPubKeyCert sends kcm public key cert to ka.
 func SendKCMPubKeyCert() ([]byte, error) {
-	// TODO: get KCM public key cert
 	kcm_cert, err := ReadCert("../cert/kcm.crt")
 	if err != nil {
 		return nil, err
 	}
-	// TODO: return KCM publick key cert, error
 	return kcm_cert, nil
 }
 
@@ -97,13 +95,11 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 		return err
 	}
 
-	// TODO: save kta public key cert to database
 	base64_pubkeyCert := base64.StdEncoding.EncodeToString([]byte(ktaPubKeyCert))
 	_, err = kdb.SavePubKeyInfo(deviceId, base64_pubkeyCert)
 	if err != nil {
 		return err
 	}
-	//logger.L.Debug("Initialize KTA success")
 	return nil
 }
 
@@ -123,8 +119,7 @@ func GenerateNewKey(
 		return nil, nil, nil, nil, nil, err
 	}
 
-	// ask KMS to generate a new key for the specific TA,
-	// getting (plaintext, ciphertext)
+	// ask KMS to generate a new key for the specific TA, getting (plaintext, ciphertext)
 	str_taid := string(taid)
 	_, ciphertext, plaintext, err := KmsGenerateKey(account, password, hostkeyid)
 	if err != nil {
@@ -149,12 +144,6 @@ func GenerateNewKey(
 		return nil, nil, nil, nil, nil, err
 	}
 
-	// use K to encrypt plaintext
-	//enc_plaintext, err := EncryptWithAES256GCM(plaintext, K)
-	//if err != nil {
-	//	return nil, nil, nil, nil, err
-	//}
-
 	// use kta public key to encrypt K (can only be decryped by KTA))
 	pubkey, err := kdb.FindPubKeyInfo(deviceId)
 	if err != nil {
@@ -164,8 +153,6 @@ func GenerateNewKey(
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	// return taid, ENC(K), ENC(plaintext), keyId, error
-	//logger.L.Debug("get key success")
 	return taid, K, KtaPublickeyCert, plaintext, []byte(keyid), nil
 }
 
@@ -185,8 +172,7 @@ func GetKey(
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	// find ciphertext of the specific key
-	// in database by (taid, keyid)
+	// find ciphertext of the specific key in database by (taid, keyid)
 	str_taid := string(taid)
 	str_keyid := string(keyid)
 	findkey, err := kdb.FindKeyInfo(str_taid, str_keyid)
@@ -200,8 +186,7 @@ func GetKey(
 		return nil, nil, nil, nil, nil, err
 	}
 
-	// generate a session key K
-	// (symmetric, and can only be decryped by KTA)
+	// generate a session key K (symmetric, and can only be decryped by KTA)
 	K := make([]byte, 32)
 	if _, err = io.ReadFull(rand.Reader, K); err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -209,7 +194,6 @@ func GetKey(
 	fmt.Printf("K: %v \n", K)
 
 	// use K to encrypt plaintext
-	//enc_plaintext, err := EncryptWithAES256GCM(plaintext, K)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -224,8 +208,6 @@ func GetKey(
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	// return taid, ENC(K), ENC(plaintext),keyid,  error
-	//logger.L.Debug("get key success")
 	return taid, K, KtaPublickeyCert, plaintext, keyid, nil
 }
 
@@ -252,12 +234,6 @@ func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte,
 		return nil, nil, err
 	}
 	fmt.Printf("K: %v \n", K)
-
-	// use K to encrypt plaintext
-	//enc_plaintext, err := EncryptWithAES256GCM(plaintext, K)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	// use kta public key to encrypt K
 	// (can only be decryped by KTA))

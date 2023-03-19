@@ -128,8 +128,6 @@ const (
 )
 
 const (
-	// app scenario
-
 	// RA_SCENARIO_NO_AS means ra scenario without as
 	RA_SCENARIO_NO_AS = int32(iota)
 	// RA_SCENARIO_AS_NO_DAA means ra scenario as without daa
@@ -276,8 +274,6 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	// format conversion: C -> Go
 	Report := []uint8(C.GoBytes(unsafe.Pointer(c_report.buf), C.int(c_report.size)))
 
-	//ioutil.WriteFile("report.orig", Report, 0644)
-
 	return Report
 }
 
@@ -352,7 +348,6 @@ func GenerateAKCert() ([]byte, error) {
 			return nil, err
 		}
 		log.Print("NoDAA scenario: Generate RSA AK and AK Cert succeeded!")
-		//ioutil.WriteFile("akcert-nodaa.orig", akcert, 0644)
 		return akcert, nil
 	case RA_SCENARIO_AS_WITH_DAA:
 		akcert, err := provisionDAA()
@@ -361,7 +356,6 @@ func GenerateAKCert() ([]byte, error) {
 			return nil, err
 		}
 		log.Print("DAA scenario: Generate AK and AK Cert succeeded!")
-		//ioutil.WriteFile("akcert-daa.orig", akcert, 0644)
 		return akcert, nil
 	default:
 		return nil, errors.New("scenario is not supported yet")

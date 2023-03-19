@@ -84,8 +84,6 @@ const (
 	RA_TAG_CERT_DRK = RA_BYTES | 8
 	// RA_TAG_CERT_AK means ra tag cert ak
 	RA_TAG_CERT_AK = RA_BYTES | 9
-	// alg type
-
 	// RA_ALG_RSA_3072 means the code name of
 	// RSA algorithm with thr key length of 3072
 	RA_ALG_RSA_3072 = 0x20000
@@ -196,7 +194,6 @@ func verifyAKCert(oldAKCert []byte) (drkpub *rsa.PublicKey, akpub []byte, err er
 		return nil, nil, errors.New("verify ak signature failed")
 	}
 	log.Print("Server: Verify ak signature & QCA ok.")
-	//TODO: verify TCB
 	return drkpub, akpub, nil
 }
 
@@ -235,14 +232,6 @@ func GenerateNoDAAAKCert(oldAKCert []byte) ([]byte, error) {
 		Bytes: newCertDer,
 	}
 	newCertPem := pem.EncodeToMemory(newCertBlock)
-	// d, err := database.InsertDKeyRow(drkcertbyte)
-	// if err != nil {
-	// 	log.Printf("Insert device key row failed, error: %v", err)
-	// }
-	// err = database.InsertAKCertRow(newCertPem, d.Id)
-	// if err != nil {
-	// 	log.Printf("Insert AKey Cert row failed, error: %v", err)
-	// }
 	return newCertPem, nil
 }
 
@@ -353,7 +342,6 @@ func verifyDRKSig(c *x509.Certificate) error {
 
 // AS will uses its private key/cert to re-sign AK cert,
 // and convert AK cert to x509 format
-// TODO: Measure value in AK cert should be verified before sending to AS
 func signForAKCert(cb []byte, parent *x509.Certificate, pub interface{}, priv interface{}) ([]byte, error) {
 	var ACtemplate = x509.Certificate{
 		NotBefore:      time.Now(),
@@ -455,7 +443,6 @@ func (dcre *daacre) combineu(P1 *FP512BN.ECP, Qs *FP512BN.ECP, R_B *FP512BN.ECP,
 
 	P1tmp := ecp2bytes(P1)
 	P1bytes := []byte{0x01, 0x00, 0x00, 0x00, P1tmp[35], 0x01, 0x00, 0x00, 0x00, P1tmp[71]}
-	//P1bytes := ecp2bytes(P1)
 	Qsbytes := ecp2bytes(Qs)
 	Abytes := ecp2bytes(dcre.akcre.A)
 	Bbytes := ecp2bytes(dcre.akcre.B)
@@ -487,7 +474,7 @@ func (dcre *daacre) combineu(P1 *FP512BN.ECP, Qs *FP512BN.ECP, R_B *FP512BN.ECP,
 	ubytes := hash.Sum(nil)
 	u := FP512BN.FromBytes(ubytes)
 	zero := FP512BN.NewBIG()
-	dcre.sigma.u = FP512BN.Modadd(u, zero, n) //u.Mod(n)
+	dcre.sigma.u = FP512BN.Modadd(u, zero, n) // u.Mod(n)
 }
 
 func int2bytes(n int) []byte {
@@ -581,11 +568,6 @@ func (dcre *daacre) cipher2(K []byte, Qs *FP512BN.ECP) ([]byte, []byte, []byte, 
 	return c2, tag, iv, nil
 }
 
-/*
-var t_r = [...]FP512BN.Chunk{0x80D7A738AC5DBF, 0x83866ADCEF0D2F, 0x3BE6B971B389D4, 0x3992E10C3466CD, 0x84BEB276}
-var t_l = [...]FP512BN.Chunk{0x660F4C750AD824, 0xE123D7A4E355BC, 0x16E93BDD023240, 0xE747487636A551, 0xEA169CCC}
-var k = [...]FP512BN.Chunk{0x191A1B1C1D1E1F, 0x12131415161718, 0x0B0C0D0E0F1011, 0x0405060708090A, 0x00010203}
-*/
 func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rsa.PublicKey) ([]byte, error) {
 	rnd := core.NewRAND()
 	var rndraw [128]byte
@@ -593,9 +575,6 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 		return nil, errors.New("daa K generation failed")
 	}
 	rnd.Seed(len(rndraw), rndraw[:])
-	// random r l
-	//r := FP512BN.NewBIGints(t_r) //test random r
-	//l := FP512BN.NewBIGints(t_l) //test random l
 	r := FP512BN.Random(rnd)
 	l := FP512BN.Random(rnd)
 	// daa private key
@@ -607,7 +586,6 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	if err != nil {
 		return nil, errors.New("daa private key data conversion failed")
 	}
-	// TODO: check if public key is on the curve
 
 	dcre := new(daacre)
 	// A=[r]P_1
@@ -617,7 +595,7 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	dcre.akcre.B = dcre.akcre.A.Mul(sky)
 	// D=[ry]Q_s
 	n := FP512BN.NewBIGints(FP512BN.CURVE_Order)
-	ry := FP512BN.Modmul(r, sky, n) //n = bnp256_order
+	ry := FP512BN.Modmul(r, sky, n) // n = bnp256_order
 	Qs := bytes2ecp(akprip1)
 	dcre.akcre.D = Qs.Mul(ry)
 	// tmp=A+D
@@ -637,7 +615,6 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	dcre.sigma.j = FP512BN.Modadd(yru, l, n)
 	// use DRK to encrypt K -> ENCdrk(Qs||K)
 	K := FP512BN.Random(rnd)
-	//K := FP512BN.NewBIGints(k) //test random K
 	var Kbytes [FP512BN.MODBYTES]byte
 	K.ToBytes(Kbytes[:])
 	cip1, err := cipher1(Kbytes[:], Qs, drkpubk)

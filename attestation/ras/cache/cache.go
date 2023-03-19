@@ -47,7 +47,7 @@ type (
 		online       bool
 		hostTrusted  string
 		taTrusted    map[string]string
-		isAutoUpdate bool //true表示信任下一次的可信报告，不验证直接抽取更新基准值；false则正常对下一次报告进行验证
+		isAutoUpdate bool // true表示信任下一次的可信报告，不验证直接抽取更新基准值；false则正常对下一次报告进行验证
 		// current commands for RAC.
 		commands uint64
 		// heartbeat expiration, used for judging whether RAC heartbeat is expired.

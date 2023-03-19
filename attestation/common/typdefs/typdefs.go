@@ -97,7 +97,7 @@ type (
 		Quoted     []byte
 		Signature  []byte
 		Manifests  []Manifest
-		TaReports  map[string][]byte //map[uuid]TaReport
+		TaReports  map[string][]byte // map[uuid]TaReport
 	}
 
 	// Manifest stores the pcr/bios/ima log part of trust report.
@@ -774,15 +774,6 @@ func parseDigestValues(cnt uint32, origin []byte, point *int64, algAndLenMap map
 			return nil, err
 		}
 		algIDStr := hex.EncodeToString(dAlgIDBytes)
-		/*dLen := 0
-		switch algIDStr {
-		case sha1AlgID:
-			dLen = Sha1DigestLen
-		case sha256AlgID:
-			dLen = Sha256DigestLen
-		case sm3AlgID:
-			dLen = SM3DigestLen
-		}*/
 		if dLen, ok := algAndLenMap[algIDStr]; ok {
 			dBytes := make([]byte, dLen)
 			dBytes, err = readBytes(dBytes, origin, point)
@@ -822,13 +813,13 @@ func GetHashValue(alg string, evt *BIOSManifestItem) string {
 // TransformBIOSBinLogToTxt transforms the bios binary log to text.
 // The text log has the following fields, separated by space:
 //
-//	  column 1: index
-//		 column 2: pcr index
-//		 column 3: BType
-//		 column 4: sha1 hash text
-//		 column 5: sha256 hash text
-//		 column 6: sm3 hash text
-//		 column 7: data hex string
+// column 1: index
+// column 2: pcr index
+// column 3: BType
+// column 4: sha1 hash text
+// column 5: sha256 hash text
+// column 6: sm3 hash text
+// column 7: data hex string
 //
 // Notes:
 // 1) if sha1/sha256/sm3 doesn't exist, use "N/A" string to place.
@@ -1005,13 +996,11 @@ func handleIMALine(pcrs *PcrGroups, line []byte, algStr string) (bool, error) {
 		}
 		err = handleIMAWordsByTag(words, t1, s1, pcrs, algStr, index)
 	}
-	//我觉得这里可能写错了，等待老师反馈
 	return true, nil
 }
 
 // ExtendPCRWithIMALog first verifies the bios aggregate, then extends ima
 // logs into pcr and verifies them one by one.
-// TODO: needs to test sha1/sha256/ima/ima-ng all cases, now just test ima/sha1.
 func ExtendPCRWithIMALog(pcrs *PcrGroups, imaLog []byte, algStr string) (bool, error) {
 	var aggr string
 	switch algStr {
@@ -1131,11 +1120,11 @@ func areAllMatched(flag []bool) bool {
 // CompareIMALog compares the base file and IMA log of trust report, return trust or not.
 // Base file has the following format per line:
 //
-//	"sha1 value" + space + "sha256 value" + "/path/to/filename"
+// "sha1 value" + space + "sha256 value" + "/path/to/filename"
 //
 // IMA log report has the following format per line:
 //
-//	"PCR value" + space + "sha1" + space + "type string" + "sha1/sha256" + "/path/to/filename"
+// "PCR value" + space + "sha1" + space + "type string" + "sha1/sha256" + "/path/to/filename"
 func CompareIMALog(baseFile string, imaLog string) bool {
 	base := parseFile(baseFile)
 	if base == nil {
