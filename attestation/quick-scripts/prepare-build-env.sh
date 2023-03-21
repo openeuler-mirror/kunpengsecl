@@ -10,6 +10,7 @@ PROCESSOR=`uname -p`
 case ${PROCESSOR} in
     aarch64)
         ARCH=arm64
+        openeuler_deps=${openeuler_deps}" itrustee_sdk-devel"
         ;;
     x86_64)
         ARCH=amd64

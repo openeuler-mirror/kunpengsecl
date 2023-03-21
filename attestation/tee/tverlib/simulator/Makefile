@@ -1,5 +1,5 @@
 
-.PHONY: all build test clean
+.PHONY: all build test clean install
 all build: build-libqca build-libteec
 
 build-libqca: teeqca.c teeqca.h
@@ -7,6 +7,8 @@ build-libqca: teeqca.c teeqca.h
 
 build-libteec: teec.c
 	gcc -fPIC -shared -o libteec.so teec.c
+
+install: ;
 
 test: 
 

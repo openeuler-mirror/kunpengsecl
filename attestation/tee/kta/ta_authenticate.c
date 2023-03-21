@@ -114,11 +114,11 @@ uint8_t* base64urldecode(const char *source, size_t source_len, size_t *dest_len
     *(b64 + i) = '\0';
     if(source_len % 4 == 2) {
         strcat_s(b64, source_len + 3, tail2);
-        *dest_len = (source_len + 2) / 4 * 3;
+        *dest_len = (source_len + 2) / 4 * 3 - 2;
     }
     else if(source_len % 4 == 3) {
         strcat_s(b64, source_len + 3, tail1);
-        *dest_len = (source_len + 1) / 4 * 3;
+        *dest_len = (source_len + 1) / 4 * 3 - 1;
     }
     else if(source_len % 4 == 0)
         *dest_len = source_len / 4 * 3;

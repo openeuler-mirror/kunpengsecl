@@ -12,8 +12,8 @@ See the Mulan PSL v2 for more details.
 package katools
 
 /*
-#cgo CFLAGS: -I../ktalib -I../ktalib/itrustee_sdk/include/CA
-#cgo LDFLAGS: -L${SRCDIR}/../ktalib -lkta -Wl,-rpath=${SRCDIR}/../ktalib -lkta -ldl
+#cgo CFLAGS: -I../ktalib -I/opt/itrustee_sdk/include/CA
+#cgo LDFLAGS: -L${SRCDIR}/../ktalib -lkta -Wl,-rpath=${SRCDIR}/../ktalib -lkta -ldl -lteec_adaptor
 #include "ktalib.h"
 
 */

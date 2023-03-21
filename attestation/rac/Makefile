@@ -6,10 +6,12 @@ KTALIBPATH = ka/ktalib
 HUBPATH = ./cmd/rahub
 SCRPATH = ../quick-scripts
 TOPPATH = ../..
+LIBTAR = /usr/lib64
 ETCTAR = /etc/attestation
 SHARETAR = /usr/share/attestation
 DOCTAR = /usr/share/doc/attestation
 BINTAR = /usr/bin
+PROCESSOR = $(shell uname -p)
 
 all: build
 
@@ -23,13 +25,16 @@ build: build-libkta
 	go build -mod=vendor -o $(PKGPATH)/rahub cmd/rahub/*.go
 
 build-libkta:
-	cd $(KTALIBPATH); sh ./prepare-tee-sdk.sh; \
-	gcc -fPIC -shared -o libkta.so ktalib.c ./itrustee_sdk/src/CA/libteec_adaptor.c -I ./itrustee_sdk/include/CA/
-
+ifeq ($(PROCESSOR), aarch64)
+	cd $(KTALIBPATH); \
+	gcc -fPIC -shared -o libkta.so ktalib.c -I /opt/itrustee_sdk/include/CA/
+endif
 
 clean:
 	@rm -rf $(PKGPATH)
-	@rm -rf $(KTALIBPATH)/itrustee_sdk $(KTALIBPATH)/libkta.so
+ifeq ($(PROCESSOR), aarch64)
+	@rm -rf $(KTALIBPATH)/libkta.so
+endif
 
 install: build
 	mkdir -p $(DESTDIR)$(ETCTAR)/rac $(DESTDIR)$(ETCTAR)/rahub $(DESTDIR)$(ETCTAR)/default_test $(DESTDIR)$(SHARETAR)/rac $(DESTDIR)$(SHARETAR)/rahub $(DESTDIR)$(DOCTAR)/rac $(DESTDIR)$(DOCTAR)/rahub $(DESTDIR)$(BINTAR)
@@ -42,6 +47,7 @@ install: build
 	install -m 644 $(RACPATH)/binary_bios_measurements* $(DESTDIR)$(ETCTAR)/default_test
 	install -m 555 $(SCRPATH)/integritytools/*.sh $(DESTDIR)$(SHARETAR)/rac
 	install -m 555 $(SCRPATH)/prepare-racconf-env.sh $(DESTDIR)$(SHARETAR)/rac/
+	install -m 555 $(KTALIBPATH)/libkta.so $(LIBTAR)
 	install -m 555 $(SCRPATH)/prepare-hubconf-env.sh $(DESTDIR)$(SHARETAR)/rahub/
 
 	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rac
