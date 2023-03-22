@@ -1,5 +1,5 @@
 PKGPATH=pkg
-TASTEST=./akissuer ./clientapi ./config
+TASTEST=./akissuer ./clientapi ./config ./restapi
 
 all: build
 
