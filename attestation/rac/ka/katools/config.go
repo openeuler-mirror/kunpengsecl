@@ -27,7 +27,7 @@ const (
 	confExt  = "yaml"
 	// ka config key
 	confKaPollDuration = "kaconfig.pollduration"
-	confCKeyCert       = "kaconfig.ccFile" //ca cert
+	confCKeyCert       = "kaconfig.ccFile" // ca cert
 	confKKeyCert       = "kaconfig.kcFile"
 	confKKeyFile       = "kaconfig.kKeyFile"
 	confKtaPath        = "kaconfig.ktapath"
@@ -68,17 +68,6 @@ func loadConfigs() {
 	}
 	// set default values
 	kaCfg = &kaConfig{}
-	// set config.yaml loading name and path
-	// viper.SetConfigName(confName)
-	// viper.SetConfigType(confExt)
-	// for _, s := range defaultPaths {
-	// 	viper.AddConfigPath(s)
-	// }
-	// err := viper.ReadInConfig()
-	// if err != nil {
-	// 	fmt.Printf("read config file error: %v\n", err)
-	// 	return
-	// }
 	kaCfg.pollDuration = viper.GetDuration(confKaPollDuration)
 	kaCfg.ccFile = viper.GetString(confCKeyCert)
 	kaCfg.kcFile = viper.GetString(confKKeyCert)

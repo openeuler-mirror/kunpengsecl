@@ -252,25 +252,7 @@ func getReport(ta *trustApp) []byte {
 		return ta.report
 	}
 	log.Print("Get TA report succeeded!")
-
-	// Verify that if the Nonce value is tampered with
-	// for i := 0; i < len(ta.usrdata); i++ {
-	//	if ta.usrdata.Buf[i] != rpyID.Nonce[i] {
-	//		log.Print("Nonce value returned does not match!")
-	//		return ta.report
-	//	}
-	//}
-	//log.Print("The returned nonce value is not modified unexpectedly!")
-
 	ta.report = rpyID.GetTeeReport()
-
-	/* Test whether the expected data is received */
-	// log.Print("Get TA report success:\n")
-	// for i := 0; i < int(ta.report.Size); i++ {
-	// 	fmt.Printf("index%d is 0x%x; ", i, ta.report.Buf[i])
-	// }
-	// fmt.Print("\n")
-
 	return ta.report
 }
 

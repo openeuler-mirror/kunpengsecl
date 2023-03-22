@@ -36,7 +36,6 @@ const (
 
 type (
 	// required struct
-
 	// KdbManager handles all key information in key database.
 	KdbManager struct {
 		// save key information and support
@@ -83,7 +82,6 @@ func FindKeyInfo(taid, keyid string) (*typdefs.KeyinfoRow, error) {
 	keyinfo := &typdefs.KeyinfoRow{}
 	err := kmgr.db.QueryRow(sqlFindKeyInfo, taid, keyid).
 		Scan(&keyinfo.ID, &keyinfo.TaID, &keyinfo.KeyID, &keyinfo.Ciphertext)
-	//Q2.taid和keyid都是string类型，和数据库中的char(36)能否匹配？
 	if err != nil {
 		return nil, err
 	}

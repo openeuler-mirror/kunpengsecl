@@ -903,11 +903,6 @@ func checkQuote(c *cache.Cache, report *typdefs.TrustReport, row *typdefs.Report
 		return false, err
 	}
 
-	/*alg := config.GetDigestAlgorithm()
-	h, err := typdefs.GetHFromAlg(alg)
-	if err != nil {
-		return false, err
-	}*/
 	h := sha256.New()
 	_, err1 := h.Write(report.Quoted)
 	if err1 != nil {
@@ -918,21 +913,6 @@ func checkQuote(c *cache.Cache, report *typdefs.TrustReport, row *typdefs.Report
 	if ikCert == nil {
 		return false, typdefs.ErrIKCertNull
 	}
-	/*
-		switch alg {
-		case typdefs.Sha1AlgStr:
-			err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
-				crypto.SHA1, datahash, signature.RSA.Signature)
-		case typdefs.Sha256AlgStr:
-			err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
-				crypto.SHA256, datahash, signature.RSA.Signature)
-		case typdefs.Sm3AlgStr:
-			// set hash parameter 0 because sm3 is not supported in crypto package
-			err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
-				0, datahash, signature.RSA.Signature)
-		default:
-			return false, typdefs.ErrNotSupportAlg
-		}*/
 	err = rsa.VerifyPKCS1v15(ikCert.PublicKey.(*rsa.PublicKey),
 		crypto.SHA256, datahash, signature.RSA.Signature)
 	if err != nil {
@@ -967,12 +947,12 @@ func pcrLogToMap(pcrLog []byte) map[int]string {
 func checkPcrLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, error) {
 	pcrLog := findManifest(report, typdefs.StrPcr)
 	pcrMap := pcrLogToMap(pcrLog)
-	//use PCRselection to calculate PCRdigest
+	// use PCRselection to calculate PCRdigest
 	parsedQuote, err := tpm2.DecodeAttestationData(report.Quoted)
 	if err != nil {
 		return false, err
 	}
-	//combine all pcrs
+	// combine all pcrs
 	temp := []byte{}
 	for _, PCRid := range parsedQuote.AttestedQuoteInfo.PCRSelection.PCRs {
 		pcrValueBytes, err2 := hex.DecodeString(pcrMap[PCRid])
@@ -981,12 +961,7 @@ func checkPcrLog(report *typdefs.TrustReport, row *typdefs.ReportRow) (bool, err
 		}
 		temp = append(temp, pcrValueBytes...)
 	}
-	//calculate new pcr digest
-	/*alg := config.GetDigestAlgorithm()
-	h1, err := typdefs.GetHFromAlg(alg)
-	if err != nil {
-		return false, err
-	}*/
+	// calculate new pcr digest
 	h1 := sha256.New()
 	_, err1 := h1.Write(temp)
 	if err1 != nil {
@@ -1099,7 +1074,7 @@ func extarcAndSaveTABase(report *typdefs.TrustReport) map[string]*typdefs.TaBase
 		// refer to struct report_get
 		param_count := taReport[96:100]
 		count := binary.LittleEndian.Uint32(param_count)
-		start := 100 + count*12 //100是固定偏移，count表示固定偏移后面跟着多少个结构体，再后面就是image hash和hash
+		start := 100 + count*12 // 100是固定偏移，count表示固定偏移后面跟着多少个结构体，再后面就是image hash和hash
 		end := start + 64
 		valueinfo := taReport[start:end]
 		base := typdefs.TaBaseRow{
@@ -1334,9 +1309,9 @@ func verifyPCR(report *typdefs.TrustReport, base *typdefs.BaseRow) error {
 
 // The bios string in BaseRow has the following fields, separated by space:
 //
-//	  column 1: hash type
-//		 column 2: filedata-hash
-//		 column 3: filename-hint
+// column 1: hash type
+// column 2: filedata-hash
+// column 3: filename-hint
 func extractBIOS(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	biosNames := getBiosExtractTemplate(base)
 	used := make([]bool, len(biosNames))
@@ -1365,7 +1340,7 @@ func parseBiosName(ln []byte, biosNames []string, used []bool, buf *bytes.Buffer
 		}
 		if bn == string(words[2]) {
 			used[i] = true
-			buf.WriteString(bn) //name sha1Hash sha256:sha256Hash sm3:sm3Hash
+			buf.WriteString(bn) // name sha1Hash sha256:sha256Hash sm3:sm3Hash
 			buf.WriteString(" " + string(words[3]))
 			if len(words) >= 5 {
 				buf.WriteString(" " + string(words[4]))
@@ -1387,11 +1362,11 @@ func parseBiosName(ln []byte, biosNames []string, used []bool, buf *bytes.Buffer
 // bios may have one to three type of hash : sha1 sha256 sm3;  sha1 sha256 N/A;  N/A sha256 sm3; ...
 // There are four cases of return value:
 //
-//	0: means no errors
-//	1: means their sha1 hash not equal
-//	2: means their second hash not equal
-//	3: means their third hash not equal
-//	-1: means their hash type not equal, can't verify
+// 0: means no errors
+// 1: means their sha1 hash not equal
+// 2: means their second hash not equal
+// 3: means their third hash not equal
+// -1: means their hash type not equal, can't verify
 func compareBiosHash(words1, words2 [][]byte) int {
 	if string(words1[3]) != "N/A" && string(words2[1]) != "N/A" {
 		// if both base and report have sha1 hash in bios, return the result of their comparison
@@ -1545,9 +1520,9 @@ func getIMAExtractTemplate(oldBase *typdefs.BaseRow) []string {
 
 // The ima string in BaseRow has the following fields, separated by space:
 //
-//	  column 1: hash type
-//		 column 2: filedata-hash
-//		 column 3: filename-hint
+// column 1: hash type
+// column 2: filedata-hash
+// column 3: filename-hint
 func extractIMA(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	imaNames := getIMAExtractTemplate(base)
 	used := make([]bool, len(imaNames))

@@ -33,7 +33,8 @@ import (
 
 // PrivateKey is an ECDSA private key which was generated with the following
 // command:
-//     openssl ecparam -name prime256v1 -genkey -noout -out ecprivatekey.pem
+//
+//	openssl ecparam -name prime256v1 -genkey -noout -out ecprivatekey.pem
 //
 // KeyID means fake key id const
 const KeyID = `fake-key-id`
@@ -106,8 +107,6 @@ func NewFakeAuthenticator(keyfile string) (*FakeAuthenticator, error) {
 // trust the JWT are present and with the correct values.
 func (f *FakeAuthenticator) ValidateJWS(jwsString string) (jwt.Token, error) {
 	return jwt.Parse([]byte(jwsString), jwt.WithKeySet(f.KeySet))
-	//		return jwt.Parse([]byte(jwsString), jwt.WithKeySet(f.KeySet),
-	//		jwt.WithAudience(FakeAudience), jwt.WithIssuer(FakeIssuer))
 }
 
 // SignToken takes a JWT and signs it with our priviate key, returning a JWS.

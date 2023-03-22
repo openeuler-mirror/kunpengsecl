@@ -54,7 +54,6 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"github.com/stretchr/testify/assert"
-	//"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 )
 
 const (
@@ -762,21 +761,6 @@ func TestClientapi(t *testing.T) {
 		t.Errorf("test GenerateIKCert error %v", err)
 	}
 
-	// test empty clientinfo
-	/*
-		ci, err := json.Marshal(map[string]string{})
-		if err != nil {
-			t.Error(emptyClientInfoErr)
-		}
-		r1, err := ras.c.RegisterClient(ctx, &RegisterClientRequest{
-			Cert:       createCert(),
-			ClientInfo: string(ci),
-		})
-		if err != nil {
-			t.Errorf("test RegisterClient with empty clientinfo error %v", err)
-		}
-		defer trustmgr.DeleteClientByID(r1.GetClientId())*/
-
 	// test empty request
 	_, err = ras.c.RegisterClient(ctx, &RegisterClientRequest{})
 	if err == nil {
@@ -895,10 +879,6 @@ func TestClientapiInitKTA(t *testing.T) {
 	if err != nil {
 		t.Errorf("test VerifyKTAPubKeyCert with empty deviceId failed %v", err)
 	}
-
-	/*dbConfig := GetdbConfig(strDbConfig)
-	kdb.CreateKdbManager(constDB, dbConfig)
-	defer kdb.ReleaseKdbManager()*/
 
 	err = kcmstools.SaveCert(ktacert, certPath, ktaFileName)
 	if err != nil {

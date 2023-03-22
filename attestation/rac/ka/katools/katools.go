@@ -112,13 +112,11 @@ func kaInitialize(ras *clientapi.RasConn, id int64) error {
 		terminateKTA()
 		return err
 	}
-	// 删除密钥文件
-	//removeKeyFile()
 	req := clientapi.VerifyKTAPubKeyCertRequest{
 		ClientId:      id,
 		KtaPubKeyCert: ktaCert,
 	}
-	//向clientapi发送证书和设备id
+	// 向clientapi发送证书和设备id
 	rpy, err := clientapi.DoVerifyKTAPubKeyCertWithConn(ras, &req)
 	if err != nil || !rpy.Result {
 		logger.L.Sugar().Errorf("kcm verify kta pubKeycert error, %s", err)
@@ -157,8 +155,6 @@ func kaLoop(ras *clientapi.RasConn, id int64, pollDuration time.Duration, addr s
 		if err != nil {
 			logger.L.Sugar().Errorf("get kta command error, %s", err)
 			break
-			// time.Sleep(pollDuration)
-			// continue
 		}
 		if cmdnum == 0 {
 			time.Sleep(1 * time.Second)
@@ -220,7 +216,7 @@ func initialKTA(kcmPubkey *rsa.PublicKey, ktaPubCert []byte, ktaPrivKey *rsa.Pri
 	defer C.free(c_ktaPubCert)
 	c_request_data2 := C.struct_buffer_data{
 		C.__uint32_t(len(ktaPubCert)), (*C.uchar)(c_ktaPubCert)}
-	//kta privkey: (N, D)
+	// kta privkey: (N, D)
 	c_ktaPrivKey_N := C.CBytes(ktaPrivKey.N.Bytes())
 	defer C.free(c_ktaPrivKey_N)
 	c_request_data3 := C.struct_buffer_data{
@@ -280,16 +276,11 @@ func sendRpyToKTA(rpy []byte) error {
 
 // 证书验证
 func validateCert(cert, parent *x509.Certificate) error {
-	//check the period validate
+	// check the period validate
 	timeNow := time.Now()
 	if !timeNow.Before(parent.NotAfter) {
 		return errors.New("the certificate has expired")
 	}
-	// er := cert.CheckSignatureFrom(parent)
-	// if er == nil {
-	// 	fmt.Println("success")
-	// 	return er
-	// }
 	if cert.Issuer.CommonName != parent.Subject.CommonName {
 		return errors.New("cert issuer name is not the parent subject name")
 	}

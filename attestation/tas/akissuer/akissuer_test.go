@@ -634,11 +634,6 @@ func TestGenerateDAAAKCert(t *testing.T) {
 	if err != nil {
 		t.Errorf("generate daa scenario ak cert error %v", err)
 	}
-	/*
-		if !bytes.Equal(sig, sigDAA) {
-			t.Error("test DAA credential generation failed")
-		}
-	*/
 }
 
 func TestGenerateNoDAAAKCert(t *testing.T) {

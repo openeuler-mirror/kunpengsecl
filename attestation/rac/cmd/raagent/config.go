@@ -89,10 +89,6 @@ const (
 	lflagVerbose = "verbose"
 	sflagVerbose = "v"
 	helpVerbose  = "show running debug information"
-	// digest alg output
-	//lflagAlg = "algorithm"
-	//sflagAlg = "a"
-	//helpAlg  = "input sha1 sha256 or sm3"
 	// ima log path for testing mode
 	lflagIma = "imalog"
 	sflagIma = "i"
@@ -146,7 +142,6 @@ var (
 	versionFlag *bool   = nil
 	verboseFlag *bool   = nil
 	kaFlag      *bool   = nil
-	//algDigest   *string = nil
 	imaLogPath  *string = nil
 	biosLogPath *string = nil
 	shutktaFlag *bool   = nil
@@ -160,7 +155,6 @@ func initFlags() {
 	versionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
 	verboseFlag = pflag.BoolP(lflagVerbose, sflagVerbose, defaultVerboseMode, helpVerbose)
 	kaFlag = pflag.BoolP(lflagKa, sflagKa, defaultKaMode, helpKa)
-	//algDigest = pflag.StringP(lflagAlg, sflagAlg, defaultDigestAlg, helpAlg)
 	imaLogPath = pflag.StringP(lflagIma, sflagIma, defaultImaLog, helpIma)
 	biosLogPath = pflag.StringP(lflagBios, sflagBios, defaultBiosLog, helpBios)
 	shutktaFlag = pflag.BoolP(lflagShutkta, sflagShutkta, false, helpShutkta)
@@ -193,9 +187,6 @@ func handleFlags() {
 	if server != nil && *server != nullString {
 		SetServer(*server)
 	}
-	/*if algDigest != nil && *algDigest != nullString {
-		SetDigestAlgorithm(*algDigest)
-	}*/
 	if taTestMode != nil && *taTestMode {
 		SetTaTestMode(*taTestMode)
 	}
@@ -242,7 +233,6 @@ func getIKCertTest() {
 		_, racCfg.iKeyCertTest, err = cryptotools.DecodeKeyCertFromFile(racCfg.icTestFile)
 		if err != nil {
 			racCfg.iKeyCertTest = []byte{}
-			// racCfg.icTestFile = ikCertTest + crtExt
 		}
 	} else {
 		racCfg.icTestFile = ikCertTest + crtExt
@@ -259,7 +249,6 @@ func getEKCert() {
 		_, racCfg.eKeyCert, err = cryptotools.DecodeKeyCertFromFile(racCfg.ecFile)
 		if err != nil {
 			racCfg.eKeyCert = []byte{}
-			// racCfg.ecFile = ekCert + crtExt
 		}
 	} else {
 		racCfg.ecFile = ekCert + crtExt
@@ -276,7 +265,6 @@ func getIKCert() {
 		_, racCfg.iKeyCert, err = cryptotools.DecodeKeyCertFromFile(racCfg.icFile)
 		if err != nil {
 			racCfg.iKeyCert = []byte{}
-			// racCfg.icFile = ikCert + crtExt
 		}
 	} else {
 		racCfg.icFile = ikCert + crtExt
@@ -298,7 +286,6 @@ func loadConfigs() {
 	}
 	err := viper.ReadInConfig()
 	if err != nil {
-		//fmt.Printf("read config file error: %v\n", err)
 		return
 	}
 	racCfg.logPath = viper.GetString(logPath)

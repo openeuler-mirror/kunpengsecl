@@ -104,7 +104,6 @@ func loadConfigs() {
 	}
 	err := viper.ReadInConfig()
 	if err != nil {
-		//fmt.Printf("read config file error: %v\n", err)
 		return
 	}
 	getConfigs()

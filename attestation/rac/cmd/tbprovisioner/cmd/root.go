@@ -30,9 +30,6 @@ var (
 2. create EK and signed by remote attestation server
 3. create IK and signed by remote attestation server
 ...`,
-		/*Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Hi, I'm here!\ncmd=%v\nargs=%v\n", cmd, args)
-		},*/
 	}
 )
 

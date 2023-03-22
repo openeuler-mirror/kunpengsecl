@@ -48,8 +48,6 @@ func (h *GetHandler) HandleItem(ctx context.Context, req *kmip.Request) (*kmip.R
 		return nil, err
 	}
 
-	// req.Key = respPayload.Key
-
 	return &kmip.ResponseBatchItem{
 		ResponsePayload: respPayload,
 	}, nil

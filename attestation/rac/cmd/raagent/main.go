@@ -116,7 +116,6 @@ func prepare() {
 	}
 	defer clientapi.ReleaseConn(ras)
 	// set digest algorithm
-
 	// assume tpm chip has an Ek from tpm2.CreatePrimary and its EC is stored in
 	// NVRAM. So in test mode, create EK and sign it from PCA, save it to NVRAM
 	prepareEK(ras)

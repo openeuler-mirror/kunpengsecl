@@ -495,7 +495,7 @@ var (
 			},
 			KeyBits:     2048,
 			ExponentRaw: 0,
-			ModulusRaw: tpmutil.U16Bytes{ //256 zeros
+			ModulusRaw: tpmutil.U16Bytes{ // 256 zeros
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -568,14 +568,10 @@ func SetDigestAlg(alg string) error {
 	}
 
 	if algID, ok := algIdMap[alg]; ok {
-		//pcrSelectionNil.Hash = algID
 		pcrSelection0.Hash = algID
 		pcrSelection0to7.Hash = algID
 		pcrSelection7.Hash = algID
 		pcrSelectionAll.Hash = algID
-		//EKParams.NameAlg = algID
-		//IKParams.NameAlg = algID
-		//IKParams.RSAParameters.Sign.Hash = algID
 		tpmRef.config.ReportHashAlg = alg
 		return nil
 	}
@@ -610,7 +606,7 @@ func OpenTPM(useHW bool, conf *TPMConfig, seed int64) error {
 // openTpmChip opens TPM hardware chip and reads EC from NVRAM.
 // NOTICE:
 //
-//	User should use tbprovisioner command tool to write the EC
+// # User should use tbprovisioner command tool to write the EC
 //
 // into TPM NVRAM before running raagent or the TPM chip already
 // has EC in NVRAM when it comes from manufactories.
@@ -775,7 +771,7 @@ func ActivateIKCert(in *IKCertInput) ([]byte, error) {
 	}
 	var alg, mode uint16
 	switch in.DecryptAlg {
-	case cryptotools.Encrypt_Alg: //AES128_CBC
+	case cryptotools.Encrypt_Alg: // AES128_CBC
 		alg, mode = cryptotools.AlgAES, cryptotools.AlgCBC
 	default:
 		return nil, err
@@ -789,7 +785,6 @@ func ActivateIKCert(in *IKCertInput) ([]byte, error) {
 }
 
 // GetClientInfo returns json format client information.
-// TODO: add some other information
 func GetClientInfo() (string, error) {
 	var err error
 	var out0 bytes.Buffer
@@ -840,7 +835,6 @@ func readPcrLog(pcrSelection tpm2.PCRSelection) ([]byte, error) {
 		digBuf = make([]byte, typdefs.Sha1DigestLen*2)
 	case tpm2.AlgSHA256:
 		digBuf = make([]byte, typdefs.Sha256DigestLen*2)
-	// TODO: need rewrite
 	case AlgSM3:
 		digBuf = make([]byte, typdefs.SM3DigestLen*2)
 	}
@@ -892,7 +886,7 @@ func GetTrustReport(
 		Nonce:      nonce,
 		ClientInfo: clientInfo,
 	}
-	//we use TrustReportIn as user data of Quote to guarantee its integrity
+	// we use TrustReportIn as user data of Quote to guarantee its integrity
 	repHash, err := tRepIn.Hash(algStr)
 	if err != nil {
 		return nil, err
@@ -950,13 +944,13 @@ func buildTaReport(nonce uint64, qcaserver string, taTestMode bool) (map[string]
 		}
 		lines := bytes.Split(talist, typdefs.NewLine)
 		for _, ln := range lines {
-			//words[0]是uuid words[1]是with_tcb
+			// words[0]是uuid words[1]是with_tcb
 			words := bytes.Split(ln, typdefs.Space)
 			with_tcb := true
 			if string(words[1]) == strfalse {
 				with_tcb = false
 			}
-			//convert uint64 to []byte
+			// convert uint64 to []byte
 			bytesBuffer := bytes.NewBuffer([]byte{})
 			binary.Write(bytesBuffer, binary.LittleEndian, nonce)
 			taReport, err := getTaReport(words[0], bytesBuffer.Bytes(), with_tcb, qcaserver)
@@ -1040,7 +1034,7 @@ func getManifestContent(ms []typdefs.Manifest, t string) []byte {
 }
 
 func replayBIOSManifestTest(pcrs *typdefs.PcrGroups, content []byte) error {
-	//use bios manifest to replay pcrs
+	// use bios manifest to replay pcrs
 	btLog, _ := typdefs.TransformBIOSBinLogToTxt(content)
 	typdefs.ExtendPCRWithBIOSTxtLog(pcrs, btLog)
 	algID := algIdMap[tpmRef.config.ReportHashAlg]
@@ -1061,7 +1055,7 @@ func replayBIOSManifestTest(pcrs *typdefs.PcrGroups, content []byte) error {
 }
 
 func replayIMAManifestTest(pcrs *typdefs.PcrGroups, content []byte) error {
-	//use ima manifest to replay pcrs
+	// use ima manifest to replay pcrs
 	typdefs.ExtendPCRWithIMALog(pcrs, content, tpmRef.config.ReportHashAlg)
 	algID := algIdMap[tpmRef.config.ReportHashAlg]
 	var v [24][]byte
