@@ -1,5 +1,5 @@
 %global name kunpengsecl
-%global version 1.1.2
+%global version 2.0.0
 %undefine _missing_build_ids_terminate_build
 
 Name:            %{name}
@@ -14,11 +14,16 @@ Source1:         vendor.tar.gz
 BuildRequires:   gettext make golang
 BuildRequires:   protobuf-compiler openssl-devel
 
-Requires:        openssl
+%ifarch     aarch64
+BuildRequires:   itrustee_sdk-devel
+Requires:        itrustee_sdk
+%endif
+
+Requires:        openssl itrustee_sdk
 Packager:        WangLi, Wucaijun, gwei3
 
 %description
-This is %{name} project, including rac, ras and rahub packages.
+This is %{name} project, including rac, ras, rahub, qcaserver, attester and tas packages.
 
 %package       rac
 Summary:       the rac package.
@@ -37,6 +42,24 @@ Summary:       the rahub package.
 
 %description   rahub
 This is the rahub rpm package, which is used to cascade clients.
+
+%package       qcaserver
+Summary:       the qcaserver package.
+
+%description   qcaserver
+This is the qcaserver rpm package, which is used to invoke libqca.
+
+%package       attester
+Summary:       the attester package.
+
+%description   attester
+This is the attester rpm package, which is used to verify ta reports.
+
+%package       tas
+Summary:       the tas package.
+
+%description   tas
+This is the tas rpm package, which is used to sign ak cert.
 
 %prep
 %setup -q -c -a 1
@@ -89,11 +112,43 @@ make install DESTDIR=%{buildroot}
 %{_docdir}/attestation/rahub/README.en.md
 %{_docdir}/attestation/rahub/LICENSE
 
+%files   qcaserver
+%{_bindir}/qcaserver
+%{_sysconfdir}/attestation/qcaserver/config.yaml
+%{_datadir}/attestation/qcaserver/prepare-qcaconf-env.sh
+%{_docdir}/attestation/qcaserver/README.md
+%{_docdir}/attestation/qcaserver/README.en.md
+%{_docdir}/attestation/qcaserver/LICENSE
+%{_datadir}/attestation/qcaserver/libqca.so
+%{_datadir}/attestation/qcaserver/libteec.so
+
+%files   attester
+%{_bindir}/attester
+%{_sysconfdir}/attestation/attester/config.yaml
+%{_datadir}/attestation/attester/prepare-attesterconf-env.sh
+%{_docdir}/attestation/attester/README.md
+%{_docdir}/attestation/attester/README.en.md
+%{_docdir}/attestation/attester/LICENSE
+%{_datadir}/attestation/attester/libteeverifier.so
+
+%files   tas
+%{_bindir}/tas
+%{_sysconfdir}/attestation/tas/config.yaml
+%{_datadir}/attestation/tas/prepare-tasconf-env.sh
+%{_docdir}/attestation/tas/README.md
+%{_docdir}/attestation/tas/README.en.md
+%{_docdir}/attestation/tas/LICENSE
+
 %clean
 rm -rf %{_builddir}
 rm -rf %{buildroot}
 
 %changelog
+* Thu Mar 23 2003 leezhenxiang <1172294056@qq.com> - 2.0.0-1
+-   update to 2.0.0
+-   add qcaserver, attester, and tas packages
+-   add BuildRequires itrustee_sdk-devel and Requires itrustee_sdk in aarch64
+-   modify makefile to adapt to different architectures
 * Thu Sep 15 2022 gwei3 <11015100@qq.com> - 1.1.2-1
 -   update to 1.1.2
 -   add slice length checks to avoid buffer overflow while extracting and verifying

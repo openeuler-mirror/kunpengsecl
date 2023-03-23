@@ -16,11 +16,11 @@ $ git clone https://gitee.com/openeuler/kunpengsecl.git
 
 rpm包制作完成后，请进入kunpengsecl父目录下的**rpmbuild/RPMS/x86_64(aarch64)**目录，安装您所需要的rpm包。
 ```shell
-$ rpm -ivh kunpengsecl-ras-1.1.1-1.x86_64(aarch64).rpm
+$ rpm -ivh kunpengsecl-ras-2.0.0-1.x86_64(aarch64).rpm
 ```
 若您此后不再需要本程序，也可通过以下命令进行卸载。
 ```shell
-$ rpm -e kunpengsecl-ras-1.1.1-1.x86_64(aarch64)
+$ rpm -e kunpengsecl-ras-2.0.0-1.x86_64(aarch64)
 ```
 ### 基于Ubuntu系统的安装
 Ubuntu系统不支持rpm的安装方式，但我们仍为您提供了一种选择。
