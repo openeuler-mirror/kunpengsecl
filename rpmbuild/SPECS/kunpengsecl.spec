@@ -20,7 +20,7 @@ Requires:        itrustee_sdk
 %endif
 
 Requires:        openssl itrustee_sdk
-Packager:        WangLi, Wucaijun, gwei3
+Packager:        leezhenxiang, WangLi, Wucaijun, gwei3
 
 %description
 This is %{name} project, including rac, ras, rahub, qcaserver, attester and tas packages.
@@ -144,7 +144,7 @@ rm -rf %{_builddir}
 rm -rf %{buildroot}
 
 %changelog
-* Thu Mar 23 2003 leezhenxiang <1172294056@qq.com> - 2.0.0-1
+* Thu Mar 23 2023 leezhenxiang <1172294056@qq.com> - 2.0.0-1
 -   update to 2.0.0
 -   add qcaserver, attester, and tas packages
 -   add BuildRequires itrustee_sdk-devel and Requires itrustee_sdk in aarch64
