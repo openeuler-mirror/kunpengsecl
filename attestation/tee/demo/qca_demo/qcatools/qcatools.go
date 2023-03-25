@@ -105,7 +105,9 @@ const (
 	ConfName = "config"
 	// ConfExt means config file name suffix
 	ConfExt = "yaml"
-	strPath = "."
+	strLocalConf = "."
+	strHomeConf  = "$HOME/.config/attestation/qcaserver"
+	strSysConf   = "/etc/attestation/qcaserver"
 	// Server means qcaconfig server
 	Server = "qcaconfig.server"
 	// AKServer means qcaconfig akserver
@@ -156,7 +158,9 @@ var (
 	// Qcacfg means qca config
 	Qcacfg       *qcaConfig = nil
 	defaultPaths            = []string{
-		strPath,
+		strLocalConf,
+		strHomeConf,
+		strSysConf,
 	}
 	// ServerFlag means server flag
 	ServerFlag *string = nil

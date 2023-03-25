@@ -57,6 +57,7 @@ This is the attester rpm package, which is used to verify ta reports.
 
 %package       tas
 Summary:       the tas package.
+Requires:      %{name}-attester
 
 %description   tas
 This is the tas rpm package, which is used to sign ak cert.
@@ -90,6 +91,9 @@ make install DESTDIR=%{buildroot}
 %{_docdir}/attestation/rac/README.md
 %{_docdir}/attestation/rac/README.en.md
 %{_docdir}/attestation/rac/LICENSE
+%ifarch     aarch64
+%{_libdir}/libkta.so
+%endif
 
 %files   ras
 %{_bindir}/ras
@@ -129,7 +133,7 @@ make install DESTDIR=%{buildroot}
 %{_docdir}/attestation/attester/README.md
 %{_docdir}/attestation/attester/README.en.md
 %{_docdir}/attestation/attester/LICENSE
-%{_datadir}/attestation/attester/libteeverifier.so
+%{_libdir}/libteeverifier.so
 
 %files   tas
 %{_bindir}/tas
