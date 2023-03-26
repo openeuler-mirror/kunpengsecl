@@ -32,15 +32,12 @@ install: build
 	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/attester
 	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/attester
 	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/attester
-	install -m 555 $(VERIFIERSOPATH)/libteeverifier.so $(DESTDIR)$(SHARETAR)/attester
 	install -m 555 $(PKGPATH)/qcaserver $(DESTDIR)$(BINTAR)
 	install -m 644 $(QCAPATH)/config.yaml $(DESTDIR)$(ETCTAR)/qcaserver
 	install -m 555 $(SCRPATH)/prepare-qcaconf-env.sh $(DESTDIR)$(SHARETAR)/qcaserver
 	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/qcaserver
 	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/qcaserver
 	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/qcaserver
-	install -m 555 $(QCASOPATH)/libqca.so $(DESTDIR)$(SHARETAR)/qcaserver
-	install -m 555 $(QCASOPATH)/libteec.so $(DESTDIR)$(SHARETAR)/qcaserver
 
 test:
 	go test -count=1 $(TESTEES)

@@ -29,6 +29,8 @@ import (
 const (
 	// config path
 	strLocalConf = "."
+	strHomeConf  = "$HOME/.config/attestation/tas"
+	strSysConf   = "/etc/attestation/tas"
 	// config file
 	confName           = "config"
 	confExt            = "yaml"
@@ -65,6 +67,8 @@ type (
 var (
 	defaultPaths = []string{
 		strLocalConf,
+		strHomeConf,
+		strSysConf,
 	}
 	tasCfg    *tasConfig
 	ascert    *x509.Certificate

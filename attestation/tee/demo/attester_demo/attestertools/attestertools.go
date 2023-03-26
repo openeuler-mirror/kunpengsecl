@@ -69,7 +69,9 @@ const (
 	// ConfExt means config file name suffix
 	ConfExt = "yaml"
 	// attester config path
-	strPath = "."
+	strLocalConf = "."
+	strHomeConf  = "$HOME/.config/attestation/qca"
+	strSysConf   = "/etc/attestation/ras"
 	// attester config key
 	// Server means attesterconfig server
 	Server = "attesterconfig.server"
@@ -108,7 +110,9 @@ var (
 	}
 	verify_result int = 1
 	defaultPaths      = []string{
-		strPath,
+		strLocalConf,
+		strHomeConf,
+		strSysConf,
 	}
 	// VersionFlag means version flag
 	VersionFlag *bool = nil

@@ -47,7 +47,6 @@ install: build
 	install -m 644 $(RACPATH)/binary_bios_measurements* $(DESTDIR)$(ETCTAR)/default_test
 	install -m 555 $(SCRPATH)/integritytools/*.sh $(DESTDIR)$(SHARETAR)/rac
 	install -m 555 $(SCRPATH)/prepare-racconf-env.sh $(DESTDIR)$(SHARETAR)/rac/
-	install -m 555 $(KTALIBPATH)/libkta.so $(LIBTAR)
 	install -m 555 $(SCRPATH)/prepare-hubconf-env.sh $(DESTDIR)$(SHARETAR)/rahub/
 
 	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rac
@@ -56,6 +55,9 @@ install: build
 	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rahub
 	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rahub
 	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/rahub
+ifeq ($(PROCESSOR), aarch64)
+	install -m 555 $(KTALIBPATH)/libkta.so $(DESTDIR)$(LIBTAR)/
+endif
 
 uninstall:
 ifeq ($(DESTDIR),)
