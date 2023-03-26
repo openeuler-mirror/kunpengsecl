@@ -3,7 +3,7 @@
 all build: 
 	export CC=gcc CFLAGS=-fPIC; python3 config64.py -o 32 -o 33
 
-install: ;
+install: all build;
 
 test:
 	@echo "to be implemented!"

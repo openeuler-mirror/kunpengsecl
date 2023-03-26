@@ -6,6 +6,23 @@
 ## 软件架构
 ![kunpengsecl arch](doc/RA-arch-1.png "kunpengsecl远程证明架构图")
 
+### 最小实现
+用户可基于TEE Verifier Lib和QCA Lib（由华为对外发布）自行编写TEE Attester来验证TEE中用户TA的完整性，使用TEE自生成的AK。
+![tee flow](doc/TEE-flow.png "tee远程证明最小实现原理图")
+
+### 独立实现
+用户可基于TEE Verifier Lib和QCA Lib（由华为对外发布）自行编写TEE Attester来验证TEE中用户TA的完整性，使用TEE AK Service生成AK。
+
+**NO_DAA场景：**
+![img](doc/NoDAA_ak_generate.jpg "有AS无DAA场景下AK生成")
+
+**WITH_DAA场景：**
+![img](doc/DAA_ak_generate.jpg "有AS有DAA场景下AK生成")
+
+### 整合实现
+用户可使用整合在安全库已有远程证明框架中的 TEE/TA 远程证明能力来验证 TEE 中用户 TA 的完整性。
+![integrated implementation](doc/integrated-implementation.png "tee远程证明整合实现软件架构图")
+
 ## 安装教程
 ### 基于openEuler系统的安装
 openEuler系统支持采用rpm的安装方式，首先，您可使用以下命令获取项目最新源代码。
@@ -27,7 +44,7 @@ Ubuntu系统不支持rpm的安装方式，但我们仍为您提供了一种选�
 
 在获取项目源代码后，对于服务器RAS和客户端RAC的安装，分别进入**kunpengsecl/attestation/ras**和**kunpengsecl/attestation/rac**目录，执行`make install`命令即可自动编译程序并将相应文件安装到缺省位置。
 
-另外也支持在kunpengsecl根目录执行`make install`同时安装RAS和RAC。
+另外也支持在kunpengsecl根目录执行`make install`同时安装所有程序。
 
 若您需要自定义安装目录，可使用以下任一命令。
 ```shell
@@ -49,7 +66,7 @@ $ make uninstall DESTDIR=/xxx/xxx
 
 除此之外，程序运行所依赖的配置文件默认有三个读取路径，分别为当前目录"./config.yaml"，家目录"${HOME}/.config/attestation/ras(rac)(rahub)/config.yaml"，以及系统目录"/etc/attestation/ras(rac)(rahub)/config.yaml"。
 
-如果您需要创建家目录配置文件，可在安装好rpm包后，执行位于**usr/share/attestation/ras(rac)(rahub)**下的脚本**prepare-ras(rac)(hub)conf-env.sh**，从而自动完成家目录配置文件的部署。
+如果您需要创建家目录配置文件，可在安装好rpm包后，执行位于**usr/share/attestation/ras(rac)(rahub)(qcaserver)(attester)(tas)**下的脚本**prepare-ras(rac)(hub)(qca)(attester)(tas)conf-env.sh**，从而自动完成家目录配置文件的部署。
 
 ### RAS启动参数
 命令行输入`ras`即可启动RAS程序。在RAS目录下需要提供`ECDSA`公钥并命名为`ecdsakey.pub`。相关参数如下：
@@ -72,10 +89,97 @@ $ make uninstall DESTDIR=/xxx/xxx
   -V, --version         打印RAC版本并退出
   -i, --imalog          指定ima文件路径
   -b, --bioslog         指定bios文件路径
+  -T, --tatest          true=以TA测试模式启动，false=以正常模式启动
 ```
 
+### 最小实现
+#### QCA启动参数
+命令行输入`${DESTDIR}/usr/bin/qcaserver`即可启动QCA程序，请注意，这里的必须要使用qcaserver的完整路径以正常启动QTA，同时需要使QTA中的CA路径参数与该路径保持相同。相关参数如下：
+```
+  -C, --scenario int    设置程序的应用场景
+  -S, --server string   指定开放的服务器地址/端口
+```
+
+#### ATTESTER启动参数
+命令行输入`attester`即可启动ATTESTER程序。相关参数如下：
+```
+  -B, --basevalue string   设置基准值文件读取路径
+  -M, --mspolicy int       设置度量策略（1为仅比对img-hash值，2为仅比对hash值，3为同时比对img-hash和hash两个值）
+  -S, --server string      指定待连接的服务器地址
+  -U, --uuid int           指定待验证的可信应用
+  -V, --version            打印程序版本并退出
+  -T, --test               读取固定的nonce值以匹配目前硬编码的可信报告
+```
+
+### 独立实现
+
+#### No-DAA 场景
+**对于证明密钥服务端AK_Service的启用**
+
+命令行输入`tas`即可启动AK_Service程序。相关参数如下：
+```
+  -T, --token         生成一个测试用的验证码并退出
+```
+
+**对于服务端QCA的启用**
+命令行输入`${DESTDIR}/usr/bin/qcaserver -C 1`以启动QCA。
+
+**对于ATTESTER的启用**
+
+同<a href="#使用说明">最小实现</a>。
+
+>注：在有AK_Service环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问AK_Service以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有AK_Service签发的证书保存于本地，若成功读取证书，则无需访问AK_Service，若读取证书失败，则需要访问AK_Service，并将AK_Service返回的证书保存于本地。
+
+#### DAA 场景
+**对于证明密钥服务端AK_Service的启用**
+
+要启用AKS服务，需要先为AKS配置好私钥。按如下命令修改家目录下的配置文件：
+```bash
+$ cd ${HOME}/.config/attestation/tas
+$ vim config.yaml
+ # 如下DAA_GRP_KEY_SK_X和DAA_GRP_KEY_SK_Y的值仅用于测试，正常使用前请务必更新其内容以保证安全。
+tasconfig:
+  port: 127.0.0.1:40008
+  rest: 127.0.0.1:40009
+  akskeycertfile: ./ascert.crt
+  aksprivkeyfile: ./aspriv.key
+  huaweiitcafile: ./Huawei IT Product CA.pem
+  DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
+  DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56
+```
+之后再输入`tas`启动AK_Service程序。
+
+**对于服务端QCA的启用**
+命令行输入`${DESTDIR}/usr/bin/qcaserver -C 2`以启动QCA。
+
+**对于ATTESTER的启用**
+
+同<a href="#使用说明">最小实现</a>。
+
+>注：在有AK_Service环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问AK_Service以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有AK_Service签发的证书保存于本地，若成功读取证书，则无需访问AK_Service，若读取证书失败，则需要访问AK_Service，并将AK_Service返回的证书保存于本地。
+
+目前，在AKS端，为支持管理员的远程控制，提供了以下接口可使用：
+```
+/config: GET
+/config: POST
+```
+
+若管理员需要查询AKS端的配置信息，可使用`/config`接口的GET方法：
+```s
+curl -X GET -H "Content-Type: application/json" http://localhost:40009/config
+```
+***
+若管理员需要修改AKS端的配置信息，可使用`/config`接口的POST方法：
+```s
+curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -d '{"basevalue":"testvalue"}' http://localhost:40009/config
+```
+>注：AKS端的配置信息读取与修改目前仅支持基准值
+
+### 整合实现
+用户可使用整合在安全库已有远程证明框架中的 TEE/TA 远程证明能力来验证 TEE 中用户 TA 的完整性。
+
 ### 接口定义
-为了便于管理员对目标服务器以及RAS进行管理，本程序设计了以下接口可供调用：
+为了便于管理员对目标服务器、RAS以及目标服务器上部署的TEE中的用户 TA 进行管理，本程序设计了以下接口可供调用：
 ```
 /: GET
 /{id}: GET、POST、DELETE
@@ -85,6 +189,12 @@ $ make uninstall DESTDIR=/xxx/xxx
 /{id}/basevalues: GET
 /{id}/newbasevalue: POST
 /{id}/basevalues/{basevalueid}: GET、POST、DELETE
+/{id}/ta/{tauuid}/status: GET
+/{id}/ta/{tauuid}/tabasevalues: GET
+/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid}: GET、POST、DELETE
+/{id}/ta/{tauuid}/newtabasevalue: POST
+/{id}/ta/{tauuid}/tareports: GET
+/{id}/ta/{tauuid}/tareports/{tareportid}: GET、DELETE
 /version: GET
 /login: GET
 /config: GET、POST
@@ -174,6 +284,64 @@ $ curl -X POST -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN
 若您想要删除目标服务器指定基准值，那么您可以使用`"/{id}/basevalues/{basevalueid}"`接口的`DELETE`方法，注意，使用该方法将删除指定基准值的所有信息，您将无法再通过接口对该基准值进行查询！
 ```shell
 $ curl -X DELETE -H "Authorization: $AUTHTOKEN" -H "Content-Type: application/json" http://localhost:40002/1/basevalues/1
+```
+***
+
+若您想要查询目标服务器上特定用户 TA 的可信状态，那么您可以使用`"/{id}/ta/{tauuid}/status"`接口的GET方法。其中$AUTHTOKEN是您事先使用`ras -T`自动生成的身份验证码，{id}是RAS为目标服务器分配的唯一标识号，{tauuid}是特定用户 TA 的身份标识号。
+
+```bash
+$ curl -k -X GET -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" https://localhost:40003/{id}/ta/{tauuid}/status
+```
+***
+若您想要查询目标服务器上特定用户 TA 的所有基准值信息，那么您可以使用`"/{id}/ta/{tauuid}/tabasevalues"`接口的GET方法。
+
+```bash
+$ curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/ta/{tauuid}/tabasevalues
+```
+***
+若您想要查询目标服务器上特定用户 TA 的指定基准值的详细信息，那么您可以使用`"/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid}"`接口的GET方法。其中{tabasevalueid}是RAS为目标服务器上特定用户 TA 的指定基准值分配的唯一标识号。
+
+```bash
+$ curl -k -X GET -H "Content-type: application/json" https://localhost:40003/{id}/ta/{tauuid}/tabasevalues{tabasevalueid}
+```
+***
+若您想要修改目标服务器上特定用户 TA 的指定基准值的可用状态，那么您可以使用`"/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid}"`接口的`POST`方法。
+
+```bash
+$ curl -k -X POST -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN"  https://localhost:40003/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid} --data '{"enabled":true}'
+```
+***
+若您想要删除目标服务器上特定用户 TA 的指定基准值，那么您可以使用`"/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid}"`接口的`DELETE`方法，注意，使用该方法将删除指定基准值的所有信息，您将无法再通过接口对该基准值进行查询！
+```bash
+$ curl -X DELETE -H "Content-type: application/json" -H "Authorization: $AUTHTOKEN" -k http://localhost:40003/{id}/ta/{tauuid}/tabasevalues/{tabasevalueid}
+```
+***
+若您想要给目标服务器上特定用户 TA 新增一条基准值信息，那么您可以使用`"/{id}/ta/{tauuid}/newtabasevalue"`接口的`POST`方法。
+```go
+type tabaseValueJson struct {
+	Uuid      string `json:"uuid"`       // 用户 TA 的标识号
+	Name      string `json:"name"`       // 基准值名称
+	Enabled   bool   `json:"enabled"`    // 基准值是否可用
+	Valueinfo string `json:"valueinfo"`  // 镜像哈希值和内存哈希值
+}
+```
+```bash
+$ curl -X POST -H "Content-Type: application/json" -H "Authorization: $AUTHTOKEN" -k https://localhost:40003/24/ta/test/newtabasevalue -d '{"uuid":"test", "name":"testname", "enabled":true, "valueinfo":"test info"}'
+```
+***
+若您想要查询目标服务器上特定用户 TA 的所有可信报告，那么您可以使用`"/{id}/ta/{tauuid}/tareports"`接口的`GET`方法。
+```bash
+$ curl -k -X GET -H "Content-type: application/json" https://localhost:40003/28/ta/test/tareports
+```
+***
+若您想要查询目标服务器上特定用户 TA 的指定可信报告的详细信息，那么您可以使用`"/{id}/ta/{tauuid}/tareports/{tareportid}"`接口的`GET`方法，其中{tareportid}是RAS为目标服务器上特定用户 TA 的指定可信报告分配的唯一标识号。
+```bash
+$ curl -k -X GET -H "Content-type: application/json" https://localhost:40003/28/ta/test/tareports/2
+```
+***
+若您想要删除目标服务器上特定用户 TA 的指定可信报告，那么您可以使用`"/{id}/ta/{tauuid}/tareports/{tareportid}"`接口的`DELETE`方法，注意，使用该方法将删除指定可信报告的所有信息，您将无法再通过接口对该报告进行查询！
+```bash
+$ curl -X DELETE -H "Content-type: application/json" http://localhost:40003/28/ta/test/tareports/2
 ```
 ***
 若您想要获取本程序的版本信息，那么您可以使用`"/version"`接口的`GET`方法。
