@@ -56,7 +56,7 @@ install: build
 	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rahub
 	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/rahub
 ifeq ($(PROCESSOR), aarch64)
-	install -m 555 $(KTALIBPATH)/libkta.so $(DESTDIR)$(LIBTAR)/
+	install -m 555 $(KTALIBPATH)/libkta.so $(DESTDIR)$(LIBTAR)
 endif
 
 uninstall:

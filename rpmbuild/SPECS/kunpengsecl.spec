@@ -137,6 +137,7 @@ make install DESTDIR=%{buildroot}
 
 %files   tas
 %{_bindir}/tas
+%{_bindir}/*.pem
 %{_sysconfdir}/attestation/tas/config.yaml
 %{_datadir}/attestation/tas/prepare-tasconf-env.sh
 %{_docdir}/attestation/tas/README.md
