@@ -52,7 +52,7 @@ $ make DESTDIR=/xxx/xxx install
 $ make install DESTDIR=/xxx/xxx
 ```
 
-对于服务器RAS和客户端RAC的卸载，分别进入**kunpengsecl/attestation/ras**和**kunpengsecl/attestation/rac**目录下执行`make uninstall`命令即可自动清理安装文件.
+对于服务器RAS和客户端RAC的卸载，分别进入**kunpengsecl/attestation/ras**和**kunpengsecl/attestation/rac**目录下执行`make uninstall`命令即可自动清理安装文件。
 
 若您需要指定文件目录，那么可选择以下任一卸载指令格式。
 ```shell
@@ -64,7 +64,7 @@ $ make uninstall DESTDIR=/xxx/xxx
 ### 软件配置
 为了保证程序的正常运行，必须准备好正确的数据库环境，这需要您先进入**usr/share/attestation/ras**目录，然后执行**prepare-database-env.sh**脚本进行自动化的数据库环境配置。
 
-除此之外，程序运行所依赖的配置文件默认有三个读取路径，分别为当前目录"./config.yaml"，家目录"${HOME}/.config/attestation/ras(rac)(rahub)/config.yaml"，以及系统目录"/etc/attestation/ras(rac)(rahub)/config.yaml"。
+除此之外，程序运行所依赖的配置文件默认有三个读取路径，分别为当前目录"./config.yaml"，家目录"${HOME}/.config/attestation/ras(rac)(rahub)(qcaserver)(attester)(tas)/config.yaml"，以及系统目录"/etc/attestation/ras(rac)(rahub)(qcaserver)(attester)(tas)/config.yaml"。
 
 如果您需要创建家目录配置文件，可在安装好rpm包后，执行位于**usr/share/attestation/ras(rac)(rahub)(qcaserver)(attester)(tas)**下的脚本**prepare-ras(rac)(hub)(qca)(attester)(tas)conf-env.sh**，从而自动完成家目录配置文件的部署。
 
