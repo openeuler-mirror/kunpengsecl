@@ -19,6 +19,7 @@ Description: kta manages the TA's key cache in the TEE.
 #include <tee_log.h>
 #include <tee_core_api.h>
 #include <kta_command.h>
+#include "kta_test.h"
 
 #define PARAM_COUNT 4
 
@@ -32,7 +33,8 @@ enum {
     CMD_KEY_SEARCH          = 0x70000002,
     CMD_KEY_DELETE          = 0x70000003,
     CMD_KCM_REPLY           = 0x70000004,
-    CMD_CLEAR_CACHE         = 0x70000005
+    CMD_CLEAR_CACHE         = 0x70000005,
+    CMD_DEBUG               = 0x70000006
 };
 
 Cache cache;
@@ -150,6 +152,16 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
             if (ret != TEE_SUCCESS)
                 tloge("clear all ta cache failed\n");
             return ret;
+            break;
+        case CMD_DEBUG:
+            #ifdef DEBUG
+                test_main();
+                return TEE_SUCCESS;
+            #else
+                tlogd("Unable to debug, DEBUG is not defined");
+                ret = TEE_ERROR_BAD_PARAMETERS;
+                return ret;
+            #endif
             break;
         default:
             tloge("Unknown cmd is %u", cmd);
