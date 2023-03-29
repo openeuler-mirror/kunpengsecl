@@ -174,10 +174,10 @@ tasconfig:
 `
 
 var (
-	id     = []byte("testuuid")
-	id2    = []byte("testuuid2")
-	id3    = []byte("testuuid3")
-	id4    = []byte("testuuid4")
+	id     = []byte("testuuid11111111")
+	id2    = []byte("testuuid22222222")
+	id3    = []byte("testuuid33333333")
+	id4    = []byte("testuuid44444444")
 	nonce  = []byte("testnonce")
 	nonce2 = []byte("testnonce2")
 	nonce3 = []byte("testnonce3")

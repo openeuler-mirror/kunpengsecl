@@ -96,4 +96,6 @@ TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_dat
 
 TEEC_Result RemoteAttestSaveAKCert(struct ra_buffer_data *akcert);
 
+TEEC_Result RemoteAttest(struct ra_buffer_data *params, struct ra_buffer_data *out_data);
+
 #endif

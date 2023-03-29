@@ -12,6 +12,8 @@ See the Mulan PSL v2 for more details.
 #include "teeverifier.h"
 #include "common.h"
 #include "pair_FP512BN.h"
+#include <cjson/cJSON.h>
+#include <openssl/evp.h>
 
 #define _SHA256(d, n, md)        \
    {                             \
@@ -21,10 +23,131 @@ See the Mulan PSL v2 for more details.
       SHA256_Final(md, &ctx);    \
    }
 
+#define _SHA512(d, n, md)        \
+   {                             \
+      SHA512_CTX ctx;            \
+      SHA512_Init(&ctx);         \
+      SHA512_Update(&ctx, d, n); \
+      SHA512_Final(md, &ctx);    \
+   }
+
 #define HW_IT_PRODUCT_CA_CERT_PATH "./Huawei IT Product CA.pem"
 #define TAS_ROOT_CERT_PATH "TAS Root Cert.pem"
+      
+#define verifier_error(msg) { printf("%s\n", msg); return NULL;}
+#define file_error(msg) { printf("Couldn't open file: %s\n", msg); return NULL;}
+
 //static void free_report(TA_report *report);
 
+// base64 encode url
+void base64urlencode(const uint8_t *src, int src_len, uint8_t *cipher, int *dest_len) {
+   // int n = strlen(src);
+   // unsigned char* cipher = (unsigned char*)malloc(n * 2);
+   int cipLen = EVP_EncodeBlock((unsigned char*)cipher, (const unsigned char*)src, src_len);
+   //change "+" to "-", "/" to "_", remove "=".
+   for(int i = cipLen - 1; i >= 0; i--) {
+      if(*(cipher + i) == '+')
+         *(cipher + i) = '-';
+      else if(*(cipher + i) == '/')
+         *(cipher + i) = '_';
+      else if(*(cipher + i) == '=') 
+         //*(cipher + i) = *(cipher + i + 1);
+	 cipLen--;
+   }
+   *dest_len = cipLen;
+   //tlogd("%s", cipher);
+   return;
+}
+
+// base64 decode url
+uint8_t * base64urldecode(const uint8_t *src, int src_len, int *dest_len) {
+   // change "-" to "+", "_" to "/", add back "=".
+   size_t i = 0;
+   char *tail1 = "=";
+   char *tail2 = "==";
+   uint8_t *b64 = malloc(sizeof(uint8_t) * (src_len + 3));
+   //int dest_len = 0;
+   memcpy(b64, src, src_len);
+   for(i = 0; i < src_len; i++) {
+      if(*(b64 + i) == '-')
+         *(b64 + i) = '+';
+      else if(*(b64 + i) == '_')
+         *(b64 + i) = '/';
+   }
+   *(b64 + i) = '\0';
+   if(src_len % 4 == 2) {
+      strcat(b64, tail2);
+      *dest_len = (src_len + 2) / 4 * 3 - 2;
+   }
+   else if(src_len % 4 == 3) {
+      strcat(b64, tail1);
+      *dest_len = (src_len + 1) / 4 * 3 - 1;
+   }
+   else if(src_len % 4 == 0)
+      *dest_len = src_len / 4 * 3;
+
+   uint8_t *plain = (uint8_t *)malloc(sizeof(uint8_t) * (*dest_len + 6));
+   int cipLen = EVP_DecodeBlock((unsigned char*)plain, (const unsigned char*)b64, strlen(b64));
+   free(b64);
+   return plain;
+}
+
+void uint82str(const uint8_t *source, int source_len, char *dest) {
+    for (int32_t i = 0; i < source_len; i++) {
+        if ((source[i] >> 4) <= 9) // 0x39 corresponds to the character '9'
+            dest[2 * i] = (source[i] >> 4) + 0x30;
+        else // Otherwise, it is a letter, and 7 symbols need to be skipped
+            dest[2 * i] = (source[i] >> 4) + 0x37;
+        if ((source[i] % 16) <=9)
+            dest[2 * i + 1] = (source[i] % 16) + 0x30;
+        else
+            dest[2 * i + 1] = (source[i] % 16) + 0x37;
+    }
+}
+
+void str2uint8(const char *source, int dest_len, uint8_t *dest) {
+    uint8_t HighByte;
+    uint8_t LowByte;
+
+    for (int i = 0; i < dest_len; i++) {
+        HighByte = toupper(source[i * 2]);
+        LowByte = toupper(source[i * 2 + 1]);
+        if (HighByte <= 0x39) 
+            HighByte -= 0x30;
+        else
+            HighByte -= 0x37;
+        if (LowByte <= 0x39)
+            LowByte -= 0x30;
+        else
+            LowByte -= 0x37;
+        dest[i] = (HighByte << 4) | LowByte;
+    }
+}
+
+// base64 decode for akpub after xxx
+bool decodeAKPubKey(cJSON *in, buffer_data *out) {
+   if (in == NULL) {
+      printf("akpub is null");
+      return false;
+   }
+   cJSON *ktyjson = cJSON_GetObjectItemCaseSensitive(in, "kty");
+   if (strcmp(ktyjson->valuestring, "RSA") == 0) {
+      cJSON *njson = cJSON_GetObjectItemCaseSensitive(in, "n");
+      // njson needs urlbase64 decode!!!!
+      uint8_t *tmp1 = (uint8_t *)njson->valuestring;
+      out->buf = base64urldecode(tmp1, strlen(tmp1), &out->size);
+   } else if (strcmp(ktyjson->valuestring, "DAA") == 0) {
+      cJSON *qsjson = cJSON_GetObjectItemCaseSensitive(in, "qs");
+      // qsjson needs urlbase64 decode!!!!
+      uint8_t *tmp2 = (uint8_t *)qsjson->valuestring;
+      out->buf = base64urldecode(tmp2, strlen(tmp2), &out->size);
+   } else {
+      printf("key type error!");
+      return false;
+   }
+   
+   return true;
+}
 
 EVP_PKEY *
 buildPubKeyFromModulus(buffer_data *pub)
@@ -61,7 +184,6 @@ static bool verifyCertByCert(buffer_data *cert, uint8_t *root_cert_pathname)
    BIO *bp = NULL;
    bool res = false;
    buffer_data root_cert = {0, NULL};
-
    size_t size = 0;
    if (NULL == (root_cert.buf = file_to_buffer(root_cert_pathname, &size)))
    {
@@ -101,6 +223,7 @@ err:
    return res;
 }
 
+// scenario: no as, parse akcert to get pubkey
 EVP_PKEY *
 getPubKeyFromDrkIssuedCert(buffer_data *cert)
 {
@@ -136,7 +259,7 @@ bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key)
       return false;
    }
 
-   uint8_t buf[512];
+   uint8_t buf[512] = {0,};
    int rt = RSA_public_decrypt(sign->size, sign->buf, buf,
                                EVP_PKEY_get1_RSA(key), RSA_NO_PADDING);
    if (rt == -1)
@@ -189,7 +312,7 @@ getPubKeyFromCert(buffer_data *cert, char *root_cert_pathname)
    X509_free(c);
    if (key == NULL)
    {
-      printf("Error getting public key from certificate");
+      printf("Error getting public key from certificate\n");
    }
 
    return key;
@@ -209,6 +332,7 @@ verifydatasig_bykey(buffer_data *data, buffer_data *sign, EVP_PKEY *key)
    return rt;
 }
 
+// scenario: no as
 static bool
 verifysig_drksignedcert(buffer_data *data, buffer_data *sign,
                         buffer_data *cert)
@@ -229,11 +353,12 @@ static void trim_ending_0(buffer_data *buf)
    for (; buf->size > 0 && buf->buf[buf->size - 1] == 0; buf->size-- );
 }
 
+// scenario: as no daa
 static bool
 verifysig_x509cert(buffer_data *data, buffer_data *sign, buffer_data *cert, char *root_cert_pathname)
 {
    // trim ending 0's in cert buf
-   trim_ending_0(cert);
+   // trim_ending_0(cert);
 
    // get the key for signature verification
    EVP_PKEY *key = getPubKeyFromCert(cert, root_cert_pathname);
@@ -287,17 +412,17 @@ hex2bin_append(const char *hexbuf, size_t *offset, size_t buflen, octet *oct)
    if (p == NULL)
       return 0;
 
-   if (p - hexbuf - *offset != 64)
+   if (p - hexbuf - *offset != 128)
       return 0;
 
-   if (oct->len + 32 > oct->max)
+   if (oct->len + 64 > oct->max)
       return 0;
 
-   str2hex(hexbuf + *offset, 32, oct->val + oct->len);
+   str2hex(hexbuf + *offset, 64, oct->val + oct->len);
 
-   *offset += 64 + 1;
-   oct->len += 32;
-   return 32;
+   *offset += 128 + 1;
+   oct->len += 64;
+   return 64;
 }
 
 static ECP2_FP512BN *
@@ -517,20 +642,42 @@ unmarshal_daa_signature(buffer_data *sign)
    sig->j = NULL;
    sig->k = NULL;
 
-   uint32_t offset = 0;
-   sig->j = unmarshal_p1_from_bd(sign, &offset);
-   sig->k = unmarshal_p1_from_bd(sign, &offset);
-   if (unmarshal_bn_from_bd(sig->h2, sign, &offset) == 0)
-      goto err2;
-   if (unmarshal_bn_from_bd(sig->s, sign, &offset) == 0)
-      goto err2;
-   if (unmarshal_bn_from_bd(sig->nm, sign, &offset) == 0)
-      goto err2;
-
+   cJSON *cj = cJSON_ParseWithLength(sign->buf, sign->size);
+   if (cj == NULL) {
+      verifier_error("cjson parse daa signature error.");
+   }
+   cJSON *bsnjson = cJSON_GetObjectItemCaseSensitive(cj, "sign.bsn");
+   cJSON *jjson = cJSON_GetObjectItemCaseSensitive(cj, "sign.j");
+   cJSON *kjson = cJSON_GetObjectItemCaseSensitive(cj, "sign.k");
+   cJSON *h2json = cJSON_GetObjectItemCaseSensitive(cj, "sign.h2");
+   cJSON *sjson = cJSON_GetObjectItemCaseSensitive(cj, "sign.s");
+   cJSON *nmjson = cJSON_GetObjectItemCaseSensitive(cj, "sign.nm");
+   if (bsnjson == NULL || jjson == NULL || kjson == NULL || h2json == NULL || sjson == NULL || nmjson == NULL) {
+      verifier_error("cjson parse daa signature error");
+   }
+   // base64 decode
+   buffer_data j, k, h2, s, nm;
+   if (strcmp(bsnjson->valuestring, "")) {
+      j.buf = base64urldecode(jjson->valuestring, strlen(jjson->valuestring), &j.size);
+      k.buf = base64urldecode(kjson->valuestring, strlen(kjson->valuestring), &k.size);
+   }
+   h2.buf = base64urldecode(h2json->valuestring, strlen(h2json->valuestring), &h2.size);
+   s.buf = base64urldecode(sjson->valuestring, strlen(sjson->valuestring), &s.size);
+   nm.buf = base64urldecode(nmjson->valuestring, strlen(nmjson->valuestring), &nm.size);
+   
+   //h2, s, nm
+   BIG_512_60_fromBytes(sig->h2, h2.buf);
+   BIG_512_60_fromBytes(sig->s, s.buf);
+   BIG_512_60_fromBytes(sig->nm, nm.buf);
+   
+   //j, k
+   if (strcmp(bsnjson->valuestring, "")) {
+      uint32_t offset = 0;
+      sig->j = unmarshal_p1_from_bd(&j, &offset);
+      offset = 0;
+      sig->k = unmarshal_p1_from_bd(&k, &offset);
+   }
    return sig;
-
-err2:
-   free_daa_signature(sig);
 err1:
    return NULL;
 }
@@ -661,16 +808,15 @@ verify_daasig(buffer_data *mhash, daa_signature *sig, daa_ak_cert *cert)
    octet tmp = {SHA512_DIGEST_LENGTH, SHA512_DIGEST_LENGTH, mhash->buf};
 
    // caclulate h1=H(c); h2=Hn(nm || h1)
-   // uint8_t h1[SHA256_DIGEST_LENGTH];
-   // _SHA256(c, sizeof(c), h1);
+   uint8_t h1[SHA512_DIGEST_LENGTH];
+   _SHA512(c, sizeof(c), h1);
 
    SHA512_Init(&ctx);
 
    uint8_t nm[SHA512_DIGEST_LENGTH];
    BIG_512_60_toBytes(nm, sig->nm);
    hash_update_buf(&ctx, nm, sizeof(nm));
-   // currently h1=c, so use c directly
-   hash_update_buf(&ctx, c, sizeof(c));
+   hash_update_buf(&ctx, h1, sizeof(h1));
 
    uint8_t h2[SHA512_DIGEST_LENGTH];
    SHA512_Final(h2, &ctx);
@@ -707,8 +853,8 @@ verifysig_daacert(buffer_data *data, buffer_data *sign, buffer_data *cert)
       goto err3;
 
    // caculate the digest of the data
-   uint8_t digest[SHA256_DIGEST_LENGTH];
-   _SHA256(data->buf, data->size, digest);
+   uint8_t digest[SHA512_DIGEST_LENGTH];
+   _SHA512(data->buf, data->size, digest);
 
    // perform signature verification
    buffer_data mhash = {sizeof(digest), digest};
@@ -770,7 +916,10 @@ void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
 {
    uint8_t head[] = "-----BEGIN CERTIFICATE-----\n";
    uint8_t end[] = "-----END CERTIFICATE-----\n";
-   uint8_t *drktest = (uint8_t *)malloc(sizeof(uint8_t) * 2048); // malloc a buffer big engough
+   uint8_t *drktest = (uint8_t *)malloc(sizeof(uint8_t) * 4300); // malloc a buffer big engough
+   if (drktest == NULL) {
+      printf("drk cert test malloc failed.\n");
+   }
    memcpy(drktest, head, strlen(head));
 
    uint8_t *src = data;
@@ -797,112 +946,158 @@ void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
 
    // dumpDrkCert(certdrk);
 }
+
+void handlePEMCertBlanks(buffer_data *certdrk)
+{
+   uint8_t end[] = "-----END CERTIFICATE-----\n";
+   uint8_t *dst = NULL;
+   int i = 0;
+
+   for (i = 1; i < certdrk->size; i++) {
+      if (certdrk->buf[i] == 0x3d && certdrk->buf[i-1] == 0x3d) {
+         certdrk->buf[i+1] = '\n';
+         dst = certdrk->buf + i + 2;
+         memcpy(dst, end, strlen(end));
+         dst += strlen(end);
+         break;
+      }
+   }
+
+   certdrk->size = dst - certdrk->buf;
+}
+
+void free_report(TA_report *report)
+{
+   if (NULL == report)
+      return;
+
+   if (NULL != report->signature)
+   {
+      if (NULL != report->signature->buf)
+         free(report->signature->buf);
+      free(report->signature);
+   }
+
+   if (NULL != report->cert)
+   {
+      if (NULL != report->cert->buf)
+         free(report->cert->buf);
+      free(report->cert);
+   }
+
+   free(report);
+}
+
 // getDataFromReport get some data which have akcert & signak & signdata &
 // scenario from report
-bool getDataFromReport(buffer_data *report, buffer_data *akcert,
+bool getDataFromReport(buffer_data *data, buffer_data *akcert,
                        buffer_data *signak, buffer_data *signdata,
                        uint32_t *scenario)
 {
-   if (report->buf == NULL)
-   {
+   if (data->buf == NULL) {
       printf("report is null");
       return false;
    }
-   struct report_response *re;
-   re = (struct report_response *)report->buf;
-   *scenario = re->scenario;
-   uint32_t data_offset;
-   uint32_t data_len;
-   uint32_t param_count = re->param_count;
-   if (param_count <= 0)
-   {
+   TA_report *report;
+   report = Convert(data);
+   if (report == NULL) {
+      printf("failed to parse the report\n");
       return false;
    }
-   for (int i = 0; i < param_count; i++)
-   {
-      uint32_t param_info = re->params[i].tags;
-      uint32_t param_type = (re->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
-      if (param_type == 2)
-      {
-         data_offset = re->params[i].data.blob.data_offset;
-         data_len = re->params[i].data.blob.data_len;
-         if (data_offset + data_len > report->size)
-         {
-            return false;
-         }
-         switch (param_info)
-         {
-         case RA_TAG_CERT_AK:
-            akcert->buf = report->buf + data_offset;
-            akcert->size = data_len;
-            break;
-         case RA_TAG_SIGN_AK:
-            signak->buf = report->buf + data_offset;
-            signak->size = data_len;
-            // get sign data
-            signdata->buf = report->buf;
-            signdata->size = data_offset;
-            break;
-         default:
-            break;
-         }
-      }
+   *scenario = report->scenario;
+   akcert->size = report->cert->size;
+   akcert->buf = malloc(akcert->size);
+   memcpy(akcert->buf, report->cert->buf, report->cert->size);
+   signak->size = report->signature->size;
+   signak->buf = malloc(signak->size);
+   memcpy(signak->buf, report->signature->buf, report->signature->size);
+
+   // get payload
+
+   // printf("report length %d\n", data->size);
+   // printf(data->buf);
+   cJSON *cj = cJSON_ParseWithLength(data->buf, data->size);
+   if (cj == NULL) {
+      verifier_error("cjson parse report error.");
    }
+   
+   cJSON *pljson = cJSON_GetObjectItemCaseSensitive(cj, "payload");
+   uint8_t *tmp = cJSON_Print(pljson);
+   signdata->size = strlen(tmp) / 3 * 4 + 4;
+   signdata->buf = malloc(signdata->size); 
+   base64urlencode(tmp, strlen(tmp), signdata->buf, &signdata->size);
+
+   free_report(report);
+   free(tmp);
    return true;
 }
+
 // get some data which have signdata signdrk certdrk and akpub from akcert
 bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
                        buffer_data *signdrk, buffer_data *certdrk,
                        buffer_data *akpub)
 {
-   if (akcert->buf == NULL)
-   {
+   if (akcert->buf == NULL) {
       printf("akcert is null");
       return false;
    }
-   struct ak_cert *ak;
-   ak = (struct ak_cert *)akcert->buf;
-   uint32_t data_offset;
-   uint32_t data_len;
-   uint32_t param_count = ak->param_count;
-
-   if (param_count <= 0)
-   {
+   // printf("akcert: %s\n", akcert->buf);
+   
+   // parse akcert
+   cJSON *cj = cJSON_ParseWithLength((char *)akcert->buf, akcert->size);
+   if (cj == NULL) {
+      printf("cjson parse akcert error!\n");
       return false;
    }
-   for (int i = 0; i < param_count; i++)
-   {
-      uint32_t param_info = ak->params[i].tags;
-      uint32_t param_type = (ak->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
-      if (param_type == 2)
-      {
-         data_offset = ak->params[i].data.blob.data_offset;
-         data_len = ak->params[i].data.blob.data_len;
-         if (data_offset + data_len > akcert->size)
-         {
-            return false;
-         }
-         switch (param_info)
-         {
-         case RA_TAG_AK_PUB:
-            akpub->buf = akcert->buf + data_offset;
-            akpub->size = data_len;
-            break;
-         case RA_TAG_SIGN_DRK:
-            signdrk->buf = akcert->buf + data_offset;
-            signdrk->size = data_len;
-            // get sign data
-            signdata->size = data_offset; // signdrk 的offset之前都是被签名的数据
-            signdata->buf = akcert->buf;
-            break;
-         case RA_TAG_CERT_DRK:
-            restorePEMCert(akcert->buf + data_offset, data_len, certdrk);
-            break;
-         default:
-            break;
-         }
-      }
+   // get payload and signature
+   cJSON *pljson = cJSON_GetObjectItemCaseSensitive(cj, "payload");
+   cJSON *sigjson = cJSON_GetObjectItemCaseSensitive(cj, "signature");
+   if (pljson == NULL || sigjson == NULL) {
+      printf("cjson parse akcert error, failed to get payload and signature!\n");
+      return false;
    }
+   // get akpub, signdrk, certdrk, signdata
+   cJSON *akpubjson = cJSON_GetObjectItemCaseSensitive(pljson, "ak_pub");
+   cJSON *signdrkjson = cJSON_GetObjectItemCaseSensitive(sigjson, "drk_sign");
+   cJSON *certdrkjson = cJSON_GetObjectItemCaseSensitive(sigjson, "drk_cert");
+   if (akpubjson == NULL || signdrkjson == NULL || certdrkjson == NULL) {
+      printf("cjson parse akcert error, failed to get akpub, signdrk and certdrk!\n");
+      return false;
+   }
+   /*
+      akpub->buf: AK_PUB_TYPE. outdata is the same as previous
+      signdrk->buf*: BASE64_TYPE, DRK signature for "payload". outdata has been decoded already
+      certdrk->buf: BASE64_TYPE, BASE 64 of DRK cert. outdata is the same as previous
+      signdata->buf*: payload, outdata can be directly used to hash
+   */
+
+   // ak_pub: build a pub key with the modulus carried in drk issued cert
+   bool rt = decodeAKPubKey(akpubjson, akpub);
+   if (!rt) {
+      printf("base64 decode ak public key failed!\n");
+      return NULL;
+   }
+   
+   // drk_sign: base64 decoded
+   uint8_t *tmp1 = (uint8_t *)signdrkjson->valuestring;
+   signdrk->buf = base64urldecode(tmp1, strlen(tmp1), &signdrk->size);
+
+   // signdata: base64 encoded (can be directly used to hash)
+   uint8_t *signdatatmp = (uint8_t *)cJSON_Print(pljson);
+   signdata->size = 4096;
+   signdata->buf = (uint8_t *)malloc(sizeof(uint8_t) * signdata->size);
+   base64urlencode(signdatatmp, strlen(signdatatmp), signdata->buf, &signdata->size);
+
+   // drk_cert: base64 decoded & restore
+   buffer_data certdrktmp1;
+   uint8_t *tmp2 = (uint8_t *)certdrkjson->valuestring;
+   certdrktmp1.buf = base64urldecode(tmp2, strlen(tmp2), &certdrktmp1.size);
+   certdrk->size = 4300;
+   certdrk->buf = (uint8_t *)malloc(sizeof(uint8_t) * certdrk->size);
+   restorePEMCert(certdrktmp1.buf, certdrktmp1.size, certdrk);
+   handlePEMCertBlanks(certdrk);
+
+   free(certdrktmp1.buf);
    return true;
 }
 
@@ -927,7 +1122,8 @@ bool tee_verify_signature(buffer_data *report)
    return true;
 }
 
-void error(const char *msg)
+/*
+void verifier_error(const char *msg)
 {
    printf("%s\n", msg);
    exit(EXIT_FAILURE);
@@ -938,7 +1134,7 @@ void file_error(const char *s)
    printf("Couldn't open file: %s\n", s);
    exit(EXIT_FAILURE);
 }
-
+*/
 void test_print(uint8_t *printed, int printed_size, char *printed_name)
 {
    printf("%s:\n", printed_name);
@@ -952,28 +1148,6 @@ void test_print(uint8_t *printed, int printed_size, char *printed_name)
    }
    printf("\n");
 };
-
-void free_report(TA_report *report)
-{
-   if (NULL == report)
-      return;
-
-   if (NULL != report->signature)
-   {
-      if (NULL != report->signature->buf)
-         free(report->signature->buf);
-      free(report->signature);
-   }
-
-   if (NULL != report->cert)
-   {
-      if (NULL != report->cert->buf)
-         free(report->cert->buf);
-      free(report->cert);
-   }
-
-   free(report);
-}
 
 bool tee_verify(buffer_data *bufdata, int type, char *filename)
 {
@@ -995,6 +1169,134 @@ bool tee_verify(buffer_data *bufdata, int type, char *filename)
    return verified;
 }
 
+bool get_nonce_from_payload(cJSON *pljson, TA_report *tr) {
+   // get nonce: base64 -> uint8_t*
+   cJSON *njson = cJSON_GetObjectItemCaseSensitive(pljson, "nonce");
+   if (njson == NULL) {
+      printf("cjson parse nonce from report error");
+      return false;
+   }
+   int len = 0;
+   uint8_t *tmp = base64urldecode(njson->valuestring, strlen(njson->valuestring), &len);
+   memset(tr->nonce, 0, 64);
+   memcpy(tr->nonce, tmp, len);
+   return true;
+}
+
+bool get_uuid_from_payload(cJSON *pljson, TA_report *tr) {
+   // get uuid: string -> uint8_t*
+   cJSON *ujson = cJSON_GetObjectItemCaseSensitive(pljson, "uuid");
+   if (ujson == NULL) {
+      printf("cjson parse uuid from report error");
+      return false;
+   }
+   str_to_uuid(ujson->valuestring, tr->uuid);
+   
+   return true;
+}
+
+bool get_hash_from_payload(cJSON *pljson, TA_report *tr) {
+   // get img&mem hash: base64 -> uint8_t*
+   cJSON *imgjson = cJSON_GetObjectItemCaseSensitive(pljson, "ta_img");
+   cJSON *memjson = cJSON_GetObjectItemCaseSensitive(pljson, "ta_mem");
+   if (imgjson == NULL || memjson == NULL) {
+      printf("cjson parse hash from report error");
+      return false;
+   }
+
+   int len = 0;
+   uint8_t *tmp1 = base64urldecode(imgjson->valuestring, strlen(imgjson->valuestring), &len);
+   memcpy(tr->image_hash, tmp1, 32);
+
+   uint8_t *tmp2 = base64urldecode(memjson->valuestring, strlen(memjson->valuestring), &len);
+   memcpy(tr->hash, tmp2, 32);
+
+   return true;
+}
+
+bool get_scenario_from_report(cJSON *pljson, cJSON *signjson, cJSON* acjson, TA_report *tr) {
+   if (pljson == NULL || signjson == NULL || acjson == NULL || tr == NULL) {
+      printf("invalid input parameter\n");
+      return false;
+   }
+   cJSON *scejson = cJSON_GetObjectItemCaseSensitive(pljson, "scenario");
+   if (scejson == NULL) {
+      printf("cjson parse scenario from report error\n");
+      return false;
+   }
+   tr->signature = malloc(sizeof(buffer_data)); 
+   tr->cert = malloc(sizeof(buffer_data)); 
+   if (strcmp(scejson->valuestring, RA_SCENARIO_NO_AS) == 0) {
+      tr->scenario = RA_SCENARIO_NO_AS_INT;
+      // signature: no as 
+      cJSON *noasjson = cJSON_GetObjectItemCaseSensitive(signjson, "sce_no_as");
+      tr->signature->buf = base64urldecode(noasjson->valuestring, strlen(noasjson->valuestring), &tr->signature->size);
+      // akcert: no as (parse needed)
+      cJSON *c1json = cJSON_GetObjectItemCaseSensitive(acjson, "sce_no_as");
+      tr->cert->buf = cJSON_Print(c1json);
+      tr->cert->size = strlen(tr->cert->buf);
+
+   } else if (strcmp(scejson->valuestring, RA_SCENARIO_AS_NO_DAA) == 0) {
+      tr->scenario = RA_SCENARIO_AS_NO_DAA_INT;
+      // signature: as no daa
+      cJSON *asjson = cJSON_GetObjectItemCaseSensitive(signjson, "sce_as_no_daa");
+      tr->signature->buf = base64urldecode(asjson->valuestring, strlen(asjson->valuestring), &tr->signature->size);
+      // akcert: as no daa
+      cJSON *c2json = cJSON_GetObjectItemCaseSensitive(acjson, "sce_as_no_daa");
+      tr->cert->buf = base64urldecode(c2json->valuestring, strlen(c2json->valuestring), &tr->cert->size);
+
+   } else if (strcmp(scejson->valuestring, RA_SCENARIO_AS_WITH_DAA) == 0) {
+      tr->scenario = RA_SCENARIO_AS_WITH_DAA_INT;
+      // signature: daa (parse needed)
+      cJSON *daajson = cJSON_GetObjectItemCaseSensitive(signjson, "sce_as_with_daa");
+      tr->signature->buf = cJSON_Print(daajson);
+      tr->signature->size = strlen(tr->signature->buf);
+      // akcert: daa
+      cJSON *c3json = cJSON_GetObjectItemCaseSensitive(acjson, "sce_as_with_daa");
+      tr->cert->buf = base64urldecode(c3json->valuestring, strlen(c3json->valuestring), &tr->cert->size);
+
+   } else {
+      printf("invalid scenario");
+      return false;
+   }
+   return true;
+}
+
+bool get_alg_from_payload(cJSON *pljson, TA_report *tr) {
+   // get hash&sign algorithm: string -> uint32_t
+   cJSON *sjson = cJSON_GetObjectItemCaseSensitive(pljson, "sign_alg");
+   cJSON *hjson = cJSON_GetObjectItemCaseSensitive(pljson, "hash_alg");
+   if (hjson == NULL || sjson == NULL) {
+      printf("cjson parse algorithm from report error");
+      return false;
+   }
+   
+   if (strcmp(sjson->valuestring, RA_SIGN_ALG_RSA4096) == 0) {
+      tr->sig_alg = RA_ALG_RSA_4096;
+   }
+   if (strcmp(hjson->valuestring, RA_HASH_ALG_SHA256) == 0) {
+      tr->hash_alg = RA_ALG_SHA_256;
+   }
+   return true;
+}
+
+bool get_other_params_from_report(cJSON *pljson, TA_report *tr) {
+   // get version, timestamp, ta_attr
+   cJSON *vjson = cJSON_GetObjectItemCaseSensitive(pljson, "version");
+   cJSON *tsjson = cJSON_GetObjectItemCaseSensitive(pljson, "timestamp");
+   cJSON *reservejson = cJSON_GetObjectItemCaseSensitive(pljson, "ta_attr");
+   if (vjson == NULL || tsjson == NULL || reservejson == NULL) {
+      printf("cjson parse algorithm from report error");
+      return false;
+   }
+
+   tr->timestamp = (uint64_t)tsjson->valuedouble;
+   memcpy(tr->reserve, reservejson->valuestring, strlen(reservejson->valuestring));
+   memcpy(tr->version, vjson->valuestring, strlen(vjson->valuestring));
+
+   return true;
+}
+
 TA_report *
 Convert(buffer_data *data)
 {
@@ -1002,89 +1304,54 @@ Convert(buffer_data *data)
 
    // determine whether the buffer is legal
    if (data == NULL)
-      error("illegal buffer data pointer.");
+      verifier_error("illegal buffer data pointer.");
    if (data->size > DATABUFMAX || data->size < DATABUFMIN)
-      error("size of buffer is illegal.");
-
-   report_get *bufreport;
-   bufreport = (report_get *)data->buf; // buff to report
-
+      verifier_error("size of buffer is illegal.");
+   
+   // parse report
+   // printf(data->buf);
+   cJSON *cj = cJSON_ParseWithLength(data->buf, data->size);
+   if (cj == NULL) {
+      verifier_error("cjson parse report error.");
+   }
+   // get payload, report_sign, akcert
+   cJSON *pljson = cJSON_GetObjectItemCaseSensitive(cj, "payload");
+   cJSON *sigjson = cJSON_GetObjectItemCaseSensitive(cj, "report_sign");
+   cJSON *acjson = cJSON_GetObjectItemCaseSensitive(cj, "akcert");
+   if (pljson == NULL || sigjson == NULL || acjson == NULL) {
+      verifier_error("cjson parse report error");
+   }
    report = (TA_report *)calloc(1, sizeof(TA_report));
-   if (report == NULL)
-      error("out of memory.");
-   report->version = bufreport->version;
-   report->timestamp = bufreport->ts;
-   memcpy(report->nonce, bufreport->nonce, USER_DATA_SIZE * sizeof(uint8_t));
-   memcpy(report->uuid, &(bufreport->uuid), UUID_SIZE * sizeof(uint8_t));
-   // parse_uuid(report->uuid, bufreport->uuid);
-   report->scenario = bufreport->scenario;
-   // parse ra_params
-   uint32_t param_count = bufreport->param_count;
-   for (int i = 0; i < param_count; i++)
-   {
-      uint32_t param_type = (bufreport->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
-      uint32_t param_info = bufreport->params[i].tags;
-      if (param_type == 1)
-      {
-         switch (param_info)
-         {
-         case RA_TAG_SIGN_TYPE:
-            report->sig_alg = bufreport->params[i].data.integer;
-            break;
-         case RA_TAG_HASH_TYPE:
-            report->hash_alg = bufreport->params[i].data.integer;
-            break;
-         default:
-            error("Invalid param_info!");
-         }
-      }
-      else if (param_type == 2)
-      {
-         uint32_t data_offset = bufreport->params[i].data.blob.data_offset;
-         uint32_t data_len = bufreport->params[i].data.blob.data_len;
-
-         if ((data_offset + data_len) > data->size || data_offset == 0)
-         {
-            char *error_msg = NULL;
-            sprintf(error_msg, "2-%u offset error", param_info);
-            error(error_msg);
-         }
-
-         switch (param_info)
-         {
-         case RA_TAG_TA_IMG_HASH:
-            memcpy(report->image_hash, data->buf + data_offset, data_len);
-            break;
-         case RA_TAG_TA_MEM_HASH:
-            memcpy(report->hash, data->buf + data_offset, data_len);
-            break;
-         case RA_TAG_RESERVED:
-            memcpy(report->reserve, data->buf + data_offset, data_len);
-            break;
-         case RA_TAG_SIGN_AK:
-            report->signature = (buffer_data *)malloc(sizeof(buffer_data));
-            report->signature->buf = (uint8_t *)malloc(sizeof(uint8_t) * data_len);
-            report->signature->size = data_len;
-            memcpy(report->signature->buf, data->buf + data_offset,
-                   data_len);
-            // uint32_t cert_offset = data_offset + data_len +
-            // sizeof(uint32_t); memcpy(report->cert, data->buf+cert_offset,
-            // data_len);
-            break;
-         case RA_TAG_CERT_AK:
-            report->cert = (buffer_data *)malloc(sizeof(buffer_data));
-            report->cert->buf = (uint8_t *)malloc(sizeof(uint8_t) * data_len);
-            report->cert->size = data_len;
-            memcpy(report->cert->buf, data->buf + data_offset, data_len);
-            break;
-         default:
-            error("Invalid param_info!");
-         }
-      }
-      else
-         error("Invalid param_type!");
+   if (report == NULL) {
+      verifier_error("out of memory.");
    }
 
+   bool rt = get_nonce_from_payload(pljson, report);
+   if (!rt) {
+      verifier_error("get nonce from report error");
+   }
+   rt = get_uuid_from_payload(pljson, report);
+   if (!rt) {
+      verifier_error("get uuid from report error");
+   }
+   rt = get_hash_from_payload(pljson, report);
+   if (!rt) {
+      verifier_error("get hash from report error");
+   }
+   rt = get_alg_from_payload(pljson, report);
+   if (!rt) {
+      verifier_error("get hash & sign algorithm from report error");
+   }
+   rt = get_other_params_from_report(pljson, report);
+   if (!rt) {
+      verifier_error("get version & timestamp & ta_attr from report error");
+   }
+   // get scenario & sign & cert from report
+   rt = get_scenario_from_report(pljson, sigjson, acjson, report);
+   if (!rt) {
+      verifier_error("get scenario & sign & cert from report error");
+   }
+   // signature & cert are different from the previous data
    return report;
 }
 
@@ -1112,7 +1379,7 @@ LoadBaseValue(const TA_report *report, char *filename)
    size_t fbuf_len = 0; // if needed
 
    if (report == NULL)
-      error("illegal report pointer!");
+      verifier_error("illegal report pointer!");
    char *fbuf = file_to_buffer(filename, &fbuf_len);
 
    /*
@@ -1520,53 +1787,51 @@ static base_value *LoadQTABaseValue(const char *refval)
 
 static base_value *get_qta(buffer_data *akcert)
 {
-   if (akcert->buf == NULL)
-   {
+   if (akcert->buf == NULL) {
       printf("akcert is null");
       return NULL;
    }
-
-   struct ak_cert *ak = (struct ak_cert *)akcert->buf;
-   uint32_t data_offset;
-   uint32_t data_len;
-   uint32_t param_count = ak->param_count;
-
-   if (param_count <= 0)
-   {
-      return NULL;
-   }
+   cJSON *pljson = NULL;
+   cJSON *qimgjson = NULL;
+   cJSON *qmemjson = NULL;
+   buffer_data qimg;
+   buffer_data qmem;
    base_value *qta = (base_value *)calloc(1, sizeof(base_value));
-   if (qta == NULL)
+   if (qta == NULL) {
       return NULL;
-
-   for (int i = 0; i < param_count; i++)
-   {
-      uint32_t param_info = ak->params[i].tags;
-      uint32_t param_type = (ak->params[i].tags & 0xf0000000) >> 28; // get high 4 bits
-      if (param_type != 2)
-          continue;
-
-      data_offset = ak->params[i].data.blob.data_offset;
-      data_len = ak->params[i].data.blob.data_len;
-      if (data_offset + data_len > akcert->size)
-         goto err;
-      switch (param_info)
-      {
-      case RA_TAG_QTA_IMG_HASH:
-         memcpy(qta->valueinfo[0], akcert->buf + data_offset, data_len);
-         break;
-      case RA_TAG_QTA_MEM_HASH:
-         memcpy(qta->valueinfo[1], akcert->buf + data_offset, data_len);
-         break;
-      default:
-         break;
-      }
    }
+   // parse akcert
+   cJSON *cj = cJSON_Parse(akcert->buf);
+   if (cj == NULL) {
+      printf("cjson parse akcert error");
+      return false;
+   }
+   // get payload
+   pljson = cJSON_GetObjectItemCaseSensitive(cj, "payload");
+   if (pljson == NULL) {
+      printf("cjson parse akcert error");
+      return false;
+   }
+   // get qta_img, qta_mem
+   qimgjson = cJSON_GetObjectItemCaseSensitive(pljson, "qta_img");
+   qmemjson = cJSON_GetObjectItemCaseSensitive(pljson, "qta_mem");
+   if (qimgjson == NULL || qmemjson == NULL) {
+      printf("cjson parse akcert error");
+      return false;
+   }
+   /*
+      "qta_img": BASE64_TYPE, BASE64 of TA's img hash
+		"qta_mem": BASE64_TYPE, BASE64 of TA's mem hash
+   */
+   // str2uint8(qimgjson->valuestring, strlen(qimgjson->valuestring)/2, qimgtmp);
+
+   qimg.buf = base64urldecode(qimgjson->valuestring, strlen(qimgjson->valuestring), &qimg.size);
+   // str2uint8(qmemjson->valuestring, strlen(qmemjson->valuestring)/2, qmemtmp);
+   qmem.buf = base64urldecode(qmemjson->valuestring, strlen(qmemjson->valuestring), &qmem.size);
+   memcpy(qta->valueinfo[0], qimg.buf, qimg.size);
+   memcpy(qta->valueinfo[1], qmem.buf, qmem.size);
 
    return qta;
-err:
-   free(qta);
-   return NULL;
 }
 
 static bool CompareBV(int type, base_value *value, base_value *basevalue)
@@ -1630,7 +1895,7 @@ bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval)
       printf("validate ak cert failed!\n");
       return false;
    }
-   
+
    rt = verify_qta(akcert, type, refval);
    if (!rt)
    {

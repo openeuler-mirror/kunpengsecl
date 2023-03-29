@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details.
 
 #include "teeqca.h"
 #include "testdata.h"
+//#include "cJSON.h"
 #include <string.h>
 
 /*** Set up hard-coded test case ***/
@@ -1189,5 +1190,65 @@ TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *para
 TEEC_Result RemoteAttestSaveAKCert(struct ra_buffer_data *akcert)
 {
     printf("Save AK Cert successfully!\n");
+    return 0;
+}
+
+/*
+TEEC_Result RemoteAttest(struct ra_buffer_data *params, struct ra_buffer_data *out_data)
+{
+    if (params == NULL || out_data == NULL) {
+        printf("invoke RemoteAttest failed, invalid in parameters.\n");
+        return 0xFFFF0006; // bad parameters
+    }
+    if (params->buf == NULL || params->size == 0) {
+        printf("invoke RemoteAttest failed, invalid in parameters.\n");
+        return 0xFFFF0006;
+    }
+    cJSON *cj = cJSON_ParseWithLength(params->buf, params->size);
+    if (cj == NULL) {
+        printf("invoke RemoteAttest failed, cjson parse error.\n");
+        return 0xFFFF0006;
+    }
+    cJSON *h = cJSON_GetObjectItemCaseSensitive(cj, "handler");
+    cJSON *pl = cJSON_GetObjectItemCaseSensitive(cj, "payload");
+    if (h == NULL || pl == NULL) {
+        printf("invoke RemoteAttest failed, cjson get parameters error.\n");
+        return 0xFFFF0006;
+    }
+
+    if (strcmp(h->valuestring, "provisioning-input") == 0) {
+        cJSON *s = cJSON_GetObjectItemCaseSensitive(cj, "scenario");
+        if (strcmp(s->valuestring, "sce_no_as") == 0) {
+            out_data->buf = NULL;
+            out_data->size = 0;
+            printf("invoke RemoteAttest succeeded!\n");
+            return 0;
+        } else if (strcmp(s->valuestring, "sce_as_no_daa") == 0) {
+            
+        } else if (strcmp(s->valuestring, "sce_as_with_daa") == 0) {
+
+        } else {
+            printf("invoke RemoteAttest failed, invalid scenario.\n");
+            return 0xFFFF0006;
+        }
+    } else if (strcmp(h->valuestring, "report-input") == 0) {
+
+    } else if (strcmp(h->valuestring, "saveakcert-input") == 0) {
+        out_data->buf = NULL;
+        out_data->size = 0;
+        printf("invoke RemoteAttest succeeded, save AK Cert successfully!\n");
+        return 0;
+    } else {
+        printf("invoke RemoteAttest failed, invalid handler.\n");
+        return 0xFFFF0006;
+    }
+
+    return 0;
+}
+*/
+
+TEEC_Result RemoteAttest(struct ra_buffer_data *params, struct ra_buffer_data *out_data)
+{
+    out_data->size = 0;
     return 0;
 }

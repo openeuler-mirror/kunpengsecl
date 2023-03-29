@@ -69,7 +69,6 @@ import (
 
 	"database/sql"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -85,6 +84,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/config"
 	"github.com/google/go-tpm/tpm2"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -210,6 +210,8 @@ func ReleaseTrustManager() {
 	if tmgr == nil {
 		return
 	}
+	releaseStorePipe()
+	time.Sleep(time.Duration(100)*time.Millisecond)
 	if tmgr.db != nil {
 		tmgr.db.Close()
 		tmgr.db = nil
@@ -218,7 +220,6 @@ func ReleaseTrustManager() {
 	tmgr.cache = nil
 	tmgr.mu.Unlock()
 	tmgr = nil
-	releaseStorePipe()
 }
 
 // DisableBaseByClientID modify all hostbase enabled=false.
@@ -1058,7 +1059,7 @@ func handleFirstReport(report *typdefs.TrustReport) error {
 		SaveBaseValue(&baseValue)
 		c.Bases = append(c.Bases, &baseValue)
 
-		c.TaBases = extarcAndSaveTABase(report)
+		c.TaBases = extractAndSaveTABase(report)
 		c.SetTrusted(cache.StrTrusted)
 
 	} else {
@@ -1068,20 +1069,102 @@ func handleFirstReport(report *typdefs.TrustReport) error {
 	return nil
 }
 
-func extarcAndSaveTABase(report *typdefs.TrustReport) map[string]*typdefs.TaBaseRow {
+type (
+	SignAsDaa struct {
+		Bsn string `json:"sign.bsn"`
+		J   string `json:"sign.j"`
+		K   string `json:"sign.k"`
+		H2  string `json:"sign.h2"`
+		S   string `json:"sign.s"`
+		Nm  string `json:"sign.nm"`
+	}
+
+	ReportSign struct {
+		NoAs    *string    `json:"sce_no_as,omitempty"`
+		AsNoDaa *string    `json:"sce_as_no_daa,omitempty"`
+		AsDaa   *SignAsDaa `json:"sce_as_with_daa,omitempty"`
+	}
+
+	DrkSign struct {
+		Cert    string    `json:"drk_cert"`
+		Sign    string    `json:"drk_sign"`
+	}
+
+	AkPubNoDaa struct {
+		Type    string    `json:"kty"`
+		N       string    `json:"n"`
+		E       string    `json:"e"`
+	}
+
+	AcPayLoad struct {
+		Ver     string     `json:"version"`
+		Ts      uint64     `json:"timestamp"`
+		Sce     string     `json:"scenario"`
+		SAlg    string     `json:"sign_alg"`
+		HAlg    string     `json:"hash_alg"`
+		QtaImg  string     `json:"qta_img"`
+		QtaMem  string     `json:"qta_mem"`
+		Tcb     string     `json:"tcb"`
+		Pub     AkPubNoDaa `json:"ak_pub"`
+	}
+
+	AkCertNoAs struct {
+		Sign    DrkSign    `json:"signature"`
+		PayLoad AcPayLoad  `json:"payload"`
+		Handler string     `json:"handler"`
+	}
+
+	AkCert struct {
+		NoAs    *AkCertNoAs `json:"sce_no_as,omitempty"`
+		AsNoDaa *string     `json:"sce_as_no_daa,omitempty"`
+		AsDaa   *string     `json:"sce_as_with_daa,omitempty"`
+	}
+
+	RpPayLoad struct {
+		Ver     string     `json:"version"`
+		Ts      uint64     `json:"timestamp"`
+		Nonce   string     `json:"nonce"`
+		Sce     string     `json:"scenario"`
+		Uuid    string     `json:"uuid"`
+		HAlg    string     `json:"hash_alg"`
+		SAlg    string     `json:"sign_alg"`
+		TaMem   string     `json:"ta_mem"`
+		TaImg   string     `json:"ta_img"`
+		TaAttr  string     `json:"ta_attr"`
+		Tcb     string     `json:"tcb"`
+	}
+
+	TaReport struct {
+		Sign    ReportSign `json:"report_sign"`
+		Cert    AkCert     `json:"akcert"`
+		PayLoad RpPayLoad  `json:"payload"`
+		Handler string     `json:"handler"`
+        }
+)
+
+func extractAndSaveTABase(report *typdefs.TrustReport) map[string]*typdefs.TaBaseRow {
 	taBases := map[string]*typdefs.TaBaseRow{}
 	for uuid, taReport := range report.TaReports {
 		// refer to struct report_get
-		param_count := taReport[96:100]
-		count := binary.LittleEndian.Uint32(param_count)
-		start := 100 + count*12 // 100是固定偏移，count表示固定偏移后面跟着多少个结构体，再后面就是image hash和hash
-		end := start + 64
-		valueinfo := taReport[start:end]
+		taRep := new(TaReport)
+		err := json.Unmarshal(taReport, taRep)
+		if err != nil {
+			continue
+		}
+		imghash, err := base64.RawURLEncoding.DecodeString(taRep.PayLoad.TaImg)
+		if err != nil {
+			continue
+		}
+		memhash, err := base64.RawURLEncoding.DecodeString(taRep.PayLoad.TaMem)
+		if err != nil {
+			continue
+		}
+
 		base := typdefs.TaBaseRow{
 			ClientID:   report.ClientID,
 			Uuid:       uuid,
 			CreateTime: time.Now(),
-			Valueinfo:  valueinfo,
+			Valueinfo:  append(imghash, memhash...),
 		}
 		taBases[uuid] = &base
 		SaveTaBaseValue(&base)
@@ -1118,17 +1201,30 @@ func verifyReport(report *typdefs.TrustReport) {
 // weather report basevalue is equal to ta verify type in config.
 func VerifyTaReport(report *typdefs.TrustReport) {
 
-	for uuid, taReport := range report.TaReports {
+	for uid, taReport := range report.TaReports {
 		buf_data := C.buffer_data{}
 		buf_data.size = C.__uint32_t(len(taReport))
 		up_buf_data_buf := C.CBytes(taReport)
 		buf_data.buf = (*C.uchar)(up_buf_data_buf)
 
+		taRep := new(TaReport)
+		err := json.Unmarshal(taReport, taRep)
+		if err != nil {
+			continue
+		}
 		c, err := GetCache(report.ClientID)
 		if err != nil {
 			return
 		}
-		basevalue := C.build_basevalue((*C.uchar)(C.CBytes(taReport[76:92])), (*C.uchar)(C.CBytes(c.TaBases[uuid].Valueinfo)))
+		id, err := uuid.Parse(taRep.PayLoad.Uuid)
+		if err != nil {
+			continue
+		}
+		idBytes, err := id.MarshalBinary()
+		if err != nil {
+			continue
+		}
+		basevalue := C.build_basevalue((*C.uchar)(C.CBytes(idBytes)), (*C.uchar)(C.CBytes(c.TaBases[uid].Valueinfo)))
 		ans := C.tee_verify_report2(&buf_data, C.int(config.GetTaVerifyType()), basevalue)
 		var trusted string
 		if ans == 0 {
@@ -1138,7 +1234,7 @@ func VerifyTaReport(report *typdefs.TrustReport) {
 		} else {
 			trusted = cache.StrUnknown
 		}
-		tmgr.cache[report.ClientID].SetTaTrusted(uuid, trusted)
+		tmgr.cache[report.ClientID].SetTaTrusted(uid, trusted)
 	}
 }
 
@@ -1164,7 +1260,7 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	if err1 != nil {
 		return err1
 	}
-	c.TaBases = extarcAndSaveTABase(report)
+	c.TaBases = extractAndSaveTABase(report)
 	c.SetTrusted(cache.StrTrusted)
 
 	return nil

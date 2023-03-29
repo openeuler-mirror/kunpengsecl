@@ -63,7 +63,11 @@ func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetRepo
 	countConnections()
 	_ = ctx // ignore the unused warning
 	Usrdata := in.GetNonce()
-	rep := qcatools.GetTAReport(in.GetUuid(), Usrdata, in.WithTcb)
+	rep, err := qcatools.GetTAReport(in.GetUuid(), Usrdata, in.WithTcb)
+	if err != nil {
+		log.Print("Get TA Report failed!")
+		return nil, err
+	}
 	rpy := GetReportReply{
 		TeeReport: rep,
 	}
