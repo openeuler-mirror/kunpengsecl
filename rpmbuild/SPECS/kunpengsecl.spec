@@ -35,6 +35,7 @@ This is the rac rpm package, which is used to install the client of the program.
 
 %package       ras
 Summary:       the ras package.
+Requires:      %{name}-attester
 
 %description   ras
 This is the ras rpm package, which is used to install the server of the program.
@@ -156,8 +157,9 @@ rm -rf %{buildroot}
 * Thu Mar 23 2023 leezhenxiang <1172294056@qq.com> - 2.0.0-1
 -   update to 2.0.0
 -   add qcaserver, attester, and tas packages
--   add BuildRequires itrustee_sdk-devel and Requires itrustee_sdk in aarch64
+-   add BuildRequires itrustee_sdk-devel, cjson-devel and Requires itrustee_sdk, cjson
 -   modify makefile to adapt to different architectures
+-   specify the build requires in rac and attester package
 * Thu Sep 15 2022 gwei3 <11015100@qq.com> - 1.1.2-1
 -   update to 1.1.2
 -   add slice length checks to avoid buffer overflow while extracting and verifying
