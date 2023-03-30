@@ -148,10 +148,6 @@ make install DESTDIR=%{buildroot}
 %{_docdir}/attestation/tas/README.en.md
 %{_docdir}/attestation/tas/LICENSE
 
-%clean
-rm -rf %{_builddir}
-rm -rf %{buildroot}
-
 %changelog
 * Thu Mar 23 2023 leezhenxiang <1172294056@qq.com> - 2.0.0-1
 -   update to 2.0.0

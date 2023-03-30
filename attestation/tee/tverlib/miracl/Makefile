@@ -1,7 +1,7 @@
 
 .PHONY: all build test install clean
 all build: 
-	export CC=gcc CFLAGS=-fPIC; python3 config64.py -o 33
+	export CC=gcc CFLAGS=-fPIC; python3 config64.py -o 33 > /dev/null
 
 install: all build;
 
