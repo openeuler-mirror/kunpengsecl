@@ -11,6 +11,7 @@ TASTEST=./akissuer ./clientapi ./config
 all: build
 
 build:
+	cd miracl; echo -e "33\n0" | python3 config64.py > /dev/null
 	go build -mod=vendor -o $(PKGPATH)/akserver cmd/*.go
 	go build -mod=vendor -o $(PKGPATH)/akissuer akissuer/*.go
 	go build -mod=vendor -o $(PKGPATH)/clientapi clientapi/*.go
