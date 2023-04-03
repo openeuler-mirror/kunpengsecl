@@ -211,7 +211,7 @@ func ReleaseTrustManager() {
 		return
 	}
 	releaseStorePipe()
-	time.Sleep(time.Duration(100)*time.Millisecond)
+	time.Sleep(time.Duration(100) * time.Millisecond)
 	if tmgr.db != nil {
 		tmgr.db.Close()
 		tmgr.db = nil
@@ -1086,32 +1086,32 @@ type (
 	}
 
 	DrkSign struct {
-		Cert    string    `json:"drk_cert"`
-		Sign    string    `json:"drk_sign"`
+		Cert string `json:"drk_cert"`
+		Sign string `json:"drk_sign"`
 	}
 
 	AkPubNoDaa struct {
-		Type    string    `json:"kty"`
-		N       string    `json:"n"`
-		E       string    `json:"e"`
+		Type string `json:"kty"`
+		N    string `json:"n"`
+		E    string `json:"e"`
 	}
 
 	AcPayLoad struct {
-		Ver     string     `json:"version"`
-		Ts      uint64     `json:"timestamp"`
-		Sce     string     `json:"scenario"`
-		SAlg    string     `json:"sign_alg"`
-		HAlg    string     `json:"hash_alg"`
-		QtaImg  string     `json:"qta_img"`
-		QtaMem  string     `json:"qta_mem"`
-		Tcb     string     `json:"tcb"`
-		Pub     AkPubNoDaa `json:"ak_pub"`
+		Ver    string     `json:"version"`
+		Ts     string     `json:"timestamp"`
+		Sce    string     `json:"scenario"`
+		SAlg   string     `json:"sign_alg"`
+		HAlg   string     `json:"hash_alg"`
+		QtaImg string     `json:"qta_img"`
+		QtaMem string     `json:"qta_mem"`
+		Tcb    string     `json:"tcb"`
+		Pub    AkPubNoDaa `json:"ak_pub"`
 	}
 
 	AkCertNoAs struct {
-		Sign    DrkSign    `json:"signature"`
-		PayLoad AcPayLoad  `json:"payload"`
-		Handler string     `json:"handler"`
+		Sign    DrkSign   `json:"signature"`
+		PayLoad AcPayLoad `json:"payload"`
+		Handler string    `json:"handler"`
 	}
 
 	AkCert struct {
@@ -1121,17 +1121,17 @@ type (
 	}
 
 	RpPayLoad struct {
-		Ver     string     `json:"version"`
-		Ts      uint64     `json:"timestamp"`
-		Nonce   string     `json:"nonce"`
-		Sce     string     `json:"scenario"`
-		Uuid    string     `json:"uuid"`
-		HAlg    string     `json:"hash_alg"`
-		SAlg    string     `json:"sign_alg"`
-		TaMem   string     `json:"ta_mem"`
-		TaImg   string     `json:"ta_img"`
-		TaAttr  string     `json:"ta_attr"`
-		Tcb     string     `json:"tcb"`
+		Ver    string `json:"version"`
+		Ts     string `json:"timestamp"`
+		Nonce  string `json:"nonce"`
+		Sce    string `json:"scenario"`
+		Uuid   string `json:"uuid"`
+		HAlg   string `json:"hash_alg"`
+		SAlg   string `json:"sign_alg"`
+		TaMem  string `json:"ta_mem"`
+		TaImg  string `json:"ta_img"`
+		TaAttr string `json:"ta_attr"`
+		Tcb    string `json:"tcb"`
 	}
 
 	TaReport struct {
@@ -1139,7 +1139,7 @@ type (
 		Cert    AkCert     `json:"akcert"`
 		PayLoad RpPayLoad  `json:"payload"`
 		Handler string     `json:"handler"`
-        }
+	}
 )
 
 func extractAndSaveTABase(report *typdefs.TrustReport) map[string]*typdefs.TaBaseRow {

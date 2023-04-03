@@ -347,7 +347,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte, error)
 	}
 	log.Print("Generate TA report succeeded!")
 	report := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
-	log.Print("report:", string(report))
+	//log.Print("report:", string(report))
 
 	return report, nil
 }
