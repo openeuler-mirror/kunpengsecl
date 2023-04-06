@@ -8,21 +8,6 @@ NUM=1
 . ${PROJROOT}/attestation/test/tee/integration/common.sh
 # above are common preparation steps, below are specific preparation step, scope includs:
 # configure files, input files, environment variables, cmdline paramenters, flow control paramenters, etc.
-### Start Preparation
-echo "start test preparation..." | tee -a ${DST}/control.txt
-pushd $(pwd)
-cd ${PROJROOT}/attestation/quick-scripts
-echo "clean database" | tee -a ${DST}/control.txt
-sh clear-database.sh | tee -a ${DST}/control.txt
-echo "prepare kcm environment" | tee -a ${DST}/control.txt
-sh prepare-kcm-env.sh | tee -a ${DST}/control.txt
-popd
-
-# prepare cert
-cp -r ${KCMCERT} ${DST}
-cp ${KTAPUBCERT} ${DST}/cert
-cp ${KTAPRI} ${DST}/cert
-### End Preparation
 
 ### start launching binaries for testing
 echo "start ras..." | tee -a ${DST}/control.txt

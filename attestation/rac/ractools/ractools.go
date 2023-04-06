@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
@@ -950,10 +951,14 @@ func buildTaReport(nonce uint64, qcaserver string, taTestMode bool) (map[string]
 			if string(words[1]) == strfalse {
 				with_tcb = false
 			}
-			// convert uint64 to []byte
+			// convert hex to decimal
+			tauuid, err := convertHex2Decimal(words[0])
+			if err != nil {
+				return nil, err
+			}
 			bytesBuffer := bytes.NewBuffer([]byte{})
 			binary.Write(bytesBuffer, binary.LittleEndian, nonce)
-			taReport, err := getTaReport(words[0], bytesBuffer.Bytes(), with_tcb, qcaserver)
+			taReport, err := getTaReport(tauuid, bytesBuffer.Bytes(), with_tcb, qcaserver)
 			if err != nil {
 				return nil, err
 			}
@@ -963,6 +968,29 @@ func buildTaReport(nonce uint64, qcaserver string, taTestMode bool) (map[string]
 		taReports[uuid1] = taReport1
 	}
 	return taReports, nil
+}
+
+// convert hex to Uuid
+func convertHex2Decimal(hexuuid []byte) ([]byte, error) {
+	strHorizontalBars := []byte("-")
+	pure_hexuuid := bytes.Split(hexuuid, strHorizontalBars)
+	var buffer bytes.Buffer
+	for _, pure_hex := range pure_hexuuid {
+		buffer.Write(pure_hex)
+	}
+	connect_pure_hexuuid := buffer.Bytes()
+	var buffer2 bytes.Buffer
+	for i := 0; i < len(connect_pure_hexuuid); i += 2 {
+		hex_val := string(connect_pure_hexuuid[i]) + string(connect_pure_hexuuid[i+1])
+		n, err := strconv.ParseUint(hex_val, 16, 32)
+		if err != nil {
+			return nil, err
+		}
+		n2 := uint8(n)
+		buffer2.Write([]byte{n2})
+	}
+	final_uuid := buffer2.Bytes()
+	return final_uuid, nil
 }
 
 // remote invoke qca api to get the TA's info
@@ -975,7 +1003,7 @@ func getTaReport(uuid []byte, nonce []byte, with_tcb bool, server string) ([]byt
 
 	rpyID, err := qapi.DoGetTeeReport(server, &reqID)
 	if err != nil {
-		log.Printf("Get TA infomation failed, error: %v", err)
+		log.Printf("Get TA infomation failed, uuid: %v error: %v", uuid, err)
 		return nil, err
 	}
 	log.Print("Get TA report succeeded!")
