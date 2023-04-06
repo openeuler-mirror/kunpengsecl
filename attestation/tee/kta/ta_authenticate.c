@@ -20,6 +20,7 @@ Description: ta authenticating module in kta.
 #include <tee_crypto_api.h>
 #include <securec.h>
 #include <string.h>
+#include <ctype.h>
 #include <kta_common.h>
 #include <cJSON.h>
 #include <b64/b64.h>
@@ -157,7 +158,6 @@ TEE_Result generateinbuffer(uint8_t *taid, char *noncebuf, struct ra_buffer_data
         tloge("kta local attest: nonce is null\n");
         goto end;
     }
-    free(noncebuf);
     cJSON_AddItemToObject(inpayload, "nonce", b64_nonce);
     cJSON_AddItemToObject(inpayload, "uuid", uuid);
     hash_alg = cJSON_CreateString("HS256");
@@ -181,7 +181,7 @@ TEE_Result generateinbuffer(uint8_t *taid, char *noncebuf, struct ra_buffer_data
     cJSON_AddItemToObject(inpayload, "daa_bsn", daa_bsn);
     */
     cJSON_AddItemToObject(injson, "payload", inpayload);
-    indata = cJSON_Print(injson);
+    indata = cJSON_PrintUnformatted(injson);
     in->buffer = TEE_Malloc(strlen(indata) + 1, 0);
     memcpy_s(in->buffer, strlen(indata) + 1, indata, strlen(indata) + 1);
     in->length = strlen(indata) + 1;
@@ -223,7 +223,7 @@ bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_b
     bool status = CHECK_FAIL;
     cJSON *handler = NULL, *payload = NULL, *report_sign = NULL,
             *akcert = NULL, *b64_nonce = NULL, *scenario = NULL,
-            *uuid = NULL, *ta_img = NULL, *ta_mem = NULL,
+            *uuid = NULL, *ta_img = NULL, *ta_mem = NULL;
     //        *akcert_noas = NULL, *drk_data = NULL, *ak_pub = NULL,
     //        *signature = NULL, *drk_sign = NULL, *drk_cert = NULL;
     cJSON *outdata = cJSON_Parse((char*)out->buffer);
@@ -276,7 +276,19 @@ bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_b
         tloge("check ta_mem failed!\n");
         goto end1;
     }
-    if(!comparehash(hash, ta_img->valuestring, ta_mem->valuestring)) {
+    size_t imglen = 0;
+    size_t memlen = 0;
+    uint8_t *decodedimg = base64urldecode(ta_img->valuestring, strlen(ta_img->valuestring), &imglen);
+    uint8_t *decodedmem = base64urldecode(ta_mem->valuestring, strlen(ta_mem->valuestring), &memlen);
+    char heximg[65] = {0};
+    char hexmem[65] = {0};
+    str2hex(decodedimg, imglen, heximg);
+    str2hex(decodedmem, memlen, hexmem);
+    for(int i = 0; i < 64; i++) {
+        heximg[i] = tolower(heximg[i]);
+        hexmem[i] = tolower(hexmem[i]);
+    }
+    if(!comparehash(hash, heximg, hexmem)) {
         tloge("compare ta hash values failed!\n");
         goto end1;
     }
@@ -339,7 +351,6 @@ TEE_Result localAttest(uint8_t *taid, HashValue *hash) {
     size_t noncebuflen = 0;
     TEE_GenerateRandom(nonce, noncelen);
     noncebuf = base64urlencode(nonce, noncelen, &noncebuflen);
-    tlogd("%s",noncebuf);
     out.buffer = TEE_Malloc(12288, 0);
     out.length = 12288;
     ret = generateinbuffer(taid, noncebuf, &in);

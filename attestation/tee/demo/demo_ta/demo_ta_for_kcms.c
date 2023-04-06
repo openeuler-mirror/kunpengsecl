@@ -383,7 +383,8 @@ TEE_Result ta_exit(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         tloge("Bad expected parameter value");
         return TEE_ERROR_BAD_PARAMETERS;
     }
-
+    strncpy_s(mem_hash, HASH_SIZE, params[PARAMETER_FRIST].memref.buffer, params[PARAMETER_FRIST].memref.size);
+    strncpy_s(img_hash, HASH_SIZE, params[PARAMETER_SECOND].memref.buffer, params[PARAMETER_SECOND].memref.size);
     ret = clear_cache(&localUuid, account, password, mem_hash, img_hash);
     if(ret != TEE_SUCCESS) {
         tloge("clear cache failed");
