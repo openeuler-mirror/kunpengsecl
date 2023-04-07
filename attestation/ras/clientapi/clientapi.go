@@ -435,6 +435,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			logger.L.Sugar().Errorf("Generate new key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
 		}
+		logger.L.Sugar().Debugf("get kms supported success")
 		retMessage = retKeyInfo{
 			TAId:      string(retTAId),
 			KeyId:     string(retKeyId),
@@ -466,6 +467,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 			logger.L.Sugar().Errorf("Get key of TA %s error, %v", message.TAId, err)
 			return &KeyOperationReply{Result: false}, err
 		}
+		logger.L.Sugar().Debugf("get kms supported success")
 		retMessage = retKeyInfo{
 			TAId:      string(retTAId),
 			KeyId:     string(retKeyId),
@@ -478,7 +480,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		sessionKey = key
 
 	case 0x70000003:
-		logger.L.Sugar().Debugf("going to call GetKey()")
+		logger.L.Sugar().Debugf("going to call DeleteKey()")
 		go kmsServer.ExampleServer()
 		defer kmsServer.StopServer()
 		dbConfig := GetdbConfig(strDbConfig)
@@ -508,6 +510,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 		logger.L.Sugar().Errorf("resolve command of TA %s failed", message.TAId)
 		return &KeyOperationReply{Result: false}, err
 	}
+	logger.L.Sugar().Debugf("get kta trusted success")
 	encRetMessage, err := EncryptKeyOpOutcome(retMessage, sessionKey, pubkeycert)
 	if err != nil {
 		logger.L.Sugar().Errorf("Encode return message of TA %s error, %v", retMessage.TAId, err)
