@@ -218,6 +218,14 @@ bool verifydrksign(char *drk_data, char *ak_pub, char *drk_sign, char *drk_cert)
 }
 */
 
+/*
+bool verifyakcert(char *akcert) {
+    //bool status = CHECK_FAIL;
+    (void)akcert;
+    return CHECK_SUCCESS;
+}
+*/
+
 //check whether fields of out buffer are valid
 bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_buffer_data *out) {
     bool status = CHECK_FAIL;
@@ -257,7 +265,7 @@ bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_b
         goto end1;
     }
     scenario = cJSON_GetObjectItemCaseSensitive(payload, "scenario");
-    if(scenario == NULL || strcmp(scenario->valuestring, "sce_no_as")) {
+    if(scenario == NULL) {
         tloge("check scenario failed!\n");
         goto end1;
     }
@@ -293,42 +301,71 @@ bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_b
         goto end1;
     }
 /*
-    akcert_noas = cJSON_GetObjectItemCaseSensitive(akcert, "sce_no_as");
-    if(akcert_noas == NULL) {
-        tloge("check akcert failed!\n");
+    if(strcmp(scenario->valuestring, "sce_no_as")) {
+        akcert_noas = cJSON_GetObjectItemCaseSensitive(akcert, "sce_no_as");
+        if(akcert_noas == NULL) {
+            tloge("check akcert failed!\n");
+                goto end1;
+        }
+        drk_data = cJSON_GetObjectItemCaseSensitive(akcert_noas, "payload");
+        if(drk_data == NULL) {
+            tloge("check akcert_payload failed!\n");
+            goto end1;
+        }
+        ak_pub = cJSON_GetObjectItemCaseSensitive(drk_data, "ak_pub");
+        if(ak_pub == NULL) {
+            tloge("check ak_pub failed!\n");
+            goto end1;
+        }
+        signature = cJSON_GetObjectItemCaseSensitive(akcert_noas, "signature");
+        if(signature == NULL) {
+            tloge("check signature failed!\n");
+            goto end1;
+        }
+        drk_sign = cJSON_GetObjectItemCaseSensitive(signature, "drk_sign");
+        if(drk_sign == NULL) {
+            tloge("check drk_sign failed!\n");
+            goto end1;
+        }
+        drk_cert = cJSON_GetObjectItemCaseSensitive(signature, "drk_cert");
+        if(drk_cert == NULL) {
+            tloge("check drk_cert failed!\n");
+            goto end1;
+        }
+        char *drk_datastring = cJSON_Print(drk_data);
+        if(!verifydrksign(drk_datastring, ak_pub->valuestring,
+                drk_sign->valuestring, drk_cert->valuestring)) {
+            tloge("verify drk signature failed!\n");
+            goto end2;
+        }
+    }
+    else if(strcmp(scenario->valuestring, "sce_as_no_daa")) {
+        akcert_nodaa = cJSON_GetObjectItemCaseSensitive(akcert, "sce_as_no_daa");
+        if(akcert_nodaa == NULL) {
+            tloge("check akcert failed!\n");
+                goto end1;
+        }
+        if(!verifyakcert(akcert_nodaa)) {
+            tloge("verify ak cert failed!\n");
+            goto end1;
+        }
+    }
+    else if(strcmp(scenario->valuestring, "sce_as_with_daa")) {
+        akcert_withdaa = cJSON_GetObjectItemCaseSensitive(akcert, "sce_as_with_daa");
+        if(akcert_withdaa == NULL) {
+            tloge("check akcert failed!\n");
+                goto end1;
+        }
+        if(!verifyakcert(akcert_withdaa)) {
+            tloge("verify ak cert failed!\n");
+            goto end1;
+        }
+    }
+    else {
+        tloge("scenario is not supported!");
         goto end1;
     }
-    drk_data = cJSON_GetObjectItemCaseSensitive(akcert_noas, "payload");
-    if(drk_data == NULL) {
-        tloge("check akcert_payload failed!\n");
-        goto end1;
-    }
-    ak_pub = cJSON_GetObjectItemCaseSensitive(drk_data, "ak_pub");
-    if(ak_pub == NULL) {
-        tloge("check ak_pub failed!\n");
-        goto end1;
-    }
-    signature = cJSON_GetObjectItemCaseSensitive(akcert_noas, "signature");
-    if(signature == NULL) {
-        tloge("check signature failed!\n");
-        goto end1;
-    }
-    drk_sign = cJSON_GetObjectItemCaseSensitive(signature, "drk_sign");
-    if(drk_sign == NULL) {
-        tloge("check drk_sign failed!\n");
-        goto end1;
-    }
-    drk_cert = cJSON_GetObjectItemCaseSensitive(signature, "drk_cert");
-    if(drk_cert == NULL) {
-        tloge("check drk_cert failed!\n");
-        goto end1;
-    }
-    char *drk_datastring = cJSON_Print(drk_data);
-    if(!verifydrksign(drk_datastring, ak_pub->valuestring,
-            drk_sign->valuestring, drk_cert->valuestring)) {
-        tloge("verify drk signature failed!\n");
-        goto end2;
-    }
+
 */
     status = CHECK_SUCCESS;
 /*
