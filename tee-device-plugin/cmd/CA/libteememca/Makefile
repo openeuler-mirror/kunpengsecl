@@ -1,5 +1,5 @@
 CUR_DIR=$(shell pwd)
-ITRUSTEE_BUILD_PATH=/opt/itrustee_sdk
+ITRUSTEE_BUILD_PATH=../../../../../itrustee_sdk
 
 TARGET_LIB = libteememca.so
 SRC := tee_mem_ca.c
@@ -11,6 +11,7 @@ LIB_CFLAGS += -I$(ITRUSTEE_BUILD_PATH)/include/CA
 LIB_LDFLAGS += -ldl
 
 OBJS := $(SRC:.c=.o)
+
 $(TARGET_LIB): $(SRC)
 	@$(CC) -shared $(LIB_CFLAGS) -o $@ $(SRC) $(LIB_LDFLAGS)
 

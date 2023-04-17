@@ -1,5 +1,5 @@
 CUR_DIR=$(shell pwd)
-ITRUSTEE_BUILD_PATH=/opt/itrustee_sdk
+ITRUSTEE_BUILD_PATH=../../../../itrustee_sdk
 include $(ITRUSTEE_BUILD_PATH)/build/mk/common.mk
 
 # GP API LEVEL
