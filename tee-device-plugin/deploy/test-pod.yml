@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-ta
+spec:
+  restartPolicy: OnFailure
+  containers:
+  - image: test
+    name: test-pod-ta-ctr
+    resources:
+      limits:
+        # Set a proper value based on the allocation precision and the TA's configs.xml file.
+        huawei.com/tee-ram: 10

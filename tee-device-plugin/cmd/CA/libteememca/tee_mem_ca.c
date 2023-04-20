@@ -1,12 +1,21 @@
-#include "tee_mem_ca.h"
+#include <time.h>
 #include "tee_client_api.h"
+#include "tee_mem_ca.h"
 
 #define TA_PATH "/data/e3d37f4a-f24c-48d0-8884-3bdd6c44e988.sec"
 #define CMD_GET_MEMORY 0
 #define PARAM_COUNT 4
 #define MEM_INFO_COUNT 2
 #define K_BYTES 1024
-#define RESERVE_MEMORY (300 * K_BYTES)
+#define RESERVE_MEMORY (600 * K_BYTES)
+
+static void GetSysTime(void);
+#define LOG_ERROR(format, args...) \
+do { \
+    GetSysTime(); \
+    fprintf(stderr, " " format "\n", ##args); \
+} while (0)
+
 
 typedef struct {
     uint64_t totalMem;
@@ -20,6 +29,18 @@ static const TEEC_UUID TA_uuid = {
 static TEEC_Context g_context;
 static TEEC_Session g_session;
 
+static void GetSysTime(void)
+{
+    time_t rawTime = {0};
+    struct tm *info = NULL;
+    
+    time(&rawTime);
+    info = localtime(&rawTime);
+
+    fprintf(stderr, "%d/%02d/%02d %02d:%02d:%02d", 1900 + info->tm_year,
+            info->tm_mon, info->tm_mday, info->tm_hour, info->tm_min, info->tm_sec);
+}
+
 static TEEC_Result TeecInit(void)
 {
     TEEC_Operation opt = {0};
@@ -28,7 +49,7 @@ static TEEC_Result TeecInit(void)
 
     ret = TEEC_InitializeContext(NULL, &g_context);
     if (ret != TEEC_SUCCESS) {
-        TEEC_Error("Teec initial context failed.\n");
+        LOG_ERROR("Teec initial context failed.");
         return ret;
     }
 
@@ -37,7 +58,7 @@ static TEEC_Result TeecInit(void)
     g_context.ta_path = (uint8_t *)TA_PATH;
     ret = TEEC_OpenSession(&g_context, &g_session, &TA_uuid, TEEC_LOGIN_IDENTIFY, NULL, &opt, &origin);
     if (ret != TEEC_SUCCESS) {
-        TEEC_Error("Teec open session failed. result: %x origin: %d.\n", (int)ret, origin);
+        LOG_ERROR("Teec open session failed. result: %x origin: %d.", (int)ret, origin);
         TEEC_FinalizeContext(&g_context);
     }
 
@@ -63,7 +84,7 @@ static TEEC_Result CmdGetMemInfo(MemInfo *mem)
     opt.params[0].tmpref.size = MEM_INFO_COUNT * sizeof(uint64_t);
     ret = TEEC_InvokeCommand(&g_session, CMD_GET_MEMORY, &opt, &origin);
     if (ret != TEEC_SUCCESS) {
-        TEEC_Error("Teec get memory failed. result: %x origin: %d.\n", (int)ret, origin);
+        LOG_ERROR("Teec get memory failed. result: %x origin: %d.", (int)ret, origin);
     } else {
         mem->totalMem = (memValArr[0] * opt.params[3].value.a) / K_BYTES;
         mem->freeMem = (memValArr[1] * opt.params[3].value.a) / K_BYTES;
@@ -95,7 +116,7 @@ long long GetTeeCapacityMem(void)
         return -1;
     }
     if (mem.totalMem <= RESERVE_MEMORY) {
-        TEEC_Error("Total Memory is less than reserve memory\n");
+        LOG_ERROR("Total Memory is less than reserve memory");
         return -1;
     }
 

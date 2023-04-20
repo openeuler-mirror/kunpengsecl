@@ -1,45 +1,66 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+ *
+ * kunpengsecl licensed under the Mulan PSL v2.
+ * You can use this software according to the terms and conditions of
+ * the Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at:
+ *
+ *     http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ *
+ * Author: chenzheng
+ * Create: 2023-04-23
+ * Description: internal package for tee device plugin server
+ */
 package internal
 
 import (
-	"time"
-	"log"
-	"os"
-	"net"
-	"path"
 	"fmt"
+	"log"
+	"net"
+	"os"
+	"path"
+	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	pluginapi "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 )
 
-
 const (
-	resourceName				= "huawei.com/tee-ram"
-	deviceSocket				= "tee-ram.sock"
+	resourceName = "huawei.com/tee-ram"
+	deviceSocket = "tee-ram.sock"
 
-	mountHostVolume				= "/var/run/teecd.sock"
-	mountContainerVolume		= "/var/run/teecd.sock"
-	mountReadOnly				= false
-	
-	deviceHostTeelogPath		= "/dev/teelog"
-	deviceContainerTeelogPath	= "/dev/teelog"
-	deviceTeelogPermissions		= "rw"
+	mountHostVolume      = "/var/run/teecd.sock"
+	mountContainerVolume = "/var/run/teecd.sock"
+	mountReadOnly        = false
 
-	deviceHostNsClientPath		= "/dev/tc_ns_client"
-	deviceContainerNsClientPath	= "/dev/tc_ns_client"
-	deviceNsClientPermissions	= "rw"
+	deviceHostTeelogPath      = "/dev/teelog"
+	deviceContainerTeelogPath = "/dev/teelog"
+	deviceTeelogPermissions   = "rw"
+
+	deviceHostNsClientPath      = "/dev/tc_ns_client"
+	deviceContainerNsClientPath = "/dev/tc_ns_client"
+	deviceNsClientPermissions   = "rw"
+
+	defaultBlockSeconds = 5
 )
 
+// TeeDevicePlugin abstract the tee device plugin
 type TeeDevicePlugin struct {
-	devs			[]*pluginapi.Device
-	deviceSocket	string
-	healthCheck		uint
-	grpcServer		*grpc.Server
-	stopChan		chan interface{}
-	healthChan		chan string
+	devs         []*pluginapi.Device
+	deviceSocket string
+	healthCheck  uint
+	grpcServer   *grpc.Server
+	stopChan     chan interface{}
+	healthChan   chan string
 }
 
+// NewTeeDevicePlugin initial a new tee device plugin
 func NewTeeDevicePlugin(allocPrecision, internalSeconds uint) (*TeeDevicePlugin, error) {
 	err := setAllocatePrecision(allocPrecision)
 	if err != nil {
@@ -51,17 +72,17 @@ func NewTeeDevicePlugin(allocPrecision, internalSeconds uint) (*TeeDevicePlugin,
 		return nil, err
 	}
 
-	return &TeeDevicePlugin {
-		devs:			devs,
-		deviceSocket:	pluginapi.DevicePluginPath + deviceSocket,
-		healthCheck:	internalSeconds,
-		grpcServer:		grpc.NewServer([]grpc.ServerOption{}...),
-		stopChan:		make(chan interface{}),
-		healthChan:		make(chan string),
+	return &TeeDevicePlugin{
+		devs:         devs,
+		deviceSocket: pluginapi.DevicePluginPath + deviceSocket,
+		healthCheck:  internalSeconds,
+		grpcServer:   grpc.NewServer([]grpc.ServerOption{}...),
+		stopChan:     make(chan interface{}),
+		healthChan:   make(chan string),
 	}, nil
 }
 
-// clean the socket file
+// Clean the socket file
 func (plugin *TeeDevicePlugin) cleanup() error {
 	err := os.Remove(plugin.deviceSocket)
 	if err != nil && !os.IsNotExist(err) {
@@ -71,24 +92,27 @@ func (plugin *TeeDevicePlugin) cleanup() error {
 	return nil
 }
 
-// stop the gRPC server
-func (plugin *TeeDevicePlugin) Stop() error {
-	if plugin.grpcServer == nil {
-		return nil
+// Stop the gRPC server
+func (plugin *TeeDevicePlugin) Stop() {
+	if plugin.grpcServer != nil {
+		log.Println("Stoping to server on ", plugin.deviceSocket)
+		plugin.grpcServer.Stop()
+	} else {
+		log.Println("Stoping, but grpc server is nil")
 	}
-
-	log.Printf("Stoping to server on %s\n", plugin.deviceSocket)
-	plugin.grpcServer.Stop()
 
 	close(plugin.stopChan)
 	plugin.grpcServer = nil
 	plugin.healthChan = nil
 	plugin.stopChan = nil
-	
-	return plugin.cleanup()
+
+	err := plugin.cleanup()
+	if err != nil {
+		log.Println("Clean sock file failed: ", err)
+	}
 }
 
-// dial establishes the gRPC communication with the registered device plugin.
+// Dial establishes the gRPC communication with the registered device plugin.
 func dial(unixSocketPath string, timeout time.Duration) (*grpc.ClientConn, error) {
 	c, err := grpc.Dial(unixSocketPath, grpc.WithInsecure(), grpc.WithBlock(),
 		grpc.WithTimeout(timeout),
@@ -120,7 +144,7 @@ func (plugin *TeeDevicePlugin) serve() error {
 	go plugin.grpcServer.Serve(sock)
 
 	// Wait for server to start by launching a blocking connexion
-	conn, err := dial(plugin.deviceSocket, 5*time.Second)
+	conn, err := dial(plugin.deviceSocket, defaultBlockSeconds*time.Second)
 	if err != nil {
 		return err
 	}
@@ -133,18 +157,18 @@ func (plugin *TeeDevicePlugin) serve() error {
 func (plugin *TeeDevicePlugin) Start() error {
 	err := plugin.serve()
 	if err != nil {
-		log.Printf("Start gRPC server failed: %s\n", err)
+		log.Println("Start gRPC server failed: ", err)
 		return err
 	}
-	log.Printf("Start gRPC server on: %s\n", plugin.deviceSocket)
+	log.Println("Start gRPC server on: ", plugin.deviceSocket)
 
 	err = plugin.Register()
 	if err != nil {
-		log.Printf("Registe device plugin failed: %s\n", err)
+		log.Println("Registe device plugin failed: ", err)
 		plugin.Stop()
 		return err
 	}
-	log.Printf("Registe device plugin success")
+	log.Println("Registe device plugin success")
 
 	if plugin.healthCheck > 0 {
 		go plugin.startHealthCheck()
@@ -153,7 +177,7 @@ func (plugin *TeeDevicePlugin) Start() error {
 	return nil
 }
 
-// start go routine to heath check tee status, send chan only when health changes
+// Start go routine to heath check tee status, send chan only when health changes
 func (plugin *TeeDevicePlugin) startHealthCheck() {
 	log.Printf("Start health check every %d seconds\n", plugin.healthCheck)
 	ticker := time.NewTicker(time.Duration(plugin.healthCheck) * time.Second)
@@ -182,9 +206,9 @@ func (plugin *TeeDevicePlugin) startHealthCheck() {
 	}
 }
 
-// register device plugin with kubelet
+// Register tee device plugin with kubelet
 func (plugin *TeeDevicePlugin) Register() error {
-	conn, err := dial(pluginapi.KubeletSocket, 5*time.Second)
+	conn, err := dial(pluginapi.KubeletSocket, defaultBlockSeconds*time.Second)
 	if err != nil {
 		return err
 	}
@@ -204,9 +228,9 @@ func (plugin *TeeDevicePlugin) Register() error {
 	return nil
 }
 
-// send devices list to kubelet
+// ListAndWatch send devices list to kubelet
 func (plugin *TeeDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
-	log.Printf("ListAndWatch exposing fake tee %d devices: ", len(plugin.devs))
+	log.Printf("ListAndWatch exposing fake tee devices: %d\n", len(plugin.devs))
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: plugin.devs})
 
 	for {
@@ -222,8 +246,9 @@ func (plugin *TeeDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.Devi
 	}
 }
 
-// return mounts and devices
-func (plugin *TeeDevicePlugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+// Allocate return mounts, devices to kubelet
+func (plugin *TeeDevicePlugin) Allocate(ctx context.Context,
+	reqs *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.Println("Allocate request:", reqs.ContainerRequests)
 	var neededNum uint64 = 0
 	for _, req := range reqs.ContainerRequests {
@@ -237,33 +262,33 @@ func (plugin *TeeDevicePlugin) Allocate(ctx context.Context, reqs *pluginapi.All
 	}
 	if freeNum < neededNum {
 		log.Printf("Allocate memory failed: free memory %d, needed memory %d", freeNum, neededNum)
-		return nil, fmt.Errorf("Free memory is not enough")
+		return nil, fmt.Errorf("free memory is not enough")
 	}
 
 	mounts := []*pluginapi.Mount{
 		&pluginapi.Mount{
-			ContainerPath: 	mountContainerVolume,
-			HostPath:		mountHostVolume,
-			ReadOnly:		mountReadOnly,
+			ContainerPath: mountContainerVolume,
+			HostPath:      mountHostVolume,
+			ReadOnly:      mountReadOnly,
 		},
 	}
 	devices := []*pluginapi.DeviceSpec{
 		&pluginapi.DeviceSpec{
-			ContainerPath:	deviceContainerTeelogPath,
-			HostPath:		deviceHostTeelogPath,
-			Permissions:	deviceTeelogPermissions,
+			ContainerPath: deviceContainerTeelogPath,
+			HostPath:      deviceHostTeelogPath,
+			Permissions:   deviceTeelogPermissions,
 		},
 		&pluginapi.DeviceSpec{
-			ContainerPath:	deviceContainerNsClientPath,
-			HostPath:		deviceHostNsClientPath,
-			Permissions:	deviceNsClientPermissions,
+			ContainerPath: deviceContainerNsClientPath,
+			HostPath:      deviceHostNsClientPath,
+			Permissions:   deviceNsClientPermissions,
 		},
 	}
 
 	responses := pluginapi.AllocateResponse{}
 	for _, _ = range reqs.ContainerRequests {
-		resp := &pluginapi.ContainerAllocateResponse {
-			Mounts: mounts,
+		resp := &pluginapi.ContainerAllocateResponse{
+			Mounts:  mounts,
 			Devices: devices,
 		}
 		responses.ContainerResponses = append(responses.ContainerResponses, resp)
@@ -272,16 +297,22 @@ func (plugin *TeeDevicePlugin) Allocate(ctx context.Context, reqs *pluginapi.All
 	return &responses, nil
 }
 
-func (plugin *TeeDevicePlugin) GetDevicePluginOptions(context.Context, *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+// GetDevicePluginOptions returns the options to be communicated with device plugin
+func (plugin *TeeDevicePlugin) GetDevicePluginOptions(context.Context,
+	*pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
 	return &pluginapi.DevicePluginOptions{
 		PreStartRequired: false,
 	}, nil
 }
 
-func (plugin *TeeDevicePlugin) PreStartContainer(context.Context, *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+// PreStartContainer called before each container start
+func (plugin *TeeDevicePlugin) PreStartContainer(context.Context,
+	*pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
 	return &pluginapi.PreStartContainerResponse{}, nil
 }
 
-func (plugin *TeeDevicePlugin) GetPreferredAllocation(context.Context, *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
+// GetPreferredAllocation returns a preferred set of devices to allocate
+func (plugin *TeeDevicePlugin) GetPreferredAllocation(context.Context,
+	*pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
 	return &pluginapi.PreferredAllocationResponse{}, nil
 }
