@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: k8s-tee-device-plugin-ds
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: k8s-tee-device-plugin-ds
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        name: k8s-tee-device-plugin-ds
+    spec:
+      nodeSelector:
+        teetype: "trustzone"
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      containers:
+      - image: tee-device-plugin:latest
+        name: k8s-tee-device-plugin-ctr
+        command: 
+          - /vendor/bin/tee-device-plugin
+          - -precision=512
+          - internal=60
+        securityContext:
+          # Needed for /dev/teelog and tc_ns_client
+          privileged: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+          - name: device-plugin
+            mountPath: /var/lib/kubelet/device-plugins
+          - name: teecd
+            mountPath: /var/run/teecd.sock
+          - name: teelog
+            mountPath: /dev/teelog
+          - name: tc-ns-client
+            mountPath: /dev/tc_ns_client
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: teecd
+          hostPath:
+            path: /var/run/teecd.sock
+        - name: teelog
+          hostPath:
+            path: /dev/teelog
+        - name: tc-ns-client
+          hostPath:
+            path: /dev/tc_ns_client
