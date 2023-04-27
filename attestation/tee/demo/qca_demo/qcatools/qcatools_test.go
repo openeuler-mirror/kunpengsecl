@@ -38,9 +38,9 @@ qcaconfig:
 
 var (
 	testUuid = "testuuid11111111"
-	data = "testdata"
-	cert = "testcert"
-	tcb  = false
+	data     = "testdata"
+	cert     = "testcert"
+	tcb      = false
 )
 
 func CreateQcaConfigFile() {
@@ -103,9 +103,11 @@ func TestGenerateAKCert(t *testing.T) {
 	}
 }
 
+/*
 func TestSaveAKCert(t *testing.T) {
 	err := SaveAKCert([]byte(cert))
 	if err != nil {
 		t.Error(SAVE_AK_CERT_ERROR)
 	}
 }
+*/

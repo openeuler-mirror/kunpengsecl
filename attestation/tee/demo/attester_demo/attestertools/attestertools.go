@@ -25,6 +25,7 @@ import "C"
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"log"
 	"os"
 	"unsafe"
@@ -191,8 +192,14 @@ func HandleFlags() {
 	}
 	if TestFlag != nil && *TestFlag {
 		testmode = true
-		var s_nonce string = "challenge"
-		nonce := []byte(s_nonce)
+		// var s_nonce string = "challenge" // 换成获取到的nonce（不是string，要先base64解码）
+		// nonce := []byte(s_nonce)
+		var s_nonce string = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5_gA"
+		nonce, err := base64.RawURLEncoding.DecodeString(s_nonce)
+		if err != nil {
+			log.Printf("nonce base64 decode error: %v\n", err)
+			os.Exit(0)
+		}
 		test_ta.usrdata = nonce
 	}
 }

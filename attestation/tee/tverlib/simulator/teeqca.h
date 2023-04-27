@@ -63,6 +63,11 @@ struct ra_buffer_data {
     uint8_t *buf;
 };
 
+struct ra_buffer_data_s {
+    uint32_t size;
+    char *buf;
+};
+
 struct ra_data_offset {
     uint32_t data_len;
     uint32_t data_offset;
