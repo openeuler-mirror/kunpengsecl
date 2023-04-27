@@ -5,7 +5,8 @@ metadata:
 spec:
   restartPolicy: OnFailure
   containers:
-  - image: test
+  # change the image based on actual situation
+  - image: <repository>/<demo-image>
     name: test-pod-ta-ctr
     resources:
       limits:
