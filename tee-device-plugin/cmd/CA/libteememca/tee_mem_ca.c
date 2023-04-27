@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <time.h>
 #include "tee_client_api.h"
 #include "tee_mem_ca.h"
@@ -10,12 +11,11 @@
 #define RESERVE_MEMORY (600 * K_BYTES)
 
 static void GetSysTime(void);
-#define LOG_ERROR(format, args...) \
-do { \
-    GetSysTime(); \
-    fprintf(stderr, " " format "\n", ##args); \
-} while (0)
-
+#define LOG_ERROR(format, args...)                \
+    do {                                          \
+        GetSysTime();                             \
+        fprintf(stderr, " " format "\n", ##args); \
+    } while (0)
 
 typedef struct {
     uint64_t totalMem;
@@ -23,8 +23,7 @@ typedef struct {
 } MemInfo;
 
 static const TEEC_UUID TA_uuid = {
-    0xe3d37f4a, 0xf24c, 0x48d0,
-    {0x88, 0x84, 0x3b, 0xdd, 0x6c, 0x44, 0xe9, 0x88}
+    0xe3d37f4a, 0xf24c, 0x48d0, {0x88, 0x84, 0x3b, 0xdd, 0x6c, 0x44, 0xe9, 0x88}
 };
 static TEEC_Context g_context;
 static TEEC_Session g_session;
@@ -33,7 +32,7 @@ static void GetSysTime(void)
 {
     time_t rawTime = {0};
     struct tm *info = NULL;
-    
+
     time(&rawTime);
     info = localtime(&rawTime);
 
@@ -71,6 +70,15 @@ static TEEC_Result TeecClose(void)
     TEEC_FinalizeContext(&g_context);
 }
 
+static bool CheckMultiplyOverflow(uint64_t v1, uint32_t v2)
+{
+    if (v1 != 0 && LONG_MAX / v1 < v2) {
+        LOG_ERROR("Integer multiply overflow");
+        return true;
+    }
+    return false;
+}
+
 static TEEC_Result CmdGetMemInfo(MemInfo *mem)
 {
     TEEC_Operation opt = {0};
@@ -85,10 +93,18 @@ static TEEC_Result CmdGetMemInfo(MemInfo *mem)
     ret = TEEC_InvokeCommand(&g_session, CMD_GET_MEMORY, &opt, &origin);
     if (ret != TEEC_SUCCESS) {
         LOG_ERROR("Teec get memory failed. result: %x origin: %d.", (int)ret, origin);
-    } else {
-        mem->totalMem = (memValArr[0] * opt.params[3].value.a) / K_BYTES;
-        mem->freeMem = (memValArr[1] * opt.params[3].value.a) / K_BYTES;
+        return ret;
     }
+
+    for (int i = 0; i < MEM_INFO_COUNT; i++) {
+        memValArr[i] /= K_BYTES;
+    }
+    if (CheckMultiplyOverflow(memValArr[0], opt.params[3].value.a) ||
+        CheckMultiplyOverflow(memValArr[1], opt.params[3].value.a)) {
+        return TEEC_FAIL;
+    }
+    mem->totalMem = memValArr[0] * opt.params[3].value.a;
+    mem->freeMem = memValArr[1] * opt.params[3].value.a;
 
     return ret;
 }

@@ -21,6 +21,7 @@ package internal
 import (
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"os"
 	"path"
@@ -60,9 +61,21 @@ type TeeDevicePlugin struct {
 	healthChan   chan string
 }
 
+func internalCheck(v1, v2 uint) error {
+	if v1 != 0 && math.MaxInt64/v1 < v2 {
+		return fmt.Errorf("%d is too large", v1)
+	}
+	return nil
+}
+
 // NewTeeDevicePlugin initial a new tee device plugin
 func NewTeeDevicePlugin(allocPrecision, internalSeconds uint) (*TeeDevicePlugin, error) {
-	err := setAllocatePrecision(allocPrecision)
+	err := internalCheck(internalSeconds, uint(time.Second))
+	if err != nil {
+		return nil, fmt.Errorf("health check internal set failed: %s", err)
+	}
+
+	err = setAllocatePrecision(allocPrecision)
 	if err != nil {
 		return nil, err
 	}

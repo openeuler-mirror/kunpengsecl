@@ -4,13 +4,12 @@ RUN mkdir -p /usr/lib64 && \
     mkdir -p /vendor/bin && \
     mkdir -p /data
 
-# copy binaries
-COPY --chown=644:root *.so* /usr/lib64/
-RUN ln -sf /usr/lib64/* /lib/aarch64-linux-gnu/
+COPY *.so* /usr/lib64/
+COPY tlogcat /usr/bin/
+COPY --chown=root tee-device-plugin /vendor/bin/
+COPY *.sec /data/
 
-# copy program
-COPY --chown=755:root tlogcat /usr/bin/
-COPY --chown=755:root tee-device-plugin /vendor/bin/
-COPY --chown=600:root *.sec /data/
+RUN chmod +x /vendor/bin/tee-device-plugin && \
+    ln -sf /usr/lib64/* /lib/aarch64-linux-gnu/
 
 CMD ["/vendor/bin/tee-device-plugin"]

@@ -20,7 +20,8 @@ spec:
       - key: CriticalAddonsOnly
         operator: Exists
       containers:
-      - image: tee-device-plugin:latest
+      # change the repository based on actual situation
+      - image: <repository>/tee-device-plugin:latest
         name: k8s-tee-device-plugin-ctr
         command: 
           - /vendor/bin/tee-device-plugin
