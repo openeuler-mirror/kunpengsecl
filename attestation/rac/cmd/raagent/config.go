@@ -80,7 +80,7 @@ const (
 	// test mode switcher
 	lflagTaTest = "tatest"
 	sflagTaTest = "T"
-	helpTaTest  = "use tareport testdata for test integrated implantation"
+	helpTaTest  = "use tareport testdata for testing integrated tee attestation implementation"
 	// version output
 	lflagVersion = "version"
 	sflagVersion = "V"

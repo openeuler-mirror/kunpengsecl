@@ -182,7 +182,7 @@ type (
 	}
 	provisionOutPl struct {
 		Version   string `json:"version,omitempty"`   // VERSION_TYPE
-		Timestamp int64  `json:"timestamp,omitempty"` // INTEGER_TYPE
+		Timestamp string `json:"timestamp,omitempty"` // String_TYPE
 		Scenario  string `json:"scenario,omitempty"`  // SCENARIO_TYPE
 		Hash_alg  string `json:"hash_alg,omitempty"`  // HASH_ALG_TYPE "HS256"
 		Sign_alg  string `json:"sign_alg,omitempty"`  // SIGN_ALG_TYPE "PS256"
@@ -193,7 +193,7 @@ type (
 	}
 	provisionDAAOutPl struct {
 		Version   string `json:"version,omitempty"`   // VERSION_TYPE
-		Timestamp int64  `json:"timestamp,omitempty"` // INTEGER_TYPE
+		Timestamp string `json:"timestamp,omitempty"` // String_TYPE
 		Scenario  string `json:"scenario,omitempty"`  // SCENARIO_TYPE
 		Hash_alg  string `json:"hash_alg,omitempty"`  // HASH_ALG_TYPE "HS256"
 		Sign_alg  string `json:"sign_alg,omitempty"`  // SIGN_ALG_TYPE "PS256"
@@ -459,6 +459,10 @@ func bytesToUint(b []byte) interface{} {
 
 func verifyDRKSig(c *x509.Certificate) error {
 	hwcert := config.GetHWCert()
+	if hwcert == nil {
+		log.Print("Server: nill HW cert.")
+		return errors.New("nil hw cert")
+	}
 	err := c.CheckSignatureFrom(hwcert)
 	if err != nil {
 		return err

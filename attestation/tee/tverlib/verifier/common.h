@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details.
 #define USER_DATA_SIZE 64
 #define NODE_LEN 8
 #define VERSION_SIZE 11
+#define TS_SIZE 22
 
 // #define SIG_SIZE 512
 // #define CERT_SIZE 512
@@ -124,7 +125,7 @@ typedef struct __attribute__((__packed__)) report_response
 typedef struct
 {
     uint8_t version[VERSION_SIZE];
-    uint64_t timestamp;
+    uint8_t timestamp[TS_SIZE];
     uint8_t nonce[USER_DATA_SIZE];
     uint8_t uuid[UUID_SIZE];
     uint32_t scenario;

@@ -1290,7 +1290,7 @@ bool get_other_params_from_report(cJSON *pljson, TA_report *tr) {
       return false;
    }
 
-   tr->timestamp = (uint64_t)tsjson->valuedouble;
+   memcpy(tr->timestamp, tsjson->valuestring, strlen(tsjson->valuestring));
    memcpy(tr->reserve, reservejson->valuestring, strlen(reservejson->valuestring));
    memcpy(tr->version, vjson->valuestring, strlen(vjson->valuestring));
 
