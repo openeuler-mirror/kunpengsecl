@@ -1899,7 +1899,7 @@ bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval)
    rt = verify_qta(akcert, type, refval);
    if (!rt)
    {
-      printf("validate ak cert failed!\n");
+      printf("validate ak cert failed, qta verify error!\n");
       return false;
    }
    return true;

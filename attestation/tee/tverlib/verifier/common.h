@@ -28,7 +28,7 @@ See the Mulan PSL v2 for more details.
 
 #define MAXSIZE 1000
 #define DATABUFMIN 100
-#define DATABUFMAX 10000
+#define DATABUFMAX 20000
 
 #define PRIVATEKEY "./private_key.pem"
 #define PUBLICKEY "./public_key.pem"
