@@ -770,6 +770,9 @@ func buildTaReport(nonce uint64, qcaserver string, taTestMode bool) (map[string]
 				with_tcb = false
 			}
 			// convert hex to decimal
+			if len(words) != 4 {
+				continue
+			}
 			tauuid, err := convertHex2Decimal(words[0])
 			if err != nil {
 				return nil, err

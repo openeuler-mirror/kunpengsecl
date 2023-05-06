@@ -16,7 +16,6 @@ See the Mulan PSL v2 for more details.
 
 #define MAX_STR_LEN 64
 #define KEY_SIZE 4096
-#define HASH_SIZE 65
 #define PARAMETER_FRIST 0
 #define PARAMETER_SECOND 1
 #define PARAMETER_THIRD 2
@@ -50,11 +49,6 @@ typedef struct _tagReplyNode{
     int32_t next;   // -1: empty; 0~MAX_TA_NUM: next reply for search operation.
 } ReplyNode;
 
-typedef struct _tagHashValues{
-    char mem_hash[HASH_SIZE];
-    char img_hash[HASH_SIZE];
-} HashValue;
-
 /*
  * Generate a key using KCMS
  *
@@ -62,11 +56,9 @@ typedef struct _tagHashValues{
  * @param account [IN] ta's account in KMS
  * @param password [IN] ta's password in KMS
  * @param masterkey [IN] the uuid of ta's master key in KMS
- * @param mem_hash [IN] the mem_hash of current ta
- * @param img_hash [IN] the img_hash of current ta
  */
 TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *masterkey, char *mem_hash, char *img_hash);
+        uint8_t *password, TEE_UUID *masterkey);
 
 /*
  * Search the key corresponding to the keyid using KCMS
@@ -78,11 +70,9 @@ TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
  * @param masterkey [IN] the uuid of ta's master key in KMS
  * @param keyvalue [OUT] the value of the key
  * @param flag [OUT] a flag, whether need to search again
- * @param mem_hash [IN] the mem_hash of current ta
- * @param img_hash [IN] the img_hash of current ta
  */
-TEE_Result search_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *keyid,
-        TEE_UUID *masterkey, uint8_t *keyvalue, uint32_t *flag, char *mem_hash, char *img_hash);
+TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
+        uint8_t *password, TEE_UUID *keyid, TEE_UUID *masterkey, uint8_t *keyvalue, uint32_t *flag);
 
 /*
  * Delete the key corresponding to the keyid in KMS using KCMS
@@ -91,11 +81,8 @@ TEE_Result search_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_U
  * @param account [IN] ta's account in KMS
  * @param password [IN] ta's password in KMS
  * @param keyid [IN] the id of the key to be searched for
- * @param mem_hash [IN] the mem_hash of current ta
- * @param img_hash [IN] the img_hash of current ta
  */
-TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *keyid,
-        char *mem_hash, char *img_hash);
+TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *keyid);
 
 /*
  * Clear all of current ta's data in KTA
@@ -103,11 +90,8 @@ TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_U
  * @param uuid [IN] the uuid of ta which needs the key
  * @param account [IN] ta's account in KMS
  * @param password [IN] ta's password in KMS
- * @param mem_hash [IN] the mem_hash of current ta
- * @param img_hash [IN] the img_hash of current ta
  */
-TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password,
-        char *mem_hash, char *img_hash);
+TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password);
 
 /*
  * Get the reply of generating a key using KCMS
@@ -117,9 +101,7 @@ TEE_Result clear_cache(TEE_UUID *uuid, uint8_t *account, uint8_t *password,
  * @param password [IN] ta's password in KMS
  * @param keyid [IN] the id of the key to be searched for
  * @param keyvalue [OUT] the value of the key generated
- * @param mem_hash [IN] the mem_hash of current ta
- * @param img_hash [IN] the img_hash of current ta
  */
-TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account, uint8_t *password,
-        TEE_UUID *keyid, uint8_t *keyvalue, char *mem_hash, char *img_hash);
+TEE_Result get_kcm_reply(TEE_UUID *uuid, uint8_t *account,
+        uint8_t *password, TEE_UUID *keyid, uint8_t *keyvalue);
 #endif // __KCML_H__

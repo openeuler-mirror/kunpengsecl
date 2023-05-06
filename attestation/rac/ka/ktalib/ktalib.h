@@ -39,6 +39,8 @@ TEEC_Result InitContextSession(uint8_t* ktapath);
 
 TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey_N, struct buffer_data* ktaPubCert, struct buffer_data* ktaPrivKey_N, struct buffer_data* ktaPrivKey_D, struct buffer_data *out_data);
 
+TEEC_Result KTAsendHash(struct buffer_data* in_data, uint32_t innum);
+
 TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum);
 
 TEEC_Result KTAsendCommandreply(struct buffer_data* in_data);

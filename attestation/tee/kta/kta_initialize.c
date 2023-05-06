@@ -30,6 +30,7 @@ Description: initialize module in kta.
 #include <cJSON.h>
 
 extern Cache cache;
+extern HashCache hashcache;
 extern CmdQueue cmdqueue;
 extern ReplyCache replycache;
 
@@ -266,6 +267,8 @@ TEE_Result initStructure(){
             cache.ta[i].key[j].next = -1;
         }
     }
+    //init hashcache
+    hashcache.tail = 0;
     //init cmdqueue
     cmdqueue.head = 0;
     cmdqueue.tail = 0;
@@ -275,6 +278,35 @@ TEE_Result initStructure(){
     for(int i=0;i<MAX_QUEUE_SIZE;i++){
         replycache.list[i].next = -1;
     }
+    return TEE_SUCCESS;
+}
+
+bool savehash(char *uuid, char *mem_hash, char *img_hash) {
+    errno_t err1 = memcpy_s(hashcache.hashvalue[hashcache.tail].taId, UUID_LEN, uuid, UUID_LEN);
+    errno_t err2 = memcpy_s(hashcache.hashvalue[hashcache.tail].mem_hash, HASH_SIZE, mem_hash, HASH_SIZE);
+    errno_t err3 = memcpy_s(hashcache.hashvalue[hashcache.tail].img_hash, HASH_SIZE, img_hash, HASH_SIZE);
+    hashcache.tail += 1;
+    if (err1 == EOK && err2 == EOK && err3 == EOK)
+        return true;
+    else return false;
+}
+
+TEE_Result saveHashValues(uint8_t *hashvalues, uint32_t count) {
+    cJSON *cj = cJSON_Parse((char*)hashvalues);
+    for (uint32_t i = 0; i < count; i++) {
+        char *id = TEE_Malloc(HASH_ID_LEN*sizeof(char), 0);
+        snprintf_s(id, HASH_ID_LEN, i >= 10 ? 2 : 1, "%d", i);
+        cJSON *tahash = cJSON_GetObjectItemCaseSensitive(cj, id);
+        cJSON *uuid = cJSON_GetObjectItemCaseSensitive(tahash, "Uuid");
+        cJSON *mem_hash = cJSON_GetObjectItemCaseSensitive(tahash, "Mem_hash");
+        cJSON *img_hash = cJSON_GetObjectItemCaseSensitive(tahash, "Img_hash");
+        if(!savehash(uuid->valuestring, mem_hash->valuestring, img_hash->valuestring)) {
+            tloge("save No.%d ta hash values to memory failed\n");
+            return TEE_ERROR_OUT_OF_MEMORY;
+        }
+        TEE_Free(id);
+    }
+    cJSON_Delete(cj);
     return TEE_SUCCESS;
 }
 
@@ -290,25 +322,5 @@ TEE_Result reset(char *name){
         return ret;
     }
     TEE_CloseAndDeletePersistentObject(persistent_data);
-    return TEE_SUCCESS;
-}
-
-TEE_Result ResetAll(){
-    TEE_Result ret;
-    ret = reset("sec_storage_data/ktacert.txt");
-    if (ret != TEE_SUCCESS) {
-        tloge("Failed to reset ktacert\n", ret);
-        return ret;
-    }
-    ret = reset("sec_storage_data/kcmpub.txt");
-    if (ret != TEE_SUCCESS) {
-        tloge("Failed to reset kcmpub\n", ret);
-        return ret;
-    }
-    ret = reset("sec_storage_data/ktakey.txt");
-    if (ret != TEE_SUCCESS) {
-        tloge("Failed to reset ktakey\n", ret);
-        return ret;
-    }
     return TEE_SUCCESS;
 }

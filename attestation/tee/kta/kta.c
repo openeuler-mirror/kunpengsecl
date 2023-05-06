@@ -25,10 +25,11 @@ Description: kta manages the TA's key cache in the TEE.
 
 enum {
     CMD_KTA_INITIALIZE      = 0x00000001,
-    CMD_SEND_REQUEST        = 0x00000002,
-    CMD_RESPOND_REQUEST     = 0x00000003,
-    CMD_RESET_ALL           = 0x00000004,
-    CMD_KILL                = 0x00000005,
+    CMD_GET_TAHASH          = 0x00000002,
+    CMD_SEND_REQUEST        = 0x00000003,
+    CMD_RESPOND_REQUEST     = 0x00000004,
+    CMD_RESET_ALL           = 0x00000005,
+    CMD_KILL                = 0x00000006,
     CMD_KEY_GENETARE        = 0x70000001,
     CMD_KEY_SEARCH          = 0x70000002,
     CMD_KEY_DELETE          = 0x70000003,
@@ -38,6 +39,7 @@ enum {
 };
 
 Cache cache;
+HashCache hashcache;
 CmdQueue cmdqueue;
 ReplyCache replycache;
 
@@ -93,7 +95,13 @@ TEE_Result TA_InvokeCommandEntryPoint(void* session_context, uint32_t cmd,
             ret = KTAInitialize(param_type, params);
             if (ret != TEE_SUCCESS)
                 tloge("initialize kta key and cert failed\n");
-            return ret ;
+            return ret;
+            break;
+        case CMD_GET_TAHASH:
+            ret = GetTaHash(param_type, params);
+            if (ret != TEE_SUCCESS)
+                tloge("get ta hash values failed\n");
+            return ret;
             break;
         case CMD_SEND_REQUEST:
             ret = SendRequest(param_type, params);

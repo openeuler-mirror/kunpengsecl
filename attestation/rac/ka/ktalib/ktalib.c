@@ -32,10 +32,11 @@ enum{
     INITIAL_CMD_NUM = 0x7FFFFFFF
 };
 enum {
-    CMD_KTA_INITIALIZE      = 0x00000001, //send request to kta for setup snd initialization, get parameters kta generated during initialization
-    CMD_GET_REQUEST         = 0x00000002, //ask kta for commands in its cmdqueue, and send ta identification whose trusted status needs to update
-    CMD_RESPOND_REQUEST     = 0x00000003, //reply a command to kta(maybe one)
-    CMD_CLOSE_KTA           = 0x00000005,
+    CMD_KTA_INITIALIZE      = 0x00000001, //send key and cert to kta for initialization, get kta public-key certificate
+    CMD_SEND_TAHASH         = 0x00000002, //send ta hash values to kta for local attastation
+    CMD_GET_REQUEST         = 0x00000003, //ask kta for commands in its cmdqueue
+    CMD_RESPOND_REQUEST     = 0x00000004, //reply a command to kta(maybe one)
+    CMD_CLOSE_KTA           = 0x00000006,
 };
 
 TEEC_Context context = {0};
@@ -103,6 +104,30 @@ TEEC_Result KTAinitialize(struct buffer_data* kcmPubKey_N, struct buffer_data* k
 
     return TEEC_SUCCESS;
 }
+
+
+// 向KTA发送TA哈希
+TEEC_Result KTAsendHash(struct buffer_data* in_data, uint32_t innum) {
+    TEEC_Operation operation = {0};
+    uint32_t origin = 0;
+    TEEC_Result ret;
+    operation.started = OPERATION_START_FLAG;
+    operation.paramTypes = TEEC_PARAM_TYPES(
+        TEEC_MEMREF_TEMP_INPUT, //存放传入KTA的哈希
+        TEEC_NONE,
+        TEEC_NONE,
+        TEEC_VALUE_INPUT //存放KA发送的哈希数量：0<a<=32
+    );
+    operation.params[PARAMETER_FRIST].tmpref.buffer = in_data->buf;
+    operation.params[PARAMETER_FRIST].tmpref.size = in_data->size;
+    operation.params[PARAMETER_FOURTH].value.a = innum;
+    ret = TEEC_InvokeCommand(&session, CMD_SEND_TAHASH, &operation, &origin);
+    if (ret != TEEC_SUCCESS) {
+        return ret;
+    }
+    return TEEC_SUCCESS;
+}
+
 // 从KTA拿取密钥请求
 TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum){
     TEEC_Operation operation = {0};
