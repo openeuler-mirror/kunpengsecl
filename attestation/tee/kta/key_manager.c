@@ -41,6 +41,7 @@ const TEE_UUID ktaUuid = {
 static uint8_t exponent[3] = {0x01,0x00,0x01};
 
 extern Cache cache;
+extern HashCache hashcache;
 extern CmdQueue cmdqueue;
 extern ReplyCache replycache;
 
@@ -145,7 +146,7 @@ void hex2char(uint32_t hex, uint8_t *hexchar, int32_t i) {
     }
 }
 
-void uuid2char(TEE_UUID uuid, uint8_t charuuid[37]) {
+void uuid2char(TEE_UUID uuid, uint8_t charuuid[UUID_LEN]) {
     int32_t i = 0;
 
     hex2char(uuid.timeLow, charuuid, 8);
@@ -166,10 +167,10 @@ void uuid2char(TEE_UUID uuid, uint8_t charuuid[37]) {
 
 // transfer struct CmdNode to cJSON format
 void cmdNode2cjson(CmdNode cmdnode, cJSON *cj) {
-    uint8_t taid[37] = {0};
-    uint8_t keyid[37] = {0};
-    uint8_t masterkey[37] = {0};
-    uint8_t ktauuid[37] = {0};
+    uint8_t taid[UUID_LEN] = {0};
+    uint8_t keyid[UUID_LEN] = {0};
+    uint8_t masterkey[UUID_LEN] = {0};
+    uint8_t ktauuid[UUID_LEN] = {0};
     // translate taid
     uuid2char(cmdnode.taId, taid);
     cJSON_AddStringToObject(cj, "TAId", (char*)taid);
@@ -249,53 +250,6 @@ TEE_Result generateFinalRequest(CmdNode cmdnode, char *finalrequest){
     cJSON_Delete(finalcmdjsonnode);
     tlogd("generate final request success");
     TEE_Free(hexrequest);
-    return TEE_SUCCESS;
-}
-
-TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
-    TEE_Result ret;
-    CmdNode curNode;
-    char *finalrequest = TEE_Malloc(sizeof(char)*MAX_FINAL_SIZE, 0);
-    if (!check_param_type(param_type,
-        TEE_PARAM_TYPE_MEMREF_OUTPUT,
-        TEE_PARAM_TYPE_VALUE_OUTPUT,
-        TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE)) {
-        tloge("Bad expected parameter types, 0x%x.\n", param_type);
-        return TEE_ERROR_BAD_PARAMETERS;
-    }
-    if (params[PARAMETER_FRIST].memref.buffer == NULL ||
-        params[PARAMETER_FRIST].memref.size == 0) {
-        tloge("Bad expected parameter value");
-        return TEE_ERROR_BAD_PARAMETERS;
-    }
-    //Judge whether cmd queue is empty 
-    if (cmdqueue.head == cmdqueue.tail){
-        params[PARAMETER_SECOND].value.a = 0;
-        params[PARAMETER_SECOND].value.b = 0;
-        tlogd("cmdqueue is empty,nothing should be sent.\n");
-        return TEE_SUCCESS;
-    }
-    //if is not empty, dequeue a request from the queue
-    params[PARAMETER_SECOND].value.a = (cmdqueue.tail + MAX_QUEUE_SIZE - cmdqueue.head) % MAX_QUEUE_SIZE;
-    curNode = dequeue();
-
-    //generate Request Return value for ka
-    ret = generateFinalRequest(curNode, finalrequest);
-    if (ret != TEE_SUCCESS) {
-        tloge("fail to generate final request");
-        return TEE_ERROR_OVERFLOW;
-    }
-    params[PARAMETER_SECOND].value.b = strlen(finalrequest);
-    errno_t err = memcpy_s(params[PARAMETER_FRIST].memref.buffer,
-            params[PARAMETER_FRIST].memref.size, finalrequest, strlen(finalrequest));
-    if(err != 0) {
-        tloge("buffer is too short");
-        return TEE_ERROR_SHORT_BUFFER;
-    }
-    params[PARAMETER_FRIST].memref.size = params[PARAMETER_SECOND].value.b;
-    tlogd("send request success");
-    TEE_Free(finalrequest);
     return TEE_SUCCESS;
 }
 
@@ -405,7 +359,7 @@ TEE_Result decryptcmd(uint8_t *decrypted_key, uint8_t *encrypted_cmd, uint8_t *d
     return TEE_SUCCESS;
 }
 
-void char2uuid(uint8_t charuuid[37], TEE_UUID *uuid) {
+void char2uuid(uint8_t charuuid[UUID_LEN], TEE_UUID *uuid) {
     int32_t i = 0;
     char *stop = NULL;
     uint8_t buffer[3] = {0};
@@ -474,11 +428,12 @@ TEE_Result saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
         nxt2 = cache.ta[head].key[nxt2].next;
     }
     for(int32_t i=0; i<MAX_KEY_NUM; i++) {
-        if(cache.ta[head].key[i].next == -1 || i != cur2) {
+        if(cache.ta[head].key[i].next == -1 && i != cur2) {
             cache.ta[head].head = i;
             cache.ta[head].key[i].id = keyid;
             memcpy_s(cache.ta[head].key[i].value, KEY_SIZE, keyvalue, AES_16_SIZE);
             cache.ta[head].key[i].next = thead;
+            break;
         }
     }
     return TEE_SUCCESS;
@@ -544,26 +499,14 @@ save:
     replycache.head = i;
 }
 
-TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
+TEE_Result handleResponse(uint8_t *inbuffer, size_t buffersize) {
     TEE_Result ret;
     cJSON *keybuffer = NULL;
     cJSON *cmdbuffer = NULL;
     uint8_t decrypted_key[RSA_KEY_SIZE] = {0};
     uint8_t *decrypted_cmd = NULL;
-    if (!check_param_type(param_type,
-        TEE_PARAM_TYPE_MEMREF_INPUT,
-        TEE_PARAM_TYPE_VALUE_OUTPUT,
-        TEE_PARAM_TYPE_NONE,
-        TEE_PARAM_TYPE_NONE)) {
-        tloge("Bad expected parameter types, 0x%x.\n", param_type);
-        return TEE_ERROR_BAD_PARAMETERS;
-    }
-    if (params[PARAMETER_FRIST].memref.buffer == NULL || params[PARAMETER_FRIST].memref.size == 0) {
-        tloge("Bad expected parameter value");
-        return TEE_ERROR_BAD_PARAMETERS;
-    }
-    char *response = TEE_Malloc(params[PARAMETER_FRIST].memref.size*sizeof(uint8_t)+1, 0);
-    memcpy_s(response, params[PARAMETER_FRIST].memref.size*sizeof(uint8_t)+1, params[PARAMETER_FRIST].memref.buffer, params[PARAMETER_FRIST].memref.size);
+    char *response = TEE_Malloc(buffersize*sizeof(uint8_t)+1, 0);
+    memcpy_s(response, buffersize*sizeof(uint8_t)+1, inbuffer, buffersize);
     cJSON *cj = cJSON_Parse(response);
     keybuffer = cJSON_GetObjectItemCaseSensitive(cj, "Key");
     uint8_t hex_key[RSA_KEY_SIZE] = {0};
@@ -608,7 +551,6 @@ TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         tloge("unknown cmd");
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    params[PARAMETER_SECOND].value.a = 1;
     TEE_Free(key);
     TEE_Free(str_cmd);
     TEE_Free(decrypted_cmd);
@@ -670,22 +612,19 @@ TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         TEE_PARAM_TYPE_MEMREF_INPUT,  
         TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_VALUE_OUTPUT,  
-        TEE_PARAM_TYPE_MEMREF_INPUT)) {
+        TEE_PARAM_TYPE_NONE)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return ret;
     }
     if (params[PARAMETER_FRIST].memref.buffer == NULL ||
-        params[PARAMETER_FRIST].memref.size != sizeof(CmdNode) ||
-        params[PARAMETER_FOURTH].memref.buffer == NULL ||
-        params[PARAMETER_FOURTH].memref.size != sizeof(HashValue)) {
+        params[PARAMETER_FRIST].memref.size != sizeof(CmdNode)) {
         tloge("Bad expected parameter value");
         return ret;
     }
     CmdNode *n = params[PARAMETER_FRIST].memref.buffer;
-    HashValue *hash = params[PARAMETER_FOURTH].memref.buffer;
-    uint8_t uuid[37] = {0};
-    uuid2char(n->taId, uuid);
-    ret = localAttest(uuid, hash);
+    uint8_t charuuid[UUID_LEN] = {0};
+    uuid2char(n->taId, charuuid);
+    ret = localAttest(charuuid);
     if(ret != TEE_SUCCESS) {
         tloge("conduct local attest failed, ret 0x%x\n", ret);
         return ret;
@@ -755,25 +694,22 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         TEE_PARAM_TYPE_MEMREF_INPUT,  
         TEE_PARAM_TYPE_MEMREF_OUTPUT,
         TEE_PARAM_TYPE_VALUE_OUTPUT,  
-        TEE_PARAM_TYPE_MEMREF_INPUT)) {
+        TEE_PARAM_TYPE_NONE)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return ret;
     }
     if (params[PARAMETER_FRIST].memref.buffer == NULL ||
         params[PARAMETER_FRIST].memref.size != sizeof(CmdNode) ||
         params[PARAMETER_SECOND].memref.buffer == NULL ||
-        params[PARAMETER_SECOND].memref.size < KEY_SIZE ||
-        params[PARAMETER_FOURTH].memref.buffer == NULL ||
-        params[PARAMETER_FOURTH].memref.size != sizeof(HashValue)) {
+        params[PARAMETER_SECOND].memref.size < KEY_SIZE) {
         tloge("Bad expected parameter value");
         return ret;
     }
     //params[PARAMETER_FRIST].memref.buffer内为输入的cmd结构体
     CmdNode *n = params[PARAMETER_FRIST].memref.buffer;
-    HashValue *hash = params[PARAMETER_FOURTH].memref.buffer;
-    uint8_t uuid[37] = {0};
-    uuid2char(n->taId, uuid);
-    ret = localAttest(uuid, hash);
+    uint8_t charuuid[UUID_LEN] = {0};
+    uuid2char(n->taId, charuuid);
+    ret = localAttest(charuuid);
     if(ret != TEE_SUCCESS) {
         tloge("conduct local attest failed, ret 0x%x\n", ret);
         return ret;
@@ -817,14 +753,12 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_VALUE_OUTPUT,
         TEE_PARAM_TYPE_VALUE_OUTPUT,
-        TEE_PARAM_TYPE_MEMREF_INPUT)) {
+        TEE_PARAM_TYPE_NONE)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return ret;
     }
     if (params[PARAMETER_FRIST].memref.buffer == NULL ||
-        params[PARAMETER_FRIST].memref.size != sizeof(CmdNode) ||
-        params[PARAMETER_FOURTH].memref.buffer == NULL ||
-        params[PARAMETER_FOURTH].memref.size != sizeof(HashValue)) {
+        params[PARAMETER_FRIST].memref.size != sizeof(CmdNode)) {
         tloge("Bad expected parameter value");
         return ret;
     }
@@ -836,14 +770,13 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     int32_t keyIndex;
     int32_t targetKeyIndex;
     CmdNode *n = params[PARAMETER_FRIST].memref.buffer;
-    HashValue *hash = params[PARAMETER_FOURTH].memref.buffer;
+    uint8_t charuuid[UUID_LEN] = {0};
     bool res = false;
-    uint8_t uuid[37] = {0};
 
     //先对TA进行本地证明，证明通过之后根据UUID和密钥ID查询密钥，然后验证TA的账号密码，验证通过后删除指定密钥，最后向KCM发送删除指定密钥的请求
     //kta通过ka到ras中获取指定ta基准值，在kta中调用本地证明接口获取ta度量报告，然后在kta中进行验证
-    uuid2char(n->taId, uuid);
-    ret = localAttest(uuid, hash);
+    uuid2char(n->taId, charuuid);
+    ret = localAttest(charuuid);
     if(ret != TEE_SUCCESS) {
         tloge("conduct local attest failed, ret 0x%x\n", ret);
         return ret;
@@ -915,25 +848,22 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         TEE_PARAM_TYPE_MEMREF_INPUT,  
         TEE_PARAM_TYPE_MEMREF_OUTPUT,
         TEE_PARAM_TYPE_NONE,  
-        TEE_PARAM_TYPE_MEMREF_INPUT)) {
+        TEE_PARAM_TYPE_NONE)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return ret;
     }
     if (params[PARAMETER_FRIST].memref.buffer == NULL ||
         params[PARAMETER_FRIST].memref.size != sizeof(CmdNode) ||
         params[PARAMETER_SECOND].memref.buffer == NULL ||
-        params[PARAMETER_SECOND].memref.size < KEY_SIZE ||
-        params[PARAMETER_FOURTH].memref.buffer == NULL ||
-        params[PARAMETER_FOURTH].memref.size != sizeof(HashValue)) {
+        params[PARAMETER_SECOND].memref.size < KEY_SIZE) {
         tloge("Bad expected parameter value");
         return ret;
     }
 
     CmdNode *n = params[PARAMETER_FRIST].memref.buffer;
-    HashValue *hash = params[PARAMETER_FOURTH].memref.buffer;
-    uint8_t uuid[37] = {0};
-    uuid2char(n->taId, uuid);
-    ret = localAttest(uuid, hash);
+    uint8_t charuuid[UUID_LEN] = {0};
+    uuid2char(n->taId, charuuid);
+    ret = localAttest(charuuid);
     if(ret != TEE_SUCCESS) {
         tloge("conduct local attest failed, ret 0x%x\n", ret);
         return ret;
@@ -952,7 +882,7 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
     int32_t cur = replycache.head;
     int32_t pre = -2;
     while (cur != -1) {
-        uint8_t char1[37] = {0}, char2[37] = {0};
+        uint8_t char1[UUID_LEN] = {0}, char2[UUID_LEN] = {0};
         uuid2char(replycache.list[cur].taId, char1);
         uuid2char(n->taId, char2);
         if (checkUuid(replycache.list[cur].taId, n->taId)) {
@@ -989,25 +919,22 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         TEE_PARAM_TYPE_MEMREF_INPUT,  
         TEE_PARAM_TYPE_VALUE_OUTPUT,
         TEE_PARAM_TYPE_NONE,  
-        TEE_PARAM_TYPE_MEMREF_INPUT)) {
+        TEE_PARAM_TYPE_NONE)) {
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return ret;
     }
     if (params[PARAMETER_FRIST].memref.buffer == NULL ||
-        params[PARAMETER_FRIST].memref.size != sizeof(CmdNode) ||
-        params[PARAMETER_FOURTH].memref.buffer == NULL ||
-        params[PARAMETER_FOURTH].memref.size != sizeof(HashValue)) {
+        params[PARAMETER_FRIST].memref.size != sizeof(CmdNode)) {
         tloge("Bad expected parameter value");
         return ret;
     }
 
     //params[PARAMETER_FRIST].memref.buffer内为输入的cmd结构体
     CmdNode *n = params[PARAMETER_FRIST].memref.buffer;
-    HashValue *hash = params[PARAMETER_FOURTH].memref.buffer;
-    uint8_t uuid[37] = {0};
-    uuid2char(n->taId, uuid);
+    uint8_t charuuid[UUID_LEN] = {0};
+    uuid2char(n->taId, charuuid);
     // 进行本地证明
-    ret = localAttest(uuid, hash);
+    ret = localAttest(charuuid);
     if(ret != TEE_SUCCESS) {
         tloge("conduct local attest failed, ret 0x%x\n", ret);
         return ret;

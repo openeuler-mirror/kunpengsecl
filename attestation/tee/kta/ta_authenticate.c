@@ -29,6 +29,7 @@ Description: ta authenticating module in kta.
 #define CHECK_SUCCESS 1
 #define CHECK_FAIL 0
 extern Cache cache;
+extern HashCache hashcache;
 extern CmdQueue cmdqueue;
 extern ReplyCache replycache;
 
@@ -129,7 +130,7 @@ uint8_t* base64urldecode(const char *source, size_t source_len, size_t *dest_len
 }
 
 //generate in buffer in local attestation scenario
-TEE_Result generateinbuffer(uint8_t *taid, char *noncebuf, struct ra_buffer_data *in) {
+TEE_Result generateinbuffer(uint8_t taid[UUID_LEN], char *noncebuf, struct ra_buffer_data *in) {
     cJSON *injson = NULL;
     cJSON *inpayload = NULL;
     cJSON *version = NULL;
@@ -193,12 +194,12 @@ end:
 }
 
 //compare hash value to conduct local attestation
-bool comparehash(HashValue *hash, char *ta_img, char *ta_mem) {
+bool comparehash(char *saved_img, char *saved_mem, char *ta_img, char *ta_mem) {
     bool status = CHECK_FAIL;
-    if(strcmp(hash->img_hash, ta_img)) {
+    if(strcmp(saved_img, ta_img)) {
         goto end;
     }
-    if(strcmp(hash->mem_hash, ta_mem)) {
+    if(strcmp(saved_mem, ta_mem)) {
         goto end;
     }
     status = CHECK_SUCCESS;
@@ -227,7 +228,7 @@ bool verifyakcert(char *akcert) {
 */
 
 //check whether fields of out buffer are valid
-bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_buffer_data *out) {
+bool handleoutbuffer(uint8_t *taid, char *noncebuf, struct ra_buffer_data *out) {
     bool status = CHECK_FAIL;
     cJSON *handler = NULL, *payload = NULL, *report_sign = NULL,
             *akcert = NULL, *b64_nonce = NULL, *scenario = NULL,
@@ -235,6 +236,17 @@ bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_b
     //        *akcert_noas = NULL, *drk_data = NULL, *ak_pub = NULL,
     //        *signature = NULL, *drk_sign = NULL, *drk_cert = NULL;
     cJSON *outdata = cJSON_Parse((char*)out->buffer);
+    int32_t cur = 0;
+    for(; cur < hashcache.tail; cur++) {
+        if (strcmp((char*)hashcache.hashvalue[cur].taId, (char*)taid) == 0){
+            tlogd("search ta hash value success");
+            break;
+        }
+    }
+    if (cur == hashcache.tail) {
+        tloge("search ta hash value failed");
+        goto end1;
+    }
     if(outdata == NULL) {
         tloge("parse json data failed!\n");
         goto end1;
@@ -296,7 +308,7 @@ bool handleoutbuffer(uint8_t *taid, char *noncebuf, HashValue *hash, struct ra_b
         heximg[i] = tolower(heximg[i]);
         hexmem[i] = tolower(hexmem[i]);
     }
-    if(!comparehash(hash, heximg, hexmem)) {
+    if(!comparehash(hashcache.hashvalue[cur].img_hash, hashcache.hashvalue[cur].mem_hash, heximg, hexmem)) {
         tloge("compare ta hash values failed!\n");
         goto end1;
     }
@@ -378,7 +390,7 @@ end1:
 }
 
 //conduct local attestation
-TEE_Result localAttest(uint8_t *taid, HashValue *hash) {
+TEE_Result localAttest(uint8_t taid[UUID_LEN]) {
     TEE_Result ret = TEE_SUCCESS;
     struct ra_buffer_data in;
     struct ra_buffer_data out;
@@ -395,13 +407,12 @@ TEE_Result localAttest(uint8_t *taid, HashValue *hash) {
         tloge("kta local attest: generate in buffer failed!\n");
         goto end;
     }
-    tlogd("%s", in.buffer);
     ret = ra_local_report(&in, &out);
     if(ret != TEE_SUCCESS) {
         tloge("get local attest report failed!\n");
         goto end;
     }
-    if(handleoutbuffer(taid, noncebuf, hash, &out))
+    if(handleoutbuffer(taid, noncebuf, &out))
         tlogi("local attestation process succeeded.\n");
     else 
         ret = TEE_ERROR_ACCESS_DENIED;

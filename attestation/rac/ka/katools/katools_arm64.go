@@ -25,10 +25,13 @@ package katools
 */
 import "C"
 import (
+	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -36,12 +39,20 @@ import (
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
 )
+
+type hashValues struct {
+	Uuid     string
+	Mem_hash string
+	Img_hash string
+}
 
 const (
 	// CMD_DATA_SIZE means the size of cmd data
 	CMD_DATA_SIZE = 2048
+	tahashpath    = "./talist"
 )
 
 // KA主函数
@@ -64,12 +75,17 @@ func KaMain(addr string, id int64, ktaShutdown bool) {
 	defer C.KTAshutdown()
 	ras, err := clientapi.CreateConn(addr)
 	if err != nil {
-		logger.L.Sugar().Errorf("connect ras server fail, %s", err)
+		logger.L.Sugar().Errorf("connect ras server failed, %s", err)
 		return
 	}
 	defer clientapi.ReleaseConn(ras)
 	err1 := kaInitialize(ras, id)
 	if err1 != nil {
+		return
+	}
+	err2 := sendHashToKTA()
+	if err2 != nil {
+		logger.L.Sugar().Errorf("send ta hash values to kta failed, %s", err2)
 		return
 	}
 	// 轮询密钥请求过程
@@ -125,6 +141,42 @@ func kaInitialize(ras *clientapi.RasConn, id int64) error {
 	}
 	logger.L.Debug("ka initialize done")
 	return nil
+}
+
+// Read TA hash value from file named talist
+func ReadHashValue() ([]byte, uint32, error) {
+	var i uint32 = 0
+	tahash, err := ioutil.ReadFile(tahashpath)
+	if err != nil {
+		logger.L.Sugar().Errorf("read ta hash failed, %s", err)
+		return nil, 0, err
+	}
+	lines := bytes.Split(tahash, typdefs.NewLine)
+	map1 := make(map[string]hashValues)
+	var subarray []byte
+	for _, ln := range lines {
+		if i >= 32 {
+			break
+		}
+		// words[0]是uuid words[2]是mem_hash words[3]是img_hash
+		words := bytes.Split(ln, typdefs.Space)
+		if len(words) != 4 {
+			continue
+		}
+		tahash := hashValues{
+			Uuid:     string(words[0]),
+			Mem_hash: string(words[2]),
+			Img_hash: string(words[3]),
+		}
+		map1[fmt.Sprintf("%d", i)] = tahash
+		i = i + 1
+	}
+	subarray, err1 := json.Marshal(map1)
+	if err1 != nil {
+		logger.L.Sugar().Errorf("marshal ta hash values to json format failed, %s", err1)
+		return nil, 0, err1
+	}
+	return subarray, i, nil
 }
 func getSendKtaData(kcm_cert *x509.Certificate) (*rsa.PublicKey, []byte, *rsa.PrivateKey, error) {
 	kcmPubkey := kcm_cert.PublicKey.(*rsa.PublicKey)
@@ -241,6 +293,25 @@ func initialKTA(kcmPubkey *rsa.PublicKey, ktaPubCert []byte, ktaPrivKey *rsa.Pri
 	bk := C.GoBytes(unsafe.Pointer(c_response_data.buf), C.int(c_response_data.size))
 
 	return bk, nil
+}
+
+// 向KTA发送TA哈希
+
+func sendHashToKTA() error {
+	hashvalue, hashnum, err := ReadHashValue()
+	if err != nil {
+		return err
+	}
+	c_cmd_data := C.struct_buffer_data{}
+	c_cmd_num := C.uint(hashnum)
+	c_cmd_data.size = C.__uint32_t(len(hashvalue))
+	c_cmd_data.buf = (*C.uchar)(C.CBytes(hashvalue))
+	defer C.free(unsafe.Pointer(c_cmd_data.buf))
+	teec_result := C.KTAsendHash(&c_cmd_data, c_cmd_num)
+	if int(teec_result) != 0 {
+		return errors.New("invoke send hash command failed")
+	}
+	return nil
 }
 
 // 从KTA拿取密钥请求
