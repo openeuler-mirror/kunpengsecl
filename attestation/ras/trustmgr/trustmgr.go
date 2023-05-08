@@ -856,11 +856,6 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 		c.SetTrusted(cache.StrUntrusted)
 		return false, err
 	}
-	row.Validated = true
-	row.Trusted = true
-	c.SetTrusted(cache.StrUnknown)
-	c.UpdateTrustReport(config.GetTrustDuration())
-	go pushToStorePipe(row)
 
 	mp := config.GetTaInputs()
 	for uuid, taReport := range report.TaReports {
@@ -891,6 +886,11 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 		}
 		go pushToStorePipe(row)
 	}
+	row.Validated = true
+	row.Trusted = true
+	c.SetTrusted(cache.StrUnknown)
+	c.UpdateTrustReport(config.GetTrustDuration())
+	go pushToStorePipe(row)
 	return true, nil
 }
 
@@ -1061,6 +1061,11 @@ func handleFirstReport(report *typdefs.TrustReport) error {
 
 		c.TaBases = extractAndSaveTABase(report)
 		c.SetTrusted(cache.StrTrusted)
+		for uuid, tareport := range report.TaReports {
+			if tareport != nil {
+				c.SetTaTrusted(uuid, cache.StrTrusted)
+			}
+		}
 
 	} else {
 		verifyReport(report)
@@ -1085,6 +1090,7 @@ type (
 		AsDaa   *SignAsDaa `json:"sce_as_with_daa,omitempty"`
 	}
 
+	// DrkSign is used to describe drk cert and drk sign.
 	DrkSign struct {
 		Cert string `json:"drk_cert"`
 		Sign string `json:"drk_sign"`
@@ -1262,6 +1268,11 @@ func recordAutoUpdateReport(report *typdefs.TrustReport) error {
 	}
 	c.TaBases = extractAndSaveTABase(report)
 	c.SetTrusted(cache.StrTrusted)
+	for uuid, tareport := range report.TaReports {
+		if tareport != nil {
+			c.SetTaTrusted(uuid, cache.StrTrusted)
+		}
+	}
 
 	return nil
 }

@@ -100,6 +100,12 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error {
 	if err != nil {
 		return err
 	}
+
+	// remove KTA cert
+	err = os.Remove(certPath + deviceStr + ktaCertName)
+	if err != nil {
+		return errors.New("remove KTA cert error")
+	}
 	return nil
 }
 
@@ -484,16 +490,12 @@ func ReadCert(pathname string) ([]byte, error) {
 // GetKTATrusted gets the trusted status of the KTA
 // and verifies weather it is trusted.
 func GetKTATrusted(deviceId int64, ktaid string) error {
-	// bypass by far
-	if deviceId >= 0 {
-		return nil
-	}
 	c, err := trustmgr.GetCache(deviceId)
 	if err != nil {
 		return err
 	}
 	if c.GetTaTrusted(ktaid) != cache.StrTrusted {
-		fmt.Printf("\n c.GetTaTrusted(ktaid) = %s", c.GetTaTrusted(ktaid))
+		fmt.Printf("\n c.GetTaTrusted(%s) = %s\n", ktaid, c.GetTaTrusted(ktaid))
 		return errors.New("verify the KTA trusted status failed")
 	}
 	return nil
