@@ -31,14 +31,14 @@ clean:
 
 install: build
 	mkdir -p $(DESTDIR)$(ETCTAR)/ras $(DESTDIR)$(SHARETAR)/ras $(DESTDIR)$(DOCTAR)/ras $(DESTDIR)$(BINTAR)
-	install -m 555 $(PKGPATH)/ras $(DESTDIR)$(BINTAR)
+	install -m 755 $(PKGPATH)/ras $(DESTDIR)$(BINTAR)
 	install -m 644 $(RASPATH)/config.yaml $(DESTDIR)$(ETCTAR)/ras
-	install -m 555 $(SCRPATH)/prepare-database-env.sh $(DESTDIR)$(SHARETAR)/ras
-	install -m 555 $(SCRPATH)/clear-database.sh $(DESTDIR)$(SHARETAR)/ras
-	install -m 555 $(SCRPATH)/createTable.sql $(DESTDIR)$(SHARETAR)/ras
-	install -m 555 $(SCRPATH)/dropTable.sql $(DESTDIR)$(SHARETAR)/ras
-	install -m 555 $(SCRPATH)/clearTable.sql $(DESTDIR)$(SHARETAR)/ras
-	install -m 555 $(SCRPATH)/prepare-rasconf-env.sh $(DESTDIR)$(SHARETAR)/ras
+	install -m 755 $(SCRPATH)/prepare-database-env.sh $(DESTDIR)$(SHARETAR)/ras
+	install -m 755 $(SCRPATH)/clear-database.sh $(DESTDIR)$(SHARETAR)/ras
+	install -m 755 $(SCRPATH)/createTable.sql $(DESTDIR)$(SHARETAR)/ras
+	install -m 755 $(SCRPATH)/dropTable.sql $(DESTDIR)$(SHARETAR)/ras
+	install -m 755 $(SCRPATH)/clearTable.sql $(DESTDIR)$(SHARETAR)/ras
+	install -m 755 $(SCRPATH)/prepare-rasconf-env.sh $(DESTDIR)$(SHARETAR)/ras
 	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/ras
 	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/ras
 	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/ras

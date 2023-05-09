@@ -6,7 +6,7 @@ all build: teeverifier.c teeverifier.h common.h
 
 install: all build
 	mkdir -p $(DESTDIR)$(LIBTAR)
-	install -m 555 libteeverifier.so $(DESTDIR)$(LIBTAR)
+	install -m 755 libteeverifier.so $(DESTDIR)$(LIBTAR)
 
 test: teeverify_test.c teeverifier.c
 	gcc teeverify_test.c ../miracl/core.a -o test.out -I /usr/local/include -I ../miracl -L /usr/local/lib -lcrypto -lcjson

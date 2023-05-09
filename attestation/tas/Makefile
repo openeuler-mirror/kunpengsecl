@@ -21,9 +21,9 @@ build:
 
 install: build
 	mkdir -p $(DESTDIR)$(ETCTAR)/tas $(DESTDIR)$(SHARETAR)/tas $(DESTDIR)$(DOCTAR)/tas $(DESTDIR)$(BINTAR)
-	install -m 555 $(PKGPATH)/akserver $(DESTDIR)$(BINTAR)/tas
+	install -m 755 $(PKGPATH)/akserver $(DESTDIR)$(BINTAR)/tas
 	install -m 644 $(TASPATH)/config.yaml $(DESTDIR)$(ETCTAR)/tas
-	install -m 555 $(SCRPATH)/prepare-tasconf-env.sh $(DESTDIR)$(SHARETAR)/tas
+	install -m 755 $(SCRPATH)/prepare-tasconf-env.sh $(DESTDIR)$(SHARETAR)/tas
 	install -m 644 $(TASPATH)/*.pem $(DESTDIR)$(BINTAR)
 	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/tas
 	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/tas
