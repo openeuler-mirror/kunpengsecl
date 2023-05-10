@@ -149,6 +149,7 @@ func ReadHashValue() ([]byte, uint32, error) {
 	tahash, err := ioutil.ReadFile(tahashpath)
 	if err != nil {
 		logger.L.Sugar().Errorf("read ta hash failed, %s", err)
+		terminateKTA()
 		return nil, 0, err
 	}
 	lines := bytes.Split(tahash, typdefs.NewLine)
@@ -174,6 +175,7 @@ func ReadHashValue() ([]byte, uint32, error) {
 	subarray, err1 := json.Marshal(map1)
 	if err1 != nil {
 		logger.L.Sugar().Errorf("marshal ta hash values to json format failed, %s", err1)
+		terminateKTA()
 		return nil, 0, err1
 	}
 	return subarray, i, nil

@@ -38,16 +38,16 @@ endif
 
 install: build
 	mkdir -p $(DESTDIR)$(ETCTAR)/rac $(DESTDIR)$(ETCTAR)/rahub $(DESTDIR)$(ETCTAR)/default_test $(DESTDIR)$(SHARETAR)/rac $(DESTDIR)$(SHARETAR)/rahub $(DESTDIR)$(DOCTAR)/rac $(DESTDIR)$(DOCTAR)/rahub $(DESTDIR)$(BINTAR)
-	install -m 555 pkg/raagent $(DESTDIR)$(BINTAR)
-	install -m 555 pkg/rahub $(DESTDIR)$(BINTAR)
+	install -m 755 pkg/raagent $(DESTDIR)$(BINTAR)
+	install -m 755 pkg/rahub $(DESTDIR)$(BINTAR)
 ###	install -m 555 pkg/tbprovisioner $(DESTDIR)$(BINTAR)
 	install -m 644 $(RACPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rac
 	install -m 644 $(HUBPATH)/config.yaml $(DESTDIR)$(ETCTAR)/rahub
 	install -m 644 $(RACPATH)/ascii_runtime_measurements* $(DESTDIR)$(ETCTAR)/default_test
 	install -m 644 $(RACPATH)/binary_bios_measurements* $(DESTDIR)$(ETCTAR)/default_test
-	install -m 555 $(SCRPATH)/integritytools/*.sh $(DESTDIR)$(SHARETAR)/rac
-	install -m 555 $(SCRPATH)/prepare-racconf-env.sh $(DESTDIR)$(SHARETAR)/rac/
-	install -m 555 $(SCRPATH)/prepare-hubconf-env.sh $(DESTDIR)$(SHARETAR)/rahub/
+	install -m 755 $(SCRPATH)/integritytools/*.sh $(DESTDIR)$(SHARETAR)/rac
+	install -m 755 $(SCRPATH)/prepare-racconf-env.sh $(DESTDIR)$(SHARETAR)/rac/
+	install -m 755 $(SCRPATH)/prepare-hubconf-env.sh $(DESTDIR)$(SHARETAR)/rahub/
 
 	install -m 644 $(TOPPATH)/README.md $(DESTDIR)$(DOCTAR)/rac
 	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rac
@@ -56,7 +56,7 @@ install: build
 	install -m 644 $(TOPPATH)/README.en.md $(DESTDIR)$(DOCTAR)/rahub
 	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/rahub
 ifeq ($(PROCESSOR), aarch64)
-	install -m 555 $(KTALIBPATH)/libkta.so $(DESTDIR)$(LIBTAR)
+	install -m 755 $(KTALIBPATH)/libkta.so $(DESTDIR)$(LIBTAR)
 endif
 
 uninstall:

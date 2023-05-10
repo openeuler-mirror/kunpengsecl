@@ -13,8 +13,8 @@ build-libteec: teec.c
 
 install: all build
 	mkdir -p $(DESTDIR)$(ETCTAR)/qcaserver $(DESTDIR)$(SHARETAR)/qcaserver $(DESTDIR)$(DOCTAR)/qcaserver $(DESTDIR)$(BINTAR)
-	install -m 555 libqca.so $(DESTDIR)$(SHARETAR)/qcaserver
-	install -m 555 libteec.so $(DESTDIR)$(SHARETAR)/qcaserver
+	install -m 755 libqca.so $(DESTDIR)$(SHARETAR)/qcaserver
+	install -m 755 libteec.so $(DESTDIR)$(SHARETAR)/qcaserver
 
 test: 
 
