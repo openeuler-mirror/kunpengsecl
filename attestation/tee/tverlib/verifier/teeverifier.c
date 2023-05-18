@@ -41,8 +41,6 @@ See the Mulan PSL v2 for more details.
 
 // base64 encode url
 void base64urlencode(const uint8_t *src, int src_len, uint8_t *cipher, int *dest_len) {
-   // int n = strlen(src);
-   // unsigned char* cipher = (unsigned char*)malloc(n * 2);
    int cipLen = EVP_EncodeBlock((unsigned char*)cipher, (const unsigned char*)src, src_len);
    //change "+" to "-", "/" to "_", remove "=".
    for(int i = cipLen - 1; i >= 0; i--) {
@@ -677,6 +675,8 @@ unmarshal_daa_signature(buffer_data *sign)
       offset = 0;
       sig->k = unmarshal_p1_from_bd(&k, &offset);
    }
+
+   cJSON_Delete(cj);
    return sig;
 err1:
    return NULL;
@@ -1027,6 +1027,7 @@ bool getDataFromReport(buffer_data *data, buffer_data *akcert,
    signdata->buf = malloc(signdata->size); 
    base64urlencode(tmp, strlen(tmp), signdata->buf, &signdata->size);
 
+   cJSON_Delete(cj);
    free_report(report);
    free(tmp);
    return true;
@@ -1098,6 +1099,8 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
    handlePEMCertBlanks(certdrk);
 
    free(certdrktmp1.buf);
+   free(signdatatmp);
+   cJSON_Delete(cj);
    return true;
 }
 
@@ -1352,6 +1355,7 @@ Convert(buffer_data *data)
       verifier_error("get scenario & sign & cert from report error");
    }
    // signature & cert are different from the previous data
+   cJSON_Delete(cj);
    return report;
 }
 
@@ -1831,6 +1835,7 @@ static base_value *get_qta(buffer_data *akcert)
    memcpy(qta->valueinfo[0], qimg.buf, qimg.size);
    memcpy(qta->valueinfo[1], qmem.buf, qmem.size);
 
+   cJSON_Delete(cj);
    return qta;
 }
 
