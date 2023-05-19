@@ -233,7 +233,8 @@ getPubKeyFromDrkIssuedCert(buffer_data *cert)
    if (!rt)
    {
       printf("get NOAS data is failed!\n");
-      return false;
+      goto err;
+      //return false;
    }
 
    // verify the integrity of data in drk issued cert
@@ -241,11 +242,22 @@ getPubKeyFromDrkIssuedCert(buffer_data *cert)
    if (!rt)
    {
       printf("validate drk signed ak cert failed!\n");
-      return NULL;
+      goto err;
+      //return NULL;
    }
 
    // build a pub key with the modulus carried in drk issued cert
    key = buildPubKeyFromModulus(&akpub);
+
+err:
+   if (datadrk.buf != NULL)
+      free(datadrk.buf);
+   if (signdrk.buf != NULL)
+      free(signdrk.buf);
+   if (certdrk.buf != NULL)
+      free(certdrk.buf);
+   if (akpub.buf != NULL)
+      free(akpub.buf);
    return key;
 }
 
@@ -1013,9 +1025,6 @@ bool getDataFromReport(buffer_data *data, buffer_data *akcert,
    memcpy(signak->buf, report->signature->buf, report->signature->size);
 
    // get payload
-
-   // printf("report length %d\n", data->size);
-   // printf(data->buf);
    cJSON *cj = cJSON_ParseWithLength(data->buf, data->size);
    if (cj == NULL) {
       verifier_error("cjson parse report error.");
@@ -1029,7 +1038,7 @@ bool getDataFromReport(buffer_data *data, buffer_data *akcert,
 
    cJSON_Delete(cj);
    free_report(report);
-   free(tmp);
+   cJSON_free(tmp);
    return true;
 }
 
@@ -1038,24 +1047,25 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
                        buffer_data *signdrk, buffer_data *certdrk,
                        buffer_data *akpub)
 {
+   bool rt = false;
    if (akcert->buf == NULL) {
       printf("akcert is null");
-      return false;
+      return rt;
    }
-   // printf("akcert: %s\n", akcert->buf);
    
    // parse akcert
    cJSON *cj = cJSON_ParseWithLength((char *)akcert->buf, akcert->size);
    if (cj == NULL) {
       printf("cjson parse akcert error!\n");
-      return false;
+      return rt;
    }
    // get payload and signature
    cJSON *pljson = cJSON_GetObjectItemCaseSensitive(cj, "payload");
    cJSON *sigjson = cJSON_GetObjectItemCaseSensitive(cj, "signature");
    if (pljson == NULL || sigjson == NULL) {
       printf("cjson parse akcert error, failed to get payload and signature!\n");
-      return false;
+      goto err;
+      //return false;
    }
    // get akpub, signdrk, certdrk, signdata
    cJSON *akpubjson = cJSON_GetObjectItemCaseSensitive(pljson, "ak_pub");
@@ -1063,7 +1073,8 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
    cJSON *certdrkjson = cJSON_GetObjectItemCaseSensitive(sigjson, "drk_cert");
    if (akpubjson == NULL || signdrkjson == NULL || certdrkjson == NULL) {
       printf("cjson parse akcert error, failed to get akpub, signdrk and certdrk!\n");
-      return false;
+      goto err;
+      //return false;
    }
    /*
       akpub->buf: AK_PUB_TYPE. outdata is the same as previous
@@ -1073,10 +1084,11 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
    */
 
    // ak_pub: build a pub key with the modulus carried in drk issued cert
-   bool rt = decodeAKPubKey(akpubjson, akpub);
+   rt = decodeAKPubKey(akpubjson, akpub);
    if (!rt) {
       printf("base64 decode ak public key failed!\n");
-      return NULL;
+      goto err;
+      //return NULL;
    }
    
    // drk_sign: base64 decoded
@@ -1098,10 +1110,12 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
    restorePEMCert(certdrktmp1.buf, certdrktmp1.size, certdrk);
    handlePEMCertBlanks(certdrk);
 
+   rt = true;
    free(certdrktmp1.buf);
-   free(signdatatmp);
+   cJSON_free(signdatatmp);
+err:
    cJSON_Delete(cj);
-   return true;
+   return rt;
 }
 
 bool tee_verify_signature(buffer_data *report)
@@ -1214,6 +1228,8 @@ bool get_hash_from_payload(cJSON *pljson, TA_report *tr) {
    uint8_t *tmp2 = base64urldecode(memjson->valuestring, strlen(memjson->valuestring), &len);
    memcpy(tr->hash, tmp2, 32);
 
+   free(tmp1);
+   free(tmp2);
    return true;
 }
 
@@ -1322,41 +1338,56 @@ Convert(buffer_data *data)
    cJSON *sigjson = cJSON_GetObjectItemCaseSensitive(cj, "report_sign");
    cJSON *acjson = cJSON_GetObjectItemCaseSensitive(cj, "akcert");
    if (pljson == NULL || sigjson == NULL || acjson == NULL) {
-      verifier_error("cjson parse report error");
+      printf("cjson parse report error");
+      goto err1;
    }
    report = (TA_report *)calloc(1, sizeof(TA_report));
    if (report == NULL) {
-      verifier_error("out of memory.");
+      printf("out of memory.");
+      goto err1;
    }
 
    bool rt = get_nonce_from_payload(pljson, report);
    if (!rt) {
-      verifier_error("get nonce from report error");
+      printf("get nonce from report error");
+      goto err2;
    }
    rt = get_uuid_from_payload(pljson, report);
    if (!rt) {
-      verifier_error("get uuid from report error");
+      printf("get uuid from report error");
+      goto err2;
    }
    rt = get_hash_from_payload(pljson, report);
    if (!rt) {
-      verifier_error("get hash from report error");
+      printf("get hash from report error");
+      goto err2;
    }
    rt = get_alg_from_payload(pljson, report);
    if (!rt) {
-      verifier_error("get hash & sign algorithm from report error");
+      printf("get hash & sign algorithm from report error");
+      goto err2;
    }
    rt = get_other_params_from_report(pljson, report);
    if (!rt) {
-      verifier_error("get version & timestamp & ta_attr from report error");
+      printf("get version & timestamp & ta_attr from report error");
+      goto err2;
    }
    // get scenario & sign & cert from report
    rt = get_scenario_from_report(pljson, sigjson, acjson, report);
    if (!rt) {
-      verifier_error("get scenario & sign & cert from report error");
+      printf("get scenario & sign & cert from report error");
+      goto err2;
    }
    // signature & cert are different from the previous data
    cJSON_Delete(cj);
    return report;
+
+err2:
+   free_report(report);
+err1:
+   cJSON_Delete(cj);
+   return NULL;
+
 }
 
 // void parse_uuid(uint8_t *uuid, TEE_UUID bufuuid) {
@@ -1808,20 +1839,20 @@ static base_value *get_qta(buffer_data *akcert)
    cJSON *cj = cJSON_Parse(akcert->buf);
    if (cj == NULL) {
       printf("cjson parse akcert error");
-      return false;
+      goto err1;
    }
    // get payload
    pljson = cJSON_GetObjectItemCaseSensitive(cj, "payload");
    if (pljson == NULL) {
       printf("cjson parse akcert error");
-      return false;
+      goto err2;
    }
    // get qta_img, qta_mem
    qimgjson = cJSON_GetObjectItemCaseSensitive(pljson, "qta_img");
    qmemjson = cJSON_GetObjectItemCaseSensitive(pljson, "qta_mem");
    if (qimgjson == NULL || qmemjson == NULL) {
       printf("cjson parse akcert error");
-      return false;
+      goto err2;
    }
    /*
       "qta_img": BASE64_TYPE, BASE64 of TA's img hash
@@ -1834,9 +1865,20 @@ static base_value *get_qta(buffer_data *akcert)
    qmem.buf = base64urldecode(qmemjson->valuestring, strlen(qmemjson->valuestring), &qmem.size);
    memcpy(qta->valueinfo[0], qimg.buf, qimg.size);
    memcpy(qta->valueinfo[1], qmem.buf, qmem.size);
-
+   
+   if (qimg.buf != NULL) 
+      free(qimg.buf);
+   if (qmem.buf != NULL)
+      free(qmem.buf);
+   
    cJSON_Delete(cj);
    return qta;
+
+err2:
+   cJSON_Delete(cj);
+err1:
+   free(qta);
+   return NULL;
 }
 
 static bool CompareBV(int type, base_value *value, base_value *basevalue)
@@ -1884,13 +1926,13 @@ static bool verify_qta(buffer_data *akcert, int type, const char *refval)
 bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval)
 {
    buffer_data datadrk, signdrk, certdrk, akpub;
-   bool rt;
+   bool rt = false;
 
    rt = getDataFromAkCert(akcert, &datadrk, &signdrk, &certdrk, &akpub);
    if (!rt)
    {
       printf("failed to get data from ak cert!\n");
-      return false;
+      goto err;
    }
 
    // verify the integrity of data in drk issued cert
@@ -1898,26 +1940,39 @@ bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval)
    if (!rt)
    {
       printf("validate ak cert failed!\n");
-      return false;
+      goto err;
    }
 
    rt = verify_qta(akcert, type, refval);
    if (!rt)
    {
       printf("validate ak cert failed, qta verify error!\n");
-      return false;
+      goto err;
    }
-   return true;
+
+err:
+   if (datadrk.buf != NULL)
+      free(datadrk.buf);
+   if (signdrk.buf != NULL)
+      free(signdrk.buf);
+   if (certdrk.buf != NULL)
+      free(certdrk.buf);
+   if (akpub.buf != NULL)
+      free(akpub.buf);
+   return rt;
 }
 
 bool tee_get_akcert_data(buffer_data *akcert, buffer_data *akpub, buffer_data *drkcrt)
 {
    buffer_data datadrk, signdrk;
    bool rt = getDataFromAkCert(akcert, &datadrk, &signdrk, drkcrt, akpub);
-   if (!rt)
-   {
+   if (!rt) {
       printf("failed to get data from ak cert!\n");
-      return false;
    }
-   return true;
+
+   if (datadrk.buf != NULL)
+      free(datadrk.buf);
+   if (signdrk.buf != NULL)
+      free(signdrk.buf);
+   return rt;
 }
