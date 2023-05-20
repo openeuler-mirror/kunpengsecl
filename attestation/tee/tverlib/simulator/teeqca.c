@@ -273,8 +273,10 @@ TEEC_Result RemoteAttest(struct ra_buffer_data *params, struct ra_buffer_data *o
             cJSON *ac = cJSON_GetObjectItemCaseSensitive(pl, "akcert");
             cJSON *root = cJSON_ParseWithLength(nodaareport, strlen(nodaareport));
 	        cJSON_ReplaceItemInObject(root, "akcert", ac);
-            memcpy(newreport, cJSON_Print(root), strlen(cJSON_Print(root)));
+            uint8_t *tmp = cJSON_Print(root);
+            memcpy(newreport, tmp, strlen(tmp));
 	        cJSON_Delete(root);
+            cJSON_free(tmp);
         }
         printf("invoke RemoteAttest succeeded, save AK Cert successfully! scenario:%d\n", g_scenario);
         return 0;
