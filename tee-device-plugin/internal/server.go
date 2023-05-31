@@ -36,17 +36,17 @@ const (
 	resourceName = "huawei.com/tee-ram"
 	deviceSocket = "tee-ram.sock"
 
-	mountHostVolume      = "/var/run/teecd.sock"
-	mountContainerVolume = "/var/run/teecd.sock"
-	mountReadOnly        = false
+	mountHostVolume      = "/var/itrustee/teecd"
+	mountContainerVolume = "/var/itrustee/teecd"
+	mountReadOnly        = true
 
 	deviceHostTeelogPath      = "/dev/teelog"
 	deviceContainerTeelogPath = "/dev/teelog"
 	deviceTeelogPermissions   = "rw"
 
-	deviceHostNsClientPath      = "/dev/tc_ns_client"
-	deviceContainerNsClientPath = "/dev/tc_ns_client"
-	deviceNsClientPermissions   = "rw"
+	deviceHostNsCvmPath      = "/dev/tc_ns_cvm"
+	deviceContainerNsCvmPath = "/dev/tc_ns_cvm"
+	deviceNsCvmPermissions   = "rw"
 
 	defaultBlockSeconds = 5
 )
@@ -63,7 +63,7 @@ type TeeDevicePlugin struct {
 
 func internalCheck(v1, v2 uint) error {
 	if v1 != 0 && math.MaxInt64/v1 < v2 {
-		return fmt.Errorf("%d is too large", v1)
+		return fmt.Errorf("%d * %d will greater than int64", v1, v2)
 	}
 	return nil
 }
@@ -292,9 +292,9 @@ func (plugin *TeeDevicePlugin) Allocate(ctx context.Context,
 			Permissions:   deviceTeelogPermissions,
 		},
 		&pluginapi.DeviceSpec{
-			ContainerPath: deviceContainerNsClientPath,
-			HostPath:      deviceHostNsClientPath,
-			Permissions:   deviceNsClientPermissions,
+			ContainerPath: deviceContainerNsCvmPath,
+			HostPath:      deviceHostNsCvmPath,
+			Permissions:   deviceNsCvmPermissions,
 		},
 	}
 

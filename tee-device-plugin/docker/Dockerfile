@@ -1,15 +1,14 @@
-FROM ubuntu:18.04
+FROM openeuler-22.03-lts-sp1
 
-RUN mkdir -p /usr/lib64 && \
-    mkdir -p /vendor/bin && \
+RUN mkdir -p /vendor/bin && \
     mkdir -p /data
 
-COPY *.so* /usr/lib64/
+COPY *.so /usr/lib64/
 COPY tlogcat /usr/bin/
 COPY --chown=root tee-device-plugin /vendor/bin/
 COPY *.sec /data/
+COPY entrypoint.sh /
 
-RUN chmod +x /vendor/bin/tee-device-plugin && \
-    ln -sf /usr/lib64/* /lib/aarch64-linux-gnu/
+RUN chmod +x /vendor/bin/tee-device-plugin /entrypoint.sh
 
-CMD ["/vendor/bin/tee-device-plugin"]
+CMD ["entrypoint.sh"]
