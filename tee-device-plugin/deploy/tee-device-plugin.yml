@@ -23,10 +23,7 @@ spec:
       # change the repository based on actual situation
       - image: <repository>/tee-device-plugin:latest
         name: k8s-tee-device-plugin-ctr
-        command: 
-          - /vendor/bin/tee-device-plugin
-          - -precision=512
-          - internal=60
+        command: ["/entrypoint.sh"]
         securityContext:
           # Needed for /dev/teelog and tc_ns_client
           privileged: true
@@ -36,21 +33,25 @@ spec:
           - name: device-plugin
             mountPath: /var/lib/kubelet/device-plugins
           - name: teecd
-            mountPath: /var/run/teecd.sock
+            mountPath: /var/itrustee/teecd
           - name: teelog
             mountPath: /dev/teelog
-          - name: tc-ns-client
-            mountPath: /dev/tc_ns_client
+          - name: tc-ns-cvm
+            mountPath: /dev/tc_ns_cvm
       volumes:
         - name: device-plugin
           hostPath:
             path: /var/lib/kubelet/device-plugins
+            type: Directory
         - name: teecd
           hostPath:
-            path: /var/run/teecd.sock
+            path: /var/itrustee/teecd
+            type: Directory
         - name: teelog
           hostPath:
             path: /dev/teelog
-        - name: tc-ns-client
+            type: CharDevice
+        - name: tc-ns-cvm
           hostPath:
-            path: /dev/tc_ns_client
+            path: /dev/tc_ns_cvm
+            type: CharDevice

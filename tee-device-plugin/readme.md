@@ -35,7 +35,6 @@
 2. 将依赖文件拷贝到docker目录
    ```shell
    cp /usr/bin/tlogcat docker/
-   cp /lib/ld-linux-aarch64.so.1 docker/
    cp /usr/lib64/libteec.so docker/
    cp /usr/lib64/libsecurec.so docker/
    ```
@@ -43,6 +42,11 @@
    ```shell
    cd docker
    docker build -t tee-device-plugin .
+   ```
+4. 将插件镜像推送到镜像仓库。
+   ```shell
+   docker tag tee-device-plugin:latest <repository>/tee-device-plugin:latest
+   docker push <repository>/tee-device-plugin:latest
    ```
 
 ### 部署插件和TA应用Pod
