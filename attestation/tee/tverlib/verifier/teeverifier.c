@@ -1135,7 +1135,7 @@ bool tee_verify_signature(buffer_data *report)
       printf("verify signature is failed\n");
       return false;
    }
-   printf("Verify success!\n");
+   printf("Verify signature success!\n");
    return true;
 }
 
