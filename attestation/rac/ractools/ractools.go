@@ -766,13 +766,13 @@ func buildTaReport(nonce uint64, qcaserver string, taTestMode bool) (map[string]
 			// words[0]是uuid words[1]是with_tcb
 			words := bytes.Split(ln, typdefs.Space)
 			with_tcb := true
+			if len(words) != 4 {
+				continue
+			}
 			if string(words[1]) == strfalse {
 				with_tcb = false
 			}
 			// convert hex to decimal
-			if len(words) != 4 {
-				continue
-			}
 			tauuid, err := convertHex2Decimal(words[0])
 			if err != nil {
 				return nil, err
