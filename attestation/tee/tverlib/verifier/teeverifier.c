@@ -938,7 +938,8 @@ void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
    uint8_t *dst = drktest + strlen(head);
    int loop = data_len / 64;
    int rem = data_len % 64;
-   int i = 0;
+   int i = 0, j = 0;
+   uint8_t *dst1 = NULL;
 
    for (i = 0; i < loop; i++, src += 64, dst += 65)
    {
@@ -951,31 +952,18 @@ void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
       dst[rem] = '\n';
       dst += rem + 1;
    }
-   memcpy(dst, end, strlen(end));
-   dst += strlen(end);
-   certdrk->size = dst - drktest;
-   certdrk->buf = drktest;
 
-   // dumpDrkCert(certdrk);
-}
-
-void handlePEMCertBlanks(buffer_data *certdrk)
-{
-   uint8_t end[] = "-----END CERTIFICATE-----\n";
-   uint8_t *dst = NULL;
-   int i = 0;
-
-   for (i = 1; i < certdrk->size; i++) {
-      if (certdrk->buf[i] == 0x3d && certdrk->buf[i-1] == 0x3d) {
-         certdrk->buf[i+1] = '\n';
-         dst = certdrk->buf + i + 2;
-         memcpy(dst, end, strlen(end));
-         dst += strlen(end);
+   for (j = 1; j < dst - drktest; j++) {
+      if (drktest[j] == 0x00 && drktest[j-1] == 0x00) {
+         drktest[j-1] = '\n';
+         dst1 = drktest + j;
+         memcpy(dst1, end, strlen(end));
+         dst1 += strlen(end);
          break;
       }
    }
-
-   certdrk->size = dst - certdrk->buf;
+   certdrk->buf = drktest;
+   certdrk->size = dst1 - drktest;
 }
 
 void free_report(TA_report *report)
@@ -1032,7 +1020,7 @@ bool getDataFromReport(buffer_data *data, buffer_data *akcert,
    
    cJSON *pljson = cJSON_GetObjectItemCaseSensitive(cj, "payload");
    uint8_t *tmp = cJSON_Print(pljson);
-   signdata->size = strlen(tmp) / 3 * 4 + 4;
+   signdata->size = strlen(tmp) / 3 * 4 + 4 + 1;
    signdata->buf = malloc(signdata->size); 
    base64urlencode(tmp, strlen(tmp), signdata->buf, &signdata->size);
 
@@ -1108,7 +1096,6 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
    certdrk->size = 4300;
    certdrk->buf = (uint8_t *)malloc(sizeof(uint8_t) * certdrk->size);
    restorePEMCert(certdrktmp1.buf, certdrktmp1.size, certdrk);
-   handlePEMCertBlanks(certdrk);
 
    rt = true;
    free(certdrktmp1.buf);
