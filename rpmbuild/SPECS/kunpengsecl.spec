@@ -1,5 +1,5 @@
 %global name kunpengsecl
-%global version 2.0.0
+%global version 2.0.1
 %undefine _missing_build_ids_terminate_build
 
 Name:            %{name}
@@ -66,6 +66,13 @@ Requires:      %{name}-attester
 
 %description   tas
 This is the tas rpm package, which is used to sign ak cert.
+
+%package       devel
+Summary:       the develop package.
+Requires:      %{name}-attester
+
+%description   devel
+This is the devel rpm package, which provide supporting header file.
 
 %prep
 %setup -q -c -a 1
@@ -149,7 +156,13 @@ make install DESTDIR=%{buildroot}
 %{_docdir}/attestation/tas/README.en.md
 %{_docdir}/attestation/tas/LICENSE
 
+%files   devel
+%{_includedir}/teeverifier.h
+
 %changelog
+* Thu Mar 23 2023 leezhenxiang <1172294056@qq.com> - 2.0.1-1
+-   update to 2.0.1
+-   add devel package
 * Thu Mar 23 2023 leezhenxiang <1172294056@qq.com> - 2.0.0-1
 -   update to 2.0.0
 -   add qcaserver, attester, and tas packages
