@@ -116,8 +116,6 @@ func (plugin *TeeDevicePlugin) Stop() {
 
 	close(plugin.stopChan)
 	plugin.grpcServer = nil
-	plugin.healthChan = nil
-	plugin.stopChan = nil
 
 	err := plugin.cleanup()
 	if err != nil {
@@ -265,6 +263,9 @@ func (plugin *TeeDevicePlugin) Allocate(ctx context.Context,
 	log.Println("Allocate request:", reqs.ContainerRequests)
 	var neededNum uint64 = 0
 	for _, req := range reqs.ContainerRequests {
+		if math.MaxUint64-neededNum < uint64(len(req.DevicesIDs)) {
+			return nil, fmt.Errorf("need device number overflow uint64")
+		}
 		neededNum += uint64(len(req.DevicesIDs))
 	}
 
