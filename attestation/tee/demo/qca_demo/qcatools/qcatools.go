@@ -17,7 +17,7 @@ package qcatools
 
 /*
 #cgo CFLAGS: -I../../../tverlib/simulator
-#cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lqca -Wl,-rpath=${SRCDIR}/../../../tverlib/simulator -lteec
+#cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lqca -lteec
 #include "teeqca.h"
 #include <string.h>
 

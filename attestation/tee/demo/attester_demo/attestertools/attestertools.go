@@ -17,7 +17,7 @@ package attestertools
 
 /*
 #cgo CFLAGS: -I../../../tverlib/verifier
-#cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/verifier -lteeverifier -Wl,-rpath=${SRCDIR}/../../../tverlib/verifier
+#cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/verifier -lteeverifier
 #include "teeverifier.h"
 */
 import "C"

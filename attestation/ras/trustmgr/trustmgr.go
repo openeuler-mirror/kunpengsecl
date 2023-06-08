@@ -27,7 +27,7 @@ package trustmgr
 
 /*
 #cgo CFLAGS: -I../../tee/tverlib/verifier
-#cgo LDFLAGS: -L${SRCDIR}/../../tee/tverlib/verifier -lteeverifier -Wl,-rpath=${SRCDIR}/../../tee/tverlib/verifier
+#cgo LDFLAGS: -L${SRCDIR}/../../tee/tverlib/verifier -lteeverifier
 
 #include "teeverifier.h"
 #include "common.h"

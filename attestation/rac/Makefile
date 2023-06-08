@@ -16,6 +16,10 @@ PROCESSOR = $(shell uname -p)
 all: build
 
 test:
+ifeq ($(PROCESSOR), aarch64)
+	sudo install -m 755 $(KTALIBPATH)/libkta.so /usr/local/lib64
+	sudo ldconfig /usr/local/lib64
+endif
 	go test -count=1 $(TESTEES)
 
 build: build-libkta

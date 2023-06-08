@@ -40,6 +40,10 @@ install: build
 	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/qcaserver
 
 test:
+	sudo install -m 755 $(QCASOPATH)/libqca.so /usr/local/lib64
+	sudo install -m 755 $(QCASOPATH)/libteec.so /usr/local/lib64
+	sudo install -m 755 $(VERIFIERSOPATH)/libteeverifier.so /usr/local/lib64
+	sudo ldconfig /usr/local/lib64
 	go test -count=1 $(TESTEES)
 
 clean:

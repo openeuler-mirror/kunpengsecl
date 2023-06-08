@@ -17,7 +17,7 @@ package akissuer
 
 /*
 #cgo CFLAGS: -I../../tee/tverlib/verifier
-#cgo LDFLAGS: -L${SRCDIR}/../../tee/tverlib/verifier -lteeverifier -Wl,-rpath=${SRCDIR}/../../tee/tverlib/verifier
+#cgo LDFLAGS: -L${SRCDIR}/../../tee/tverlib/verifier -lteeverifier
 #include "teeverifier.h"
 */
 import "C"
