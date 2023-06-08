@@ -47,10 +47,11 @@ const (
 	RasVersion = "1.1.2"
 
 	// path
-	defaultMode  = 0755
-	strLocalConf = "."
-	strHomeConf  = "$HOME/.config/attestation/ras"
-	strSysConf   = "/etc/attestation/ras"
+	defaultMode     = 0755
+	defaultTestMode = false
+	strLocalConf    = "."
+	strHomeConf     = "$HOME/.config/attestation/ras"
+	strSysConf      = "/etc/attestation/ras"
 	// config file name
 	confName = "config"
 	confExt  = "yaml"
@@ -104,6 +105,10 @@ const (
 	strCompany      = "Company"
 	strRootCA       = "Root CA"
 	strPrivacyCA    = "Privacy CA"
+	// ras test mode switcher
+	lflagTest = "test"
+	sflagTest = "t"
+	helpTest  = "run in test mode[true] or not[false/default]"
 	// server listen port
 	lflagServerPort = "port"
 	sflagServerPort = "p"
@@ -183,6 +188,8 @@ type (
 		hbDuration      time.Duration // heartbeat duration
 		trustDuration   time.Duration // trust state duration
 		digestAlgorithm string
+
+		testMode bool // ras test mode, nonce comparation is bypassed
 	}
 )
 
@@ -202,11 +209,13 @@ var (
 	verboseFlag *bool = nil
 	// TokenFlag means token flag
 	TokenFlag *bool = nil
+	testMode  *bool = nil
 )
 
 // InitFlags inits the ras server command flags.
 func InitFlags() {
 	servPort = pflag.StringP(lflagServerPort, sflagServerPort, nullString, helpServerPort)
+	testMode = pflag.BoolP(lflagTest, sflagTest, defaultTestMode, helpTest)
 	httpsSwitch = pflag.StringP(lflagHttpsSwitch, sflagHttpsSwitch, nullString, helpHttpsSwitch)
 	restPort = pflag.StringP(lflagRestPort, sflagRestPort, nullString, helpRestPort)
 	httpsPort = pflag.StringP(lflagHttpsPort, sflagHttpsPort, nullString, helpHttpsPort)
@@ -248,6 +257,11 @@ func HandleFlags() {
 	if httpsPort != nil && *httpsPort != nullString {
 		SetHttpsPort(*httpsPort)
 	}
+
+	if testMode != nil && *testMode {
+		SetTestMode(*testMode)
+	}
+
 }
 
 // getConfigs gets all config from config.yaml file.
@@ -622,6 +636,22 @@ func SaveConfigs() {
 	if err != nil {
 		_ = viper.SafeWriteConfig()
 	}
+}
+
+// GetTestMode returns the test mode configuration.
+func GetTestMode() bool {
+	if rasCfg == nil {
+		return false
+	}
+	return rasCfg.testMode
+}
+
+// SetTestMode sets the test mode configuration.
+func SetTestMode(m bool) {
+	if rasCfg == nil {
+		return
+	}
+	rasCfg.testMode = m
 }
 
 // GetLogFile returns the logger path configuration.

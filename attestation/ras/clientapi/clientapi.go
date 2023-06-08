@@ -332,7 +332,7 @@ func (s *rasService) SendReport(ctx context.Context, in *SendReportRequest) (*Se
 		Manifests:  ms,
 		TaReports:  in.GetTaReports(),
 	}
-	_, err := trustmgr.ValidateReport(&trustReport)
+	_, err := trustmgr.ValidateReport(&trustReport, config.GetTestMode())
 	if err != nil {
 		logger.L.Sugar().Errorf("validate client(%d) report error, %v", cid, err)
 		return &SendReportReply{Result: false}, nil
