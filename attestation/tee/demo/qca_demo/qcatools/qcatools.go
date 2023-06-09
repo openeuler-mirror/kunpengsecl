@@ -95,8 +95,8 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"unsafe"
 	"os"
+	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
@@ -108,7 +108,7 @@ const (
 	// ConfName means config file name
 	ConfName = "config"
 	// ConfExt means config file name suffix
-	ConfExt = "yaml"
+	ConfExt      = "yaml"
 	strLocalConf = "."
 	strHomeConf  = "$HOME/.config/attestation/qcaserver"
 	strSysConf   = "/etc/attestation/qcaserver"
@@ -290,11 +290,11 @@ func adapt2TAUUID(uuid []byte) {
 
 type (
 	reportInPl struct {
-		Version  string `json:"version,omitempty"`  // VERSION_TYPE
-		Nonce    string `json:"nonce,omitempty"`    // BASE64_TYPE
-		Uuid     string `json:"uuid,omitempty"`     // 待证明的TA UUID的hex字符串描述，字母小写，如"e08f7eca-e875-440e-9ab0-5f381136c600"
-		Hash_alg string `json:"hash_alg,omitempty"` // HASH_ALG_TYPE
-		With_tcb bool   `json:"with_tcb,omitempty"` // BOOLEAN_TYPE, 当前只能是 “FALSE”
+		Version  string  `json:"version,omitempty"`  // VERSION_TYPE
+		Nonce    string  `json:"nonce,omitempty"`    // BASE64_TYPE
+		Uuid     string  `json:"uuid,omitempty"`     // 待证明的TA UUID的hex字符串描述，字母小写，如"e08f7eca-e875-440e-9ab0-5f381136c600"
+		Hash_alg string  `json:"hash_alg,omitempty"` // HASH_ALG_TYPE
+		With_tcb bool    `json:"with_tcb,omitempty"` // BOOLEAN_TYPE, 当前只能是 “FALSE”
 		Daa_bsn  *string `json:"daa_bsn,omitempty"`  // BASE64_TYPE, BASE64 of DAA用户挑选出来的basename
 	}
 	reportInParam struct {
@@ -343,11 +343,10 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte, error)
 
 	teec_result := C.RemoteAttest(&c_in, &c_out)
 	if int(teec_result) != 0 {
-		return nil, errors.New("Invoke remoteAttest failed, Get TA report failed!")
+		return nil, errors.New("Invoke remoteAttest failed, Get TA report failed")
 	}
 	log.Print("Generate TA report succeeded!")
 	report := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
-	//log.Print("report:", string(report))
 
 	return report, nil
 }
@@ -398,7 +397,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 */
 
 type provisionInPl struct {
-	Version     string  `json:"version,omitempty"` 
+	Version     string  `json:"version,omitempty"`
 	Scenario    string  `json:"scenario,omitempty"`
 	Hash_alg    string  `json:"hash_alg,omitempty"`
 	Daa_g1_name *string `json:"daa_g1_name,omitempty"`
@@ -463,10 +462,10 @@ func provisionNoDAA() ([]byte, error) {
 	}
 	akcertByte := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
 	/*
-	err = createFile("path", akcertByte)
-	if err != nil{
-		return nil, errors.New("invoke remoteAttest failed")
-	}
+		err = createFile("path", akcertByte)
+		if err != nil{
+			return nil, errors.New("invoke remoteAttest failed")
+		}
 	*/
 	return akcertByte, nil
 }
@@ -490,7 +489,6 @@ func createFile(path string, con []byte) error {
 }
 
 func provisionDAA() ([]byte, error) {
-	//var in_curve string
 	in_curve := RA_DAA_CURVE_FP512BN
 	inpayload := provisionInPl{RA_VERSION, RA_SCENARIO_AS_WITH_DAA, RA_HASH_ALG_SHA256, &in_curve}
 	inparam := provisionInParam{RAProvisionInHandler, inpayload}
