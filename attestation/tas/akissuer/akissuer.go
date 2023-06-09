@@ -234,10 +234,10 @@ const (
 
 type (
 	daaCert struct {
-		Enc_cert_alg string `json:"enc_cert_alg,omitempty"` //ENC_ALG_TYPE, A256GCMKW
-		Enc_k_alg    string `json:"enc_k_alg,omitempty"`    //ENC_ALG_TYPE, RSA-OAEP-256
-		Enc_cert     string `json:"enc_cert,omitempty"`     //BASE64_TYPE, BASE64 of encrypted AK Cert and ZKP using K with enc_cert_alg，明文内容仍沿用目前版本
-		Enc_k        string `json:"enc_k,omitempty"`        //BASE64_TYPE, BASE64 of encrypted AK pub and K using DRK public key with alg_k_alg，明文内容仍沿用目前版本
+		Enc_cert_alg string `json:"enc_cert_alg,omitempty"` // ENC_ALG_TYPE, A256GCMKW
+		Enc_k_alg    string `json:"enc_k_alg,omitempty"`    // ENC_ALG_TYPE, RSA-OAEP-256
+		Enc_cert     string `json:"enc_cert,omitempty"`     // BASE64_TYPE, BASE64 of encrypted AK Cert and ZKP using K with enc_cert_alg，明文内容仍沿用目前版本
+		Enc_k        string `json:"enc_k,omitempty"`        // BASE64_TYPE, BASE64 of encrypted AK pub and K using DRK public key with alg_k_alg，明文内容仍沿用目前版本
 
 	}
 	akCert struct {
@@ -256,7 +256,6 @@ type (
 )
 
 func restorePemCert(olddrk []byte) []byte {
-	//log.Printf("old drk: %s", string(olddrk))
 	head := []byte("-----BEGIN CERTIFICATE-----\n")
 	end := []byte("-----END CERTIFICATE-----\n")
 
@@ -278,7 +277,6 @@ func restorePemCert(olddrk []byte) []byte {
 	buffer.Write(end[:])
 	comb := buffer.Bytes()
 
-	//log.Printf("new drk: %s", string(comb))
 	return comb[:]
 }
 
@@ -296,7 +294,6 @@ func handlePemCertBlanks(olddrk []byte) []byte {
 	}
 	comb := buffer.Bytes()
 
-	//log.Printf("new drk(no blanks): %s", string(comb))
 	return comb[:]
 }
 
@@ -359,7 +356,6 @@ func getDataFromAKCertWithDAA(oldAKCert []byte) (drkpub *rsa.PublicKey, drkcert 
 	log.Print("Server: Parse drk cert succeeded.")
 	// STEP4: get data used for re-sign: Qs
 	akpub, err = base64.RawURLEncoding.DecodeString(oldAKCertjson.Payload.Ak_pub.Qs)
-	//_, err = base64.URLEncoding.Decode(akpub, []byte(oldAKCertjson.Payload.Ak_pub.Qs))
 	if err != nil {
 		log.Printf("Decode DAA public key error, %v", err)
 		return nil, nil, nil, err
@@ -564,8 +560,6 @@ func str2chunk(str string) (*FP512BN.BIG, error) {
 func (dcre *daacre) combineu(P1 *FP512BN.ECP, Qs *FP512BN.ECP, R_B *FP512BN.ECP, R_D *FP512BN.ECP, n *FP512BN.BIG) {
 	var buffer bytes.Buffer
 
-	// P1tmp := ecp2bytes(P1)
-	// P1bytes := []byte{0x01, 0x00, 0x00, 0x00, P1tmp[67], 0x01, 0x00, 0x00, 0x00, P1tmp[135]}
 	P1bytes := ecp2bytes(P1)
 	Qsbytes := ecp2bytes(Qs)
 	Abytes := ecp2bytes(dcre.akcre.A)
@@ -724,7 +718,7 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	dcre.akcre.B = dcre.akcre.A.Mul(sky)
 	// D=[ry]Q_s
 	n := FP512BN.NewBIGints(FP512BN.CURVE_Order)
-	ry := FP512BN.Modmul(r, sky, n) //n = bnp512_order
+	ry := FP512BN.Modmul(r, sky, n) // n = bnp512_order
 	Qs := bytes2ecp(akprip1)
 	dcre.akcre.D = Qs.Mul(ry)
 	// tmp=A+D
@@ -737,7 +731,6 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	R_B := P1.Mul(l)
 	// R_D=[l]Qs
 	R_D := Qs.Mul(l)
-	// u=sha512(P1,Qs,AKCert,R_B,R_D)
 	dcre.combineu(P1, Qs, R_B, R_D, n)
 	// j=l+yru (mod n), sigma=(u,j)
 	yru := FP512BN.Modmul(ry, dcre.sigma.u, n)
@@ -747,7 +740,6 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 	// K := FP512BN.NewBIGints(k) //test random K
 	// var Kbytes [FP512BN.MODBYTES]byte
 	var Kbytes [32]byte
-	// K.ToBytes(Kbytes[:])
 	if _, err = io.ReadFull(rand.Reader, Kbytes[:]); err != nil {
 		return nil, nil, errors.New("daa K generation failed")
 	}
@@ -761,7 +753,6 @@ func makeDAACredential(akprip1 []byte, skxstr string, skystr string, drkpubk *rs
 		return nil, nil, errors.New("daa cipher2 generation failed")
 	}
 	var buffer bytes.Buffer
-	//buffer.Write(int2bytes(len(cip1)))
 	buffer.Write(cip1)
 	enc_k := buffer.Bytes()
 
@@ -812,7 +803,6 @@ func buildSaveACInParamsWithDAA(oldAKCert []byte) ([]byte, error) {
 	}
 	log.Print("DAA scenario: Generate AK Cert succeeded!")
 
-	//两个base64
 	enc64k := base64.RawURLEncoding.EncodeToString(k)
 	enc64cert := base64.RawURLEncoding.EncodeToString(cert)
 
