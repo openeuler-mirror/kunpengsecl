@@ -1717,7 +1717,19 @@ bool tee_verify_nonce(buffer_data *buf_data, buffer_data *nonce)
       return false;
    }
 
-   bool vn = cmp_bytes(report->nonce, nonce->buf, nonce->size);
+   uint8_t tmp[64] = {0};
+   bool vn = false;
+
+   if (nonce->size > sizeof(report->nonce)) {
+      printf("nonce length error, verify nonce failed.\n");
+      free_report(report);
+      return false;
+   } else { // nonce->size <= sizeof(report->nonce)
+      memcpy(tmp, nonce->buf, nonce->size);
+   }
+
+   //vn = cmp_bytes(report->nonce, nonce->buf, nonce->size);
+   vn = cmp_bytes(report->nonce, tmp, sizeof(report->nonce));
 
    free_report(report);
    return vn;
@@ -1769,6 +1781,19 @@ int tee_validate_report(buffer_data *buf_data, buffer_data *nonce)
    {
       return TVS_VERIFIED_NONCE_FAILED;
    }
+   
+   bool vs = tee_verify_signature(buf_data);
+   if (vs == false)
+   {
+      return TVS_VERIFIED_SIGNATURE_FAILED;
+   }
+
+   return TVS_ALL_SUCCESSED;
+}
+
+int tee_validate_report2(buffer_data *buf_data, buffer_data *nonce)
+{
+   // bypass nonce verification
    bool vs = tee_verify_signature(buf_data);
    if (vs == false)
    {

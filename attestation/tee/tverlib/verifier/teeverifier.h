@@ -44,6 +44,7 @@ enum error_status_code {
 int tee_verify_report(buffer_data *data_buf,buffer_data *nonce,int type, char *filename);
 int tee_validate_report(buffer_data *buf_data, buffer_data *nonce);
 int tee_verify_report2(buffer_data *buf_data, int type,base_value *baseval);
+int tee_validate_report2(buffer_data *buf_data, buffer_data *nonce);
 bool tee_verify_akcert(buffer_data *akcert, int type, const char *refval);
 bool tee_get_akcert_data(buffer_data *akcert, buffer_data *akpub, buffer_data *drkcrt);
 

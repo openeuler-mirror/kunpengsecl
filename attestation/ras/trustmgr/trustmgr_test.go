@@ -1238,7 +1238,7 @@ func TestValidateReport(t *testing.T) {
 		Manifests:  ms,
 		TaReports:  tareport,
 	}
-	_, err = ValidateReport(trustreport)
+	_, err = ValidateReport(trustreport, true)
 	if err != nil {
 		t.Errorf("ValidateReport failed error, %v", err)
 	}

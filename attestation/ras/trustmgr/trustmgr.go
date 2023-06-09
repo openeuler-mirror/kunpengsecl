@@ -69,6 +69,7 @@ import (
 
 	"database/sql"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -832,7 +833,7 @@ func HandleHeartbeat(id int64) (uint64, uint64) {
 
 // ValidateReport validates the report and returns the result.
 // use the short broken algorithm once one part doesn't match base.
-func ValidateReport(report *typdefs.TrustReport) (bool, error) {
+func ValidateReport(report *typdefs.TrustReport, testmode bool) (bool, error) {
 	c, err := GetCache(report.ClientID)
 	if err != nil {
 		return false, err
@@ -865,18 +866,27 @@ func ValidateReport(report *typdefs.TrustReport) (bool, error) {
 		return false, err
 	}
 
-	mp := config.GetTaInputs()
+	usrdata := make([]byte, 64)
+	binary.LittleEndian.PutUint64(usrdata, report.Nonce)
+
+	// mp := config.GetTaInputs()
 	for uuid, taReport := range report.TaReports {
 		buf_data := C.buffer_data{}
 		nonce := C.buffer_data{}
 		buf_data.size = C.__uint32_t(len(taReport))
 		up_buf_data_buf := C.CBytes(taReport)
 		buf_data.buf = (*C.uchar)(up_buf_data_buf)
-		nonce.size = C.__uint32_t(len(mp[uuid].UserData))
-		up_nonce_buf := C.CBytes(mp[uuid].UserData)
+		nonce.size = C.__uint32_t(len(usrdata))
+		up_nonce_buf := C.CBytes(usrdata)
 		nonce.buf = (*C.uchar)(up_nonce_buf)
 
-		ans := C.tee_validate_report(&buf_data, &nonce)
+		ans := C.__int32_t(1)
+		if testmode {
+			ans = C.tee_validate_report2(&buf_data, &nonce)
+		} else {
+			ans = C.tee_validate_report(&buf_data, &nonce)
+		}
+
 		if ans != 0 {
 			if ans == -1 {
 				return false, fmt.Errorf("nonce err")
