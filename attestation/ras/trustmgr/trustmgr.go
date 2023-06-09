@@ -1093,6 +1093,7 @@ func handleFirstReport(report *typdefs.TrustReport) error {
 }
 
 type (
+	// SignAsDaa means the signature in daa scenario.
 	SignAsDaa struct {
 		Bsn string `json:"sign.bsn"`
 		J   string `json:"sign.j"`
@@ -1102,6 +1103,7 @@ type (
 		Nm  string `json:"sign.nm"`
 	}
 
+	// ReportSign means the signature of report
 	ReportSign struct {
 		NoAs    *string    `json:"sce_no_as,omitempty"`
 		AsNoDaa *string    `json:"sce_as_no_daa,omitempty"`
@@ -1114,12 +1116,14 @@ type (
 		Sign string `json:"drk_sign"`
 	}
 
+	// AkPubNoDaa is used to describe the ak public key in no daa scenario.
 	AkPubNoDaa struct {
 		Type string `json:"kty"`
 		N    string `json:"n"`
 		E    string `json:"e"`
 	}
 
+	// AcPayLoad is used to secribe the payload detail information.
 	AcPayLoad struct {
 		Ver    string     `json:"version"`
 		Ts     string     `json:"timestamp"`
@@ -1132,18 +1136,21 @@ type (
 		Pub    AkPubNoDaa `json:"ak_pub"`
 	}
 
+	// AkCertNoAs means the ak cert in the scenario of No AS.
 	AkCertNoAs struct {
 		Sign    DrkSign   `json:"signature"`
 		PayLoad AcPayLoad `json:"payload"`
 		Handler string    `json:"handler"`
 	}
 
+	// AkCert means the certificate information in three scenarios.
 	AkCert struct {
 		NoAs    *AkCertNoAs `json:"sce_no_as,omitempty"`
 		AsNoDaa *string     `json:"sce_as_no_daa,omitempty"`
 		AsDaa   *string     `json:"sce_as_with_daa,omitempty"`
 	}
 
+	// RpPayLoad means the ta report payload detail information.
 	RpPayLoad struct {
 		Ver    string `json:"version"`
 		Ts     string `json:"timestamp"`
@@ -1158,6 +1165,7 @@ type (
 		Tcb    string `json:"tcb"`
 	}
 
+	// TaReport means the trusted report of TA.
 	TaReport struct {
 		Sign    ReportSign `json:"report_sign"`
 		Cert    AkCert     `json:"akcert"`

@@ -303,6 +303,7 @@ type (
 	}
 )
 
+// GetTAReport gets TA trusted report information.
 func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte, error) {
 	n := base64.RawURLEncoding.EncodeToString(usr_data)
 	id, err := uuid.FromBytes(ta_uuid)
