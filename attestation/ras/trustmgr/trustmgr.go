@@ -334,7 +334,15 @@ func GetAllNodes(f, t int64) (map[int64]*typdefs.NodeInfo, error) {
 			nodes[i].Online = v.GetOnline()
 			nodes[i].Trusted = v.GetTrusted()
 			nodes[i].IsAutoUpdate = v.GetIsAutoUpdate()
+			continue
 		}
+		delete(nodes, i)
+	}
+	for i, _ := range nodes {
+		if f <= i && i < t {
+			continue
+		}
+		delete(nodes, i)
 	}
 	return nodes, nil
 }
