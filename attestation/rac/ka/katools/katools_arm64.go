@@ -13,7 +13,7 @@ package katools
 
 /*
 #cgo CFLAGS: -I../ktalib -I/opt/itrustee_sdk/include/CA
-#cgo LDFLAGS: -L${SRCDIR}/../ktalib -lkta -Wl,-rpath=${SRCDIR}/../ktalib -lkta -ldl -lteec_adaptor
+#cgo LDFLAGS: -L${SRCDIR}/../ktalib -lkta -ldl -lteec_adaptor
 #include "ktalib.h"
 
 */
