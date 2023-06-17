@@ -35,10 +35,17 @@ rpm包制作完成后，请进入kunpengsecl父目录下的**rpmbuild/RPMS/x86_6
 ```shell
 $ rpm -ivh kunpengsecl-ras-2.0.0-1.x86_64(aarch64).rpm
 ```
+
 若您此后不再需要本程序，也可通过以下命令进行卸载。
 ```shell
 $ rpm -e kunpengsecl-ras-2.0.0-1.x86_64(aarch64)
 ```
+
+如果需要对源代码进行编译，需要提前在系统中安装一些三方依赖库，命令如下：
+```shell
+$ sudo yum install openssl-devel crypto-devel cjson-devel cjson
+```
+
 ### 基于Ubuntu系统的安装
 Ubuntu系统不支持rpm的安装方式，但我们仍为您提供了一种选择。
 
@@ -59,6 +66,19 @@ $ make install DESTDIR=/xxx/xxx
 $ make DESTDIR=/xxx/xxx uninstall
 $ make uninstall DESTDIR=/xxx/xxx
 ```
+
+如果需要对源代码进行编译，需要提前在系统中安装一些三方依赖库，命令如下：
+```shell
+$ sudo apt-get install build-essential openssl openssl-dev libssl-dev libcjson-dev
+```
+
+## 编译说明
+kunpengsecl主要代码是基于golang语言编写，采用golang版本为v1.17.x。
+
+少部分用C语言开发，可直接使用其运行所在的openEuler或者Ubuntu服务器携带的GCC编译器即可。
+
+TA所对应代码请使用ARM服务器提供的开发编译环境。
+
 
 ## 使用说明
 ### 软件配置
