@@ -961,7 +961,7 @@ def main(argv):
     global testing, keep_querying, my_compiler, generated_files, arg_options, intr
     options_list = []
 
-    replace("arch.h","@WL@","64")
+    # replace("arch.h","@WL@","64")
 
     if not arg_manager(argv, options_list):
         if intr:
