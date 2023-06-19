@@ -1,0 +1,10 @@
+Package: devel
+Version: 2.0.1
+License: MulanPSL-2.0
+Architecture: amd64, aarch64
+Maintainer: Wucaijun
+Section: utils
+Priority: optional
+Recommends: openssl, openssl-dev, libssl-dev, libcjson-dev, rahub, qcaserver, attester, tas
+Description: This is the devel deb package, which provide supporting header file.
+
