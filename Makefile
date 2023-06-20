@@ -49,3 +49,9 @@ rpm:
 
 rpm-clean:
 	rm -rf ./rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SRPMS}
+
+deb: build
+	/bin/bash ./attestation/quick-scripts/builddeb.sh
+
+deb-clean: clean
+	rm -rf ./debbuild
