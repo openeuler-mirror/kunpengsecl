@@ -30,15 +30,22 @@ First, you can execute the following command to obtain the latest source code.
 ```shell
 git clone https://gitee.com/openeuler/kunpengsecl.git
 ```
+
 And then enter the *kunpengsecl/* directory and execute command `make rpm`, so that you can generate the RPM package of this program.
 
 After completing the production of the rpm package, please enter the directory **rpmbuild/RPMS/x86_64(aarch64)** under the parent directory of kunpengsecl directory to install the rpm package you need.
 ```shell
 $ rpm -ivh kunpengsecl-ras-2.0.0-1.x86_64(aarch64).rpm
 ```
+
 If you no longer need this program in the future, you can also uninstall it using the following command.
 ```shell
 $ rpm -e kunpengsecl-ras-2.0.0-1.x86_64(aarch64)
+```
+
+If you want to compile the source code, you need install some libraries as following:
+```shell
+$ sudo yum install openssl-devel crypto-devel cjson-devel cjson
 ```
 
 ### Installation based on Ubuntu system
@@ -61,6 +68,18 @@ If you need to specify a file directory, you can choose either of the following 
 $ make DESTDIR=/xxx/xxx uninstall
 $ make uninstall DESTDIR=/xxx/xxx
 ```
+
+If you want to compile the source code, you need install some libraries as following:
+```shell
+$ sudo apt-get install build-essential openssl openssl-dev libssl-dev libcjson-dev
+```
+
+## Compilation
+golang: >= 1.17.x
+
+TA code: ARM GCC supported by ARM server
+
+other C code: normal GCC in openEuler/Ubuntu distribution package
 
 ## Instruction for use
 ### Software configuration
