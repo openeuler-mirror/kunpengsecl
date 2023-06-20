@@ -297,6 +297,7 @@ func handlePemCertBlanks(olddrk []byte) []byte {
 	return comb[:]
 }
 
+// GetDataFromAKCertNoDAA gets data from ak cert in the scenario of No DAA.
 func GetDataFromAKCertNoDAA(oldAKCert []byte) (drkpub *rsa.PublicKey, drkcert *x509.Certificate, akpub []byte, err error) {
 	// STEP1: decode oldAKCert json
 	oldAKCertjson := new(provisionOutParam)
@@ -534,6 +535,7 @@ func extractSignAlg(c *certificate) uint64 {
 	return 0
 }
 
+// GenerateDAAAKCert generates ak cert in the scenario of DAA.
 func GenerateDAAAKCert(oldAKCert []byte) ([]byte, []byte, error) {
 	drkcertpubkey, akpubbyte, err := verifyAKCert(oldAKCert, RA_SCENARIO_AS_WITH_DAA_INT)
 	if err != nil {
@@ -833,6 +835,7 @@ func buildSaveACInParamsWithDAA(oldAKCert []byte) ([]byte, error) {
 	return result, err
 }
 
+// GenerateAKCert generates new ak cert from the old ak cert.
 func GenerateAKCert(oldAKCert []byte, scenario int32) ([]byte, error) {
 	switch scenario {
 	case RA_SCENARIO_AS_NO_DAA_INT:
