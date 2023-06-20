@@ -358,18 +358,15 @@ verifysig_drksignedcert(buffer_data *data, buffer_data *sign,
    return rt;
 }
 
-static void trim_ending_0(buffer_data *buf)
+static void trim_ending_0(uint8_t *buf, int *size)
 {
-   for (; buf->size > 0 && buf->buf[buf->size - 1] == 0; buf->size-- );
+   for (; *size > 0 && buf[*size - 1] == 0; (*size)--);
 }
 
 // scenario: as no daa
 static bool
 verifysig_x509cert(buffer_data *data, buffer_data *sign, buffer_data *cert, char *root_cert_pathname)
 {
-   // trim ending 0's in cert buf
-   // trim_ending_0(cert);
-
    // get the key for signature verification
    EVP_PKEY *key = getPubKeyFromCert(cert, root_cert_pathname);
    if (key == NULL)
@@ -924,22 +921,32 @@ void dumpDrkCert(buffer_data *certdrk)
    fclose(f);
 }
 
-void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
+bool restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
 {
    uint8_t head[] = "-----BEGIN CERTIFICATE-----\n";
    uint8_t end[] = "-----END CERTIFICATE-----\n";
-   uint8_t *drktest = (uint8_t *)malloc(sizeof(uint8_t) * 4300); // malloc a buffer big engough
-   if (drktest == NULL) {
-      printf("drk cert test malloc failed.\n");
-   }
-   memcpy(drktest, head, strlen(head));
 
+   // trim ending '\0' from data
+   trim_ending_0(data, &data_len);
+
+   // calculate out len and check out buffer size
+   int out_len = data_len + (data_len + 63)/64 + strlen(head) + strlen(end);
+   if (out_len > certdrk->size) {
+      printf("failed to restore drk cert: drk cert is too large.\n");
+      return false;
+   }
+
+   // copy head
+   uint8_t *dst = certdrk->buf;
+   out_len = strlen(head);
+   memcpy(dst, head, out_len);
+   dst += out_len;
+
+   //copy data
    uint8_t *src = data;
-   uint8_t *dst = drktest + strlen(head);
    int loop = data_len / 64;
    int rem = data_len % 64;
-   int i = 0, j = 0;
-   uint8_t *dst1 = NULL;
+   int i;
 
    for (i = 0; i < loop; i++, src += 64, dst += 65)
    {
@@ -953,17 +960,12 @@ void restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
       dst += rem + 1;
    }
 
-   for (j = 1; j < dst - drktest; j++) {
-      if (drktest[j] == 0x00 && drktest[j-1] == 0x00) {
-         drktest[j-1] = '\n';
-         dst1 = drktest + j;
-         memcpy(dst1, end, strlen(end));
-         dst1 += strlen(end);
-         break;
-      }
-   }
-   certdrk->buf = drktest;
-   certdrk->size = dst1 - drktest;
+   // copy end
+   out_len = strlen(end);
+   memcpy(dst, end, out_len);
+   certdrk->size = dst + out_len - certdrk->buf;
+
+   return true;
 }
 
 void free_report(TA_report *report)
@@ -1095,9 +1097,8 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
    certdrktmp1.buf = base64urldecode(tmp2, strlen(tmp2), &certdrktmp1.size);
    certdrk->size = 4300;
    certdrk->buf = (uint8_t *)malloc(sizeof(uint8_t) * certdrk->size);
-   restorePEMCert(certdrktmp1.buf, certdrktmp1.size, certdrk);
+   rt = restorePEMCert(certdrktmp1.buf, certdrktmp1.size, certdrk);
 
-   rt = true;
    free(certdrktmp1.buf);
    cJSON_free(signdatatmp);
 err:
