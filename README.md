@@ -24,7 +24,7 @@
 ![integrated implementation](doc/integrated-implementation.png "tee远程证明整合实现软件架构图")
 
 ## 安装教程
-### 基于openEuler系统的安装
+### 基于openEuler系统的安装(??)
 openEuler系统支持采用rpm的安装方式，首先，您可使用以下命令获取项目最新源代码。
 ```shell
 $ git clone https://gitee.com/openeuler/kunpengsecl.git
@@ -46,7 +46,7 @@ $ rpm -e kunpengsecl-ras-2.0.0-1.x86_64(aarch64)
 $ sudo yum install openssl-devel crypto-devel cjson-devel cjson
 ```
 
-### 基于Ubuntu系统的安装
+### 基于Ubuntu系统的安装(Bionic Beaver 18.04.6 LTS)
 Ubuntu系统不支持rpm的安装方式，但我们仍为您提供了一种选择。
 
 在获取项目源代码后，对于服务器RAS和客户端RAC的安装，分别进入**kunpengsecl/attestation/ras**和**kunpengsecl/attestation/rac**目录，执行`make install`命令即可自动编译程序并将相应文件安装到缺省位置。
@@ -67,10 +67,26 @@ $ make DESTDIR=/xxx/xxx uninstall
 $ make uninstall DESTDIR=/xxx/xxx
 ```
 
-如果需要对源代码进行编译，需要提前在系统中安装一些三方依赖库，命令如下：
+如果需要对源代码进行编译，需要提前在系统中安装一些工具和三方依赖库，命令如下：
 ```shell
-$ sudo apt-get install build-essential openssl openssl-dev libssl-dev libcjson-dev
+$ sudo apt-get install build-essential openssl libssl-dev
 ```
+如果 libssl-dev 因为依赖的 libssl 版本低导致无法安装，可以直接安装对应高版本的 deb 安装包，命令如下：
+```shell
+$ wget https://mirror.umd.edu/ubuntu/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+$ wget https://mirror.umd.edu/ubuntu/ubuntu/pool/main/o/openssl/libssl-dev_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+$ sudo dpkg -i libssl1.1_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+$ sudo dpkg -i libssl-dev_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+```
+
+另外需要单独下载 deb 安装包并安装 cjson 库，命令如下：
+```shell
+$ wget https://blueprints.launchpad.net/ubuntu/+source/cjson/1.7.15-1/+build/22291562/+files/libcjson1_1.7.15-1_amd64.deb
+$ wget https://blueprints.launchpad.net/ubuntu/+source/cjson/1.7.15-1/+build/22291562/+files/libcjson-dev_1.7.15-1_amd64.deb
+$ sudo dpkg -i libcjson1_1.7.15-1_amd64.deb
+$ sudo dpkg -i libcjson-dev_1.7.15-1_amd64.deb
+```
+
 
 ## 编译说明
 kunpengsecl主要代码是基于golang语言编写，采用golang版本为v1.17.x。

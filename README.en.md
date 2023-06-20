@@ -24,8 +24,8 @@ Users can use the TEE/TA remote attestation capabilities integrated into the exi
 ![integrated implementation](doc/integrated-implementation.png "Software architecture diagram of tee remote attestation integrated realization")
 
 ## Getting Started
-### Installation based on openEuler system
-The openEuler system can use **RPM** method to install this program. 
+### Installation based on openEuler system(??)
+The openEuler system can use **RPM** method to install this program.
 First, you can execute the following command to obtain the latest source code.
 ```shell
 git clone https://gitee.com/openeuler/kunpengsecl.git
@@ -48,7 +48,7 @@ If you want to compile the source code, you need install some libraries as follo
 $ sudo yum install openssl-devel crypto-devel cjson-devel cjson
 ```
 
-### Installation based on Ubuntu system
+### Installation based on Ubuntu system(Bionic Beaver 18.04.6 LTS)
 The Ubuntu system does not support rpm installation, but we still provide you with a choice.
 
 After cloning the project source code, for the installation of the server RAS and client RAC, enter the directory **kunpengsecl/attestation/ras** and **kunpengsecl/attestation/rac** respectively, execute the `make install` command to automatically compile the program and install the corresponding files to the default location.
@@ -71,8 +71,25 @@ $ make uninstall DESTDIR=/xxx/xxx
 
 If you want to compile the source code, you need install some libraries as following:
 ```shell
-$ sudo apt-get install build-essential openssl openssl-dev libssl-dev libcjson-dev
+$ sudo apt-get install build-essential openssl libssl-dev
 ```
+
+If the libssl-dev couldn't be installed for the libssl version dismatched, you should reinstall libssl/libssl-dev through the deb packages as following:
+```shell
+$ wget https://mirror.umd.edu/ubuntu/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+$ wget https://mirror.umd.edu/ubuntu/ubuntu/pool/main/o/openssl/libssl-dev_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+$ sudo dpkg -i libssl1.1_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+$ sudo dpkg -i libssl-dev_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+```
+
+You should install the third-party cjson library as following:
+```shell
+$ wget https://blueprints.launchpad.net/ubuntu/+source/cjson/1.7.15-1/+build/22291562/+files/libcjson1_1.7.15-1_amd64.deb
+$ wget https://blueprints.launchpad.net/ubuntu/+source/cjson/1.7.15-1/+build/22291562/+files/libcjson-dev_1.7.15-1_amd64.deb
+$ sudo dpkg -i libcjson1_1.7.15-1_amd64.deb
+$ sudo dpkg -i libcjson-dev_1.7.15-1_amd64.deb
+```
+
 
 ## Compilation
 golang: >= 1.17.x
@@ -90,7 +107,7 @@ By default, the configuration file on which the program runs has three paths: th
 In order to create the home directory configuration file, you can execute the script  **prepare-ras(rac)(hub)(qca)(attester)(tas)conf-env.sh** under **usr/share/attestation/ras(rac)(rahub)(qcaserver)(attractor)(tas)** after installing the RPM packages. This automatically completes the deployment of the home directory configuration file
 
 ### RAS startup parameters
-Executing `ras` that you can start server. In the RAS directory, you need to provide a `ECDSA` public key and name it `ecdsakey.pub`. 
+Executing `ras` that you can start server. In the RAS directory, you need to provide a `ECDSA` public key and name it `ecdsakey.pub`.
 The relevant parameters are as follows.
 ```
   -H  --https         http/https switch，default is https(true), false=http
@@ -103,7 +120,7 @@ The relevant parameters are as follows.
 ```
 
 ### RAC startup parameters
-Executing `sudo raagent` that you can start client. Please note that sudo permission is required to enable the physical TPM module. 
+Executing `sudo raagent` that you can start client. Please note that sudo permission is required to enable the physical TPM module.
 The relevant parameters are as follows.
 ```
   -s, --server string   connect attestation server at IP:PORT
@@ -141,7 +158,7 @@ The relevant parameters are as follows:
 #### No-DAA scenario
 **Enable the server-side AK_Service for attestation keys**
 
-Type `tas` on the command line to start AK_Service program. 
+Type `tas` on the command line to start AK_Service program.
 The relevant parameters are as follows:
 ```
   -T, --token         generate a verification code for testing and exit
