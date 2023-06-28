@@ -1,5 +1,5 @@
 %global name kunpengsecl
-%global version 2.0.1
+%global version 2.0.2
 %undefine _missing_build_ids_terminate_build
 
 Name:            %{name}
@@ -160,6 +160,8 @@ make install DESTDIR=%{buildroot}
 %{_includedir}/teeverifier.h
 
 %changelog
+* Thu Jul 18 2023 leezhenxiang <1172294056@qq.com> - 2.0.2-1
+-   update to 2.0.2
 * Thu Mar 23 2023 leezhenxiang <1172294056@qq.com> - 2.0.1-1
 -   update to 2.0.1
 -   add devel package

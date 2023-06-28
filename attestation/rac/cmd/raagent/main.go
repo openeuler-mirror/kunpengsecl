@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	raagentVersion = "1.1.2"
+	raagentVersion = "2.0.2"
 )
 
 func main() {
