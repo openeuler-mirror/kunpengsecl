@@ -248,13 +248,6 @@ type (
 		DecryptAlg   string // the algorithm & scheme used to decrypt the IK Cert
 		DecryptParam []byte // the parameter required by the decrypt algorithm to decrypt the IK Cert
 	}
-
-	// TaReportInput means ta report information
-	TaReportInput struct {
-		Uuid     string
-		UserData []byte
-		WithTcb  bool
-	}
 )
 
 var (

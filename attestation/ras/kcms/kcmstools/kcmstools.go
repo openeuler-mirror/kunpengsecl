@@ -29,8 +29,8 @@ import (
 	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/cache"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/common"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr"
 	"github.com/gemalto/kmip-go"
@@ -330,7 +330,7 @@ func KmsGetKey(account []byte, passwd []byte, ciphertext string, hostkeyid []byt
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	payload := common.GetRequestPayload{}
+	payload := typdefs.GetRequestPayload{}
 	payload.TemplateAttribute = &kmip.TemplateAttribute{}
 	payload.TemplateAttribute.Append(kmip14.TagUniqueIdentifier, string(hostkeyid))
 	payload.TemplateAttribute.Append(kmip14.TagDeviceIdentifier, account)
@@ -373,7 +373,7 @@ func KmsGetKey(account []byte, passwd []byte, ciphertext string, hostkeyid []byt
 		return nil, nil, nil, err
 	}
 	bi := respMsg.BatchItem[0]
-	var respPayload common.GetResponsePayload
+	var respPayload typdefs.GetResponsePayload
 	err = decoder.DecodeValue(&respPayload, bi.ResponsePayload.(ttlv.TTLV))
 	if err != nil {
 		return nil, nil, nil, err

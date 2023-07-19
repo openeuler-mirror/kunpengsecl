@@ -19,6 +19,7 @@ package typdefs
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/binary"
@@ -32,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gemalto/kmip-go"
 	"github.com/tjfoc/gmsm/sm3"
 )
 
@@ -318,7 +320,52 @@ type (
 		Nonce      uint64
 		ClientInfo string
 	}
+
+	// TaReportInput means ta report information
+	TaReportInput struct {
+		Uuid     string
+		UserData []byte
+		WithTcb  bool
+	}
 )
+
+type (
+	// GetRequestPayload means kms request information.
+	GetRequestPayload struct {
+		TemplateAttribute *kmip.TemplateAttribute
+	}
+
+	// GetResponsePayload means kms response information.
+	GetResponsePayload struct {
+		TemplateAttribute *kmip.TemplateAttribute
+	}
+
+	// GetHandler contains get function
+	// which gets request and returns response.
+	GetHandler struct {
+		Get func(ctx context.Context, payload *GetRequestPayload) (*GetResponsePayload, error)
+	}
+)
+
+// HandleItem handles request payload
+// and returns kmip response batch item.
+func (h *GetHandler) HandleItem(ctx context.Context, req *kmip.Request) (*kmip.ResponseBatchItem, error) {
+	var payload GetRequestPayload
+
+	err := req.DecodePayload(&payload)
+	if err != nil {
+		return nil, err
+	}
+
+	respPayload, err := h.Get(ctx, &payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kmip.ResponseBatchItem{
+		ResponsePayload: respPayload,
+	}, nil
+}
 
 // Get the hash value of TrustReportIn, as user data of Quote
 // Hash returns trustreportinput's hash value.
