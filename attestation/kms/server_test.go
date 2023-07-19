@@ -2,10 +2,10 @@ package kmsServer
 
 import (
 	context "context"
-	"time"
 	"testing"
-	
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/common"
+	"time"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"github.com/gemalto/kmip-go"
 	"github.com/gemalto/kmip-go/kmip14"
 )
@@ -28,7 +28,7 @@ func TestSessionKey(t *testing.T) {
 	}
 
 	cipherText := retPayload.TemplateAttribute.Get(kmip14.TagEncryptionKeyInformation.CanonicalName())
-	var decPayload common.GetRequestPayload
+	var decPayload typdefs.GetRequestPayload
 	decPayload.TemplateAttribute = &kmip.TemplateAttribute{}
 	decPayload.TemplateAttribute.Append(kmip14.TagUniqueIdentifier, hostkeyid)
 	decPayload.TemplateAttribute.Append(kmip14.TagEncryptionKeyInformation, cipherText.AttributeValue.([]byte))
@@ -37,4 +37,3 @@ func TestSessionKey(t *testing.T) {
 		t.Errorf("Test decrypt session key error %v", err)
 	}
 }
-

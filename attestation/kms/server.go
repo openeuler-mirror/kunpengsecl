@@ -21,7 +21,7 @@ import (
 	"net"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/common"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"github.com/gemalto/kmip-go"
 	"github.com/gemalto/kmip-go/kmip14"
 )
@@ -69,7 +69,7 @@ func CreateSessionKey(ctx context.Context, payload *kmip.CreateRequestPayload) (
 }
 
 // DecryptSessionKey decrypts the old key according to masterkey id and key ciphertext which are sent by kcms.
-func DecryptSessionKey(ctx context.Context, payload *common.GetRequestPayload) (*common.GetResponsePayload, error) {
+func DecryptSessionKey(ctx context.Context, payload *typdefs.GetRequestPayload) (*typdefs.GetResponsePayload, error) {
 	// 进行帐号密码身份认证处理,暂时省略
 	account := payload.TemplateAttribute.Get(kmip14.TagDeviceIdentifier.CanonicalName())
 	pass := payload.TemplateAttribute.Get(kmip14.TagPassword.CanonicalName())
@@ -83,7 +83,7 @@ func DecryptSessionKey(ctx context.Context, payload *common.GetRequestPayload) (
 	if err != nil {
 		return nil, err
 	}
-	resp := &common.GetResponsePayload{}
+	resp := &typdefs.GetResponsePayload{}
 	resp.TemplateAttribute = &kmip.TemplateAttribute{}
 	resp.TemplateAttribute.Append(kmip14.TagUniqueIdentifier, masterKeyID.AttributeValue.(string))
 	resp.TemplateAttribute.Append(kmip14.TagSymmetricKey, skey)                   // 密钥明文
@@ -109,7 +109,7 @@ func ExampleServer() {
 	kmip.DefaultOperationMux.Handle(kmip14.OperationCreate, &kmip.CreateHandler{
 		Create: CreateSessionKey,
 	})
-	kmip.DefaultOperationMux.Handle(kmip14.OperationGet, &common.GetHandler{
+	kmip.DefaultOperationMux.Handle(kmip14.OperationGet, &typdefs.GetHandler{
 		Get: DecryptSessionKey,
 	})
 	srv = &kmip.Server{}
