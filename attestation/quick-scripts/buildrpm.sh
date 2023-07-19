@@ -1,7 +1,7 @@
 #!/bin/bash
 # define some constants
 Name=kunpengsecl
-Version=v2.0.0
+Version=v2.0.2
 
 # install the rpm tools.
 #yum -y install rpm-build rpmdevtools rpm-devel

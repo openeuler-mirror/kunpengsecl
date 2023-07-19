@@ -44,7 +44,7 @@ const (
 	// golbal definition
 
 	// RasVersion means ras version
-	RasVersion = "1.1.2"
+	RasVersion = "2.0.2"
 
 	// path
 	defaultMode     = 0755

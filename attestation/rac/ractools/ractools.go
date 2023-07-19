@@ -641,7 +641,7 @@ func GetClientInfo() (string, error) {
 	clientInfo["system"] = out1.String()[start1:]
 	clientInfo["os"] = out2.String()
 	clientInfo["ip"] = typdefs.GetIP()
-	clientInfo["version"] = "1.1.2"
+	clientInfo["version"] = "2.0.2"
 	strCI, err := json.Marshal(clientInfo)
 	return string(strCI), err
 }

@@ -2,7 +2,7 @@
 
 # Notice: run this script at kunpengsecl root directory
 topdir=`pwd`
-VERSION="2.0.1"
+VERSION="2.0.2"
 
 ##########################
 # create rac.deb
