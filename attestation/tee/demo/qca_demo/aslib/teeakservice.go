@@ -19,6 +19,7 @@ import (
 	"log"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi/client"
 )
 
 // GetAKCert generates ak cert according to ak cert request
@@ -28,7 +29,7 @@ func GetAKCert(addr string, oldAKCert []byte, scenario int32) ([]byte, error) {
 		Akcert:   oldAKCert,
 		Scenario: scenario,
 	}
-	rpy, err := clientapi.DoGetAKCert(addr, &req)
+	rpy, err := client.DoGetAKCert(addr, &req)
 	if err != nil {
 		log.Printf("Get AKCert failed, error: %v", err)
 		return nil, err
