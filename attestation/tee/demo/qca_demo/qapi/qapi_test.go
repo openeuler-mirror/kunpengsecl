@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi/server"
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 )
@@ -247,8 +247,8 @@ func TestQapi(t *testing.T) {
 	config.LoadConfigs()
 	tasServer := config.GetServerPort()
 
-	go clientapi.StartServer(tasServer)
-	defer clientapi.StopServer()
+	go server.StartServer(tasServer)
+	defer server.StopServer()
 	err := config.InitializeAS()
 	if err != nil {
 		t.Error(err)

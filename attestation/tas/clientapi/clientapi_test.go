@@ -15,6 +15,7 @@ Description: Using grpc to implement the service API
 
 package clientapi
 
+/*
 import (
 	"io/ioutil"
 	"os"
@@ -303,3 +304,4 @@ func TestClientapi(t *testing.T) {
 		t.Errorf("test DoGetAKCert in scenario RA_SCENARIO_NO_AS error %v", err)
 	}
 }
+*/

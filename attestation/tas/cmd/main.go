@@ -20,7 +20,7 @@ import (
 	"log"
 	"os"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi/server"
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/config"
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/restapi"
 )
@@ -47,5 +47,5 @@ func main() {
 	}
 	handleGlobalFlags()
 	go restapi.StartServer(config.GetRestPort())
-	clientapi.StartServer(config.GetServerPort())
+	server.StartServer(config.GetServerPort())
 }
