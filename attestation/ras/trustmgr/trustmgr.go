@@ -163,6 +163,7 @@ func CreateTrustManager(dbType, dbConfig string) {
 	tmgr = &TrustManager{}
 	tmgr.db, err = sql.Open(dbType, dbConfig)
 	if err != nil {
+		tmgr = nil
 		return
 	}
 	tmgr.mu.Lock()
