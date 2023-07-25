@@ -58,6 +58,7 @@ func CreateKdbManager(dbType, dbConfig string) {
 	kmgr = &KdbManager{}
 	kmgr.db, err = sql.Open(dbType, dbConfig)
 	if err != nil {
+		kmgr = nil
 		return
 	}
 }
