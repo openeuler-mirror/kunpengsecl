@@ -95,12 +95,6 @@ typedef struct
     uint8_t clockSeqAndNode[8];
 } TEEC_UUID;
 
-TEEC_Result RemoteAttestProvision(uint32_t scenario, struct ra_buffer_data *param_set, struct ra_buffer_data *out_data);
-
-TEEC_Result RemoteAttestReport(TEEC_UUID ta_uuid, struct ra_buffer_data *usr_data, struct ra_buffer_data *param_set, struct ra_buffer_data *report, bool with_tcb);
-
-TEEC_Result RemoteAttestSaveAKCert(struct ra_buffer_data *akcert);
-
 TEEC_Result RemoteAttest(struct ra_buffer_data *params, struct ra_buffer_data *out_data);
 
 #endif
