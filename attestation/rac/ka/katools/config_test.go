@@ -23,7 +23,7 @@ const (
 	configFilePath = "./config.yaml"
 	clientKaConfig = `
 kaconfig:
-  pollduration: 3s
+  pollduration: 2s
   ccFile: ./cert/ca.crt
   kcFile: ./cert/kta.crt
   kKeyFile: ./cert/kta.key
