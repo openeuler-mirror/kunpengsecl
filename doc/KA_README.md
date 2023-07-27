@@ -10,7 +10,7 @@ KA作为一个TEE内部TA的CA，表示KTA的使能端，使用Go语言编写，
 ```golang
 func KaMain(addr string, id int64)
 ```
-接口描述：使能KTA并对KTA请求进行轮训操作 
+接口描述：使能KTA并对KTA请求进行轮询操作 
 参数1【传入】：服务端地址。  
 参数2【传入】：ka所属的ClientID。
 
@@ -21,7 +21,7 @@ KTALIB中包含了对KTA的相关操作，包括与KTA建立会话、KTA初始�
 TEEC_Result InitContextSession(uint8_t* ktapath) 
 ```
 接口描述：初始化上下文和会话
-参数1【传入】：kta路径。
+参数1【传入】：kta的绝对路径。
 
 ```c
 TEEC_Result KTAinitialize(
