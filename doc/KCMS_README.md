@@ -8,19 +8,19 @@ KCM Service作为密钥缓存管理服务端，向外支持对接KMIP兼容KMS�
 
 ### KCM Service接口
 
-KCM Service作为密钥缓存管理的服务端，通过ClientAPI与KA进行交互。主要提供的接口为：1.向KA返回KCM公钥证书；2.验证KTA的公钥证书；3.调用Kcmstools的相关函数进行密钥缓存相关的操作。
+KCM Service作为密钥缓存管理的服务端，通过ClientAPI与KA进行交互。主要提供的接口为：1.向KA返回KCM公钥证书接口；2.验证KTA的公钥证书接口；3.调用Kcmstools的相关函数进行密钥缓存相关的操作。
 
 ```go
 func DoSendKCMPubKeyCertWithConn(ras *RasConn, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error);
 ```
 
-接口描述：接收KA传入的信息，并传给clientapi的SendKCMPubKeyCert函数进行下一步处理
+接口描述：接收KA传入的信息，并传给clientapi的SendKCMPubKeyCert函数进行下一步处理。
 
-参数1：ras连接
+参数1：ras连接。
 
-参数2：空值（包含在Request中，下同）
+参数2：空值（包含在Request中，下同）。
 
-返回值1：KCM公钥证书（包含在Reply中，下同）
+返回值1：KCM公钥证书（包含在Reply中，下同）。
 
 返回值2：错误输出。
 
@@ -80,11 +80,11 @@ func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKe
 
 接口描述：接收DoVerifyKTAPubKeyCertWithConn的输入，对输入参数进行解析，调用kcmstools中的VerifyKTAPubKeyCert进行下一步处理，将其返回的数据返回给DoVerifyKTAPubKeyCertWithConn
 
-参数1：ras连接的Context
+参数1：ras连接的Context。
 
 参数2：KA所在RAC的设备ID、KTA公钥证书（[]byte类型）。
 
-返回值1：KA所在RAC的设备ID（出错时将数值设置为-1）
+返回值1：KA所在RAC的设备ID（出错时将数值设置为-1）。
 
 返回值2：错误输出。
 
