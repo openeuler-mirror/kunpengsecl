@@ -90,7 +90,7 @@ TEE_Result encryptCmd(uint8_t *jsoncmd, uint32_t jsoncmd_size, TEE_ObjectHandle 
     return TEE_SUCCESS;
 }
 
-TEE_Result encryptKey(uint8_t key_obj[61], uint8_t encrypted_key[RSA_KEY_SIZE]){
+TEE_Result encryptKey(uint8_t key_obj[AES_32_SIZE+NONCE_SIZE+TAG_SIZE+1], uint8_t encrypted_key[RSA_KEY_SIZE]){
     TEE_Result ret;
     TEE_ObjectHandle rsa_key_obj = NULL;
     uint8_t modulus[RSA_KEY_SIZE] = {0};
@@ -129,7 +129,7 @@ TEE_Result encryptKey(uint8_t key_obj[61], uint8_t encrypted_key[RSA_KEY_SIZE]){
         TEE_FreeOperation(oper_key_enc);
         return ret;
     }
-    ret = TEE_AsymmetricEncrypt(oper_key_enc, attrs2, 1, key_obj, 60, encrypted_key, &enc_key_len);
+    ret = TEE_AsymmetricEncrypt(oper_key_enc, attrs2, 1, key_obj, AES_32_SIZE+NONCE_SIZE+TAG_SIZE, encrypted_key, &enc_key_len);
     if (ret != TEE_SUCCESS)
         tloge("Fail to do rsa encrypt, ret 0x%x\n", ret);
 
@@ -327,8 +327,8 @@ TEE_Result decryptcmd(uint8_t *decrypted_key, uint8_t *encrypted_cmd, uint8_t *d
         return ret;
     }
     memcpy_s(nonce_buf, nonce_size, decrypted_key, nonce_size);
-    memcpy_s(key_buf, AES_32_SIZE, decrypted_key+12, AES_32_SIZE);
-    memcpy_s(tag_buf, tag_size, decrypted_key+AES_32_SIZE+12, tag_size);
+    memcpy_s(key_buf, AES_32_SIZE, decrypted_key+NONCE_SIZE, AES_32_SIZE);
+    memcpy_s(tag_buf, tag_size, decrypted_key+AES_32_SIZE+NONCE_SIZE, tag_size);
     TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, key_buf, AES_32_SIZE);
     ret = TEE_PopulateTransientObject(key_obj, &attr, 1);
     if (ret != TEE_SUCCESS) {
