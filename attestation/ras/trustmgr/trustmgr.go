@@ -267,7 +267,7 @@ func ModifyEnabledByID(id int64, enabled bool) error {
 	return nil
 }
 
-// ModifyTaEnabledByID modify ta base enabled flag
+// ModifyTaEnabledByID modify ta base enabled flag.
 func ModifyTaEnabledByID(id int64, enabled bool) error {
 	if tmgr == nil {
 		return typdefs.ErrParameterWrong
