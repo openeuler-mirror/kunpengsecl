@@ -432,7 +432,7 @@ func VerifyPubCert(cacertpath string, pubcertpath string) (string, error) {
 }
 
 // PathExists checks if the path exists,
-// returns true if exists, otherwise return false.
+// and returns true if exists, otherwise returns false.
 func PathExists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
