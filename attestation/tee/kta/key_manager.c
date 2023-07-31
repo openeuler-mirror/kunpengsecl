@@ -796,7 +796,7 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     }
     targetTaIndex = taIndex;
 
-    //TODO:search key on the basis of UUID and key id   (in Cache.TaInfo)
+    //search key on the basis of UUID and key id
     regTa = cache.ta[targetTaIndex];
     keyIndex = regTa.head;
     while (keyIndex != END_NULL && !checkUuid(n->keyId ,regTa.key[keyIndex].id))
@@ -810,7 +810,7 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     }
     targetKeyIndex = keyIndex;
 
-    //TODO:delete certain key                           (in Cache.TaInfo)
+    //delete certain key
     if(regTa.head == targetKeyIndex){
         regTa.head = regTa.key[targetKeyIndex].next;
     }
@@ -828,7 +828,7 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     }
     cache.ta[targetTaIndex] = regTa;
 
-    //TODO:send request of delete key to KCMS
+    //send request of delete key to KCMS
 save_request:
     res = generateKcmRequest(n); //生成请求成功或失败的结果存放到params[PARAMETER_SECOND]的值中
     if (res) {
@@ -914,7 +914,7 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
 
 TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret = TEE_ERROR_BAD_PARAMETERS;
-    //todo: clear all ta cache
+    //clear all ta cache
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,  
         TEE_PARAM_TYPE_VALUE_OUTPUT,
