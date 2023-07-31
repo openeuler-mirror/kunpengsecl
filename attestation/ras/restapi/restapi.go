@@ -732,7 +732,7 @@ func (s *MyRestAPIServer) GetVersion(ctx echo.Context) error {
 }
 
 // (GET /{from}/{to})
-// GetFromTo gets nodes information from "from" node to "to" node sequentially
+// GetFromTo gets information from {from} node to {to} node in order.
 //
 // read a range nodes info as html
 // curl -X GET http://localhost:40002/{from}/{to}
