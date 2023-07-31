@@ -1231,7 +1231,7 @@ func verifyReport(report *typdefs.TrustReport) {
 }
 
 // VerifyTaReport verifies ta report by checking
-// weather report basevalue is equal to ta verify type in config.
+// whether report basevalue is equal to ta verify type in config.
 func VerifyTaReport(report *typdefs.TrustReport) {
 
 	for uid, taReport := range report.TaReports {
