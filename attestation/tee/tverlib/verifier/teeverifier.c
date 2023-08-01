@@ -37,7 +37,6 @@ See the Mulan PSL v2 for more details.
 #define verifier_error(msg) { printf("%s\n", msg); return NULL;}
 #define file_error(msg) { printf("Couldn't open file: %s\n", msg); return NULL;}
 
-//static void free_report(TA_report *report);
 
 // base64 encode url
 void base64urlencode(const uint8_t *src, int src_len, uint8_t *cipher, int *dest_len) {
