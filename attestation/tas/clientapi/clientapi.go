@@ -89,7 +89,8 @@ func makesock(addr string) (*tasConn, error) {
 	return tas, nil
 }
 
-// DoGetAKCert using existing tee ak service connection to get ak cert.
+// DoGetAKCert using existing tee ak service connection
+// to get ak cert.
 func DoGetAKCert(addr string, in *GetAKCertRequest) (*GetAKCertReply, error) {
 	tas, err := makesock(addr)
 	if err != nil {
