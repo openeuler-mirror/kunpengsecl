@@ -17,13 +17,6 @@ See the Mulan PSL v2 for more details.
 #include <stdint.h>
 #include "tee_client_api.h"
 // #include "../teesimulator/tee.h"
-//#include "securec.h"
-/*
-    主要思路：
-        1.初始化KTA的过程每次只调用一次initialize函数
-        2.初始化KTA后建立的会话不会立即断开
-        3.通过不断调用InvokeCommand函数进行operation的返回
-*/
 
 #define LIBKTA_PREFIX "libkta"
 #define TAG_ERROR "[error]"

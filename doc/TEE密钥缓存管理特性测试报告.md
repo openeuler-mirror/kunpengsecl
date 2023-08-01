@@ -174,7 +174,7 @@ test delete key succeeded!
 1. 在kunpengsecl根目录下进行 `make build` 编译。
 2. 创建测试目录，并加载程序启动所需文件。
 3. 启动RAS。
-4. 启动RAC，添加-k 参数启动ka。
+4. 启动RAC，在启动参数中添加-k 来启动ka。
 5. 等待5秒，检查get kta trusted success日志是否在echo.txt中存在，若有，则说明测试密钥缓存初始化过程成功，否则，则测试失败，流程结束。
 
 测试结果：
