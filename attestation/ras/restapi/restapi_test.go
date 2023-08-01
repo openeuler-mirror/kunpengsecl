@@ -1605,7 +1605,7 @@ func TestGetJWS(t *testing.T) {
 	}
 	jwtToken, err := v.ValidateJWS(jws)
 	if err != nil {
-		t.Errorf("ValidateJWS failed error: %v", err)
+		t.Errorf("ValidateJWS failed, error: %v", err)
 	}
 
 	_, err = getScopes(jwtToken)
