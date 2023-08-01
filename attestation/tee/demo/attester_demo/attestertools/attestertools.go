@@ -192,8 +192,6 @@ func HandleFlags() {
 	}
 	if TestFlag != nil && *TestFlag {
 		testmode = true
-		// var s_nonce string = "challenge" // 换成获取到的nonce（不是string，要先base64解码）
-		// nonce := []byte(s_nonce)
 		var s_nonce string = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5_gA"
 		nonce, err := base64.RawURLEncoding.DecodeString(s_nonce)
 		if err != nil {
