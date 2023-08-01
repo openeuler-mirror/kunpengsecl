@@ -57,8 +57,7 @@ typedef struct _tagReplyNode{
  * @param password [IN] ta's password in KMS
  * @param masterkey [IN] the uuid of ta's master key in KMS
  */
-TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
-        uint8_t *password, TEE_UUID *masterkey);
+TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_UUID *masterkey);
 
 /*
  * Search the key corresponding to the keyid using KCMS

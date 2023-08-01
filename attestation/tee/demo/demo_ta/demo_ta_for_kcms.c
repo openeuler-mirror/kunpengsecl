@@ -108,7 +108,7 @@ void char2uuid(TEE_UUID *uuid, int8_t charuuid[37]) {
     }
 }
 
-//The encryption operation or other operations needs key
+// The encryption operation or other operations needs key.
 TEE_Result encrypt(uint8_t *keyvalue) {
     char *data = "demo data";
     (void)keyvalue;
@@ -116,7 +116,7 @@ TEE_Result encrypt(uint8_t *keyvalue) {
     return TEE_SUCCESS;
 }
 
-//simulate a scenario in which a key needs to be deleted
+// Simulate a scenario in which a key needs to be deleted.
 TEE_Result delete_key_opt(TEE_UUID *keyid, TEE_Param params[PARAM_COUNT] ) {
     TEE_Result ret;
     ret = delete_key(&localUuid, account, password, keyid);
@@ -129,9 +129,9 @@ TEE_Result delete_key_opt(TEE_UUID *keyid, TEE_Param params[PARAM_COUNT] ) {
     return TEE_SUCCESS;
 }
 
-//simulate a scenario in which a key is needed
-//when the key hasn't been generated, set variable new_key_flag to 1
-//when the key has been generated, set variable new_key_flag to 0
+// Simulate a scenario in which a key is needed.
+// When the key hasn't been generated, set variable new_key_flag to 1.
+// When the key has been generated, set variable new_key_flag to 0.
 TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     uint8_t *keyvalue = NULL;
@@ -215,7 +215,7 @@ TEE_Result encrypt_data_pre(uint32_t param_type, TEE_Param params[PARAM_COUNT]) 
     return TEE_SUCCESS;
 }
 
-//if kta needs to get key from kms, this ta needs to be call back to get the result
+// If kta needs to get key from kms, this ta needs to be call back to get the result.
 TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret;
     TEE_UUID keyid = {0};
@@ -335,7 +335,7 @@ TEE_Result call_back(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     return TEE_SUCCESS;
 }
 
-//simulate a scenario in which ta exits
+// Simulate a scenario in which ta exits.
 TEE_Result ta_exit() {
     TEE_Result ret;
     TEE_ObjectHandle keyid_data = NULL;
