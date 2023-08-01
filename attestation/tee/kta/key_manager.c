@@ -47,7 +47,7 @@ extern ReplyCache replycache;
 
 // ===================Communication with kcm====================================
 
-//--------------------------1、SendRequest---------------------------------------------
+// Dequeue a CmdNode in CmdQueue.
 CmdNode dequeue(){
     CmdNode cmdnode = {0};
     cmdnode = cmdqueue.queue[cmdqueue.head];
@@ -55,6 +55,7 @@ CmdNode dequeue(){
     return (cmdnode);
 }
 
+// Encrypt a request using AES algorithm.
 TEE_Result encryptCmd(uint8_t *jsoncmd, uint32_t jsoncmd_size, TEE_ObjectHandle key_obj, uint8_t *nonce_buff, uint8_t *tag_buff) {
     TEE_Result ret;
     TEE_OperationHandle oper_enc = NULL;
@@ -90,6 +91,7 @@ TEE_Result encryptCmd(uint8_t *jsoncmd, uint32_t jsoncmd_size, TEE_ObjectHandle 
     return TEE_SUCCESS;
 }
 
+// Encrypt an AES key using RSA algorithm.
 TEE_Result encryptKey(uint8_t key_obj[AES_32_SIZE+NONCE_SIZE+TAG_SIZE+1], uint8_t encrypted_key[RSA_KEY_SIZE]){
     TEE_Result ret;
     TEE_ObjectHandle rsa_key_obj = NULL;
@@ -165,7 +167,7 @@ void uuid2char(TEE_UUID uuid, uint8_t charuuid[UUID_LEN]) {
     charuuid[36] = '\0';
 }
 
-// transfer struct CmdNode to cJSON format
+// Transfer struct CmdNode to cJSON format.
 void cmdNode2cjson(CmdNode cmdnode, cJSON *cj) {
     uint8_t taid[UUID_LEN] = {0};
     uint8_t keyid[UUID_LEN] = {0};
@@ -189,6 +191,7 @@ void cmdNode2cjson(CmdNode cmdnode, cJSON *cj) {
     cJSON_AddStringToObject(cj, "KTAId", (char*)ktauuid);
 }
 
+// Generate a request using a CmdNode.
 TEE_Result generateFinalRequest(CmdNode cmdnode, char *finalrequest){
     TEE_Result ret;
     TEE_ObjectHandle data_key = NULL;
@@ -253,8 +256,7 @@ TEE_Result generateFinalRequest(CmdNode cmdnode, char *finalrequest){
     return TEE_SUCCESS;
 }
 
-//--------------------------2、GetResponse---------------------------------------------
-
+// Decrypt an AES key using RSA algorithm.
 TEE_Result decryptkey(uint8_t encrypted_key[RSA_KEY_SIZE], uint8_t decrypted_key[RSA_KEY_SIZE]){
     TEE_Result ret;
     TEE_ObjectHandle rsa_key_obj = NULL;
@@ -308,6 +310,7 @@ TEE_Result decryptkey(uint8_t encrypted_key[RSA_KEY_SIZE], uint8_t decrypted_key
     return TEE_SUCCESS;
 }
 
+// Decrypt a request using AES algorithm.
 TEE_Result decryptcmd(uint8_t *decrypted_key, uint8_t *encrypted_cmd, uint8_t *decrypted_cmd, int *cmd_size) {
     TEE_Result ret;
     TEE_OperationHandle oper_dec = NULL;
@@ -359,6 +362,7 @@ TEE_Result decryptcmd(uint8_t *decrypted_key, uint8_t *encrypted_cmd, uint8_t *d
     return TEE_SUCCESS;
 }
 
+// Convert a UUID in char format to TEE_UUID format.
 void char2uuid(uint8_t charuuid[UUID_LEN], TEE_UUID *uuid) {
     int32_t i = 0;
     char *stop = NULL;
@@ -376,6 +380,7 @@ void char2uuid(uint8_t charuuid[UUID_LEN], TEE_UUID *uuid) {
     }
 }
 
+// Parse the returned JSON array.
 void parsejson(uint8_t *decrypted_cmd, uint32_t *cmd, TEE_UUID *taid, TEE_UUID *keyid, char *key) {
     cJSON *cj = cJSON_Parse((char*)decrypted_cmd);
     cJSON *cjtaid = cJSON_GetObjectItemCaseSensitive(cj, "TAId");
@@ -398,6 +403,7 @@ void parsejson(uint8_t *decrypted_cmd, uint32_t *cmd, TEE_UUID *taid, TEE_UUID *
     cJSON_Delete(cj);
 }
 
+// Save a requested key in Cache.
 TEE_Result saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
     int32_t head = cache.head;
     int32_t nxt = -2;
@@ -439,6 +445,7 @@ TEE_Result saveTaKey(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
     return TEE_SUCCESS;
 }
 
+// Save a key generating result in ReplyCache.
 void saveGenReplyCache(TEE_UUID TA_uuid, TEE_UUID keyid, uint8_t *keyvalue) {
     int32_t i = 0;
     for(; i<MAX_QUEUE_SIZE; i++) {
@@ -469,6 +476,7 @@ save:
     replycache.head = i;
 }
 
+// Save a key deleting result in ReplyCache.
 void saveDelReplyCache(TEE_UUID TA_uuid, TEE_UUID keyid) {
         int32_t i = 0;
     for(; i<MAX_QUEUE_SIZE; i++) {
@@ -499,6 +507,7 @@ save:
     replycache.head = i;
 }
 
+// Perform different process based on different returned request.
 TEE_Result handleResponse(uint8_t *inbuffer, size_t buffersize) {
     TEE_Result ret;
     cJSON *keybuffer = NULL;
@@ -560,9 +569,8 @@ TEE_Result handleResponse(uint8_t *inbuffer, size_t buffersize) {
 // ===================Communication with ta=============================================
 
 bool generateKcmRequest(CmdNode *n){
-    /* when kta can't complete ta-operation in local kta,
-    generate a request and insert it in cmdqueue*/
-    // 若队列已满，则无法添加新命令
+    // when kta can't complete ta-operation in local kta, generate a request and insert it in cmdqueue
+    // if the queue is full, new commands cannot be added
     if (cmdqueue.head == cmdqueue.tail + 1) {
         tloge("cmd queue is already full");
         return false;
@@ -635,9 +643,7 @@ TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return TEE_ERROR_ACCESS_DENIED;
     } else if(veriresult == -1)
         SaveTAInfo(n);
-    //params[PARAMETER_FRIST].memref.buffer内为输入的cmd结构体
-    //params[PARAMETER_THIRD]值固定为1
-    bool res = generateKcmRequest(n); //生成请求成功或失败的结果存放到params[PARAMETER_THIRD].value.b的值中
+    bool res = generateKcmRequest(n);
     if (res) {
         params[PARAMETER_THIRD].value.b = 1;
         return TEE_SUCCESS;
@@ -689,7 +695,7 @@ void flushcache(TEE_UUID taid, TEE_UUID keyid) {
 
 TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret = TEE_ERROR_BAD_PARAMETERS;
-    //search a certain ta key, if not exist, call generateKcmRequest(）to generate SearchTAKey request
+    // search a certain ta key, if not exist, call generateKcmRequest(）to generate SearchTAKey request
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,  
         TEE_PARAM_TYPE_MEMREF_OUTPUT,
@@ -705,7 +711,6 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         tloge("Bad expected parameter value");
         return ret;
     }
-    //params[PARAMETER_FRIST].memref.buffer内为输入的cmd结构体
     CmdNode *n = params[PARAMETER_FRIST].memref.buffer;
     uint8_t charuuid[UUID_LEN] = {0};
     uuid2char(n->taId, charuuid);
@@ -724,7 +729,7 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
                     params[PARAMETER_SECOND].memref.size = sizeof(ta.key[idx].value);
                     params[PARAMETER_SECOND].memref.buffer = ta.key[idx].value;
                     params[PARAMETER_THIRD].value.a = 0;
-                    // 更新cache
+                    // update cache
                     flushcache(n->taId, n->keyId);
                     return TEE_SUCCESS;
                 }
@@ -748,7 +753,7 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
 
 TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret = TEE_ERROR_BAD_PARAMETERS;
-    //delete a certain key by calling DeleteTAKey(), then generate a delete key request in TaCache
+    // delete a certain key by calling DeleteTAKey(), then generate a delete key request in TaCache
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_VALUE_OUTPUT,
@@ -762,7 +767,6 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         tloge("Bad expected parameter value");
         return ret;
     }
-    //params[PARAMETER_FRIST].memref.buffer内为输入的cmd结构体
 
     TaInfo regTa;
     int32_t taIndex;
@@ -773,8 +777,6 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     uint8_t charuuid[UUID_LEN] = {0};
     bool res = false;
 
-    //先对TA进行本地证明，证明通过之后根据UUID和密钥ID查询密钥，然后验证TA的账号密码，验证通过后删除指定密钥，最后向KCM发送删除指定密钥的请求
-    //kta通过ka到ras中获取指定ta基准值，在kta中调用本地证明接口获取ta度量报告，然后在kta中进行验证
     uuid2char(n->taId, charuuid);
     ret = localAttest(charuuid);
     if(ret != TEE_SUCCESS) {
@@ -789,19 +791,14 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         goto save_request;
     }
     taIndex = cache.head;
-    while (taIndex != END_NULL && !checkUuid(n->taId,cache.ta[taIndex].id))
-    {
-        //loop
-        taIndex = cache.ta[taIndex].next; //move to next one
+    while (taIndex != END_NULL && !checkUuid(n->taId,cache.ta[taIndex].id)) {
+        taIndex = cache.ta[taIndex].next;
     }
     targetTaIndex = taIndex;
-
-    //search key on the basis of UUID and key id
+    // search key on the basis of UUID and key id
     regTa = cache.ta[targetTaIndex];
     keyIndex = regTa.head;
-    while (keyIndex != END_NULL && !checkUuid(n->keyId ,regTa.key[keyIndex].id))
-    {
-        //loop
+    while (keyIndex != END_NULL && !checkUuid(n->keyId ,regTa.key[keyIndex].id)) {
         keyIndex = regTa.key[keyIndex].next; //move to next one
     }
     if(keyIndex == END_NULL){
@@ -816,8 +813,7 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     }
     else{
         keyIndex = regTa.head;
-        while (regTa.key[keyIndex].next != targetKeyIndex){
-            //loop
+        while (regTa.key[keyIndex].next != targetKeyIndex) {
             keyIndex = regTa.key[keyIndex].next; //move to next one
         }
         int32_t nextIndex = regTa.key[targetKeyIndex].next;
@@ -830,7 +826,7 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
 
     //send request of delete key to KCMS
 save_request:
-    res = generateKcmRequest(n); //生成请求成功或失败的结果存放到params[PARAMETER_SECOND]的值中
+    res = generateKcmRequest(n);
     if (res) {
         params[PARAMETER_SECOND].value.a = 1;
         params[PARAMETER_THIRD].value.a = 1;
@@ -874,7 +870,6 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         return TEE_ERROR_ACCESS_DENIED;
     }
     memcpy_s(n, sizeof(CmdNode), params[PARAMETER_FRIST].memref.buffer, sizeof(CmdNode));
-    //params[PARAMETER_FRIST].memref.buffer内为输入的cmd结构体
     if (replycache.head == -1 && replycache.tail == -1) {
         tloge("get kcm reply error: reply cache is empty\n");
         return TEE_ERROR_ITEM_NOT_FOUND;
@@ -914,7 +909,7 @@ TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
 
 TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret = TEE_ERROR_BAD_PARAMETERS;
-    //clear all ta cache
+    // clear all ta cache
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,  
         TEE_PARAM_TYPE_VALUE_OUTPUT,
@@ -929,24 +924,21 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return ret;
     }
 
-    //params[PARAMETER_FRIST].memref.buffer内为输入的cmd结构体
     CmdNode *n = params[PARAMETER_FRIST].memref.buffer;
     uint8_t charuuid[UUID_LEN] = {0};
     uuid2char(n->taId, charuuid);
-    // 进行本地证明
     ret = localAttest(charuuid);
     if(ret != TEE_SUCCESS) {
         tloge("conduct local attest failed, ret 0x%x\n", ret);
         return ret;
     }
-    // 验证帐号密码
     int32_t veriresult = verifyTAPasswd(n->taId, n->account, n->password);
     if (veriresult != 0) {
         params[PARAMETER_SECOND].value.a = 0;
         return TEE_ERROR_ACCESS_DENIED;
     }
 
-    // cache仅1个元素且命中
+    // cache only has 1 element and hit
     if (checkUuid(cache.ta[cache.head].id, n->taId) && cache.head == cache.tail) {
         cache.head = END_NULL;
         cache.tail = END_NULL;
@@ -955,14 +947,14 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
         return TEE_SUCCESS;
     }
 
-    // cache仅1个元素且未命中
+    // cache only has 1 element and missed
     if (!checkUuid(cache.ta[cache.head].id, n->taId) && cache.head == cache.tail) {
         tloge("ta cache not fount.\n");
         params[PARAMETER_SECOND].value.a = 0;
         return TEE_ERROR_ITEM_NOT_FOUND;
     }
 
-    // cache有2个或以上元素
+    // cache has 2 elements or more
     int32_t cur = cache.head;
     if (checkUuid(cache.ta[cur].id, n->taId)) {
         cache.head = cache.ta[cur].next;
