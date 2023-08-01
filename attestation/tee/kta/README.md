@@ -99,7 +99,7 @@ parm_type = TEE_PARAM_TYPES(
         );
 ```
 
-9、描述：TA删除所有kta内部保存的信息
+9、描述：TA删除所有KTA内部保存的信息
 ```C
 cmd CMD_CLEAR_CACHE
 parm_type = TEE_PARAM_TYPES(
@@ -133,7 +133,6 @@ typedef struct _tagTaInfo{
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first key for dequeue operation.
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last key for enqueue operation.
 } TaInfo;
-
 
 typedef struct _tagCache{
     TaInfo  ta[MAX_TA_NUM];
