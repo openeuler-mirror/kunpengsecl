@@ -207,7 +207,7 @@ func makesock(addr string) (*qcaConn, error) {
 	return qca, nil
 }
 
-// DoGetTeeReport using existingqca demo connection to get tee report.
+// DoGetTeeReport using existing qca demo connection to get tee report.
 func DoGetTeeReport(addr string, in *GetReportRequest) (*GetReportReply, error) {
 	qca, err := makesock(addr)
 	if err != nil {
