@@ -121,7 +121,7 @@ void str2uint8(const char *source, int dest_len, uint8_t *dest) {
     }
 }
 
-// base64 decode for akpub after xxx
+// base64 decode for akpub after getting data from akcert
 bool decodeAKPubKey(cJSON *in, buffer_data *out) {
    if (in == NULL) {
       printf("akpub is null");
