@@ -233,7 +233,6 @@ getPubKeyFromDrkIssuedCert(buffer_data *cert)
    {
       printf("get NOAS data is failed!\n");
       goto err;
-      //return false;
    }
 
    // verify the integrity of data in drk issued cert
@@ -242,7 +241,6 @@ getPubKeyFromDrkIssuedCert(buffer_data *cert)
    {
       printf("validate drk signed ak cert failed!\n");
       goto err;
-      //return NULL;
    }
 
    // build a pub key with the modulus carried in drk issued cert
