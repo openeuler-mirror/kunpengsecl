@@ -12,7 +12,7 @@ See the Mulan PSL v2 for more details.
 package main
 
 import (
-	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi/server"
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 )
 
@@ -21,5 +21,5 @@ func main() {
 	qcatools.LoadConfigs()
 	qcatools.HandleFlags()
 
-	qapi.StartServer()
+	server.StartServer()
 }

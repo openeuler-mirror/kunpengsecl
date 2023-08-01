@@ -31,6 +31,7 @@ import (
 	"unsafe"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi/client"
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -255,7 +256,7 @@ func getReport(ta *trustApp) []byte {
 		WithTcb: ta.withtcb,
 	}
 
-	rpyID, err := qapi.DoGetTeeReport(attesterConf.server, &reqID)
+	rpyID, err := client.DoGetTeeReport(attesterConf.server, &reqID)
 	if err != nil {
 		log.Printf("Get TA infomation failed, error: %v", err)
 		return ta.report
