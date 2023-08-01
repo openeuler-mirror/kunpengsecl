@@ -280,7 +280,7 @@ func FindPubKeyInfo(deviceid int64) (*typdefs.PubKeyinfoRow, error);
 func DeletePubKeyInfo(deviceid int64) error;
 ```
 
-接口描述：根据设备ID删除相应的KTA公钥证书信息
+接口描述：根据设备ID删除相应的KTA公钥证书信息。
 
 参数：设备ID的值。
 
@@ -292,7 +292,7 @@ func DeletePubKeyInfo(deviceid int64) error;
 func SavePubKeyInfo(deviceid int64, pubkeycert string) (*typdefs.PubKeyinfoRow, error);
 ```
 
-接口描述：保存KTA公钥信息，其中包括设备ID和KTA的公钥证书
+接口描述：保存KTA公钥信息，其中包括设备ID和KTA的公钥证书。
 
 参数1：设备ID的值。
 
