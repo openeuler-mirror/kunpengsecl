@@ -75,7 +75,7 @@ func ReleaseKdbManager() {
 	kmgr = nil
 }
 
-// FindKeyInfo returns the keyinfo by taid and keyid.
+// FindKeyInfo queries the keyinfo by taid and keyid.
 func FindKeyInfo(taid, keyid string) (*typdefs.KeyinfoRow, error) {
 	if kmgr == nil {
 		return nil, typdefs.ErrParameterWrong
