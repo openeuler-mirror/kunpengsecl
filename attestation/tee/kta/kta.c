@@ -21,8 +21,6 @@ Description: kta manages the TA's key cache in the TEE.
 #include <kta_command.h>
 #include "kta_test.h"
 
-#define PARAM_COUNT 4
-
 enum {
     CMD_KTA_INITIALIZE      = 0x00000001,
     CMD_GET_TAHASH          = 0x00000002,
