@@ -1121,19 +1121,6 @@ bool tee_verify_signature(buffer_data *report)
    return true;
 }
 
-/*
-void verifier_error(const char *msg)
-{
-   printf("%s\n", msg);
-   exit(EXIT_FAILURE);
-}
-
-void file_error(const char *s)
-{
-   printf("Couldn't open file: %s\n", s);
-   exit(EXIT_FAILURE);
-}
-*/
 void test_print(uint8_t *printed, int printed_size, char *printed_name)
 {
    printf("%s:\n", printed_name);
