@@ -689,7 +689,7 @@ void flushcache(TEE_UUID taid, TEE_UUID keyid) {
 
 TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret = TEE_ERROR_BAD_PARAMETERS;
-    //todo: search a certain ta key, if not exist, call generateKcmRequest(）to generate SearchTAKey request
+    //search a certain ta key, if not exist, call generateKcmRequest(）to generate SearchTAKey request
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,  
         TEE_PARAM_TYPE_MEMREF_OUTPUT,
@@ -748,7 +748,7 @@ TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
 
 TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     TEE_Result ret = TEE_ERROR_BAD_PARAMETERS;
-    //todo: delete a certain key by calling DeleteTAKey(), then generate a delete key request in TaCache
+    //delete a certain key by calling DeleteTAKey(), then generate a delete key request in TaCache
     if (!check_param_type(param_type,
         TEE_PARAM_TYPE_MEMREF_INPUT,
         TEE_PARAM_TYPE_VALUE_OUTPUT,
