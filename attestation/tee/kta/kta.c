@@ -44,7 +44,6 @@ ReplyCache replycache;
 TEE_Result TA_CreateEntryPoint(void)
 {
     TEE_Result ret;
-
     tlogd("----- TA entry point ----- ");
 
     ret = addcaller_ca_exec("/usr/bin/raagent", "root");

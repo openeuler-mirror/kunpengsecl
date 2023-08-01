@@ -128,7 +128,6 @@ TEE_Result GetTaHash(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         tloge("Get ta hash values failed\n");
         return TEE_ERROR_OUT_OF_MEMORY;
     }
-    tlogd("buffer size: %d", params[PARAMETER_FRIST].memref.size);
     ret = saveHashValues(hashjson, params[PARAMETER_FOURTH].value.a);
     if (ret != TEE_SUCCESS) {
         tloge("Save ta hash values failed!\n");

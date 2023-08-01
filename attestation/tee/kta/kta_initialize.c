@@ -70,6 +70,7 @@ void hex2str(const char *source, int dest_len, uint8_t *dest) {
     }
 }
 
+// Save a key or cert in sec_storage.
 TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size) {
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
     uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
@@ -98,6 +99,7 @@ TEE_Result saveKeyandCert(char *name, uint8_t *value, size_t size) {
     return TEE_SUCCESS;
 }
 
+// Save the modulus and privateExponent field of KTA private key in sec_storage.
 TEE_Result saveKTAPriv(char *name, ktaprivkey *value) {
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
     uint32_t w_flags = TEE_DATA_FLAG_ACCESS_WRITE;
@@ -131,6 +133,7 @@ TEE_Result saveKTAPriv(char *name, ktaprivkey *value) {
     return TEE_SUCCESS;
 }
 
+// Restore a key or cert in sec_storage.
 TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t buf_len) {
     TEE_Result ret;
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
@@ -161,7 +164,6 @@ TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t buf_len) {
         return TEE_ERROR_OUT_OF_MEMORY;
     }
 
-    /* 读取已存入的数据 */
     ret = TEE_ReadObjectData(persistent_data, read_buffer, len, &count);
     if (ret != TEE_SUCCESS) {
         TEE_CloseObject(persistent_data);
@@ -190,6 +192,7 @@ TEE_Result restoreKeyandCert(char *name, uint8_t *buffer, size_t buf_len) {
     return TEE_SUCCESS;
 }
 
+// Restore the modulus and privateExponent field of KTA private key in sec_storage.
 TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t privateExponent[RSA_PUB_SIZE]) {
     TEE_Result ret;
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
@@ -222,7 +225,6 @@ TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t pri
         return ret;
     }
 
-    /* 读取已存入的数据 */
     ret = TEE_ReadObjectData(persistent_data, read_buffer, len, &count);
     if (ret != TEE_SUCCESS) {
         TEE_CloseObject(persistent_data);
@@ -255,6 +257,7 @@ TEE_Result restoreKTAPriv(char *name, uint8_t modulus[RSA_PUB_SIZE], uint8_t pri
     return TEE_SUCCESS;
 }
 
+// Initialize cahce, hashcache, replycache.
 TEE_Result initStructure(){
     //init cache
     cache.head = -1;
@@ -281,6 +284,7 @@ TEE_Result initStructure(){
     return TEE_SUCCESS;
 }
 
+// Conduct hash values saving process.
 bool savehash(char *uuid, char *mem_hash, char *img_hash) {
     errno_t err1 = memcpy_s(hashcache.hashvalue[hashcache.tail].taId, UUID_LEN, uuid, UUID_LEN);
     errno_t err2 = memcpy_s(hashcache.hashvalue[hashcache.tail].mem_hash, HASH_SIZE, mem_hash, HASH_SIZE);
@@ -291,6 +295,7 @@ bool savehash(char *uuid, char *mem_hash, char *img_hash) {
     else return false;
 }
 
+// Save ta hash values into HashCache.
 TEE_Result saveHashValues(uint8_t *hashvalues, uint32_t count) {
     cJSON *cj = cJSON_Parse((char*)hashvalues);
     for (uint32_t i = 0; i < count; i++) {
@@ -310,6 +315,7 @@ TEE_Result saveHashValues(uint8_t *hashvalues, uint32_t count) {
     return TEE_SUCCESS;
 }
 
+// Reset a file in sec_storage.
 TEE_Result reset(char *name){
     TEE_Result ret;
     uint32_t storageID = TEE_OBJECT_STORAGE_PRIVATE;
