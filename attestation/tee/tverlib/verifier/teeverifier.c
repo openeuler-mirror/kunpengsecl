@@ -880,7 +880,7 @@ verifysig will verify the signature in report
    sign: the signature, a byte array
    cert: a byte array.
       A drk signed cert in self-defined format for scenario 0;
-      A X509 PEM cert for scenario 1.
+      A X509 PEM cert for scenario 1;
       A DAA cert scenario 2.
    scenario: 0, 1 or 2. refer to the description above.
    return value: true if the sigature verification succeeded, else false.
@@ -1052,7 +1052,6 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
    if (pljson == NULL || sigjson == NULL) {
       printf("cjson parse akcert error, failed to get payload and signature!\n");
       goto err;
-      //return false;
    }
    // get akpub, signdrk, certdrk, signdata
    cJSON *akpubjson = cJSON_GetObjectItemCaseSensitive(pljson, "ak_pub");
@@ -1061,7 +1060,6 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
    if (akpubjson == NULL || signdrkjson == NULL || certdrkjson == NULL) {
       printf("cjson parse akcert error, failed to get akpub, signdrk and certdrk!\n");
       goto err;
-      //return false;
    }
    /*
       akpub->buf: AK_PUB_TYPE. outdata is the same as previous
@@ -1075,7 +1073,6 @@ bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata,
    if (!rt) {
       printf("base64 decode ak public key failed!\n");
       goto err;
-      //return NULL;
    }
    
    // drk_sign: base64 decoded
