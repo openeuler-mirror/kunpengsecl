@@ -1710,7 +1710,6 @@ bool tee_verify_nonce(buffer_data *buf_data, buffer_data *nonce)
       memcpy(tmp, nonce->buf, nonce->size);
    }
 
-   //vn = cmp_bytes(report->nonce, nonce->buf, nonce->size);
    vn = cmp_bytes(report->nonce, tmp, sizeof(report->nonce));
 
    free_report(report);
