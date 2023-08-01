@@ -57,7 +57,6 @@ typedef struct _tagTaInfo{
     int32_t tail;   // -1: empty; 0~MAX_TA_NUM: last key for enqueue operation.
 } TaInfo;
 
-
 typedef struct _tagCache{
     TaInfo  ta[MAX_TA_NUM];
     int32_t head;   // -1: empty; 0~MAX_TA_NUM: first ta for dequeue operation.
