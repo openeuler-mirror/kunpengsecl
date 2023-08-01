@@ -68,7 +68,7 @@ TEEC_Result initialize(TEEC_Context *context, TEEC_Session *session){
 
     ret = TEEC_InitializeContext(NULL, context);
     if (ret != TEEC_SUCCESS) {
-        printf("teec initial failed");
+        printf("teec initial failed!");
         return 0;
     }
 
@@ -81,7 +81,7 @@ TEEC_Result initialize(TEEC_Context *context, TEEC_Session *session){
 
     ret = TEEC_OpenSession(context, session, &Uuid, TEEC_LOGIN_IDENTIFY, NULL, &operation, &origin);
     if (ret != TEEC_SUCCESS) {
-        printf("teec open session failed");
+        printf("teec open session failed!");
         TEEC_FinalizeContext(context);
         return 0;
     }
