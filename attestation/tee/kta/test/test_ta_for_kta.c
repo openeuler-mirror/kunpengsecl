@@ -571,7 +571,7 @@ TEE_Result testGetKeyGenerateReply(uint32_t param_type, TEE_Param params[PARAM_C
         TEE_CloseObject(keyid_data);
         return ret;
     }
-    params[3].value.a = 0;
+    params[PARAMETER_FOURTH].value.a = 0;
     TEE_CloseObject(keyid_data);
 
     Encrypt(keyvalue);
@@ -649,7 +649,7 @@ TEE_Result testSearchKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     Encrypt(keyvalue);
     TEE_Free(keyvalue);
     tlogd("encrypt data success");
-    params[3].value.a = 0;
+    params[PARAMETER_FOURTH].value.a = 0;
     return TEE_SUCCESS;
 }
 
@@ -676,7 +676,7 @@ TEE_Result delete_key_opt(TEE_UUID *keyid, TEE_Param params[PARAM_COUNT] ) {
         tloge("delete key failed at the second time------------------------------");
         return ret;
     }*/
-    params[3].value.a = 1;
+    params[PARAMETER_FOURTH].value.a = 1;
     flag.symbol = 3;
     return TEE_SUCCESS;
 }
@@ -773,11 +773,11 @@ TEE_Result testGetKeyDeleteReply(uint32_t param_type, TEE_Param params[PARAM_COU
     tlogd("test get_kcm_reply------------------------------------------------------");
     ret = get_kcm_reply(&localUuid, account, password, &keyid, NULL, mem_hash, img_hash);
     if (ret != TEE_SUCCESS) {
-        params[3].value.a = 2;
+        params[PARAMETER_FOURTH].value.a = 2;
         tloge("delete key failed");
         return ret;
     } else {
-        params[3].value.a = 0;
+        params[PARAMETER_FOURTH].value.a = 0;
         tlogd("delete key success");
         return TEE_SUCCESS;
     }

@@ -45,33 +45,40 @@ TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         tloge("Bad expected parameter types, 0x%x.\n", param_type);
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    if (params[0].memref.size == 0 || params[0].memref.size > MAX_KEY_LEN || params[0].memref.buffer == NULL) {
+    if (params[PARAMETER_FRIST].memref.size == 0 ||
+        params[PARAMETER_FRIST].memref.size > MAX_KEY_LEN ||
+        params[PARAMETER_FRIST].memref.buffer == NULL) {
         tloge("Bad expected parameter.\n");
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    if (params[1].memref.size == 0 || params[1].memref.size > MAX_CERT_LEN || params[1].memref.buffer == NULL) {
+    if (params[PARAMETER_SECOND].memref.size == 0 ||
+        params[PARAMETER_SECOND].memref.size > MAX_CERT_LEN ||
+        params[PARAMETER_SECOND].memref.buffer == NULL) {
         tloge("Bad expected parameter.\n");
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    if (params[2].memref.size == 0 || params[2].memref.size > MAX_KEY_LEN || params[2].memref.buffer == NULL) {
+    if (params[PARAMETER_THIRD].memref.size == 0 ||
+        params[PARAMETER_THIRD].memref.size > MAX_KEY_LEN ||
+        params[PARAMETER_THIRD].memref.buffer == NULL) {
         tloge("Bad expected parameter.\n");
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    if (params[3].memref.size == 0 || params[3].memref.buffer == NULL) {
+    if (params[PARAMETER_FOURTH].memref.size == 0 ||
+        params[PARAMETER_FOURTH].memref.buffer == NULL) {
         tloge("Bad expected parameter.\n");
         return TEE_ERROR_BAD_PARAMETERS;
     }
-    ret = saveKeyandCert("sec_storage_data/kcmpub.txt", params[0].memref.buffer, params[0].memref.size);
+    ret = saveKeyandCert("sec_storage_data/kcmpub.txt", params[PARAMETER_FRIST].memref.buffer, params[PARAMETER_FRIST].memref.size);
     if (ret != TEE_SUCCESS){
         tloge("save kcmpub failed\n");
         return ret;
     }
-    ret = saveKeyandCert("sec_storage_data/ktacert.txt", params[1].memref.buffer, params[1].memref.size);
+    ret = saveKeyandCert("sec_storage_data/ktacert.txt", params[PARAMETER_SECOND].memref.buffer, params[PARAMETER_SECOND].memref.size);
     if (ret != TEE_SUCCESS){
         tloge("save kta cert failed\n");
         return ret;
     }
-    ret = saveKTAPriv("sec_storage_data/ktakey.txt", params[2].memref.buffer);
+    ret = saveKTAPriv("sec_storage_data/ktakey.txt", params[PARAMETER_THIRD].memref.buffer);
     if (ret != TEE_SUCCESS){
         tloge("save ktakey failed\n");
         return ret;
@@ -82,7 +89,7 @@ TEE_Result KTAInitialize(uint32_t param_type, TEE_Param params[PARAM_COUNT]){
         return ret;
     }
 
-    ret = restoreKeyandCert("sec_storage_data/ktacert.txt", params[3].memref.buffer, params[3].memref.size);
+    ret = restoreKeyandCert("sec_storage_data/ktacert.txt", params[PARAMETER_FOURTH].memref.buffer, params[PARAMETER_FOURTH].memref.size);
     if (ret != TEE_SUCCESS){
         tloge("restore kta cert failed,ret=0x%x\n", ret);
         return ret;
