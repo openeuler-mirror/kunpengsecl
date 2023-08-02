@@ -33,7 +33,7 @@ extern HashCache hashcache;
 extern CmdQueue cmdqueue;
 extern ReplyCache replycache;
 
-//check the id1 and the id2 equal
+// Check whether the id1 and the id2 are equal.
 bool checkUuid(TEE_UUID id1,TEE_UUID id2)
 {
     if(id1.timeHiAndVersion != id2.timeHiAndVersion || 
@@ -49,7 +49,7 @@ bool checkUuid(TEE_UUID id1,TEE_UUID id2)
     return true;
 }
 
-// return -1 when ta is not exist, return 0 when success, return 1 when account is not match
+// Return -1 when ta is not exist, return 0 when success, return 1 when account is not match.
 int32_t verifyTAPasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
     //step1: check the queue is or not is empty
     if (cache.head == END_NULL && cache.tail == END_NULL)
@@ -79,9 +79,9 @@ int32_t verifyTAPasswd(TEE_UUID TA_uuid, uint8_t *account, uint8_t *password) {
     return 1;
 }
 
-//Encode unsigned char source to base64url.
-//Neither of param source_len or dest_len include character '\0'.
-//Return the first address of encoded string.
+// Encode unsigned char source to base64url.
+// Neither of param source_len or dest_len include character '\0'.
+// Return the first address of encoded string.
 char* base64urlencode(const uint8_t *source, size_t source_len, size_t *dest_len) {
     char *dest = b64_encode(source, source_len);
     *dest_len = strlen(dest);
@@ -97,9 +97,9 @@ char* base64urlencode(const uint8_t *source, size_t source_len, size_t *dest_len
     return dest;
 }
 
-//Decode base64url string source to unsigned char.
-//Neither of param source_len or dest_len include character '\0'.
-//Return the first address of decoded unsigned string.
+// Decode base64url string source to unsigned char.
+// Neither of param source_len or dest_len include character '\0'.
+// Return the first address of decoded unsigned string.
 uint8_t* base64urldecode(const char *source, size_t source_len, size_t *dest_len) {
     //change "-" to "+", "_" to "/", add back "=".
     size_t i = 0;
@@ -129,7 +129,7 @@ uint8_t* base64urldecode(const char *source, size_t source_len, size_t *dest_len
     return dest;
 }
 
-//generate in buffer in local attestation scenario
+// Generate in buffer in local attestation scenario.
 TEE_Result generateinbuffer(uint8_t taid[UUID_LEN], char *noncebuf, struct ra_buffer_data *in) {
     cJSON *injson = NULL;
     cJSON *inpayload = NULL;
@@ -193,7 +193,7 @@ end:
     return TEE_ERROR_GENERIC;
 }
 
-//compare hash value to conduct local attestation
+// Compare hash value to conduct local attestation.
 bool comparehash(char *saved_img, char *saved_mem, char *ta_img, char *ta_mem) {
     bool status = CHECK_FAIL;
     if(strcmp(saved_img, ta_img)) {
@@ -207,7 +207,7 @@ end:
     return status;
 }
 
-//verify drk signature using ak_pub, drk_sign, drk_cert, and payload in akcert
+// Verify drk signature using ak_pub, drk_sign, drk_cert, and payload in akcert.
 /*
 bool verifydrksign(char *drk_data, char *ak_pub, char *drk_sign, char *drk_cert) {
     //bool status = CHECK_FAIL;
@@ -227,7 +227,7 @@ bool verifyakcert(char *akcert) {
 }
 */
 
-//check whether fields of out buffer are valid
+// Check whether fields of out buffer are valid.
 bool handleoutbuffer(uint8_t *taid, char *noncebuf, struct ra_buffer_data *out) {
     bool status = CHECK_FAIL;
     cJSON *handler = NULL, *payload = NULL, *report_sign = NULL,
@@ -389,7 +389,7 @@ end1:
     return status;
 }
 
-//conduct local attestation
+// Conduct local attestation.
 TEE_Result localAttest(uint8_t taid[UUID_LEN]) {
     TEE_Result ret = TEE_SUCCESS;
     struct ra_buffer_data in;
