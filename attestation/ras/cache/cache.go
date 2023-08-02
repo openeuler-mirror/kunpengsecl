@@ -32,7 +32,7 @@ import (
 
 const (
 	defaultBaseRows = 10
-	// StrUnknown means the string of unknown
+	// StrUnknown means the string of unknown.
 	StrUnknown = "unknown"
 	// StrTrusted means the string of trusted
 	StrTrusted = "trusted"
