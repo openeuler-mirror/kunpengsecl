@@ -34,7 +34,7 @@ const (
 	defaultBaseRows = 10
 	// StrUnknown means the string of unknown.
 	StrUnknown = "unknown"
-	// StrTrusted means the string of trusted
+	// StrTrusted means the string of trusted.
 	StrTrusted = "trusted"
 	// StrUntrusted means the string of untrusted
 	StrUntrusted = "untrusted"
