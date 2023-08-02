@@ -196,8 +196,7 @@ TEEC_Result send_reply(TEEC_Session *session, uint32_t number) {
     }
     return TEEC_SUCCESS;
 }
-/*}
-*/
+
 
 void shutdownkta(TEEC_Context *context, TEEC_Session *session) {
     TEEC_CloseSession(session);
