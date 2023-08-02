@@ -33,6 +33,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi/client"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
@@ -815,7 +816,7 @@ func getTaReport(uuid []byte, nonce []byte, with_tcb bool, server string) ([]byt
 		WithTcb: with_tcb,
 	}
 
-	rpyID, err := qapi.DoGetTeeReport(server, &reqID)
+	rpyID, err := client.DoGetTeeReport(server, &reqID)
 	if err != nil {
 		log.Printf("Get TA infomation failed, uuid: %v error: %v", uuid, err)
 		return nil, err

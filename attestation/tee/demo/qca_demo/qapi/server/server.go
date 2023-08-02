@@ -10,36 +10,28 @@ See the Mulan PSL v2 for more details.
 
 Author: wangli
 Create: 2022-04-20
-Description: An interface provided to attester
+Description: An interface provided to attester, for server to use
 */
 
-package qapi
+package server
 
-/*
 import (
 	"context"
-	"errors"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"sync"
-	"time"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/aslib"
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 )
 
 type (
 	service struct {
-		UnimplementedQcaServer
-	}
-	qcaConn struct {
-		ctx    context.Context
-		cancel context.CancelFunc
-		conn   *grpc.ClientConn
-		c      QcaClient
+		qapi.UnimplementedQcaServer
 	}
 )
 
@@ -60,7 +52,7 @@ var (
 )
 
 // GetReport gets report from report request.
-func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
+func (s *service) GetReport(ctx context.Context, in *qapi.GetReportRequest) (*qapi.GetReportReply, error) {
 	countConnections()
 	_ = ctx // ignore the unused warning
 	Usrdata := in.GetNonce()
@@ -69,7 +61,7 @@ func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetRepo
 		log.Print("Get TA Report failed!")
 		return nil, err
 	}
-	rpy := GetReportReply{
+	rpy := qapi.GetReportReply{
 		TeeReport: rep,
 	}
 	return &rpy, nil
@@ -85,7 +77,7 @@ func StartServer() {
 	}
 
 	srv = grpc.NewServer()
-	RegisterQcaServer(srv, &service{})
+	qapi.RegisterQcaServer(srv, &service{})
 
 	result := hasAKCert(qcatools.Qcacfg.Scenario)
 	if !result {
@@ -193,35 +185,3 @@ func countConnections() {
 	l.Unlock()
 	log.Printf("Now have %d clients connected to server", count)
 }
-
-func makesock(addr string) (*qcaConn, error) {
-	qca := &qcaConn{}
-	// If the client is not connected to the server within 3 seconds, an error is returned!
-	qca.ctx, qca.cancel = context.WithTimeout(context.Background(), 60*time.Second)
-	conn, err := grpc.DialContext(qca.ctx, addr, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		return nil, errors.New("Client: fail to connect " + addr)
-	}
-	qca.conn = conn
-	qca.c = NewQcaClient(conn)
-	log.Printf("Client: connect to %s", addr)
-	return qca, nil
-}
-
-// DoGetTeeReport using existing qca demo connection to get tee report.
-func DoGetTeeReport(addr string, in *GetReportRequest) (*GetReportReply, error) {
-	qca, err := makesock(addr)
-	if err != nil {
-		return nil, err
-	}
-	defer qca.conn.Close()
-	defer qca.cancel()
-
-	rpy, err := qca.c.GetReport(qca.ctx, in)
-	if err != nil {
-		return nil, err
-	}
-
-	return rpy, nil
-}
-*/
