@@ -36,7 +36,7 @@ const (
 	StrUnknown = "unknown"
 	// StrTrusted means the string of trusted.
 	StrTrusted = "trusted"
-	// StrUntrusted means the string of untrusted
+	// StrUntrusted means the string of untrusted.
 	StrUntrusted = "untrusted"
 )
 
