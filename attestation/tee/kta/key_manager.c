@@ -45,7 +45,7 @@ extern HashCache hashcache;
 extern CmdQueue cmdqueue;
 extern ReplyCache replycache;
 
-// ===================Communication with kcm====================================
+// =========================Communication with kcm====================================
 
 // Dequeue a CmdNode in CmdQueue.
 CmdNode dequeue(){
