@@ -23,7 +23,7 @@ import (
 	"syscall"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
-	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi/rahub"
 )
 
 const (
@@ -67,5 +67,5 @@ func main() {
 	handleFlags()
 	signalHandler()
 
-	clientapi.StartRaHub(GetPort(), GetServer())
+	rahub.StartRaHub(GetPort(), GetServer())
 }

@@ -13,7 +13,7 @@ Create: 2021-11-16
 Description: Using leverage clientapi to implement a hub.
 */
 
-package clientapi
+package rahub
 
 /*
 import (
