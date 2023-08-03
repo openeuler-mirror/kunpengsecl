@@ -1414,6 +1414,7 @@ func GetExtractRulesFromPcr(pcrlog string) []int {
 	return res
 }
 
+// extractPCR extract PcrSelection value from report
 func extractPCR(report *typdefs.TrustReport, base *typdefs.BaseRow) string {
 	pcrLog := findManifest(report, typdefs.StrPcr)
 	pcrMap := pcrLogToMap(pcrLog)
