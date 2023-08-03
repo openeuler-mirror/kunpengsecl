@@ -257,8 +257,8 @@ var (
 	ErrPCRNotMatch = errors.New("report pcr not match")
 	// ErrNotSupportAlg means algorithm is not supported
 	ErrNotSupportAlg = errors.New("algorithm is not supported")
-	// ErrNotMatchAlg means algorithms in ima mesurement and ras don't match
-	ErrNotMatchAlg = errors.New("algorithms in ima mesurement and ras don't match")
+	// ErrNotMatchAlg means algorithms in ima measurement and ras don't match
+	ErrNotMatchAlg = errors.New("algorithms in ima measurement and ras don't match")
 
 	// SupportAlgAndLenMap means the pairing of
 	// supported algorithms and algorithm lengths
