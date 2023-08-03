@@ -1336,6 +1336,7 @@ func extractFromOldBases(bases []*typdefs.BaseRow, newBase *typdefs.BaseRow, rep
 	return nil
 }
 
+// isBaseUpdate compare pcr, bios and ima in the newBase with the oldBase.
 func isBaseUpdate(oldBase *typdefs.BaseRow, newBase *typdefs.BaseRow) bool {
 	// compare pcr
 	if oldBase.Pcr != newBase.Pcr {
