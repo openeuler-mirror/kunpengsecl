@@ -1352,6 +1352,7 @@ func isBaseUpdate(oldBase *typdefs.BaseRow, newBase *typdefs.BaseRow) bool {
 	return false
 }
 
+// isFirstReport judge whether this is the first report.
 func isFirstReport(clientId int64) (bool, error) {
 	if tmgr == nil {
 		return false, typdefs.ErrParameterWrong
