@@ -378,7 +378,7 @@ would occupy 66 octets, with the upper 7 bits of the octet at offset zero
 set to 0.
 */
 func KDFa(alg crypto.Hash, key []byte, label string, contextU, contextV []byte, bits int) ([]byte, error) {
-	bufLen := ((bits + 7) / 8)
+	bufLen := (bits + 7) / 8
 	if bufLen > math.MaxInt16 {
 		return []byte{}, ErrWrongParams
 	}
