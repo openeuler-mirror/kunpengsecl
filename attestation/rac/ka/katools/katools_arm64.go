@@ -41,6 +41,7 @@ import (
 	"gitee.com/openeuler/kunpengsecl/attestation/common/logger"
 	"gitee.com/openeuler/kunpengsecl/attestation/common/typdefs"
 	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/ras/clientapi/client"
 )
 
 type hashValues struct {
@@ -73,12 +74,12 @@ func KaMain(addr string, id int64, ktaShutdown bool) {
 		os.Exit(0)
 	}
 	defer C.KTAshutdown()
-	ras, err := clientapi.CreateConn(addr)
+	ras, err := client.CreateConn(addr)
 	if err != nil {
 		logger.L.Sugar().Errorf("connect ras server failed, %s", err)
 		return
 	}
-	defer clientapi.ReleaseConn(ras)
+	defer client.ReleaseConn(ras)
 	err1 := kaInitialize(ras, id)
 	if err1 != nil {
 		return
@@ -92,9 +93,9 @@ func KaMain(addr string, id int64, ktaShutdown bool) {
 	kaLoop(ras, id, getPollDuration(), addr)
 	logger.L.Debug("ka closed...")
 }
-func kaInitialize(ras *clientapi.RasConn, id int64) error {
+func kaInitialize(ras *client.RasConn, id int64) error {
 	// 从clientapi获得公钥证书
-	kcm_cert_data, err := clientapi.DoSendKCMPubKeyCertWithConn(ras, &clientapi.SendKCMPubKeyCertRequest{})
+	kcm_cert_data, err := client.DoSendKCMPubKeyCertWithConn(ras, &clientapi.SendKCMPubKeyCertRequest{})
 	if err != nil || !kcm_cert_data.Result {
 		logger.L.Sugar().Errorf("get kcm cert from clientapi error, %s", err)
 		return err
@@ -133,7 +134,7 @@ func kaInitialize(ras *clientapi.RasConn, id int64) error {
 		KtaPubKeyCert: ktaCert,
 	}
 	// 向clientapi发送证书和设备id
-	rpy, err := clientapi.DoVerifyKTAPubKeyCertWithConn(ras, &req)
+	rpy, err := client.DoVerifyKTAPubKeyCertWithConn(ras, &req)
 	if err != nil || !rpy.Result {
 		logger.L.Sugar().Errorf("kcm verify kta pubKeycert error, %s", err)
 		terminateKTA()
@@ -202,7 +203,7 @@ func removeKeyFile() {
 }
 
 // 轮询函数
-func kaLoop(ras *clientapi.RasConn, id int64, pollDuration time.Duration, addr string) {
+func kaLoop(ras *client.RasConn, id int64, pollDuration time.Duration, addr string) {
 	logger.L.Debug("start ka loop...")
 	for {
 		nextCmd, cmdnum, err := getKTACmd()
@@ -214,12 +215,12 @@ func kaLoop(ras *clientapi.RasConn, id int64, pollDuration time.Duration, addr s
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		ras, err := clientapi.CreateConn(addr)
+		ras, err := client.CreateConn(addr)
 		if err != nil {
 			logger.L.Sugar().Errorf("connect ras server fail, %s", err)
 			return
 		}
-		defer clientapi.ReleaseConn(ras)
+		defer client.ReleaseConn(ras)
 		req := clientapi.KeyOperationRequest{
 			ClientId:   id,
 			EncMessage: nextCmd,
@@ -227,7 +228,7 @@ func kaLoop(ras *clientapi.RasConn, id int64, pollDuration time.Duration, addr s
 
 		logger.L.Sugar().Debugf("client id: %x, cmdlen: %d", id, len(nextCmd))
 		// 向clientapi返回
-		rpy, err := clientapi.DoKeyOperationWithConn(ras, &req)
+		rpy, err := client.DoKeyOperationWithConn(ras, &req)
 		if err != nil {
 			logger.L.Sugar().Errorf("do key operation withconn error, %s", err)
 			break
@@ -242,7 +243,7 @@ func kaLoop(ras *clientapi.RasConn, id int64, pollDuration time.Duration, addr s
 			time.Sleep(3 * time.Second)
 			continue
 		}
-		clientapi.ReleaseConn(ras)
+		client.ReleaseConn(ras)
 		time.Sleep(pollDuration)
 	}
 	terminateKTA()

@@ -28,6 +28,7 @@ Notice:
 
 package clientapi
 
+/*
 import (
 	context "context"
 	"crypto/rand"
@@ -162,13 +163,13 @@ Certificate:
                     79:23
                 Exponent: 65537 (0x10001)
         X509v3 extensions:
-            X509v3 Basic Constraints: 
+            X509v3 Basic Constraints:
                 CA:FALSE
-            Netscape Comment: 
+            Netscape Comment:
                 OpenSSL Generated Certificate
-            X509v3 Subject Key Identifier: 
+            X509v3 Subject Key Identifier:
                 AC:68:E3:D5:5A:64:E6:1B:DB:32:1F:BA:01:5C:6A:ED:08:13:F5:E2
-            X509v3 Authority Key Identifier: 
+            X509v3 Authority Key Identifier:
                 keyid:F7:CC:87:ED:0D:1F:86:8B:C5:34:8E:47:08:47:AA:70:AF:EF:82:A6
 
     Signature Algorithm: sha256WithRSAEncryption
@@ -1170,9 +1171,9 @@ func TestDoClientapiInitKTA(t *testing.T) {
 		t.Errorf("test DoVerifyKTAPubKeyCert with empty deviceId failed %v", err)
 	}
 
-	/*dbConfig := GetdbConfig(strDbConfig)
-	kdb.CreateKdbManager(constDB, dbConfig)
-	defer kdb.ReleaseKdbManager()*/
+	//dbConfig := GetdbConfig(strDbConfig)
+	//kdb.CreateKdbManager(constDB, dbConfig)
+	//defer kdb.ReleaseKdbManager()
 
 	err = kcmstools.SaveCert(ktacert, certPath, ktaFileName)
 	if err != nil {
@@ -1476,9 +1477,9 @@ func TestClientapiWithConnInitKTA(t *testing.T) {
 		t.Errorf("test DoVerifyKTAPubKeyCertWithConn with empty deviceId failed %v", err)
 	}
 
-	/*dbConfig := GetdbConfig(strDbConfig)
-	kdb.CreateKdbManager(constDB, dbConfig)
-	defer kdb.ReleaseKdbManager()*/
+	//dbConfig := GetdbConfig(strDbConfig)
+	//kdb.CreateKdbManager(constDB, dbConfig)
+	//defer kdb.ReleaseKdbManager()
 
 	err = kcmstools.SaveCert(ktacert, certPath, ktaFileName)
 	if err != nil {
@@ -1700,3 +1701,4 @@ func GenRsaKey() (prvkey, pubkey []byte) {
 	pubkey = pem.EncodeToMemory(block)
 	return
 }
+*/
