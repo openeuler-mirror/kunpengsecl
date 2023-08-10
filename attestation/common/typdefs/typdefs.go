@@ -10,7 +10,7 @@ See the Mulan PSL v2 for more details.
 
 Author: wucaijun
 Create: 2022-01-18
-Description: type define and const values for common useage.
+Description: type define and const values for common usage.
 */
 
 // typdefs package defines common const/type/var for both ras and rac.
