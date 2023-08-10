@@ -1175,6 +1175,7 @@ type (
 	}
 )
 
+// extractAndSaveTABase extract and save TaBase from report
 func extractAndSaveTABase(report *typdefs.TrustReport) map[string]*typdefs.TaBaseRow {
 	taBases := map[string]*typdefs.TaBaseRow{}
 	for uuid, taReport := range report.TaReports {
