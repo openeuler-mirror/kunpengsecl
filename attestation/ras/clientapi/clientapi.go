@@ -115,7 +115,7 @@ type retKeyInfo struct {
 }
 
 var (
-	// ErrClientApiParameterWrong means client api parameter wrong error
+	// ErrClientApiParameterWrong means client api parameter wrong error.
 	ErrClientApiParameterWrong = errors.New("client api parameter wrong")
 
 	srv *grpc.Server = nil
