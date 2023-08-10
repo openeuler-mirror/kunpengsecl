@@ -37,7 +37,7 @@ import (
 	"github.com/tjfoc/gmsm/sm3"
 )
 
-// Command value is used for nextAction which determind what to do for RAC.
+// Command value is used for nextAction which determined what to do for RAC.
 const (
 	CmdSendConfig uint64 = 1 << iota // send new configuration to RAC.
 	CmdGetReport                     // get a new trust report from RAC.
