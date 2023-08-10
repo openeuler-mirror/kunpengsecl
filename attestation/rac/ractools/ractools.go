@@ -876,8 +876,8 @@ func getManifestContent(ms []typdefs.Manifest, t string) []byte {
 	return nil
 }
 
+// use bios manifest to replay pcrs
 func replayBIOSManifestTest(pcrs *typdefs.PcrGroups, content []byte) error {
-	// use bios manifest to replay pcrs
 	btLog, _ := typdefs.TransformBIOSBinLogToTxt(content)
 	typdefs.ExtendPCRWithBIOSTxtLog(pcrs, btLog)
 	algID := algIdMap[tpmRef.config.ReportHashAlg]
@@ -897,8 +897,8 @@ func replayBIOSManifestTest(pcrs *typdefs.PcrGroups, content []byte) error {
 	return nil
 }
 
+// use ima manifest to replay pcrs
 func replayIMAManifestTest(pcrs *typdefs.PcrGroups, content []byte) error {
-	// use ima manifest to replay pcrs
 	typdefs.ExtendPCRWithIMALog(pcrs, content, tpmRef.config.ReportHashAlg)
 	algID := algIdMap[tpmRef.config.ReportHashAlg]
 	var v [24][]byte
