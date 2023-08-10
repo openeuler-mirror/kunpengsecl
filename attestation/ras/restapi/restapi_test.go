@@ -1610,6 +1610,6 @@ func TestGetJWS(t *testing.T) {
 
 	_, err = getScopes(jwtToken)
 	if err != nil {
-		t.Errorf("getScopes failed error: %v", err)
+		t.Errorf("getScopes failed, error: %v", err)
 	}
 }
