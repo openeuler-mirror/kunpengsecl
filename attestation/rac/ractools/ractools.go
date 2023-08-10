@@ -13,6 +13,7 @@ Create: 2021-09-17
 Description: Define the structure for the TPM operation.
 */
 
+//ractools is responsible for obtaining various data information required for RA
 package ractools
 
 import (
