@@ -235,7 +235,7 @@ var (
 	ErrBiosLogFormatWrong = errors.New("bios log format wrong")
 	// ErrBiosAggregateFail means bios aggregate not match error
 	ErrBiosAggregateFail = errors.New("bios aggregate not match")
-	// ErrValidateIMAFail means pvalidate ima log fail
+	// ErrValidateIMAFail means validate ima log fail
 	ErrValidateIMAFail = errors.New("validate ima log fail")
 
 	// client database handle errors
