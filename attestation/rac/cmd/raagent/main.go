@@ -184,6 +184,10 @@ func createTPMConfig(testMode bool, imaLogPath, biosLogPath string, hashAlg stri
 }
 
 func generateEKeyCert(ras *client.RasConn) {
+	//Call ractools.GetEKPub() to retrieve a public key and then encode the 
+	//public key into bytes in DER format. If there is an error in obtaining 
+	//the public key or during the encoding process, the error message will 
+	//be logged, and the function will return.
 	ekPubDer, err := x509.MarshalPKIXPublicKey(ractools.GetEKPub())
 	if err != nil {
 		logger.L.Sugar().Errorf("can't get Ek public der data, %v", err)
