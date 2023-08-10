@@ -922,7 +922,7 @@ func RsaDecrypt(ciphertext, keyBytes []byte) ([]byte, error) {
 
 // EncryptKeyOpOutcome firstly encrypt data with sesionkey,
 // and then uses kta public key to encrypt sessionkey with kta public key,
-// retrurns encrypted data and encrypted sessionkey.
+// returns encrypted data and encrypted sessionkey.
 func EncryptKeyOpOutcome(retMessage retKeyInfo, sessionKey, KtaPublickeyCert []byte) ([]byte, error) {
 	str_taId := string(retMessage.TAId)
 	jsonRetMessage, err := json.Marshal(retMessage)
