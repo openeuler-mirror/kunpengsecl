@@ -1051,6 +1051,7 @@ func HandleBaseValue(report *typdefs.TrustReport) error {
 	return nil
 }
 
+// handleFirstReport handles trust report base values if this is the first report.
 func handleFirstReport(report *typdefs.TrustReport) error {
 	isFR, err := isFirstReport(report.ClientID)
 	if err != nil {
