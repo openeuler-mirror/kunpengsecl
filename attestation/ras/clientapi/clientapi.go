@@ -525,7 +525,7 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 	return &out, nil
 }
 
-// RasConn means ras connection information
+// RasConn means ras connection information.
 type RasConn struct {
 	ctx    context.Context
 	cancel context.CancelFunc
