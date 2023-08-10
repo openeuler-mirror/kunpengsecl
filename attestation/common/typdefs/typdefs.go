@@ -14,7 +14,7 @@ Description: type define and const values for common useage.
 */
 
 // typdefs package defines common const/type/var for both ras and rac.
-// DON'T includes other parts in it, just imports 3rd part packages.
+// DON'T include other parts in it, just import 3rd part packages.
 package typdefs
 
 import (
