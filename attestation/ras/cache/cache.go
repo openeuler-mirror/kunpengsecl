@@ -43,7 +43,7 @@ const (
 type (
 	// Cache stores the latest status of one RAC client and commands.
 	Cache struct {
-		regtime      string
+		regtime      string // client register time.
 		online       bool
 		hostTrusted  string
 		taTrusted    map[string]string
