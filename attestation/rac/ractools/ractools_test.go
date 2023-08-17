@@ -99,10 +99,7 @@ func TestOpenSWTPM(t *testing.T) {
 		SeedPath:      "",
 	}
 	err := OpenTPM(false, tc, -1)
-	if err != nil {
-		t.Errorf(openTPMFailStr, err)
-		os.Exit(1)
-	}
+	assert.NoError(t, err)
 	defer CloseTPM()
 }
 
@@ -151,10 +148,7 @@ func TestSetDigestAlg(t *testing.T) {
 		SeedPath:      "",
 	}
 	err = OpenTPM(false, tc, -1)
-	if err != nil {
-		t.Errorf(openTPMFailStr, err)
-		os.Exit(1)
-	}
+	assert.NoError(t, err)
 	defer CloseTPM()
 	for algstr, _ := range algIdMap {
 		SetDigestAlg(algstr)
@@ -209,10 +203,7 @@ func TestCreateTrustReport(t *testing.T) {
 
 	random, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	err := OpenTPM(!testMode, tpmConf, random.Int64())
-	if err != nil {
-		t.Errorf(openTPMFailStr, err)
-		os.Exit(1)
-	}
+	assert.NoError(t, err)
 	defer CloseTPM()
 
 	//create EK,Ak,TrustReport
@@ -253,10 +244,7 @@ func TestNVRAM(t *testing.T) {
 	tpmConf := createTPMConfig(testMode)
 	random, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	err := OpenTPM(!testMode, tpmConf, random.Int64())
-	if err != nil {
-		t.Errorf(openTPMFailStr, err)
-		os.Exit(1)
-	}
+	assert.NoError(t, err)
 	defer CloseTPM()
 
 	var testNVIndex uint32 = 0x01C00030
@@ -307,10 +295,7 @@ func TestActivateIKCert(t *testing.T) {
 	tpmConf := createTPMConfig(testMode)
 	random, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	err := OpenTPM(!testMode, tpmConf, random.Int64())
-	if err != nil {
-		t.Errorf(openTPMFailStr, err)
-		os.Exit(1)
-	}
+	assert.NoError(t, err)
 	defer CloseTPM()
 
 	err = GenerateEKey()
