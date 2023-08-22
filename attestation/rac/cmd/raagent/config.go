@@ -159,6 +159,7 @@ func initFlags() {
 	imaLogPath = pflag.StringP(lflagIma, sflagIma, defaultImaLog, helpIma)
 	biosLogPath = pflag.StringP(lflagBios, sflagBios, defaultBiosLog, helpBios)
 	shutktaFlag = pflag.BoolP(lflagShutkta, sflagShutkta, false, helpShutkta)
+	//Resolve the passed command line parameters to the values of the corresponding variables
 	pflag.Parse()
 }
 
