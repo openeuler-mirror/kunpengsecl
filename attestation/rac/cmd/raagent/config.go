@@ -149,6 +149,7 @@ var (
 
 // initFlags inits the raagent whole command flags.
 func initFlags() {
+	//StringP/BoolP with a P after it indicates support for short options
 	server = pflag.StringP(lflagServer, sflagServer, nullString, helpServer)
 	testMode = pflag.BoolP(lflagTest, sflagTest, defaultTestMode, helpTest)
 	taTestMode = pflag.BoolP(lflagTaTest, sflagTaTest, defaultTaTestMode, helpTaTest)
