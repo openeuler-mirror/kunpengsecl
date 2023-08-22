@@ -868,6 +868,7 @@ func PreparePCRsTest() error {
 	return nil
 }
 
+//Return pcrlog or bioslog or imalog based on key
 func getManifestContent(ms []typdefs.Manifest, t string) []byte {
 	for _, m := range ms {
 		if m.Key == t {
