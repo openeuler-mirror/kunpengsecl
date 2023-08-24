@@ -86,6 +86,8 @@ func StartServer() {
 
 	if err = srv.Serve(listen); err != nil {
 		log.Fatalf("Server: fail to serve %v", err)
+                StopServer()
+		return
 	}
 
 	log.Print("Stop Server......")
