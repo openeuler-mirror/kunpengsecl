@@ -259,6 +259,8 @@ func restorePemCert(olddrk []byte) []byte {
 	head := []byte("-----BEGIN CERTIFICATE-----\n")
 	end := []byte("-----END CERTIFICATE-----\n")
 
+	olddrk = trimEnding0s(olddrk)
+
 	var buffer bytes.Buffer
 	buffer.Write(head[:])
 	loop := len(olddrk) / 64
@@ -280,21 +282,11 @@ func restorePemCert(olddrk []byte) []byte {
 	return comb[:]
 }
 
-func handlePemCertBlanks(olddrk []byte) []byte {
-	i := 0
-	var buffer bytes.Buffer
-	end := []byte("-----END CERTIFICATE-----\n")
-	for i = 0; i < len(olddrk); i++ {
-		if olddrk[i] == 0x3d && olddrk[i+1] == 0x3d {
-			buffer.Write(olddrk[:i+2])
-			buffer.Write([]byte("\n"))
-			buffer.Write(end)
-			break
-		}
+func trimEnding0s(block []byte) []byte {
+	var i int
+	for i = len(block) - 1; i >= 0 && block[i] == 0; i-- {
 	}
-	comb := buffer.Bytes()
-
-	return comb[:]
+	return block[:i+1]
 }
 
 // GetDataFromAKCertNoDAA gets data from ak cert in the scenario of No DAA.
@@ -313,8 +305,7 @@ func GetDataFromAKCertNoDAA(oldAKCert []byte) (drkpub *rsa.PublicKey, drkcert *x
 		return nil, nil, nil, err
 	}
 	// STEP3: parse device cert
-	drkcertbyte2 := restorePemCert(drkcertbyte1)
-	drkcertbyte := handlePemCertBlanks(drkcertbyte2)
+	drkcertbyte := restorePemCert(drkcertbyte1)
 	drkcertBlock, _ := pem.Decode(drkcertbyte)
 	drkcert, err = x509.ParseCertificate(drkcertBlock.Bytes)
 	if err != nil {
@@ -346,8 +337,7 @@ func getDataFromAKCertWithDAA(oldAKCert []byte) (drkpub *rsa.PublicKey, drkcert 
 		return nil, nil, nil, err
 	}
 	// STEP3: parse device cert
-	drkcertbyte2 := restorePemCert(drkcertbyte1)
-	drkcertbyte := handlePemCertBlanks(drkcertbyte2)
+	drkcertbyte := restorePemCert(drkcertbyte1)
 	drkcertBlock, _ := pem.Decode(drkcertbyte)
 	drkcert, err = x509.ParseCertificate(drkcertBlock.Bytes)
 	if err != nil {
