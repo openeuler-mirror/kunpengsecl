@@ -7,17 +7,19 @@ ETCTAR = /etc/attestation
 SHARETAR = /usr/share/attestation
 DOCTAR = /usr/share/doc/attestation
 BINTAR = /usr/bin
-TESTEES=./cache ./clientapi ./config ./trustmgr ./restapi/rim ./kcms/kcmstools ./kcms/kdb
+TESTEES= ./cache ./clientapi ./config ./trustmgr ./restapi/rim ./kcms/kcmstools ./kcms/kdb ./clientapi/client ./clientapi/server
 
 all: build
 
 test:
 	PWD=$(shell pwd); cd ../quick-scripts; sh ./clear-database.sh; cd $(PWD)
-	go test -count=1 $(TESTEES)
+	go test -count=1 -p 1 $(TESTEES)
 
 build:
 	go build -mod=vendor -o $(PKGPATH)/cache cache/*.go
-	go build -mod=vendor -o $(PKGPATH)/clientapi clientapi/*.go
+	go build -mod=vendor -o $(PKGPATH)/clientapi/clientapi clientapi/*.go
+	go build -mod=vendor -o $(PKGPATH)/clientapi/client clientapi/client/*.go
+	go build -mod=vendor -o $(PKGPATH)/clientapi/server clientapi/server/*.go
 	go build -mod=vendor -o $(PKGPATH)/config config/*.go
 	go build -mod=vendor -o $(PKGPATH)/trustmgr trustmgr/*.go
 	go build -mod=vendor -o $(PKGPATH)/kcms/kcmstools kcms/kcmstools/*.go
