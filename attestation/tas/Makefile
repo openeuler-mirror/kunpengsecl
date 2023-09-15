@@ -6,7 +6,7 @@ SHARETAR = /usr/share/attestation
 DOCTAR = /usr/share/doc/attestation
 SCRPATH = ../quick-scripts
 BINTAR = /usr/bin
-TASTEST=./akissuer ./clientapi ./config
+TASTEST=./akissuer ./clientapi ./config ./clientapi/server ./clientapi/client
 
 all: build
 
@@ -18,6 +18,8 @@ build:
 	go build -mod=vendor -o $(PKGPATH)/config config/*.go
 	go build -mod=vendor -o $(PKGPATH)/database database/*.go
 	go build -mod=vendor -o $(PKGPATH)/restapi restapi/*.go
+	go build -mod=vendor -o $(PKGPATH)/clientapi clientapi/client/*.go
+	go build -mod=vendor -o $(PKGPATH)/clientapi clientapi/server/*.go
 
 install: build
 	mkdir -p $(DESTDIR)$(ETCTAR)/tas $(DESTDIR)$(SHARETAR)/tas $(DESTDIR)$(DOCTAR)/tas $(DESTDIR)$(BINTAR)
@@ -30,7 +32,7 @@ install: build
 	install -m 644 $(TOPPATH)/LICENSE $(DESTDIR)$(DOCTAR)/tas
 
 test:
-	go test -count=1 $(TASTEST)
+	go test -count=1 -p 1 $(TASTEST)
 
 clean:
 	@rm -rf $(PKGPATH)
