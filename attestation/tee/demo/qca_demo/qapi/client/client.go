@@ -34,7 +34,7 @@ type (
 	}
 )
 
-func makesock(addr string) (*qcaConn, error) {
+func Makesock(addr string) (*qcaConn, error) {
 	qca := &qcaConn{}
 	// If the client is not connected to the server within 3 seconds, an error is returned!
 	qca.ctx, qca.cancel = context.WithTimeout(context.Background(), 60*time.Second)
@@ -50,7 +50,7 @@ func makesock(addr string) (*qcaConn, error) {
 
 // DoGetTeeReport using existing qca demo connection to get tee report.
 func DoGetTeeReport(addr string, in *qapi.GetReportRequest) (*qapi.GetReportReply, error) {
-	qca, err := makesock(addr)
+	qca, err := Makesock(addr)
 	if err != nil {
 		return nil, err
 	}

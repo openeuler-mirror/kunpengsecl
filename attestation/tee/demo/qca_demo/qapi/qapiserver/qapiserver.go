@@ -13,7 +13,7 @@ Create: 2022-04-20
 Description: An interface provided to attester, for server to use
 */
 
-package server
+package qapiserver
 
 import (
 	"context"

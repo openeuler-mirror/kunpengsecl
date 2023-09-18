@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi/server"
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi/qapiserver"
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 )
 
@@ -76,8 +76,8 @@ func TestAttester(t *testing.T) {
 	_ = t
 	createQcaConfigFile()
 	qcatools.LoadConfigs()
-	go server.StartServer()
-	defer server.StopServer()
+	go qapiserver.StartServer()
+	defer qapiserver.StopServer()
 	deleteConfigFile()
 
 	createAttesterConfigFile()
