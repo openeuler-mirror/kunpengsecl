@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi"
+	"gitee.com/openeuler/kunpengsecl/attestation/tas/clientapi/server"
 	"gitee.com/openeuler/kunpengsecl/attestation/tas/config"
 )
 
@@ -652,27 +652,27 @@ func TestGetAKCert(t *testing.T) {
 	defer removeFiles()
 
 	config.LoadConfigs()
-	server := config.GetServerPort()
+	tasServer := config.GetServerPort()
 
 	err := config.InitializeAS()
 	if err != nil {
 		t.Error(err)
 	}
 
-	go clientapi.StartServer(server)
-	defer clientapi.StopServer()
+	go server.StartServer(tasServer)
+	defer server.StopServer()
 
-	newCert, err := GetAKCert(server, bufferNoDAA, RA_SCENARIO_AS_NO_DAA)
+	newCert, err := GetAKCert(tasServer, bufferNoDAA, RA_SCENARIO_AS_NO_DAA)
 	if newCert == nil || err != nil {
 		t.Error(err)
 	}
 
-	newCert, err = GetAKCert(server, bufferDAA, RA_SCENARIO_AS_WITH_DAA)
+	newCert, err = GetAKCert(tasServer, bufferDAA, RA_SCENARIO_AS_WITH_DAA)
 	if newCert == nil || err != nil {
 		t.Error(err)
 	}
 
-	newCert, err = GetAKCert(server, badCert, NOT_SUPPORT_SCENARIO)
+	newCert, err = GetAKCert(tasServer, badCert, NOT_SUPPORT_SCENARIO)
 	if newCert != nil || err == nil {
 		t.Error("bad cert, should not get correct new cert")
 	}

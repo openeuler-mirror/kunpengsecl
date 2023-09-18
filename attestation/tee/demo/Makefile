@@ -1,10 +1,12 @@
 PKGPATH = pkg
 TOPPATH = ../../..
-TESTEES = ./attester_demo/cmd ./attester_demo/attestertools ./qca_demo/cmd ./qca_demo/qapi ./qca_demo/qcatools
+TESTEES = ./attester_demo/cmd ./attester_demo/attestertools ./qca_demo/cmd ./qca_demo/qapi ./qca_demo/qapi/client ./qca_demo/qapi/qapiserver ./qca_demo/qcatools
 ATTESTERPATH = ./attester_demo/cmd
 ATOOLSPATH = ./attester_demo/attestertools
 QCAPATH = ./qca_demo/cmd
 QAPIPATH = ./qca_demo/qapi
+CLIENTPATH=./qca_demo/qapi/client
+SERVERPATH=./qca_demo/qapi/qapiserver
 QTOOLSPATH = ./qca_demo/qcatools
 ETCTAR = /etc/attestation
 SHARETAR = /usr/share/attestation
@@ -20,7 +22,9 @@ build:
 	go build -mod=vendor -o $(PKGPATH)/attester $(ATTESTERPATH)/*.go
 	go build -mod=vendor -o $(PKGPATH)/atools $(ATOOLSPATH)/*.go
 	go build -mod=vendor -o $(PKGPATH)/qcaserver $(QCAPATH)/*.go
-	go build -mod=vendor -o $(PKGPATH)/qapi $(QAPIPATH)/*.go
+	go build -mod=vendor -o $(PKGPATH)/qapi/qapi $(QAPIPATH)/*.go
+	go build -mod=vendor -o $(PKGPATH)/qapi/client $(CLIENTPATH)/*.go
+	go build -mod=vendor -o $(PKGPATH)/qapi/qapiserver $(SERVERPATH)/*.go
 	go build -mod=vendor -o $(PKGPATH)/qtools $(QTOOLSPATH)/*.go
 
 install: build
