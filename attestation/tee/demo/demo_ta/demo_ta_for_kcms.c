@@ -39,8 +39,8 @@ TEE_UUID ktaUuid = {
 };
 uint32_t new_key_flag = 1;
 
-uint8_t account[MAX_STR_LEN] = "1234";
-uint8_t password[MAX_STR_LEN] = "5678";
+uint8_t account[MAX_STR_LEN] = "12345";
+uint8_t password[MAX_STR_LEN] = "67890";
 TEE_UUID masterkey = {
     0x4aeb3aa9, 0x7050, 0x4e40, { 0x97, 0x61, 0x3e, 0x42, 0xf0, 0x3f, 0x2c, 0x63 }
 };
