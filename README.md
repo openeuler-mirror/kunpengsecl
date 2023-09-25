@@ -164,10 +164,10 @@ TA所对应代码请使用ARM服务器提供的开发编译环境。
 
 同<a href="#使用说明">最小实现</a>。
 
->注：在有AK_Service环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问AK_Service以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有AK_Service签发的证书保存于本地，若成功读取证书，则无需访问AK_Service，若读取证书失败，则需要访问AK_Service，并将AK_Service返回的证书保存于本地。
+>注：在有TAS环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问TAS以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有TAS签发的证书保存于本地，若成功读取证书，则无需访问TAS，若读取证书失败，则需要访问TAS，并将TAS返回的证书保存于本地。
 
 #### DAA 场景
-**对于证明密钥服务端AK_Service的启用**
+**对于证明密钥服务端TAS的启用**
 
 要启用AKS服务，需要先为AKS配置好私钥。按如下命令修改家目录下的配置文件：
 ```bash
@@ -183,7 +183,7 @@ tasconfig:
   DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
   DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56
 ```
-之后再输入`tas`启动AK_Service程序。
+之后再输入`tas`启动TAS程序。
 
 **对于服务端QCA的启用**
 命令行输入`${DESTDIR}/usr/bin/qcaserver -C 2`以启动QCA。
@@ -192,7 +192,7 @@ tasconfig:
 
 同<a href="#使用说明">最小实现</a>。
 
->注：在有AK_Service环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问AK_Service以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有AK_Service签发的证书保存于本地，若成功读取证书，则无需访问AK_Service，若读取证书失败，则需要访问AK_Service，并将AK_Service返回的证书保存于本地。
+>注：在有TAS环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问TAS以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有TAS签发的证书保存于本地，若成功读取证书，则无需访问TAS，若读取证书失败，则需要访问TAS，并将TAS返回的证书保存于本地。
 
 目前，在AKS端，为支持管理员的远程控制，提供了以下接口可使用：
 ```
