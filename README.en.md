@@ -156,9 +156,9 @@ The relevant parameters are as follows:
 ### Independent realization
 
 #### No-DAA scenario
-**Enable the server-side AK_Service for attestation keys**
+**Enable the server-side TAS for attestation keys**
 
-Type `tas` on the command line to start AK_Service program.
+Type `tas` on the command line to start TAS program.
 The relevant parameters are as follows:
 ```
   -T, --token         generate a verification code for testing and exit
@@ -171,10 +171,10 @@ ENTER `${DESTDIR}/usr/bin/qcaserver -C 1` at the command line to start QCA.
 
 same as <a href="#Instruction for use">Minimal realization</a>。
 
->notes: In a AK_Service environment, in order to improve the efficiency of QCA configuration certificate, not every boot needs to access the AK_Service to generate the corresponding certificate, but through the localized storage of the certificate, that is, read the certification path configured in `config.yaml` on the QCA side, check whether a AK_Service-issued certificate has been saved locally through the `func hasAKCert(s int) bool` function, and if the certificate is successfully read, AK_Service If the certificate cannot be read, you need to access the AK_Service and save the certificate returned by the AK_Service locally.
+>notes: In a TAS environment, in order to improve the efficiency of QCA configuration certificate, not every boot needs to access the TAS to generate the corresponding certificate, but through the localized storage of the certificate, that is, read the certification path configured in `config.yaml` on the QCA side, check whether a TAS-issued certificate has been saved locally through the `func hasAKCert(s int) bool` function, and if the certificate is successfully read, TAS If the certificate cannot be read, you need to access the TAS and save the certificate returned by the TAS locally.
 
 #### DAA scenario
-**Enable the server-side AK_Service for attestation keys**
+**Enable the server-side TAS for attestation keys**
 
 To enable the AKS service, you must configure the private key for AKS. Run the following command to modify the configuration file in the home directory:
 ```bash
@@ -191,7 +191,7 @@ tasconfig:
   DAA_GRP_KEY_SK_X: 65A9BF91AC8832379FF04DD2C6DEF16D48A56BE244F6E19274E97881A776543C
   DAA_GRP_KEY_SK_Y: 126F74258BB0CECA2AE7522C51825F980549EC1EF24F81D189D17E38F1773B56
 ```
-Then enter `tas` to start AK_Service program.
+Then enter `tas` to start TAS program.
 
 **Enable QCA for the server**
 The command line enters `${DESTDIR}/usr/bin/qcaserver -C 2` to start QCA.
@@ -200,7 +200,7 @@ The command line enters `${DESTDIR}/usr/bin/qcaserver -C 2` to start QCA.
 
 same as <a href="#Instruction for use">Minimal realization</a>。
 
->notes: In a AK_Service environment, in order to improve the efficiency of QCA configuration certificate, not every boot needs to access the AK_Service to generate the corresponding certificate, but through the localized storage of the certificate, that is, read the certification path configured in `config.yaml` on the QCA side, check whether a AK_Service-issued certificate has been saved locally through the `func hasAKCert(s int) bool` function, and if the certificate is successfully read, AK_Service If the certificate cannot be read, you need to access the AK_Service and save the certificate returned by the AK_Service locally.
+>notes: In a TAS environment, in order to improve the efficiency of QCA configuration certificate, not every boot needs to access the TAS to generate the corresponding certificate, but through the localized storage of the certificate, that is, read the certification path configured in `config.yaml` on the QCA side, check whether a TAS-issued certificate has been saved locally through the `func hasAKCert(s int) bool` function. If the certificate is successfully read, there is no need to access TAS. If the certificate cannot be read, you need to access TAS and save the certificate returned by the TAS locally.
 
 Currently, on the AKS side, the following interfaces are provided to support remote control by administrators:
 ```
