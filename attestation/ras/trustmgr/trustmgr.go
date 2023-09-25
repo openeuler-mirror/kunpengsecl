@@ -943,6 +943,7 @@ func checkQuote(c *cache.Cache, report *typdefs.TrustReport, row *typdefs.Report
 	return true, nil
 }
 
+// pcrLogToMap convert pcrlog to map
 func pcrLogToMap(pcrLog []byte) map[int]string {
 	m := make(map[int]string, typdefs.PcrMaxNum)
 	lines := bytes.Split(pcrLog, typdefs.NewLine)
