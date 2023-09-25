@@ -197,6 +197,7 @@ func CreateTrustManager(dbType, dbConfig string) {
 	createStorePipe(dbType, dbConfig)
 }
 
+// initTaBases initialize TaBases of client(cid) in cache
 func initTaBases(c *cache.Cache, cid int64) {
 	bases, err := FindTaBaseValuesByCid(cid)
 	if err != nil {
