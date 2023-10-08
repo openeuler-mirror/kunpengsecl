@@ -799,7 +799,7 @@ TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]) {
     regTa = cache.ta[targetTaIndex];
     keyIndex = regTa.head;
     while (keyIndex != END_NULL && !checkUuid(n->keyId ,regTa.key[keyIndex].id)) {
-        keyIndex = regTa.key[keyIndex].next; //move to next one
+        keyIndex = regTa.key[keyIndex].next;
     }
     if(keyIndex == END_NULL){
         tloge("target key not found");
