@@ -20,11 +20,13 @@ See the Mulan PSL v2 for more details.
 #define VALUE_INIT 0x7fffffff
 #define TIMEOUT 0x00000BB8
 
+// Define a UUID for the trusted application
 static const TEE_UUID ktauuid = {0x435dcafa, 0x0029, 0x4d53, {0x97, 0xe8, 0xa7, 0xa1, 0x3a, 0x80, 0xc8, 0x2e}};
 
 static const uint32_t session_param_type = TEE_PARAM_TYPES(TEE_PARAM_TYPE_NONE,
         TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);
-
+        
+// Function to copy data into a CmdNode structure
 void cmd_copy(CmdNode *cmdnode, TEE_UUID *uuid, uint8_t *account, uint8_t *password,
         TEE_UUID *keyid, TEE_UUID *masterkey) {
     strncpy_s((char*)cmdnode->account, MAX_STR_LEN, (char*)account, strlen((char*)account));
