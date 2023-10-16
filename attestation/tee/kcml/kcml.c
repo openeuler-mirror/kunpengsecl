@@ -52,6 +52,8 @@ TEE_Result generate_key(TEE_UUID *uuid, uint8_t *account,
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("open ta session failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
+        TEE_CloseTASession(session);
         return ret;
     }
     cmd_copy(cmdnode, uuid, account, password, NULL, masterkey);
