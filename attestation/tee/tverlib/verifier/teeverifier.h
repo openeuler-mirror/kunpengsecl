@@ -40,7 +40,12 @@ enum error_status_code {
     TVS_VERIFIED_HASH_FAILED = -3,
 };
 
-int tee_verify_report(buffer_data *data_buf, buffer_data *nonce, int type, char *filename);
+typedef struct {
+    buffer_data id;
+    buffer_data type;
+} container_info;
+
+int tee_verify_report(buffer_data *data_buf, buffer_data *nonce, container_info *info, int type, char *filename);
 int tee_validate_report(buffer_data *buf_data, buffer_data *nonce);
 int tee_verify_report2(buffer_data *buf_data, int type, base_value *baseval);
 int tee_validate_report2(buffer_data *buf_data, buffer_data *nonce);
