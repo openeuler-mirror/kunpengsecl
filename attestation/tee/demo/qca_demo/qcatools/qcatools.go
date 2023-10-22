@@ -289,13 +289,18 @@ func adapt2TAUUID(uuid []byte) {
 }
 
 type (
+	ContainerInfo struct {
+		Id   string `json:"id,omitempty"`
+		Type string `json:"type,omitempty"`
+	}
 	reportInPl struct {
-		Version  string  `json:"version,omitempty"`  // VERSION_TYPE
-		Nonce    string  `json:"nonce,omitempty"`    // BASE64_TYPE
-		Uuid     string  `json:"uuid,omitempty"`     // 待证明的TA UUID的hex字符串描述，字母小写，如"e08f7eca-e875-440e-9ab0-5f381136c600"
-		Hash_alg string  `json:"hash_alg,omitempty"` // HASH_ALG_TYPE
-		With_tcb bool    `json:"with_tcb,omitempty"` // BOOLEAN_TYPE, 当前只能是 “FALSE”
-		Daa_bsn  *string `json:"daa_bsn,omitempty"`  // BASE64_TYPE, BASE64 of DAA用户挑选出来的basename
+		Version  string         `json:"version,omitempty"`  // VERSION_TYPE
+		Nonce    string         `json:"nonce,omitempty"`    // BASE64_TYPE
+		Uuid     string         `json:"uuid,omitempty"`     // 待证明的TA UUID的hex字符串描述，字母小写，如"e08f7eca-e875-440e-9ab0-5f381136c600"
+		Hash_alg string         `json:"hash_alg,omitempty"` // HASH_ALG_TYPE
+		With_tcb bool           `json:"with_tcb,omitempty"` // BOOLEAN_TYPE, 当前只能是 “FALSE”
+		Daa_bsn  *string        `json:"daa_bsn,omitempty"`  // BASE64_TYPE, BASE64 of DAA用户挑选出来的basename
+		Info     *ContainerInfo `json:"container_info,omitempty"`
 	}
 	reportInParam struct {
 		Handler string     `json:"handler,omitempty"`
@@ -304,7 +309,7 @@ type (
 )
 
 // GetTAReport gets TA trusted report information.
-func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte, error) {
+func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *ContainerInfo) ([]byte, error) {
 	n := base64.RawURLEncoding.EncodeToString(usr_data)
 	id, err := uuid.FromBytes(ta_uuid)
 	if err != nil {
@@ -320,6 +325,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte, error)
 		Hash_alg: RA_HASH_ALG_SHA256,
 		With_tcb: with_tcb, // false
 		Daa_bsn:  nil,      // line73 only support basename = NULL now
+		Info:     info,
 	}
 	inparam := reportInParam{
 		Handler: RAReportInHandler,

@@ -26,8 +26,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 	"unsafe"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
@@ -63,6 +65,12 @@ const (
 	lflagTest = "test"
 	sflagTest = "T"
 	helpTest  = "set a fixed nonce value for test"
+	// container info
+	sflagConId   = "id"
+	helpConId    = "specify the container id where ta running"
+	sflagConType = "type"
+	helpConType  = "specify the container type where ta running"
+
 	// app name
 	appAttester = "attester"
 	// ConfName means config file name
@@ -81,7 +89,9 @@ const (
 	// Mspolicy means attesterconfig mspolicy
 	Mspolicy = "attesterconfig.mspolicy"
 	// Uuid means attesterconfig uuid
-	Uuid = "attesterconfig.uuid"
+	Uuid       = "attesterconfig.uuid"
+	ConIdKey   = "attesterconfig.container.id"
+	ConTypeKey = "attesterconfig.container.type"
 )
 
 type (
@@ -91,12 +101,16 @@ type (
 		usrdata []byte
 		report  []byte
 		withtcb bool
+		conId   string
+		conType string
 	}
 	attesterConfig struct {
 		server    string
 		basevalue string
 		mspolicy  int
 		uuid      string
+		conId     string
+		conType   string
 	}
 )
 
@@ -108,6 +122,8 @@ var (
 		usrdata: []byte{},
 		report:  []byte{},
 		withtcb: false,
+		conId:   "",
+		conType: "",
 	}
 	verify_result int = 1
 	defaultPaths      = []string{
@@ -126,10 +142,12 @@ var (
 	// UuidFlag means uuid flag
 	UuidFlag *string = nil
 	// TestFlag means test flag
-	TestFlag     *bool           = nil
+	TestFlag *bool = nil
+	// Container Flag
+	ConIdFlag   *string = nil
+	ConTypeFlag *string = nil
+
 	attesterConf *attesterConfig = nil
-	up_rep_buf   unsafe.Pointer
-	up_non_buf   unsafe.Pointer
 )
 
 // InitFlags inits the server command flags.
@@ -141,6 +159,8 @@ func InitFlags() {
 	MspolicyFlag = pflag.IntP(lflagMeasure, sflagMeasure, -1, helpMeasure)
 	UuidFlag = pflag.StringP(lflagUuid, sflagUuid, "", helpUuid)
 	TestFlag = pflag.BoolP(lflagTest, sflagTest, false, helpTest)
+	ConIdFlag = pflag.String(sflagConId, "", helpConId)
+	ConTypeFlag = pflag.String(sflagConType, "", helpConType)
 	pflag.Parse()
 }
 
@@ -165,6 +185,8 @@ func LoadConfigs() {
 	attesterConf.basevalue = viper.GetString(Basevalue)
 	attesterConf.mspolicy = viper.GetInt(Mspolicy)
 	attesterConf.uuid = viper.GetString(Uuid)
+	attesterConf.conId = viper.GetString(ConIdKey)
+	attesterConf.conType = viper.GetString(ConTypeKey)
 }
 
 // HandleFlags handles the command flags.
@@ -190,6 +212,14 @@ func HandleFlags() {
 		attesterConf.uuid = *UuidFlag
 		log.Printf("TEE Uuid: %s", attesterConf.uuid) // just for test!
 	}
+	if ConIdFlag != nil && *ConIdFlag != "" {
+		attesterConf.conId = *ConIdFlag
+		log.Printf("TEE container id: %s", attesterConf.conId) // just for test!
+	}
+	if ConTypeFlag != nil && *ConTypeFlag != "" {
+		attesterConf.conType = *ConTypeFlag
+		log.Printf("TEE container type: %s", attesterConf.conType) // just for test!
+	}
 	if TestFlag != nil && *TestFlag {
 		testmode = true
 		// var s_nonce string = "challenge" // 换成获取到的nonce（不是string，要先base64解码）
@@ -210,9 +240,10 @@ func StartAttester() {
 	test_ta, err := iniTAParameter(test_ta, testmode)
 	if err != nil {
 		log.Printf("Init TA parameter failed! %v", err)
+		return
 	}
 	test_ta.report = getReport(test_ta)
-	verify_result = tee_verify(test_ta.report, test_ta.usrdata, attesterConf.mspolicy, attesterConf.basevalue)
+	verify_result = tee_verify(test_ta, attesterConf.mspolicy, attesterConf.basevalue)
 	switch verify_result {
 	case 0:
 		log.Print("tee verify succeeded!")
@@ -227,40 +258,81 @@ func StartAttester() {
 	log.Print("Stop Attester......")
 }
 
+func chenckContainerInfo(id, ctype string) error {
+	// no container info input is valid
+	if id == "" && ctype == "" {
+		return nil
+	}
+
+	if id == "" || ctype == "" {
+		return fmt.Errorf("id or type lacked")
+	}
+	switch strings.ToLower(ctype) {
+	case "docker":
+		if len(id) != 64 {
+			return fmt.Errorf("invalid id length %d", len(id))
+		}
+	default:
+		return fmt.Errorf("not supported container type")
+	}
+	return nil
+}
+
 // iniTAParameter initializes the parameters of TA
 func iniTAParameter(ta *trustApp, m bool) (*trustApp, error) {
 	id, err := uuid.Parse(attesterConf.uuid)
 	if err != nil {
-		return test_ta, err
+		return nil, err
 	}
 	ta.uuid, err = id.MarshalBinary()
 	if err != nil {
-		return test_ta, err
+		return nil, err
 	}
 	// create nonce value to defend against replay attacks
 	if !m {
 		nonce := make([]byte, 64)
 		_, err = rand.Read(nonce)
 		if err != nil {
-			return test_ta, err
+			return nil, err
 		}
 		ta.usrdata = nonce
 	}
+
+	err = chenckContainerInfo(attesterConf.conId, attesterConf.conType)
+	if err != nil {
+		return nil, err
+	}
+	ta.conId = attesterConf.conId
+	ta.conType = attesterConf.conType
 	return ta, nil
 }
 
 // remote invoke qca api to get the TA's info
 func getReport(ta *trustApp) []byte {
+	if ta == nil {
+		log.Printf("invalid input ta")
+		return nil
+	}
+
+	var info *qapi.GetReportRequest_ContainerInfo
+	if ta.conId != "" || ta.conType != "" {
+		info = &qapi.GetReportRequest_ContainerInfo{
+			Id:   ta.conId,
+			Type: ta.conType,
+		}
+	}
+
 	reqID := qapi.GetReportRequest{
 		Uuid:    ta.uuid,
 		Nonce:   ta.usrdata,
 		WithTcb: ta.withtcb,
+		Info:    info,
 	}
 
 	rpyID, err := qapi.DoGetTeeReport(attesterConf.server, &reqID)
 	if err != nil {
 		log.Printf("Get TA infomation failed, error: %v", err)
-		return ta.report
+		return nil
 	}
 	log.Print("Get TA report succeeded!")
 	ta.report = rpyID.GetTeeReport()
@@ -268,19 +340,37 @@ func getReport(ta *trustApp) []byte {
 }
 
 // invoke verifier lib to verify
-func tee_verify(rep []byte, nonce []byte, mtype int, bv string) int {
+// int tee_verify_report(buffer_data *data_buf, buffer_data *nonce, container_info *info, int type, char *filename);
+func tee_verify(ta *trustApp, mtype int, bv string) int {
+	// construct C data_buf
 	var crep C.buffer_data
+	crepByte := C.CBytes(ta.report)
+	defer C.free(crepByte)
+	crep.buf, crep.size = (*C.uchar)(crepByte), C.__uint32_t(len(ta.report))
+
+	// construct C nonce
 	var cnonce C.buffer_data
+	cnonByte := C.CBytes(ta.usrdata)
+	defer C.free(cnonByte)
+	cnonce.buf, cnonce.size = (*C.uchar)(cnonByte), C.__uint32_t(len(ta.usrdata))
+
+	// construct C info
+	var cinfo *C.container_info = nil
+	if ta.conId != "" && ta.conType != "" {
+		var tmpInfo C.container_info
+		cid := C.CString(ta.conId)
+		defer C.free(unsafe.Pointer(cid))
+		ctype := C.CString(ta.conType)
+		defer C.free(unsafe.Pointer(ctype))
+		tmpInfo.id.buf, tmpInfo.id.size = (*C.uchar)(cid), C.__uint32_t(len(ta.conId))
+		tmpInfo._type.buf, tmpInfo._type.size = (*C.uchar)(ctype), C.__uint32_t(len(ta.conType))
+		cinfo = &tmpInfo
+	}
+
+	// construct C filename
 	cbv := C.CString(bv)
 	defer C.free(unsafe.Pointer(cbv))
-	crep.size = C.__uint32_t(len(rep))
-	up_rep_buf = C.CBytes(rep)
-	defer C.free(up_rep_buf)
-	crep.buf = (*C.uchar)(up_rep_buf)
-	cnonce.size = C.__uint32_t(len(nonce))
-	up_non_buf = C.CBytes(nonce)
-	defer C.free(up_non_buf)
-	cnonce.buf = (*C.uchar)(up_non_buf)
-	result := C.tee_verify_report(&crep, &cnonce, C.int(mtype), cbv)
+
+	result := C.tee_verify_report(&crep, &cnonce, cinfo, C.int(mtype), cbv)
 	return int(result)
 }

@@ -10,6 +10,11 @@ message GetReportRequest {
     bytes uuid = 1;
     bytes nonce = 2;
     bool with_tcb = 3;
+    message ContainerInfo {
+        string id = 1;
+        string type = 2;
+    }
+    ContainerInfo info = 4;
 }
 
 message GetReportReply {

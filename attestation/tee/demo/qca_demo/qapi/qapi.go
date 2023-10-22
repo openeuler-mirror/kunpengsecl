@@ -58,12 +58,26 @@ var (
 	srv   *grpc.Server = nil
 )
 
+func getContainerInfo(in *GetReportRequest) *qcatools.ContainerInfo {
+	info := in.GetInfo()
+	if info == nil {
+		return nil
+	}
+
+	return &qcatools.ContainerInfo{
+		Id:   info.GetId(),
+		Type: info.GetType(),
+	}
+}
+
 // GetReport gets report from report request.
 func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
 	countConnections()
 	_ = ctx // ignore the unused warning
 	Usrdata := in.GetNonce()
-	rep, err := qcatools.GetTAReport(in.GetUuid(), Usrdata, in.WithTcb)
+	info := getContainerInfo(in)
+
+	rep, err := qcatools.GetTAReport(in.GetUuid(), Usrdata, in.WithTcb, info)
 	if err != nil {
 		log.Print("Get TA Report failed!")
 		return nil, err
