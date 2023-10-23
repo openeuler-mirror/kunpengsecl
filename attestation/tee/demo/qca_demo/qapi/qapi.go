@@ -18,6 +18,7 @@ package qapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -60,7 +61,7 @@ var (
 
 func getContainerInfo(in *GetReportRequest) *qcatools.ContainerInfo {
 	info := in.GetInfo()
-	if info == nil {
+	if info == nil || (info.GetId() == "" && info.GetType() == "") {
 		return nil
 	}
 
@@ -74,6 +75,9 @@ func getContainerInfo(in *GetReportRequest) *qcatools.ContainerInfo {
 func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
 	countConnections()
 	_ = ctx // ignore the unused warning
+	if in == nil {
+		return nil, fmt.Errorf("invalid request input")
+	}
 	Usrdata := in.GetNonce()
 	info := getContainerInfo(in)
 
@@ -105,10 +109,15 @@ func StartServer() {
 		createAKCert(qcatools.Qcacfg.Scenario)
 	}
 
+	if qcatools.Qcacfg.VirtSupport {
+		go qcatools.StartQcaDaemonServer(qcatools.VirtServer)
+		go qcatools.CheckConnAlive(qcatools.VirtHealthChk)
+	}
+
 	if err = srv.Serve(listen); err != nil {
 		log.Fatalf("Server: fail to serve %v", err)
 	}
-
+	qcatools.Done <- true
 	log.Print("Stop Server......")
 }
 

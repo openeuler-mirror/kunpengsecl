@@ -16,7 +16,7 @@ Description: invoke qca lib to get info of given TA
 package qcatools
 
 /*
-#cgo CFLAGS: -I../../../tverlib/simulator
+#cgo CFLAGS: -I../../../tverlib/simulator -I../../../../rac/ka/teesimulator
 #cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lqca -lteec
 #include "teeqca.h"
 #include <string.h>
@@ -94,8 +94,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 	"unsafe"
 
 	"github.com/google/uuid"
@@ -122,6 +124,9 @@ const (
 	NoDaaACFile = "qcaconfig.nodaaacfile"
 	// DaaACFile means qcaconfig daaacfile
 	DaaACFile = "qcaconfig.daaacfile"
+	// virtual server to support virtual remote attest
+	VirtServer    = "qcaconfig.virtual.server"
+	VirtHealthChk = "qcaconfig.virtual.healthcheck"
 	/*** cmd flags ***/
 	// server open ip:port
 	lflagServer = "server"
@@ -131,6 +136,13 @@ const (
 	lflagScenario = "scenario"
 	sflagScenario = "C"
 	helpScenario  = "set the app usage scenario"
+	// specify virtual server to support virtual remote attest
+	lflagVirtSupport = "virtual"
+	sflagVirtSupport = "V"
+	helpVirtSupport  = "is support remote attest"
+	lflagVirtServer  = "virtualserver"
+	sflagVirtServer  = "A"
+	helpVirtServer   = "virtual server addr"
 	// RemoteAttest Handler
 	RAProvisionInHandler  = "provisioning-input"
 	RAProvisionOutHandler = "provisioning-output"
@@ -196,11 +208,14 @@ type (
 		Buf  []uint8
 	}
 	qcaConfig struct {
-		Server      string
-		AKServer    string
-		Scenario    int32
-		NoDaaACFile string
-		DaaACFile   string
+		Server        string
+		AKServer      string
+		Scenario      int32
+		NoDaaACFile   string
+		DaaACFile     string
+		VirtSupport   bool
+		VirtServer    string
+		VirtHealthChk uint32
 	}
 )
 
@@ -216,7 +231,9 @@ var (
 	// ServerFlag means server flag
 	ServerFlag *string = nil
 	// ScenarioFlag means scenario flag
-	ScenarioFlag *int32 = nil
+	ScenarioFlag    *int32  = nil
+	VirtSupportFlag *bool   = nil
+	VirtServerFlag  *string = nil
 )
 
 // InitFlags inits the qca server command flags.
@@ -224,6 +241,8 @@ func InitFlags() {
 	log.Print("Init qca flags......")
 	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
 	ScenarioFlag = pflag.Int32P(lflagScenario, sflagScenario, 0, helpScenario)
+	VirtSupportFlag = pflag.BoolP(lflagVirtSupport, sflagVirtSupport, false, helpVirtSupport)
+	VirtServerFlag = pflag.StringP(lflagVirtServer, sflagVirtServer, "", helpVirtServer)
 	pflag.Parse()
 }
 
@@ -249,6 +268,8 @@ func LoadConfigs() {
 	Qcacfg.Scenario = viper.GetInt32(Scenario)
 	Qcacfg.NoDaaACFile = viper.GetString(NoDaaACFile)
 	Qcacfg.DaaACFile = viper.GetString(DaaACFile)
+	Qcacfg.VirtServer = viper.GetString(VirtServer)
+	Qcacfg.VirtHealthChk = viper.GetInt32(VirtHealthChk)
 }
 
 // HandleFlags handles the command flags.
@@ -260,6 +281,13 @@ func HandleFlags() {
 	}
 	if ScenarioFlag != nil && *ScenarioFlag != 0 {
 		Qcacfg.Scenario = *ScenarioFlag
+	}
+
+	if VirtSupportFlag != nil {
+		Qcacfg.VirtSupport = *VirtSupportFlag
+	}
+	if VirtServerFlag != nil && *VirtServerFlag != "" {
+		Qcacfg.VirtServer = *VirtServerFlag
 	}
 }
 
@@ -308,6 +336,32 @@ type (
 	}
 )
 
+func forwardReportReq(inparam []byte, out_len uint32, info *ContainerInfo) ([]byte, error) {
+	var report []byte
+	var err error
+	switch {
+	// host request
+	case info == nil || (info.Id == "" && info.Type == ""):
+		report, err = CallCRemoteAttest(inparam, out_len)
+		if err != nil {
+			log.Printf("Get host ta report failed, %v", err)
+			return nil, err
+		}
+	// docker request
+	case strings.ToLower(info.Type) == "docker":
+		report, err = dealDockerTAReq(info.Id, inparam)
+		if err != nil {
+			log.Printf("Get docker ta report failed, %v", err)
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("not support container type %v", info.Type)
+	}
+
+	log.Print("Generate TA report succeeded!")
+	return report, nil
+}
+
 // GetTAReport gets TA trusted report information.
 func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *ContainerInfo) ([]byte, error) {
 	n := base64.RawURLEncoding.EncodeToString(usr_data)
@@ -336,26 +390,8 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *Container
 		log.Printf("Encode GetTAReport json message error, %v", err)
 		return nil, err
 	}
-	/*** format conversion: Go -> C ***/
-	// in parameter conversion
-	c_in := C.struct_ra_buffer_data{}
-	c_in.size = C.__uint32_t(len(inparamjson))
-	up_c_in := C.CBytes(inparamjson)
-	c_in.buf = (*C.uchar)(up_c_in)
-	defer C.free(up_c_in)
 
-	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
-	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
-
-	teec_result := C.RemoteAttest(&c_in, &c_out)
-	if int(teec_result) != 0 {
-		return nil, errors.New("Invoke remoteAttest failed, Get TA report failed")
-	}
-	log.Print("Generate TA report succeeded!")
-	report := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
-
-	return report, nil
+	return forwardReportReq(inparamjson, 0x3000, info)
 }
 
 /*

@@ -6,7 +6,7 @@ DOCTAR = /usr/share/doc/attestation
 all build: build-libqca build-libteec
 
 build-libqca: teeqca.c teeqca.h
-	gcc -fPIC -shared -o libqca.so teeqca.c -lcjson
+	gcc -fPIC -shared -o libqca.so teeqca.c -lcjson -I../../../rac/ka/teesimulator
 
 build-libteec: teec.c
 	gcc -fPIC -shared -o libteec.so teec.c
