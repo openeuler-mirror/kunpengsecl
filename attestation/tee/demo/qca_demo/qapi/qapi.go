@@ -59,13 +59,13 @@ var (
 	srv   *grpc.Server = nil
 )
 
-func getContainerInfo(in *GetReportRequest) *qcatools.ContainerInfo {
+func getVirtualGuestInfo(in *GetReportRequest) *qcatools.VirtualGuestInfo {
 	info := in.GetInfo()
 	if info == nil || (info.GetId() == "" && info.GetType() == "") {
 		return nil
 	}
 
-	return &qcatools.ContainerInfo{
+	return &qcatools.VirtualGuestInfo{
 		Id:   info.GetId(),
 		Type: info.GetType(),
 	}
@@ -79,7 +79,7 @@ func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetRepo
 		return nil, fmt.Errorf("invalid request input")
 	}
 	Usrdata := in.GetNonce()
-	info := getContainerInfo(in)
+	info := getVirtualGuestInfo(in)
 
 	rep, err := qcatools.GetTAReport(in.GetUuid(), Usrdata, in.WithTcb, info)
 	if err != nil {
@@ -110,8 +110,8 @@ func StartServer() {
 	}
 
 	if qcatools.Qcacfg.VirtSupport {
-		go qcatools.StartQcaDaemonServer(qcatools.VirtServer)
-		go qcatools.CheckConnAlive(qcatools.VirtHealthChk)
+		go qcatools.StartQcaDaemonServer(qcatools.Qcacfg.VirtServer)
+		go qcatools.CheckConnAlive(qcatools.Qcacfg.VirtHealthChk)
 	}
 
 	if err = srv.Serve(listen); err != nil {

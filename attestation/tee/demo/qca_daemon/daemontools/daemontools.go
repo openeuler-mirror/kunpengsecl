@@ -45,7 +45,7 @@ func init() {
 }
 
 func InitFlags() {
-	HostServer = pflag.stringP("hostserver", "H", "", "host server addr ip:port")
+	HostServer = pflag.StringP("hostserver", "H", "", "host server addr ip:port")
 	pflag.Parse()
 }
 
@@ -91,7 +91,7 @@ func getSelfKvmId() (string, error) {
 	return hex.EncodeToString(uuid[:]), nil
 }
 
-func GetVirtualClientInfo() (*qcatools.ClientInfo, error) {
+func GetVirtualClientInfo() (*qcatools.VirtualGuestInfo, error) {
 	con, err := readFirstLine(DMI_PRODUCT_NAME)
 	if err != nil {
 		return nil, fmt.Errorf("read kvm name failed, %v", err)
@@ -103,7 +103,7 @@ func GetVirtualClientInfo() (*qcatools.ClientInfo, error) {
 		if err != nil {
 			return nil, fmt.Errorf("get kvm id failed, %v", err)
 		}
-		return &qcatools.ClientInfo{
+		return &qcatools.VirtualGuestInfo{
 			Id:   id,
 			Type: "kvm",
 		}, nil
@@ -111,7 +111,7 @@ func GetVirtualClientInfo() (*qcatools.ClientInfo, error) {
 
 	dockerId, err := getSelfDockerId()
 	if err == nil {
-		return &qcatools.ClientInfo{
+		return &qcatools.VirtualGuestInfo{
 			Id:   dockerId,
 			Type: "docker",
 		}, nil
@@ -120,7 +120,7 @@ func GetVirtualClientInfo() (*qcatools.ClientInfo, error) {
 	return nil, err
 }
 
-func StartClientConn(saddr string, info *qcatools.ClientInfo) {
+func StartClientConn(saddr string, info *qcatools.VirtualGuestInfo) {
 	conn, err := net.Dial("tcp", saddr)
 	if err != nil {
 		log.Fatalf("connect to server %v failed, %v\n", saddr, err)
@@ -131,20 +131,27 @@ func StartClientConn(saddr string, info *qcatools.ClientInfo) {
 	if err = qcatools.SendData(conn, info, qcatools.RET_SUCCESS); err != nil {
 		log.Fatalf("send register info to ra_server failed, %v", err)
 	}
-	log.Printf("register client info success\n", saddr)
+
+	var ret []byte
+	if err = qcatools.RecvData(conn, &ret); err != nil {
+		log.Fatalf("read register reply failed, %v", err)
+	}
+	log.Printf("register client info success\n")
 
 	var retVal int
 	for {
 		reportIn := []byte{}
-		if err = qcatools.RecvData(conn, reportIn); err != nil {
+		if err = qcatools.RecvData(conn, &reportIn); err != nil {
 			log.Fatalf("read ra_server forward req data failed, %v", err)
 		}
+		log.Println("get host forward report request")
 
 		retVal = qcatools.RET_SUCCESS
 		report, err := qcatools.CallCRemoteAttest(reportIn, qcatools.MAX_OUTBUF_SIZE)
 		if err != nil {
 			log.Printf("get report from libqca-report failed, %v", err)
 			retVal = qcatools.RET_CALLCERR
+			report = []byte("get report by qta_report failed")
 		}
 
 		if err = qcatools.SendData(conn, report, retVal); err != nil {

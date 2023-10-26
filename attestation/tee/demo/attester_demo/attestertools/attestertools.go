@@ -66,10 +66,10 @@ const (
 	sflagTest = "T"
 	helpTest  = "set a fixed nonce value for test"
 	// container info
-	sflagConId   = "id"
-	helpConId    = "specify the container id where ta running"
-	sflagConType = "type"
-	helpConType  = "specify the container type where ta running"
+	sflagVirtGuestId   = "id"
+	helpVirtGuestId    = "specify the virtual guest id where ta running"
+	sflagVirtGuestType = "type"
+	helpVirtGuestType  = "specify the virtual guest type where ta running"
 
 	// app name
 	appAttester = "attester"
@@ -89,41 +89,41 @@ const (
 	// Mspolicy means attesterconfig mspolicy
 	Mspolicy = "attesterconfig.mspolicy"
 	// Uuid means attesterconfig uuid
-	Uuid       = "attesterconfig.uuid"
-	ConIdKey   = "attesterconfig.container.id"
-	ConTypeKey = "attesterconfig.container.type"
+	Uuid             = "attesterconfig.uuid"
+	VirtGuestIdKey   = "attesterconfig.virtualguest.id"
+	VirtGuestTypeKey = "attesterconfig.virtualguest.type"
 )
 
 type (
 	trustApp struct {
-		ctx     context.Context
-		uuid    []byte
-		usrdata []byte
-		report  []byte
-		withtcb bool
-		conId   string
-		conType string
+		ctx           context.Context
+		uuid          []byte
+		usrdata       []byte
+		report        []byte
+		withtcb       bool
+		VirtGuestId   string
+		VirtGuestType string
 	}
 	attesterConfig struct {
-		server    string
-		basevalue string
-		mspolicy  int
-		uuid      string
-		conId     string
-		conType   string
+		server        string
+		basevalue     string
+		mspolicy      int
+		uuid          string
+		VirtGuestId   string
+		VirtGuestType string
 	}
 )
 
 var (
 	testmode bool      = false
 	test_ta  *trustApp = &trustApp{
-		ctx:     context.Background(),
-		uuid:    []byte{},
-		usrdata: []byte{},
-		report:  []byte{},
-		withtcb: false,
-		conId:   "",
-		conType: "",
+		ctx:           context.Background(),
+		uuid:          []byte{},
+		usrdata:       []byte{},
+		report:        []byte{},
+		withtcb:       false,
+		VirtGuestId:   "",
+		VirtGuestType: "",
 	}
 	verify_result int = 1
 	defaultPaths      = []string{
@@ -144,8 +144,8 @@ var (
 	// TestFlag means test flag
 	TestFlag *bool = nil
 	// Container Flag
-	ConIdFlag   *string = nil
-	ConTypeFlag *string = nil
+	VirtGuestIdFlag   *string = nil
+	VirtGuestTypeFlag *string = nil
 
 	attesterConf *attesterConfig = nil
 )
@@ -159,8 +159,8 @@ func InitFlags() {
 	MspolicyFlag = pflag.IntP(lflagMeasure, sflagMeasure, -1, helpMeasure)
 	UuidFlag = pflag.StringP(lflagUuid, sflagUuid, "", helpUuid)
 	TestFlag = pflag.BoolP(lflagTest, sflagTest, false, helpTest)
-	ConIdFlag = pflag.String(sflagConId, "", helpConId)
-	ConTypeFlag = pflag.String(sflagConType, "", helpConType)
+	VirtGuestIdFlag = pflag.String(sflagVirtGuestId, "", helpVirtGuestId)
+	VirtGuestTypeFlag = pflag.String(sflagVirtGuestType, "", helpVirtGuestType)
 	pflag.Parse()
 }
 
@@ -185,8 +185,8 @@ func LoadConfigs() {
 	attesterConf.basevalue = viper.GetString(Basevalue)
 	attesterConf.mspolicy = viper.GetInt(Mspolicy)
 	attesterConf.uuid = viper.GetString(Uuid)
-	attesterConf.conId = viper.GetString(ConIdKey)
-	attesterConf.conType = viper.GetString(ConTypeKey)
+	attesterConf.VirtGuestId = viper.GetString(VirtGuestIdKey)
+	attesterConf.VirtGuestType = viper.GetString(VirtGuestTypeKey)
 }
 
 // HandleFlags handles the command flags.
@@ -212,13 +212,11 @@ func HandleFlags() {
 		attesterConf.uuid = *UuidFlag
 		log.Printf("TEE Uuid: %s", attesterConf.uuid) // just for test!
 	}
-	if ConIdFlag != nil && *ConIdFlag != "" {
-		attesterConf.conId = *ConIdFlag
-		log.Printf("TEE container id: %s", attesterConf.conId) // just for test!
+	if VirtGuestIdFlag != nil && *VirtGuestIdFlag != "" {
+		attesterConf.VirtGuestId = *VirtGuestIdFlag
 	}
-	if ConTypeFlag != nil && *ConTypeFlag != "" {
-		attesterConf.conType = *ConTypeFlag
-		log.Printf("TEE container type: %s", attesterConf.conType) // just for test!
+	if VirtGuestTypeFlag != nil && *VirtGuestTypeFlag != "" {
+		attesterConf.VirtGuestType = *VirtGuestTypeFlag
 	}
 	if TestFlag != nil && *TestFlag {
 		testmode = true
@@ -258,7 +256,7 @@ func StartAttester() {
 	log.Print("Stop Attester......")
 }
 
-func chenckContainerInfo(id, ctype string) error {
+func checkVirtGuestInfo(id, ctype string) error {
 	// no container info input is valid
 	if id == "" && ctype == "" {
 		return nil
@@ -298,12 +296,12 @@ func iniTAParameter(ta *trustApp, m bool) (*trustApp, error) {
 		ta.usrdata = nonce
 	}
 
-	err = chenckContainerInfo(attesterConf.conId, attesterConf.conType)
+	err = checkVirtGuestInfo(attesterConf.VirtGuestId, attesterConf.VirtGuestType)
 	if err != nil {
 		return nil, err
 	}
-	ta.conId = attesterConf.conId
-	ta.conType = attesterConf.conType
+	ta.VirtGuestId = attesterConf.VirtGuestId
+	ta.VirtGuestType = attesterConf.VirtGuestType
 	return ta, nil
 }
 
@@ -314,11 +312,11 @@ func getReport(ta *trustApp) []byte {
 		return nil
 	}
 
-	var info *qapi.GetReportRequest_ContainerInfo
-	if ta.conId != "" || ta.conType != "" {
-		info = &qapi.GetReportRequest_ContainerInfo{
-			Id:   ta.conId,
-			Type: ta.conType,
+	var info *qapi.GetReportRequest_VirtualGuestInfo
+	if ta.VirtGuestId != "" || ta.VirtGuestType != "" {
+		info = &qapi.GetReportRequest_VirtualGuestInfo{
+			Id:   ta.VirtGuestId,
+			Type: ta.VirtGuestType,
 		}
 	}
 
@@ -340,7 +338,6 @@ func getReport(ta *trustApp) []byte {
 }
 
 // invoke verifier lib to verify
-// int tee_verify_report(buffer_data *data_buf, buffer_data *nonce, container_info *info, int type, char *filename);
 func tee_verify(ta *trustApp, mtype int, bv string) int {
 	// construct C data_buf
 	var crep C.buffer_data
@@ -356,14 +353,14 @@ func tee_verify(ta *trustApp, mtype int, bv string) int {
 
 	// construct C info
 	var cinfo *C.container_info = nil
-	if ta.conId != "" && ta.conType != "" {
+	if ta.VirtGuestId != "" && ta.VirtGuestType != "" {
 		var tmpInfo C.container_info
-		cid := C.CString(ta.conId)
+		cid := C.CString(ta.VirtGuestId)
 		defer C.free(unsafe.Pointer(cid))
-		ctype := C.CString(ta.conType)
+		ctype := C.CString(ta.VirtGuestType)
 		defer C.free(unsafe.Pointer(ctype))
-		tmpInfo.id.buf, tmpInfo.id.size = (*C.uchar)(cid), C.__uint32_t(len(ta.conId))
-		tmpInfo._type.buf, tmpInfo._type.size = (*C.uchar)(ctype), C.__uint32_t(len(ta.conType))
+		tmpInfo.id.buf, tmpInfo.id.size = (*C.uchar)(cid), C.__uint32_t(len(ta.VirtGuestId))
+		tmpInfo._type.buf, tmpInfo._type.size = (*C.uchar)(ctype), C.__uint32_t(len(ta.VirtGuestType))
 		cinfo = &tmpInfo
 	}
 

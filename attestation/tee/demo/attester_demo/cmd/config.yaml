@@ -3,3 +3,6 @@ attesterconfig:
   basevalue: "./basevalue.txt"
   mspolicy: 2
   uuid: 435dcafa-0029-4d53-97e8-a7a13a80c82e
+  virtualguest:
+    id: xxxxx(64)
+    type: docker

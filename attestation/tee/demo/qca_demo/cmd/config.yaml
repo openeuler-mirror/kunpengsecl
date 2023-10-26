@@ -5,6 +5,6 @@ qcaconfig:
   nodaaacfile: ./nodaa-ac.crt
   daaacfile: ./daa-ac.crt
   virtual:
-    server: 0.0.0.0:90000
+    server: 0.0.0.0:9000
     healthcheck: 10  # minute, <0 no health check, max is 7 day
  

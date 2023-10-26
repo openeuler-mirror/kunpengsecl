@@ -16,7 +16,7 @@ Description: invoke qca lib to get info of given TA
 package qcatools
 
 /*
-#cgo CFLAGS: -I../../../tverlib/simulator -I../../../../rac/ka/teesimulator
+#cgo CFLAGS: -I../../../tverlib/simulator
 #cgo LDFLAGS: -L${SRCDIR}/../../../tverlib/simulator -lqca -lteec
 #include "teeqca.h"
 #include <string.h>
@@ -94,10 +94,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"os"
-	"strings"
 	"unsafe"
 
 	"github.com/google/uuid"
@@ -137,12 +135,15 @@ const (
 	sflagScenario = "C"
 	helpScenario  = "set the app usage scenario"
 	// specify virtual server to support virtual remote attest
-	lflagVirtSupport = "virtual"
-	sflagVirtSupport = "V"
-	helpVirtSupport  = "is support remote attest"
-	lflagVirtServer  = "virtualserver"
-	sflagVirtServer  = "A"
-	helpVirtServer   = "virtual server addr"
+	lflagVirtSupport   = "virtual"
+	sflagVirtSupport   = "V"
+	helpVirtSupport    = "is support remote attest"
+	lflagVirtServer    = "virtualserver"
+	sflagVirtServer    = "A"
+	helpVirtServer     = "virtual server addr"
+	lflagVirtHealthChk = "healthcheck"
+	sflagVirtHealthChk = "H"
+	helpVirtHealthChk  = "virtual connect health check"
 	// RemoteAttest Handler
 	RAProvisionInHandler  = "provisioning-input"
 	RAProvisionOutHandler = "provisioning-output"
@@ -215,7 +216,7 @@ type (
 		DaaACFile     string
 		VirtSupport   bool
 		VirtServer    string
-		VirtHealthChk uint32
+		VirtHealthChk int32
 	}
 )
 
@@ -231,9 +232,10 @@ var (
 	// ServerFlag means server flag
 	ServerFlag *string = nil
 	// ScenarioFlag means scenario flag
-	ScenarioFlag    *int32  = nil
-	VirtSupportFlag *bool   = nil
-	VirtServerFlag  *string = nil
+	ScenarioFlag      *int32  = nil
+	VirtSupportFlag   *bool   = nil
+	VirtServerFlag    *string = nil
+	VirtHealthChkFlag *int32  = nil
 )
 
 // InitFlags inits the qca server command flags.
@@ -243,6 +245,7 @@ func InitFlags() {
 	ScenarioFlag = pflag.Int32P(lflagScenario, sflagScenario, 0, helpScenario)
 	VirtSupportFlag = pflag.BoolP(lflagVirtSupport, sflagVirtSupport, false, helpVirtSupport)
 	VirtServerFlag = pflag.StringP(lflagVirtServer, sflagVirtServer, "", helpVirtServer)
+	VirtHealthChkFlag = pflag.Int32P(lflagVirtHealthChk, sflagVirtHealthChk, 0, helpVirtHealthChk)
 	pflag.Parse()
 }
 
@@ -289,6 +292,9 @@ func HandleFlags() {
 	if VirtServerFlag != nil && *VirtServerFlag != "" {
 		Qcacfg.VirtServer = *VirtServerFlag
 	}
+	if VirtHealthChkFlag != nil && *VirtHealthChkFlag > 0 {
+		Qcacfg.VirtHealthChk = *VirtHealthChkFlag
+	}
 }
 
 // GetQcaServer returns the qca service server configuration.
@@ -317,18 +323,18 @@ func adapt2TAUUID(uuid []byte) {
 }
 
 type (
-	ContainerInfo struct {
+	VirtualGuestInfo struct {
 		Id   string `json:"id,omitempty"`
 		Type string `json:"type,omitempty"`
 	}
 	reportInPl struct {
-		Version  string         `json:"version,omitempty"`  // VERSION_TYPE
-		Nonce    string         `json:"nonce,omitempty"`    // BASE64_TYPE
-		Uuid     string         `json:"uuid,omitempty"`     // 待证明的TA UUID的hex字符串描述，字母小写，如"e08f7eca-e875-440e-9ab0-5f381136c600"
-		Hash_alg string         `json:"hash_alg,omitempty"` // HASH_ALG_TYPE
-		With_tcb bool           `json:"with_tcb,omitempty"` // BOOLEAN_TYPE, 当前只能是 “FALSE”
-		Daa_bsn  *string        `json:"daa_bsn,omitempty"`  // BASE64_TYPE, BASE64 of DAA用户挑选出来的basename
-		Info     *ContainerInfo `json:"container_info,omitempty"`
+		Version  string            `json:"version,omitempty"`        // VERSION_TYPE
+		Nonce    string            `json:"nonce,omitempty"`          // BASE64_TYPE
+		Uuid     string            `json:"uuid,omitempty"`           // 待证明的TA UUID的hex字符串描述，字母小写，如"e08f7eca-e875-440e-9ab0-5f381136c600"
+		Hash_alg string            `json:"hash_alg,omitempty"`       // HASH_ALG_TYPE
+		With_tcb bool              `json:"with_tcb,omitempty"`       // BOOLEAN_TYPE, 当前只能是 “FALSE”
+		Daa_bsn  *string           `json:"daa_bsn,omitempty"`        // BASE64_TYPE, BASE64 of DAA用户挑选出来的basename
+		Info     *VirtualGuestInfo `json:"container_info,omitempty"` // 名字兼容tee里名字
 	}
 	reportInParam struct {
 		Handler string     `json:"handler,omitempty"`
@@ -336,26 +342,26 @@ type (
 	}
 )
 
-func forwardReportReq(inparam []byte, out_len uint32, info *ContainerInfo) ([]byte, error) {
+func forwardReportReq(inparam []byte, out_len uint32, info *VirtualGuestInfo) ([]byte, error) {
 	var report []byte
 	var err error
 	switch {
 	// host request
 	case info == nil || (info.Id == "" && info.Type == ""):
+		log.Println("Deal host TA report request")
 		report, err = CallCRemoteAttest(inparam, out_len)
 		if err != nil {
 			log.Printf("Get host ta report failed, %v", err)
 			return nil, err
 		}
-	// docker request
-	case strings.ToLower(info.Type) == "docker":
-		report, err = dealDockerTAReq(info.Id, inparam)
+	// virtual guest request
+	default:
+		log.Println("Deal virtaul guest TA report request")
+		report, err = dealVirtualTAReq(info, inparam)
 		if err != nil {
 			log.Printf("Get docker ta report failed, %v", err)
 			return nil, err
 		}
-	default:
-		return nil, fmt.Errorf("not support container type %v", info.Type)
 	}
 
 	log.Print("Generate TA report succeeded!")
@@ -363,7 +369,7 @@ func forwardReportReq(inparam []byte, out_len uint32, info *ContainerInfo) ([]by
 }
 
 // GetTAReport gets TA trusted report information.
-func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *ContainerInfo) ([]byte, error) {
+func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *VirtualGuestInfo) ([]byte, error) {
 	n := base64.RawURLEncoding.EncodeToString(usr_data)
 	id, err := uuid.FromBytes(ta_uuid)
 	if err != nil {
