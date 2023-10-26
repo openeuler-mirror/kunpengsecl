@@ -6,6 +6,7 @@ ATOOLSPATH = ./attester_demo/attestertools
 QCAPATH = ./qca_demo/cmd
 QAPIPATH = ./qca_demo/qapi
 QTOOLSPATH = ./qca_demo/qcatools
+QCADAEMONPATH =./qca_daemon/cmd
 ETCTAR = /etc/attestation
 SHARETAR = /usr/share/attestation
 DOCTAR = /usr/share/doc/attestation
@@ -22,6 +23,7 @@ build:
 	go build -mod=vendor -o $(PKGPATH)/qcaserver $(QCAPATH)/*.go
 	go build -mod=vendor -o $(PKGPATH)/qapi $(QAPIPATH)/*.go
 	go build -mod=vendor -o $(PKGPATH)/qtools $(QTOOLSPATH)/*.go
+	go build -mod=vendor -o $(PKGPATH)/qca_daemon $(QCADAEMONPATH)/*.go
 
 install: build
 	mkdir -p $(DESTDIR)$(ETCTAR)/attester $(DESTDIR)$(SHARETAR)/attester $(DESTDIR)$(DOCTAR)/attester $(DESTDIR)$(BINTAR)

@@ -67,8 +67,10 @@ const (
 	MAX_OUTBUF_SIZE  = 0x3000
 	MAX_REGBUF_SIZE  = 512
 	DOCKER_ID_LEN    = 64
-	RET_SUCCESS      = 0
 	MAX_HEALTH_CHECK = 7 * 24 * 60 // 7 day
+
+	RET_SUCCESS  = 0
+	RET_CALLCERR = 1
 )
 
 var (
