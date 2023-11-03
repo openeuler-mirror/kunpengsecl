@@ -26,6 +26,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -251,6 +252,8 @@ func StartAttester() {
 		log.Print("tee verify signature failed!")
 	case -3:
 		log.Print("tee verify hash failed!")
+	case -4:
+		log.Print("tee verify get other error!")
 	}
 
 	log.Print("Stop Attester......")
@@ -269,6 +272,10 @@ func checkVirtGuestInfo(id, ctype string) error {
 	case "docker":
 		if len(id) != 64 {
 			return fmt.Errorf("invalid id length %d", len(id))
+		}
+	case "kvm":
+		if len(id) != 36 {
+			return fmt.Errorf("invalid uuid length %d", len(id))
 		}
 	default:
 		return fmt.Errorf("not supported container type")
@@ -300,8 +307,8 @@ func iniTAParameter(ta *trustApp, m bool) (*trustApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	ta.VirtGuestId = attesterConf.VirtGuestId
-	ta.VirtGuestType = attesterConf.VirtGuestType
+	ta.VirtGuestId = strings.ToLower(attesterConf.VirtGuestId)
+	ta.VirtGuestType = strings.ToLower(attesterConf.VirtGuestType)
 	return ta, nil
 }
 
@@ -313,7 +320,7 @@ func getReport(ta *trustApp) []byte {
 	}
 
 	var info *qapi.GetReportRequest_VirtualGuestInfo
-	if ta.VirtGuestId != "" || ta.VirtGuestType != "" {
+	if ta.VirtGuestId != "" && ta.VirtGuestType != "" {
 		info = &qapi.GetReportRequest_VirtualGuestInfo{
 			Id:   ta.VirtGuestId,
 			Type: ta.VirtGuestType,
@@ -337,8 +344,29 @@ func getReport(ta *trustApp) []byte {
 	return ta.report
 }
 
+func adaptkvm(ta *trustApp) error {
+	if ta == nil || ta.VirtGuestType != "kvm" {
+		return nil
+	}
+
+	// convert uuid to 64 id and type to docker
+	ta.VirtGuestType = "docker"
+	uuid, err := uuid.Parse(ta.VirtGuestId)
+	if err != nil {
+		return fmt.Errorf("uuid is invalid, %v", err)
+	}
+
+	ta.VirtGuestId = hex.EncodeToString(uuid[:])
+	return nil
+}
+
 // invoke verifier lib to verify
 func tee_verify(ta *trustApp, mtype int, bv string) int {
+	// in report, type is docker, id is 64id
+	if err := adaptkvm(ta); err != nil {
+		log.Printf("adapt kvm info failed, %v\n", err)
+		return -4
+	}
 	// construct C data_buf
 	var crep C.buffer_data
 	crepByte := C.CBytes(ta.report)

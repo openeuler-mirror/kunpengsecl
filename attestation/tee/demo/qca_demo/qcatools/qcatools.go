@@ -92,8 +92,10 @@ import "C"
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"unsafe"
@@ -368,12 +370,36 @@ func forwardReportReq(inparam []byte, out_len uint32, info *VirtualGuestInfo) ([
 	return report, nil
 }
 
+func adaptkvm(info *VirtualGuestInfo) (*VirtualGuestInfo, error) {
+	if info == nil || info.Type != "kvm" {
+		return info, nil
+	}
+
+	// convert uuid to 64 id and type to docker
+	var newInfo VirtualGuestInfo
+	newInfo.Type = "docker"
+	uuid, err := uuid.Parse(info.Id)
+	if err != nil {
+		return nil, fmt.Errorf("uuid is invalid, %v", err)
+	}
+
+	newInfo.Id = hex.EncodeToString(uuid[:])
+	return &newInfo, nil
+}
+
 // GetTAReport gets TA trusted report information.
 func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *VirtualGuestInfo) ([]byte, error) {
 	n := base64.RawURLEncoding.EncodeToString(usr_data)
 	id, err := uuid.FromBytes(ta_uuid)
 	if err != nil {
 		log.Printf("wrong uuid in parameters, %v", err)
+		return nil, err
+	}
+
+	// in tee, only docker type is supported, report_input adapt
+	newInfo, err := adaptkvm(info)
+	if err != nil {
+		log.Printf("adapt kvm info failed, %v\n", err)
 		return nil, err
 	}
 
@@ -385,7 +411,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *VirtualGu
 		Hash_alg: RA_HASH_ALG_SHA256,
 		With_tcb: with_tcb, // false
 		Daa_bsn:  nil,      // line73 only support basename = NULL now
-		Info:     info,
+		Info:     newInfo,
 	}
 	inparam := reportInParam{
 		Handler: RAReportInHandler,

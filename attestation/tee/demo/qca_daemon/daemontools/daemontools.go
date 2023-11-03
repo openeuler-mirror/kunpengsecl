@@ -2,7 +2,6 @@ package daemontools
 
 import (
 	"bufio"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -76,19 +75,19 @@ func getSelfDockerId() (string, error) {
 	return "", fmt.Errorf(NOT_DOCKER_CONTAINER)
 }
 
-// get kvm id and convert to 64 string id
+// get kvm id
 func getSelfKvmId() (string, error) {
 	con, err := readFirstLine(DMI_PRODUCT_UUID)
 	if err != nil {
 		return "", fmt.Errorf("read kvm uuid failed, %v", err)
 	}
 
-	uuid, err := uuid.Parse(con)
+	_, err := uuid.Parse(con)
 	if err != nil {
 		return "", fmt.Errorf("uuid is invalid, %v", err)
 	}
 
-	return hex.EncodeToString(uuid[:]), nil
+	return con, nil
 }
 
 func GetVirtualClientInfo() (*qcatools.VirtualGuestInfo, error) {

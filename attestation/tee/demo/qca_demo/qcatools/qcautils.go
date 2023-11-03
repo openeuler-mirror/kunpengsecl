@@ -182,6 +182,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -192,7 +193,6 @@ import (
 	"unsafe"
 
 	"github.com/docker/docker/client"
-	//libvirt "github.com/libvirt/libvirt-go"
 )
 
 const (
@@ -206,7 +206,7 @@ const (
 	RET_CALLCERR      = 1
 	RET_SAVECLIENTERR = 2
 
-	QEMU_URI = "qemu:///system"
+	GET_QEMU_PID_FMT = "ps aux | grep qemu.*%s | grep -v grep | awk '{print $2}'"
 )
 
 var (
@@ -375,8 +375,23 @@ func getDockerNsidById(id string) (int, error) {
 	return getNsidByPid(conInfo.State.Pid)
 }
 
+/* kvm nsid same as host, so current solution is use qemu pid replace nsid */
 func getKvmNsidByUuid(uuid string) (int, error) {
-	return -1, fmt.Errorf("not impliment")
+	queryCmd := fmt.Sprintf(GET_QEMU_PID_FMT, uuid)
+	cmd := exec.Command("bash", "-c", queryCmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return -1, fmt.Errorf("exec query cmd failed, %v", err)
+	}
+	if len(out) == 0 {
+		return -1, fmt.Errorf("query target qemu pid failed, %v", err)
+	}
+
+	pid, err := strconv.Atoi(out)
+	if err != nil {
+		return -1, fmt.Errorf("convert to int failed, %v", err)
+	}
+	return pid, nil
 }
 
 func getVirtGuestNsidById(info *VirtualGuestInfo) (int, error) {
@@ -504,6 +519,10 @@ func checkVirtGuestInfo(info *VirtualGuestInfo) error {
 		if len(info.Id) != 64 {
 			return fmt.Errorf("invalid id length %d", len(info.Id))
 		}
+	case "kvm":
+		if len(id) != 36 {
+			return fmt.Errorf("invalid uuid length %d", len(id))
+		}
 	default:
 		return fmt.Errorf("not supported container type")
 	}
@@ -527,8 +546,14 @@ func dealVirtualTAReq(info *VirtualGuestInfo, data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("get docker nsid failed, %v", err)
 	}
 
+	// register info in qta adapt kvm
+	newInfo, err := adaptkvm(info)
+	if err != nil {
+		return nil, fmt.Errorf("adapt kvm machine failed, %v", err)
+	}
+
 	reginfo := &RegVirtGuestInfo{
-		Id:   info.Id,
+		Id:   newInfo.Id,
 		Nsid: nsid,
 	}
 
