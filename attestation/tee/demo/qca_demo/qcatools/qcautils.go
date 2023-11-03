@@ -93,7 +93,7 @@ static struct CtxSessList *mallocAddList(void)
 	return node;
 }
 
-static struct CtxSessList *DeleteNodeList(uint32_t index)
+static struct CtxSessList *deleteNodeList(uint32_t index)
 {
 	if (!g_isInitList) {
 		printf("[c] should use this after init\n");
@@ -117,13 +117,14 @@ static struct CtxSessList *DeleteNodeList(uint32_t index)
 	return node;
 }
 
-void CloseCtxAndSess(uint32_t index)
+void CloseCtxAndSess(uint32_t index, char *id)
 {
-	struct CtxSessList *node = DeleteNodeList(index);
+	struct CtxSessList *node = deleteNodeList(index);
 	if (node == NULL) {
 		return;
 	}
 
+	(void)UnRegisterContainerWithSess(id, &node->sess);
 	TEEC_CloseSession(&node->sess);
     TEEC_FinalizeContext(&node->ctx);
 	free(node);
@@ -166,7 +167,7 @@ int RegisterVirtualGuest(struct ra_buffer_data *container_info)
 	return node->index;
 
 end:
-	(void)DeleteNodeList(node->index);
+	(void)deleteNodeList(node->index);
 	free(node);
 	return ret;
 }
@@ -268,6 +269,9 @@ func deleteConnClient(id string) {
 	atomic.AddInt32(&curConnCnt, -1)
 	connMap.Delete(id)
 	conn.(net.Conn).Close()
+	cid := C.CString(id)
+	defer C.free(unsafe.Pointer(cid))
+	C.UnRegisterContainer(cid)
 }
 
 func CheckConnAlive(check int32) {
@@ -279,7 +283,7 @@ func CheckConnAlive(check int32) {
 		select {
 		case <-Done:
 			connMap.Range(func(id, conn interface{}) bool {
-				conn.(net.Conn).Close()
+				deleteConnClient(id.(string))
 				return true
 			})
 			return
@@ -289,9 +293,8 @@ func CheckConnAlive(check int32) {
 			connMap.Range(func(id, conn interface{}) bool {
 				err := connCheck(conn.(net.Conn))
 				if err != nil {
-					atomic.AddInt32(&curConnCnt, -1)
-					connMap.Delete(id)
-					conn.(net.Conn).Close()
+					log.Printf("Close inactive connection %v\n", id)
+					deleteConnClient(id.(string))
 				}
 				return true
 			})
@@ -383,18 +386,20 @@ func getKvmNsidByUuid(uuid string) (int, error) {
 	if err != nil {
 		return -1, fmt.Errorf("exec query cmd failed, %v", err)
 	}
-	if len(out) == 0 {
+	outstr := string(out)
+	outstr = strings.Trim(outstr, " \n")
+	if len(outstr) == 0 {
 		return -1, fmt.Errorf("query target qemu pid failed, %v", err)
 	}
 
-	pid, err := strconv.Atoi(out)
+	pid, err := strconv.Atoi(outstr)
 	if err != nil {
 		return -1, fmt.Errorf("convert to int failed, %v", err)
 	}
 	return pid, nil
 }
 
-func getVirtGuestNsidById(info *VirtualGuestInfo) (int, error) {
+func getVirtGuestNsidByInfo(info *VirtualGuestInfo) (int, error) {
 	switch info.Type {
 	case "docker":
 		return getDockerNsidById(info.Id)
@@ -465,19 +470,20 @@ func dealQcaDaemonClient(conn net.Conn) {
 	var cliInfo VirtualGuestInfo
 	err := RecvData(conn, &cliInfo)
 	if err != nil {
-		log.Printf("recv client regist info failed, %v\n", err)
+		log.Printf("Recv client regist info failed, %v\n", err)
 		goto close
 	}
 
+	/* recive kvm id is 64 id */
 	err = addConnClient(cliInfo.Id, conn)
 	if err != nil {
-		log.Printf("save conn to map failed, %v\n", err)
+		log.Printf("Save conn to map failed, %v\n", err)
 		SendData(conn, []byte("save conn to map falied"), RET_SAVECLIENTERR)
 		goto close
 	}
 
 	SendData(conn, []byte("client register success"), RET_SUCCESS)
-	log.Println("qca_daemon client register success\n")
+	log.Println("Regist qca_daemon client success\n")
 	return
 
 close:
@@ -487,8 +493,10 @@ close:
 func StartQcaDaemonServer(saddr string) {
 	listen, err := net.Listen("tcp", saddr)
 	if err != nil {
-		log.Fatalf("listen %v failed, %v", saddr, err)
+		log.Fatalf("Listen %v failed, %v", saddr, err)
 	}
+	log.Printf("Start tcp server on %v\n", saddr)
+
 	for {
 		select {
 		case <-Done:
@@ -496,7 +504,7 @@ func StartQcaDaemonServer(saddr string) {
 		default:
 			conn, err := listen.Accept()
 			if err != nil {
-				log.Printf("accept failed, %v", err)
+				log.Printf("Accept failed, %v", err)
 				continue
 			}
 			go dealQcaDaemonClient(conn)
@@ -516,12 +524,12 @@ func checkVirtGuestInfo(info *VirtualGuestInfo) error {
 	}
 	switch info.Type {
 	case "docker":
-		if len(info.Id) != 64 {
+		if len(info.Id) != DOCKER_ID_LEN {
 			return fmt.Errorf("invalid id length %d", len(info.Id))
 		}
 	case "kvm":
-		if len(id) != 36 {
-			return fmt.Errorf("invalid uuid length %d", len(id))
+		if len(info.Id) != 36 {
+			return fmt.Errorf("invalid uuid length %d", len(info.Id))
 		}
 	default:
 		return fmt.Errorf("not supported container type")
@@ -541,9 +549,9 @@ func dealVirtualTAReq(info *VirtualGuestInfo, data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("can't find client")
 	}
 
-	nsid, err := getVirtGuestNsidById(info)
+	nsid, err := getVirtGuestNsidByInfo(info)
 	if err != nil {
-		return nil, fmt.Errorf("get docker nsid failed, %v", err)
+		return nil, fmt.Errorf("get virtual guest nsid failed, %v", err)
 	}
 
 	// register info in qta adapt kvm
@@ -559,14 +567,17 @@ func dealVirtualTAReq(info *VirtualGuestInfo, data []byte) ([]byte, error) {
 
 	inparamjson, err := json.Marshal(reginfo)
 	if err != nil {
-		return nil, fmt.Errorf("encode docker regist json message error, %v", err)
+		return nil, fmt.Errorf("encode containter register info error, %v", err)
 	}
 
 	index, err := callCRegisterContainer(inparamjson)
 	if err != nil {
 		return nil, err
 	}
-	defer C.CloseCtxAndSess(C.__uint32_t(index))
+	cid := C.CString(newInfo.Id)
+	/* defer exec order like stack */
+	defer C.free(unsafe.Pointer(cid))
+	defer C.CloseCtxAndSess(C.__uint32_t(index), cid)
 
 	if err = SendData(conn, data, RET_SUCCESS); err != nil {
 		return nil, fmt.Errorf("forward req to qca_daemon failed, %v", err)

@@ -287,3 +287,13 @@ TEEC_Result RegisterContainer(struct ra_buffer_data *container_info, TEEC_Contex
 {
     return 0;
 }
+
+TEEC_Result UnRegisterContainer(char *id)
+{
+    return 0;
+}
+
+TEEC_Result UnRegisterContainerWithSess(char *id, TEEC_Session *session)
+{
+    return 0;
+}

@@ -99,4 +99,6 @@ TEEC_Result RemoteAttest(struct ra_buffer_data *params, struct ra_buffer_data *o
 TEEC_Result RegisterContainer(struct ra_buffer_data *container_info, TEEC_Context *context, TEEC_Session *session,
                               uint32_t *origin);
 
+TEEC_Result UnRegisterContainer(char *id);
+TEEC_Result UnRegisterContainerWithSess(char *id, TEEC_Session *session);
 #endif

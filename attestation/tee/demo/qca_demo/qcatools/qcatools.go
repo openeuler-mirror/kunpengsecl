@@ -356,17 +356,18 @@ func forwardReportReq(inparam []byte, out_len uint32, info *VirtualGuestInfo) ([
 			log.Printf("Get host ta report failed, %v", err)
 			return nil, err
 		}
+		log.Print("Get host TA report succeeded!")
 	// virtual guest request
 	default:
-		log.Println("Deal virtaul guest TA report request")
+		log.Printf("Deal virtaul guest TA report request, info: %v\n", info)
 		report, err = dealVirtualTAReq(info, inparam)
 		if err != nil {
-			log.Printf("Get docker ta report failed, %v", err)
+			log.Printf("Get virtual guest TA report failed, %v", err)
 			return nil, err
 		}
+		log.Print("Get virtual guest TA report succeeded!")
 	}
 
-	log.Print("Generate TA report succeeded!")
 	return report, nil
 }
 
@@ -383,7 +384,9 @@ func adaptkvm(info *VirtualGuestInfo) (*VirtualGuestInfo, error) {
 		return nil, fmt.Errorf("uuid is invalid, %v", err)
 	}
 
-	newInfo.Id = hex.EncodeToString(uuid[:])
+	id16 := uuid[:]
+	id32 := append(id16, id16...)
+	newInfo.Id = hex.EncodeToString(id32)
 	return &newInfo, nil
 }
 
@@ -392,14 +395,14 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *VirtualGu
 	n := base64.RawURLEncoding.EncodeToString(usr_data)
 	id, err := uuid.FromBytes(ta_uuid)
 	if err != nil {
-		log.Printf("wrong uuid in parameters, %v", err)
+		log.Printf("Wrong uuid in parameters, %v", err)
 		return nil, err
 	}
 
-	// in tee, only docker type is supported, report_input adapt
+	// in tee, only docker type is supported
 	newInfo, err := adaptkvm(info)
 	if err != nil {
-		log.Printf("adapt kvm info failed, %v\n", err)
+		log.Printf("Adapt kvm info failed, %v\n", err)
 		return nil, err
 	}
 

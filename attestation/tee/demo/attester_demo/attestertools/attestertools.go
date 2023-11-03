@@ -334,6 +334,8 @@ func getReport(ta *trustApp) []byte {
 		Info:    info,
 	}
 
+	log.Printf("Virtual guest info: %v\n", info)
+
 	rpyID, err := qapi.DoGetTeeReport(attesterConf.server, &reqID)
 	if err != nil {
 		log.Printf("Get TA infomation failed, error: %v", err)
@@ -356,7 +358,9 @@ func adaptkvm(ta *trustApp) error {
 		return fmt.Errorf("uuid is invalid, %v", err)
 	}
 
-	ta.VirtGuestId = hex.EncodeToString(uuid[:])
+	id16 := uuid[:]
+	id32 := append(id16, id16...)
+	ta.VirtGuestId = hex.EncodeToString(id32)
 	return nil
 }
 

@@ -1,13 +1,13 @@
 package daemontools
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
 	"regexp"
+	"strings"
 
 	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 	"github.com/google/uuid"
@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	ValidDockerId = regexp.MustCompile(`/docker/([a-z0-9]{64})`)
+	ValidDockerId = regexp.MustCompile(`1:name=systemd:/docker/([a-z0-9]{64})`)
 	Info          *log.Logger
 	Error         *log.Logger
 
@@ -37,7 +37,7 @@ var (
 func init() {
 	logFile, err := os.OpenFile(LOG_FILE, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		log.Fatalf("open log file %v faild, %v", LOG_FILE, err)
+		log.Fatalf("Open log file %v faild, %v", LOG_FILE, err)
 	}
 
 	log.SetOutput(io.MultiWriter(logFile, os.Stdout))
@@ -48,23 +48,16 @@ func InitFlags() {
 	pflag.Parse()
 }
 
-func readFirstLine(file string) (string, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return "", fmt.Errorf("open %v failed, %v", file, err)
-	}
-	defer f.Close()
-
-	rd := bufio.NewReader(f)
-	con, _, err := rd.ReadLine()
+func readFile(file string) (string, error) {
+	content, err := os.ReadFile(file)
 	if err != nil {
 		return "", fmt.Errorf("read file failed, %v", err)
 	}
-	return string(con), nil
+	return string(content), nil
 }
 
 func getSelfDockerId() (string, error) {
-	con, err := readFirstLine(SELF_CGROUP_FILE)
+	con, err := readFile(SELF_CGROUP_FILE)
 	if err != nil {
 		return "", err
 	}
@@ -77,24 +70,25 @@ func getSelfDockerId() (string, error) {
 
 // get kvm id
 func getSelfKvmId() (string, error) {
-	con, err := readFirstLine(DMI_PRODUCT_UUID)
+	uuidstr, err := readFile(DMI_PRODUCT_UUID)
 	if err != nil {
 		return "", fmt.Errorf("read kvm uuid failed, %v", err)
 	}
-
-	_, err := uuid.Parse(con)
+	uuidstr = strings.Trim(uuidstr, "\n ")
+	_, err = uuid.Parse(uuidstr)
 	if err != nil {
 		return "", fmt.Errorf("uuid is invalid, %v", err)
 	}
 
-	return con, nil
+	return uuidstr, nil
 }
 
 func GetVirtualClientInfo() (*qcatools.VirtualGuestInfo, error) {
-	con, err := readFirstLine(DMI_PRODUCT_NAME)
+	con, err := readFile(DMI_PRODUCT_NAME)
 	if err != nil {
 		return nil, fmt.Errorf("read kvm name failed, %v", err)
 	}
+	con = strings.Trim(con, "\n ")
 
 	// kvm container
 	if con == KVM_NAME {
@@ -122,39 +116,41 @@ func GetVirtualClientInfo() (*qcatools.VirtualGuestInfo, error) {
 func StartClientConn(saddr string, info *qcatools.VirtualGuestInfo) {
 	conn, err := net.Dial("tcp", saddr)
 	if err != nil {
-		log.Fatalf("connect to server %v failed, %v\n", saddr, err)
+		log.Fatalf("Connect to server %v failed, %v\n", saddr, err)
 	}
 	defer conn.Close()
-	log.Printf("connect to server %v success\n", saddr)
+	log.Printf("Connect to server %v success\n", saddr)
 
 	if err = qcatools.SendData(conn, info, qcatools.RET_SUCCESS); err != nil {
-		log.Fatalf("send register info to ra_server failed, %v", err)
+		log.Fatalf("Send register info to ra_server failed, %v", err)
 	}
 
 	var ret []byte
 	if err = qcatools.RecvData(conn, &ret); err != nil {
-		log.Fatalf("read register reply failed, %v", err)
+		log.Fatalf("Read register reply failed, %v", err)
 	}
-	log.Printf("register client info success\n")
+	log.Println("Register client info success\n")
 
 	var retVal int
 	for {
 		reportIn := []byte{}
 		if err = qcatools.RecvData(conn, &reportIn); err != nil {
-			log.Fatalf("read ra_server forward req data failed, %v", err)
+			log.Fatalf("Read ra_server forward request data failed, %v", err)
 		}
-		log.Println("get host forward report request")
+		log.Println("Get host forward report request")
 
 		retVal = qcatools.RET_SUCCESS
 		report, err := qcatools.CallCRemoteAttest(reportIn, qcatools.MAX_OUTBUF_SIZE)
 		if err != nil {
-			log.Printf("get report from libqca-report failed, %v", err)
+			log.Printf("Get report from libqca-report failed, %v", err)
 			retVal = qcatools.RET_CALLCERR
-			report = []byte("get report by qta_report failed")
+			report = []byte("Get report by qta_report failed")
+		} else {
+			log.Println("Get TA report success")
 		}
 
 		if err = qcatools.SendData(conn, report, retVal); err != nil {
-			log.Fatalf("send register info to ra_server failed, %v", err)
+			log.Fatalf("Send register info to ra_server failed, %v", err)
 		}
 
 	}
