@@ -128,7 +128,7 @@ TA所对应代码请使用ARM服务器提供的开发编译环境。
   -T, --tatest          true=以TA测试模式启动，false=以正常模式启动
 ```
 
-### 最小实现
+### <a name="min-realization"></a>最小实现
 #### QCA启动参数
 命令行输入`${DESTDIR}/usr/bin/qcaserver`即可启动QCA程序，请注意，这里的必须要使用qcaserver的完整路径以正常启动QTA，同时需要使QTA中的CA路径参数与该路径保持相同。相关参数如下：
 ```
@@ -162,7 +162,7 @@ TA所对应代码请使用ARM服务器提供的开发编译环境。
 
 **对于ATTESTER的启用**
 
-同<a href="#使用说明">最小实现</a>。
+同[最小实现](#min-realization)。
 
 >注：在有TAS环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问TAS以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有TAS签发的证书保存于本地，若成功读取证书，则无需访问TAS，若读取证书失败，则需要访问TAS，并将TAS返回的证书保存于本地。
 
@@ -190,7 +190,7 @@ tasconfig:
 
 **对于ATTESTER的启用**
 
-同<a href="#使用说明">最小实现</a>。
+同[最小实现](#min-realization)。
 
 >注：在有TAS环境中，为提高QCA配置证书的效率，并非每一次启动都需要访问TAS以生成相应证书，而是通过证书的本地化存储，即读取QCA侧 `config.yaml` 中配置的证书路径，通过 `func hasAKCert(s int) bool` 函数检查是否已有TAS签发的证书保存于本地，若成功读取证书，则无需访问TAS，若读取证书失败，则需要访问TAS，并将TAS返回的证书保存于本地。
 

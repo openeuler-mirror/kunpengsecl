@@ -132,7 +132,7 @@ The relevant parameters are as follows.
   -T, --tatest          true=start in TA test mod, false=start in normal mode
 ```
 
-### Minimal realization
+### <a name="min-realization"></a>Minimal realization
 #### QCA startup parameters
 Enter `${DESTDIR}/usr/bin/qcaserver` on the command line to start the QCA program, please note that the full path of qcaserver must be used to start QTA normally, and the CA path parameter in QTA needs to be kept the same as the path.
 The relevant parameters are as follows:
@@ -169,7 +169,7 @@ ENTER `${DESTDIR}/usr/bin/qcaserver -C 1` at the command line to start QCA.
 
 **Enable ATTESTER**
 
-same as <a href="#Instruction for use">Minimal realization</a>。
+same as [Minimal realization](#min-realization)。
 
 >notes: In a TAS environment, in order to improve the efficiency of QCA configuration certificate, not every boot needs to access the TAS to generate the corresponding certificate, but through the localized storage of the certificate, that is, read the certification path configured in `config.yaml` on the QCA side, check whether a TAS-issued certificate has been saved locally through the `func hasAKCert(s int) bool` function, and if the certificate is successfully read, TAS If the certificate cannot be read, you need to access the TAS and save the certificate returned by the TAS locally.
 
@@ -198,7 +198,7 @@ The command line enters `${DESTDIR}/usr/bin/qcaserver -C 2` to start QCA.
 
 **Enable ATTESTER**
 
-same as <a href="#Instruction for use">Minimal realization</a>。
+same as [Minimal realization](#min-realization)。
 
 >notes: In a TAS environment, in order to improve the efficiency of QCA configuration certificate, not every boot needs to access the TAS to generate the corresponding certificate, but through the localized storage of the certificate, that is, read the certification path configured in `config.yaml` on the QCA side, check whether a TAS-issued certificate has been saved locally through the `func hasAKCert(s int) bool` function. If the certificate is successfully read, there is no need to access TAS. If the certificate cannot be read, you need to access TAS and save the certificate returned by the TAS locally.
 
