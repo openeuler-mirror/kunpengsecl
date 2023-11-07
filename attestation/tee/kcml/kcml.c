@@ -98,6 +98,7 @@ TEE_Result search_key(TEE_UUID *uuid, uint8_t *account,
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("open ta session failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
         return ret;
     }
     cmd_copy(cmdnode, uuid, account, password, keyid, masterkey);
@@ -147,6 +148,7 @@ TEE_Result delete_key(TEE_UUID *uuid, uint8_t *account, uint8_t *password, TEE_U
     ret = TEE_OpenTASession(&ktauuid, TIMEOUT, session_param_type, NULL, &session, &retOrigin);
     if(ret != TEE_SUCCESS) {
         tloge("open ta session failed, origin=0x%x, codes=0x%x\n", retOrigin, ret);
+        TEE_Free(cmdnode);
         return ret;
     }
     cmd_copy(cmdnode, uuid, account, password, keyid, NULL);
