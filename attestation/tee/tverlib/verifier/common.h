@@ -9,14 +9,14 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details.
 */
 
-#include <openssl/x509.h>
-#include <openssl/sha.h>
-#include <openssl/bio.h>
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/objects.h>
-#include <openssl/err.h>
 #include "teeverifier.h"
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/objects.h>
+#include <openssl/pem.h>
+#include <openssl/rsa.h>
+#include <openssl/sha.h>
+#include <openssl/x509.h>
 
 #define USER_DATA_SIZE 64
 #define NODE_LEN 8
@@ -37,24 +37,22 @@ See the Mulan PSL v2 for more details.
 #define RA_INTEGER (1 << KEY_TAG_TYPE_MOVE_BITS)
 #define RA_BYTES (2 << KEY_TAG_TYPE_MOVE_BITS)
 
-#define RA_SCENARIO_NO_AS           "sce_no_as"
-#define RA_SCENARIO_AS_NO_DAA       "sce_as_no_daa"
-#define RA_SCENARIO_AS_WITH_DAA     "sce_as_with_daa"
-#define RA_SCENARIO_NO_AS_INT       0
-#define RA_SCENARIO_AS_NO_DAA_INT   1
+#define RA_SCENARIO_NO_AS "sce_no_as"
+#define RA_SCENARIO_AS_NO_DAA "sce_as_no_daa"
+#define RA_SCENARIO_AS_WITH_DAA "sce_as_with_daa"
+#define RA_SCENARIO_NO_AS_INT 0
+#define RA_SCENARIO_AS_NO_DAA_INT 1
 #define RA_SCENARIO_AS_WITH_DAA_INT 2
-#define RA_HASH_ALG_SHA256          "HS256"
-#define RA_SIGN_ALG_RSA4096         "PS256"
-#define RA_VERSION                  "TEE.RA.1.0"
+#define RA_HASH_ALG_SHA256 "HS256"
+#define RA_SIGN_ALG_RSA4096 "PS256"
+#define RA_VERSION "TEE.RA.1.0"
 
-struct ra_data_offset
-{
+struct ra_data_offset {
     uint32_t data_len;
     uint32_t data_offset;
 };
 
-enum ra_alg_types
-{
+enum ra_alg_types {
     RA_ALG_RSA_3072 = 0x20000,
     RA_ALG_RSA_4096 = 0x20001, // PSS padding
     RA_ALG_SHA_256 = 0x20002,
@@ -66,8 +64,7 @@ enum ra_alg_types
     RA_ALG_SM3 = 0x20008,
 };
 
-enum ra_tags
-{
+enum ra_tags {
     /*Integer Type*/
     RA_TAG_SIGN_TYPE = RA_INTEGER | 0,
     RA_TAG_HASH_TYPE = RA_INTEGER | 1,
@@ -85,18 +82,15 @@ enum ra_tags
     RA_TAG_CERT_AK = RA_BYTES | 9,
 };
 
-struct __attribute__((__packed__)) ra_params
-{
+struct __attribute__((__packed__)) ra_params {
     uint32_t tags;
-    union
-    {
+    union {
         uint32_t integer;
         struct ra_data_offset blob;
     } data;
 };
 
-typedef struct tee_uuid
-{
+typedef struct tee_uuid {
     uint32_t timeLow;
     uint16_t timeMid;
     uint16_t timeHiAndVersion;
@@ -104,8 +98,7 @@ typedef struct tee_uuid
 } TEE_UUID;
 
 // the content of *buf(in buffer_data) be like...
-typedef struct __attribute__((__packed__)) report_response
-{
+typedef struct __attribute__((__packed__)) report_response {
     uint32_t version;
     uint64_t ts;
     uint8_t nonce[USER_DATA_SIZE];
@@ -122,8 +115,7 @@ typedef struct __attribute__((__packed__)) report_response
      */
 } report_get;
 
-typedef struct
-{
+typedef struct {
     uint8_t version[VERSION_SIZE];
     uint8_t timestamp[TS_SIZE];
     uint8_t nonce[USER_DATA_SIZE];
@@ -141,8 +133,7 @@ typedef struct
 } TA_report;
 
 #define KEY_PURPOSE_SIZE 32 // test
-struct ak_cert
-{
+struct ak_cert {
     uint32_t version;
     uint64_t ts;
     char purpose[KEY_PURPOSE_SIZE];
@@ -158,10 +149,10 @@ struct ak_cert
      */
 } __attribute__((__packed__));
 
-//static int tee_verify_report(buffer_data *buf_data, buffer_data *nonce, int type, char *filename);
-//static int tee_verify_report2(buffer_data *buf_data, int type, base_value *baseval);
-//static int tee_validate_report(buffer_data *buf_data, buffer_data *nonce);
-static bool tee_verify_nonce(buffer_data *buf_data,buffer_data *nonce);
+// static int tee_verify_report(buffer_data *buf_data, buffer_data *nonce, int type, char *filename);
+// static int tee_verify_report2(buffer_data *buf_data, int type, base_value *baseval);
+// static int tee_validate_report(buffer_data *buf_data, buffer_data *nonce);
+static bool tee_verify_nonce(buffer_data *buf_data, buffer_data *nonce);
 static bool tee_verify_signature(buffer_data *report);
 static bool tee_verify(buffer_data *buf_data, int type, char *filename);
 static bool tee_verify2(buffer_data *bufdata, int type, base_value *baseval);
@@ -182,17 +173,19 @@ static bool Compare(int type, TA_report *report, base_value *basevalue);
 static bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size);
 static void test_print(uint8_t *printed, int printed_size, char *printed_name);
 static void save_basevalue(const base_value *bv);
-//verifysig
+// verifysig
 static bool verifysig(buffer_data *data, buffer_data *sign, buffer_data *akcert, uint32_t scenario);
 static bool translateBuf(buffer_data report, TA_report *tareport);
-static bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk, buffer_data *akpub);
+static bool getDataFromAkCert(buffer_data *akcert, buffer_data *signdata, buffer_data *signdrk, buffer_data *certdrk,
+                              buffer_data *akpub);
 static EVP_PKEY *buildPubKeyFromModulus(buffer_data *pub);
 static EVP_PKEY *getPubKeyFromDrkIssuedCert(buffer_data *cert);
 static bool verifySigByKey(buffer_data *mhash, buffer_data *sign, EVP_PKEY *key);
 static EVP_PKEY *getPubKeyFromCert(buffer_data *cert, char *root_cert_pathname);
 static void dumpDrkCert(buffer_data *certdrk);
 static bool restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk);
-static bool getDataFromReport(buffer_data *report,buffer_data *akcert,buffer_data *signak,buffer_data *signdata,uint32_t *scenario);
+static bool getDataFromReport(buffer_data *report, buffer_data *akcert, buffer_data *signak, buffer_data *signdata,
+                              uint32_t *scenario);
 static bool verifysig_x509cert(buffer_data *data, buffer_data *sign, buffer_data *cert, char *root_cert_pathname);
 
 static void uint82str(const uint8_t *source, int source_len, char *dest);
@@ -201,7 +194,7 @@ static bool verifyCertByCert(buffer_data *cert, uint8_t *root_cert_pathname);
 static bool verifydatasig_bykey(buffer_data *data, buffer_data *sign, EVP_PKEY *key);
 static bool verifysig_drksignedcert(buffer_data *data, buffer_data *sign, buffer_data *cert);
 static void free_report(TA_report *report);
-static TA_report * Convert(buffer_data *data);
+static TA_report *Convert(buffer_data *data);
 static base_value *LoadQTABaseValue(const char *refval);
 static base_value *get_qta(buffer_data *akcert);
 static bool CompareBV(int type, base_value *value, base_value *basevalue);
