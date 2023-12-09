@@ -1179,7 +1179,7 @@ bool tee_verify(buffer_data *bufdata, container_info *info, int type, char *file
 
     bool verified = false;
     if ((report == NULL) || (baseval == NULL)) {
-        printf("Pointer Error!\n");
+        printf("convert report or basevalue file failed!\n");
         goto end;
     }
 

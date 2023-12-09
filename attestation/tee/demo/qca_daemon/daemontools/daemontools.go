@@ -2,50 +2,43 @@ package daemontools
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
 	"regexp"
 	"strings"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qcatools"
 )
 
 const (
-	LOG_FILE             = "./qca_daemon.log"
-	SELF_CGROUP_FILE     = "/proc/self/cgroup"
+	// get docker id
+	SELF_CGROUP_FILE    = "/proc/self/cgroup"
+	GET_DOCKER_UUID_REG = `1:name=systemd:.*([a-z0-9]{64}).*`
+	MATCH_RST_LEN       = 2
+
+	// judge virtual guest os
 	DMI_PRODUCT_UUID     = "/sys/class/dmi/id/product_uuid"
 	DMI_PRODUCT_NAME     = "/sys/class/dmi/id/product_name"
 	KVM_NAME             = "KVM Virtual Machine"
 	NOT_DOCKER_CONTAINER = "not docker container"
-	MAX_INPUT_SIZE       = 0x3000
 )
 
-var (
-	ValidDockerId = regexp.MustCompile(`1:name=systemd:/docker/([a-z0-9]{64})`)
-	Info          *log.Logger
-	Error         *log.Logger
-
-	// cmd flags
-	HostServer *string
-)
-
-// before main
-func init() {
-	logFile, err := os.OpenFile(LOG_FILE, os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Fatalf("Open log file %v faild, %v", LOG_FILE, err)
+type (
+	QcaDaemonFlags struct {
+		Hostserver string
 	}
+)
 
-	log.SetOutput(io.MultiWriter(logFile, os.Stdout))
-}
-
-func InitFlags() {
-	HostServer = pflag.StringP("hostserver", "H", "", "host server addr ip:port")
+func InitFlags() *QcaDaemonFlags {
+	var flags = QcaDaemonFlags{}
+	pflag.StringVarP(&flags.Hostserver, "hostserver", "H", "", "host server addr ip:port")
 	pflag.Parse()
+
+	return &flags
 }
 
 func readFile(file string) (string, error) {
@@ -61,8 +54,8 @@ func getSelfDockerId() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	match := ValidDockerId.FindStringSubmatch(string(con))
-	if len(match) == 2 {
+	match := regexp.MustCompile(GET_DOCKER_UUID_REG).FindStringSubmatch(string(con))
+	if len(match) == MATCH_RST_LEN {
 		return match[1], nil
 	}
 	return "", fmt.Errorf(NOT_DOCKER_CONTAINER)
@@ -133,9 +126,10 @@ func StartClientConn(saddr string, info *qcatools.VirtualGuestInfo) {
 
 	var retVal int
 	for {
-		reportIn := []byte{}
+		reportIn := make([]byte, 0)
 		if err = qcatools.RecvData(conn, &reportIn); err != nil {
-			log.Fatalf("Read ra_server forward request data failed, %v", err)
+			log.Printf("Read ra_server forward request data failed, %v\n", err)
+			return
 		}
 		log.Println("Get host forward report request")
 
@@ -150,7 +144,8 @@ func StartClientConn(saddr string, info *qcatools.VirtualGuestInfo) {
 		}
 
 		if err = qcatools.SendData(conn, report, retVal); err != nil {
-			log.Fatalf("Send register info to ra_server failed, %v", err)
+			log.Printf("Send register info to ra_server failed, %v\n", err)
+			return
 		}
 
 	}

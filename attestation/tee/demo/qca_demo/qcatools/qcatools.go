@@ -210,7 +210,7 @@ type (
 		Size uint32
 		Buf  []uint8
 	}
-	qcaConfig struct {
+	QcaConfig struct {
 		Server        string
 		AKServer      string
 		Scenario      int32
@@ -224,40 +224,36 @@ type (
 
 var (
 	// server side config
-	// Qcacfg means qca config
-	Qcacfg       *qcaConfig = nil
-	defaultPaths            = []string{
+	defaultPaths = []string{
 		strLocalConf,
 		strHomeConf,
 		strSysConf,
 	}
-	// ServerFlag means server flag
-	ServerFlag *string = nil
-	// ScenarioFlag means scenario flag
-	ScenarioFlag      *int32  = nil
-	VirtSupportFlag   *bool   = nil
-	VirtServerFlag    *string = nil
-	VirtHealthChkFlag *int32  = nil
+	// qcaCfg means qca config
+	qcaCfg *QcaConfig = &QcaConfig{}
 )
 
 // InitFlags inits the qca server command flags.
 func InitFlags() {
 	log.Print("Init qca flags......")
-	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
-	ScenarioFlag = pflag.Int32P(lflagScenario, sflagScenario, 0, helpScenario)
-	VirtSupportFlag = pflag.BoolP(lflagVirtSupport, sflagVirtSupport, false, helpVirtSupport)
-	VirtServerFlag = pflag.StringP(lflagVirtServer, sflagVirtServer, "", helpVirtServer)
-	VirtHealthChkFlag = pflag.Int32P(lflagVirtHealthChk, sflagVirtHealthChk, 0, helpVirtHealthChk)
+	if qcaCfg == nil {
+		log.Fatalf("qcaCfg is nil")
+	}
+
+	pflag.StringVarP(&qcaCfg.Server, lflagServer, sflagServer, qcaCfg.Server, helpServer)
+	pflag.Int32VarP(&qcaCfg.Scenario, lflagScenario, sflagScenario, qcaCfg.Scenario, helpScenario)
+	pflag.BoolVarP(&qcaCfg.VirtSupport, lflagVirtSupport, sflagVirtSupport, false, helpVirtSupport)
+	pflag.StringVarP(&qcaCfg.VirtServer, lflagVirtServer, sflagVirtServer, qcaCfg.VirtServer, helpVirtServer)
+	pflag.Int32VarP(&qcaCfg.VirtHealthChk, lflagVirtHealthChk, sflagVirtHealthChk, qcaCfg.VirtHealthChk, helpVirtHealthChk)
 	pflag.Parse()
 }
 
 // LoadConfigs searches and loads config from config.yaml file.
 func LoadConfigs() {
 	log.Print("Load qca Configs......")
-	if Qcacfg != nil {
-		return
+	if qcaCfg == nil {
+		log.Fatalf("qcaCfg is nil")
 	}
-	Qcacfg = &qcaConfig{}
 	viper.SetConfigName(ConfName)
 	viper.SetConfigType(ConfExt)
 	for _, s := range defaultPaths {
@@ -268,48 +264,33 @@ func LoadConfigs() {
 		log.Printf("Read config file failed! %v", err)
 		return
 	}
-	Qcacfg.Server = viper.GetString(Server)
-	Qcacfg.AKServer = viper.GetString(AKServer)
-	Qcacfg.Scenario = viper.GetInt32(Scenario)
-	Qcacfg.NoDaaACFile = viper.GetString(NoDaaACFile)
-	Qcacfg.DaaACFile = viper.GetString(DaaACFile)
-	Qcacfg.VirtServer = viper.GetString(VirtServer)
-	Qcacfg.VirtHealthChk = viper.GetInt32(VirtHealthChk)
+	qcaCfg.Server = viper.GetString(Server)
+	qcaCfg.AKServer = viper.GetString(AKServer)
+	qcaCfg.Scenario = viper.GetInt32(Scenario)
+	qcaCfg.NoDaaACFile = viper.GetString(NoDaaACFile)
+	qcaCfg.DaaACFile = viper.GetString(DaaACFile)
+	qcaCfg.VirtServer = viper.GetString(VirtServer)
+	qcaCfg.VirtHealthChk = viper.GetInt32(VirtHealthChk)
 }
 
 // HandleFlags handles the command flags.
-func HandleFlags() {
+func HandleFlags() *QcaConfig {
 	log.Print("Handle qca flags......")
-
-	if ServerFlag != nil && *ServerFlag != "" {
-		Qcacfg.Server = *ServerFlag
-	}
-	if ScenarioFlag != nil && *ScenarioFlag != 0 {
-		Qcacfg.Scenario = *ScenarioFlag
-	}
-
-	if VirtSupportFlag != nil {
-		Qcacfg.VirtSupport = *VirtSupportFlag
-	}
-	if VirtServerFlag != nil && *VirtServerFlag != "" {
-		Qcacfg.VirtServer = *VirtServerFlag
-	}
-	if VirtHealthChkFlag != nil && *VirtHealthChkFlag > 0 {
-		Qcacfg.VirtHealthChk = *VirtHealthChkFlag
-	}
+	log.Printf("Qca configs: %v\n", qcaCfg)
+	return qcaCfg
 }
 
 // GetQcaServer returns the qca service server configuration.
 func GetQcaServer() string {
-	if Qcacfg == nil {
+	if qcaCfg == nil {
 		return ""
 	}
-	return Qcacfg.Server
+	return qcaCfg.Server
 }
 
 // SetScenario sets the qca service scenario configuration.
 func SetScenario(s int32) {
-	Qcacfg.Scenario = s
+	qcaCfg.Scenario = s
 }
 
 func reverseEndian(num []byte) {
@@ -426,7 +407,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *VirtualGu
 		return nil, err
 	}
 
-	return forwardReportReq(inparamjson, 0x3000, info)
+	return forwardReportReq(inparamjson, MAX_OUTBUF_SIZE, info)
 }
 
 /*
@@ -447,7 +428,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	c_usr_data.buf = (*C.uchar)(up_usr_data_buf)
 	defer C.free(up_usr_data_buf)
 	// paramset conversion
-	c_param_set.buf = C.generateParamSetBufferGetReport(C.__uint32_t(Qcacfg.Scenario), C.bool(with_tcb))
+	c_param_set.buf = C.generateParamSetBufferGetReport(C.__uint32_t(qcaCfg.Scenario), C.bool(with_tcb))
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
 	defer C.free(unsafe.Pointer(c_param_set.buf))
 	// report conversion
@@ -504,7 +485,7 @@ func provisionNoAS() (int, error) {
 	defer C.free(up_c_in)
 
 	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
+	c_out.size = MAX_OUTBUF_SIZE
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 
 	result := C.RemoteAttest(&c_in, &c_out)
@@ -531,7 +512,7 @@ func provisionNoDAA() ([]byte, error) {
 	defer C.free(up_c_in)
 
 	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
+	c_out.size = MAX_OUTBUF_SIZE
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 
 	result := C.RemoteAttest(&c_in, &c_out)
@@ -585,7 +566,7 @@ func provisionDAA() ([]byte, error) {
 	defer C.free(up_c_in)
 
 	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
+	c_out.size = MAX_OUTBUF_SIZE
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 
 	result := C.RemoteAttest(&c_in, &c_out)
@@ -656,7 +637,7 @@ func provisionDAA() ([]byte, error) {
 
 // GenerateAKCert generates ak cert according to qca server scenario configuration.
 func GenerateAKCert() ([]byte, error) {
-	switch Qcacfg.Scenario {
+	switch qcaCfg.Scenario {
 	case typeConv(RA_SCENARIO_NO_AS):
 		result, err := provisionNoAS()
 		if err != nil {
@@ -698,7 +679,7 @@ func SaveAKCert(cert []byte) error {
 	defer C.free(cert_buf)
 
 	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
+	c_out.size = MAX_OUTBUF_SIZE
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 
 	result := C.RemoteAttest(&cert_data, &c_out)

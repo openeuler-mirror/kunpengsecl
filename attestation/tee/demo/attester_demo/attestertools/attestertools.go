@@ -33,10 +33,11 @@ import (
 	"strings"
 	"unsafe"
 
-	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"gitee.com/openeuler/kunpengsecl/attestation/tee/demo/qca_demo/qapi"
 )
 
 const (
@@ -83,16 +84,25 @@ const (
 	strHomeConf  = "$HOME/.config/attestation/qca"
 	strSysConf   = "/etc/attestation/ras"
 	// attester config key
-	// Server means attesterconfig server
-	Server = "attesterconfig.server"
-	// Basevalue means attesterconfig basevalue
-	Basevalue = "attesterconfig.basevalue"
-	// Mspolicy means attesterconfig mspolicy
-	Mspolicy = "attesterconfig.mspolicy"
-	// Uuid means attesterconfig uuid
-	Uuid             = "attesterconfig.uuid"
-	VirtGuestIdKey   = "attesterconfig.virtualguest.id"
-	VirtGuestTypeKey = "attesterconfig.virtualguest.type"
+	// server means attesterconfig server
+	server = "attesterconfig.server"
+	// basevalue means attesterconfig basevalue
+	basevalue = "attesterconfig.basevalue"
+	// mspolicy means attesterconfig mspolicy
+	mspolicy = "attesterconfig.mspolicy"
+	// uuid means attesterconfig uuid
+	taUuid           = "attesterconfig.uuid"
+	virtGuestIdKey   = "attesterconfig.virtualguest.id"
+	virtGuestTypeKey = "attesterconfig.virtualguest.type"
+
+	ATTEST_RET_SUCCESS    = 0
+	ATTEST_RET_NONCE_FAIL = -1
+	ATTEST_RET_SIGN_FAIL  = -2
+	ATTEST_RET_HASH_FAIL  = -3
+	ATTEST_RET_OTHER_FAIL = -4
+
+	DOCKER_ID_LEN = 64
+	KVM_UUID_LEN  = 36
 )
 
 type (
@@ -102,16 +112,16 @@ type (
 		usrdata       []byte
 		report        []byte
 		withtcb       bool
-		VirtGuestId   string
-		VirtGuestType string
+		virtGuestId   string
+		virtGuestType string
 	}
 	attesterConfig struct {
 		server        string
 		basevalue     string
 		mspolicy      int
 		uuid          string
-		VirtGuestId   string
-		VirtGuestType string
+		virtGuestId   string
+		virtGuestType string
 	}
 )
 
@@ -123,8 +133,8 @@ var (
 		usrdata:       []byte{},
 		report:        []byte{},
 		withtcb:       false,
-		VirtGuestId:   "",
-		VirtGuestType: "",
+		virtGuestId:   "",
+		virtGuestType: "",
 	}
 	verify_result int = 1
 	defaultPaths      = []string{
@@ -132,46 +142,34 @@ var (
 		strHomeConf,
 		strSysConf,
 	}
-	// VersionFlag means version flag
-	VersionFlag *bool = nil
-	// ServerFlag means server flag
-	ServerFlag *string = nil
-	// BasevalueFlag means basevalue flag
-	BasevalueFlag *string = nil
-	// MspolicyFlag means mspolicy flag
-	MspolicyFlag *int = nil
-	// UuidFlag means uuid flag
-	UuidFlag *string = nil
-	// TestFlag means test flag
-	TestFlag *bool = nil
-	// Container Flag
-	VirtGuestIdFlag   *string = nil
-	VirtGuestTypeFlag *string = nil
+	// versionFlag means version flag
+	versionFlag *bool = nil
+	// testFlag means test flag
+	testFlag *bool = nil
 
-	attesterConf *attesterConfig = nil
+	// attester config, use in attestertools package
+	attesterConf *attesterConfig = &attesterConfig{}
 )
 
-// InitFlags inits the server command flags.
+// InitFlags inits the server command flags. default value from config.yaml file
 func InitFlags() {
 	log.Print("Init attester flags......")
-	VersionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
-	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
-	BasevalueFlag = pflag.StringP(lflagBasevalue, sflagBasevalue, "", helpBasevalue)
-	MspolicyFlag = pflag.IntP(lflagMeasure, sflagMeasure, -1, helpMeasure)
-	UuidFlag = pflag.StringP(lflagUuid, sflagUuid, "", helpUuid)
-	TestFlag = pflag.BoolP(lflagTest, sflagTest, false, helpTest)
-	VirtGuestIdFlag = pflag.String(sflagVirtGuestId, "", helpVirtGuestId)
-	VirtGuestTypeFlag = pflag.String(sflagVirtGuestType, "", helpVirtGuestType)
+	versionFlag = pflag.BoolP(lflagVersion, sflagVersion, false, helpVersion)
+	testFlag = pflag.BoolP(lflagTest, sflagTest, false, helpTest)
+
+	pflag.StringVarP(&attesterConf.server, lflagServer, sflagServer, attesterConf.server, helpServer)
+	pflag.StringVarP(&attesterConf.basevalue, lflagBasevalue, sflagBasevalue, attesterConf.basevalue, helpBasevalue)
+	pflag.IntVarP(&attesterConf.mspolicy, lflagMeasure, sflagMeasure, attesterConf.mspolicy, helpMeasure)
+	pflag.StringVarP(&attesterConf.uuid, lflagUuid, sflagUuid, attesterConf.uuid, helpUuid)
+	pflag.StringVar(&attesterConf.virtGuestId, sflagVirtGuestId, attesterConf.virtGuestId, helpVirtGuestId)
+	pflag.StringVar(&attesterConf.virtGuestType, sflagVirtGuestType, attesterConf.virtGuestType, helpVirtGuestType)
 	pflag.Parse()
 }
 
 // LoadConfigs searches and loads config from config.yaml file.
 func LoadConfigs() {
 	log.Print("Load attester Configs......")
-	if attesterConf != nil {
-		return
-	}
-	attesterConf = &attesterConfig{}
+
 	viper.SetConfigName(ConfName)
 	viper.SetConfigType(ConfExt)
 	for _, s := range defaultPaths {
@@ -182,44 +180,25 @@ func LoadConfigs() {
 		log.Printf("Read config file failed! %v", err)
 		return
 	}
-	attesterConf.server = viper.GetString(Server)
-	attesterConf.basevalue = viper.GetString(Basevalue)
-	attesterConf.mspolicy = viper.GetInt(Mspolicy)
-	attesterConf.uuid = viper.GetString(Uuid)
-	attesterConf.VirtGuestId = viper.GetString(VirtGuestIdKey)
-	attesterConf.VirtGuestType = viper.GetString(VirtGuestTypeKey)
+	attesterConf.server = viper.GetString(server)
+	attesterConf.basevalue = viper.GetString(basevalue)
+	attesterConf.mspolicy = viper.GetInt(mspolicy)
+	attesterConf.uuid = viper.GetString(taUuid)
+	attesterConf.virtGuestId = viper.GetString(virtGuestIdKey)
+	attesterConf.virtGuestType = viper.GetString(virtGuestTypeKey)
 }
 
 // HandleFlags handles the command flags.
 func HandleFlags() {
-	log.Print("Handle attester flags......")
-	if VersionFlag != nil && *VersionFlag {
+	log.Println("Handle attester flags......")
+	if versionFlag != nil && *versionFlag {
 		log.Printf("TEE Remote Attester: %s\n", attesterVersion)
 		os.Exit(0)
 	}
-	if ServerFlag != nil && *ServerFlag != "" {
-		attesterConf.server = *ServerFlag
-		log.Printf("TEE Server: %s", attesterConf.server) // just for test!
-	}
-	if BasevalueFlag != nil && *BasevalueFlag != "" {
-		attesterConf.basevalue = *BasevalueFlag
-		log.Printf("TEE Basevalue File Path: %s", attesterConf.basevalue) // just for test!
-	}
-	if MspolicyFlag != nil && *MspolicyFlag != -1 {
-		attesterConf.mspolicy = *MspolicyFlag
-		log.Printf("TEE Measurement: %d", attesterConf.mspolicy) // just for test!
-	}
-	if UuidFlag != nil && *UuidFlag != "" {
-		attesterConf.uuid = *UuidFlag
-		log.Printf("TEE Uuid: %s", attesterConf.uuid) // just for test!
-	}
-	if VirtGuestIdFlag != nil && *VirtGuestIdFlag != "" {
-		attesterConf.VirtGuestId = *VirtGuestIdFlag
-	}
-	if VirtGuestTypeFlag != nil && *VirtGuestTypeFlag != "" {
-		attesterConf.VirtGuestType = *VirtGuestTypeFlag
-	}
-	if TestFlag != nil && *TestFlag {
+
+	log.Printf("Attester config: %v\n", attesterConf)
+
+	if testFlag != nil && *testFlag {
 		testmode = true
 		// var s_nonce string = "challenge" // 换成获取到的nonce（不是string，要先base64解码）
 		// nonce := []byte(s_nonce)
@@ -244,15 +223,15 @@ func StartAttester() {
 	test_ta.report = getReport(test_ta)
 	verify_result = tee_verify(test_ta, attesterConf.mspolicy, attesterConf.basevalue)
 	switch verify_result {
-	case 0:
+	case ATTEST_RET_SUCCESS:
 		log.Print("tee verify succeeded!")
-	case -1:
+	case ATTEST_RET_NONCE_FAIL:
 		log.Print("tee verify nonce failed!")
-	case -2:
+	case ATTEST_RET_SIGN_FAIL:
 		log.Print("tee verify signature failed!")
-	case -3:
+	case ATTEST_RET_HASH_FAIL:
 		log.Print("tee verify hash failed!")
-	case -4:
+	default:
 		log.Print("tee verify get other error!")
 	}
 
@@ -270,11 +249,11 @@ func checkVirtGuestInfo(id, ctype string) error {
 	}
 	switch strings.ToLower(ctype) {
 	case "docker":
-		if len(id) != 64 {
+		if len(id) != DOCKER_ID_LEN {
 			return fmt.Errorf("invalid id length %d", len(id))
 		}
 	case "kvm":
-		if len(id) != 36 {
+		if len(id) != KVM_UUID_LEN {
 			return fmt.Errorf("invalid uuid length %d", len(id))
 		}
 	default:
@@ -303,12 +282,12 @@ func iniTAParameter(ta *trustApp, m bool) (*trustApp, error) {
 		ta.usrdata = nonce
 	}
 
-	err = checkVirtGuestInfo(attesterConf.VirtGuestId, attesterConf.VirtGuestType)
+	err = checkVirtGuestInfo(attesterConf.virtGuestId, attesterConf.virtGuestType)
 	if err != nil {
 		return nil, err
 	}
-	ta.VirtGuestId = strings.ToLower(attesterConf.VirtGuestId)
-	ta.VirtGuestType = strings.ToLower(attesterConf.VirtGuestType)
+	ta.virtGuestId = strings.ToLower(attesterConf.virtGuestId)
+	ta.virtGuestType = strings.ToLower(attesterConf.virtGuestType)
 	return ta, nil
 }
 
@@ -320,10 +299,10 @@ func getReport(ta *trustApp) []byte {
 	}
 
 	var info *qapi.GetReportRequest_VirtualGuestInfo
-	if ta.VirtGuestId != "" && ta.VirtGuestType != "" {
+	if ta.virtGuestId != "" && ta.virtGuestType != "" {
 		info = &qapi.GetReportRequest_VirtualGuestInfo{
-			Id:   ta.VirtGuestId,
-			Type: ta.VirtGuestType,
+			Id:   ta.virtGuestId,
+			Type: ta.virtGuestType,
 		}
 	}
 
@@ -347,20 +326,20 @@ func getReport(ta *trustApp) []byte {
 }
 
 func adaptkvm(ta *trustApp) error {
-	if ta == nil || ta.VirtGuestType != "kvm" {
+	if ta == nil || ta.virtGuestType != "kvm" {
 		return nil
 	}
 
 	// convert uuid to 64 id and type to docker
-	ta.VirtGuestType = "docker"
-	uuid, err := uuid.Parse(ta.VirtGuestId)
+	ta.virtGuestType = "docker"
+	uuid, err := uuid.Parse(ta.virtGuestId)
 	if err != nil {
 		return fmt.Errorf("uuid is invalid, %v", err)
 	}
 
 	id16 := uuid[:]
 	id32 := append(id16, id16...)
-	ta.VirtGuestId = hex.EncodeToString(id32)
+	ta.virtGuestId = hex.EncodeToString(id32)
 	return nil
 }
 
@@ -369,7 +348,7 @@ func tee_verify(ta *trustApp, mtype int, bv string) int {
 	// in report, type is docker, id is 64id
 	if err := adaptkvm(ta); err != nil {
 		log.Printf("adapt kvm info failed, %v\n", err)
-		return -4
+		return ATTEST_RET_OTHER_FAIL
 	}
 	// construct C data_buf
 	var crep C.buffer_data
@@ -385,14 +364,14 @@ func tee_verify(ta *trustApp, mtype int, bv string) int {
 
 	// construct C info
 	var cinfo *C.container_info = nil
-	if ta.VirtGuestId != "" && ta.VirtGuestType != "" {
+	if ta.virtGuestId != "" && ta.virtGuestType != "" {
 		var tmpInfo C.container_info
-		cid := C.CString(ta.VirtGuestId)
+		cid := C.CString(ta.virtGuestId)
 		defer C.free(unsafe.Pointer(cid))
-		ctype := C.CString(ta.VirtGuestType)
+		ctype := C.CString(ta.virtGuestType)
 		defer C.free(unsafe.Pointer(ctype))
-		tmpInfo.id.buf, tmpInfo.id.size = (*C.uchar)(cid), C.__uint32_t(len(ta.VirtGuestId))
-		tmpInfo._type.buf, tmpInfo._type.size = (*C.uchar)(ctype), C.__uint32_t(len(ta.VirtGuestType))
+		tmpInfo.id.buf, tmpInfo.id.size = (*C.uchar)(cid), C.__uint32_t(len(ta.virtGuestId))
+		tmpInfo._type.buf, tmpInfo._type.size = (*C.uchar)(ctype), C.__uint32_t(len(ta.virtGuestType))
 		cinfo = &tmpInfo
 	}
 

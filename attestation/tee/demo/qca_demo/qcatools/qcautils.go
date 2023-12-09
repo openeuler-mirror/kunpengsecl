@@ -201,6 +201,7 @@ const (
 	MAX_OUTBUF_SIZE  = 0x3000
 	MAX_REGBUF_SIZE  = 512
 	DOCKER_ID_LEN    = 64
+	KVM_UUID_LEN     = 36
 	MAX_HEALTH_CHECK = 7 * 24 * 60 // 7 day
 
 	RET_SUCCESS       = 0
@@ -208,13 +209,13 @@ const (
 	RET_SAVECLIENTERR = 2
 
 	GET_QEMU_PID_FMT = "ps aux | grep qemu.*%s | grep -v grep | awk '{print $2}'"
+
+	NSID_MATCH_RET = 2
 )
 
 var (
 	connMap    sync.Map
 	curConnCnt int32
-	ValidNsid  = regexp.MustCompile(`\[([0-9]+)\]`)
-	Done       = make(chan bool)
 )
 
 type (
@@ -268,20 +269,22 @@ func deleteConnClient(id string) {
 	}
 	atomic.AddInt32(&curConnCnt, -1)
 	connMap.Delete(id)
-	conn.(net.Conn).Close()
+	if err := conn.(net.Conn).Close(); err != nil {
+		log.Printf("delete conn failed, %v\n", err)
+	}
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid))
 	C.UnRegisterContainer(cid)
 }
 
-func CheckConnAlive(check int32) {
+func CheckConnAlive(check int32, done chan bool) {
 	if check <= 0 || check > MAX_HEALTH_CHECK {
 		return
 	}
 	ticker := time.NewTicker(time.Duration(check) * time.Minute)
 	for {
 		select {
-		case <-Done:
+		case <-done:
 			connMap.Range(func(id, conn interface{}) bool {
 				deleteConnClient(id.(string))
 				return true
@@ -346,8 +349,8 @@ func getNsidByPid(pid int) (int, error) {
 		return -1, fmt.Errorf("readlink failed, %v", err)
 	}
 
-	match := ValidNsid.FindStringSubmatch(cont)
-	if len(match) == 2 {
+	match := regexp.MustCompile(`\[([0-9]+)\]`).FindStringSubmatch(cont)
+	if len(match) == NSID_MATCH_RET {
 		nsid, err := strconv.Atoi(match[1])
 		if err != nil {
 			return -1, fmt.Errorf("convert to int failed, %v", err)
@@ -452,45 +455,60 @@ func RecvData(conn net.Conn, outData interface{}) error {
 
 	var data ConnWrapMsg
 	if err = json.Unmarshal(buf[:n], &data); err != nil {
-		return fmt.Errorf("message unmarshal failed, %v\n", err)
+		return fmt.Errorf("message unmarshal failed, %v", err)
 	}
 	if data.Ret != 0 {
 		var msg []byte
-		json.Unmarshal([]byte(data.Data), &msg)
-		return fmt.Errorf("remote return err, %d, %v\n", data.Ret, string(msg))
+		err = json.Unmarshal([]byte(data.Data), &msg)
+		if err != nil {
+			return fmt.Errorf("get errmsg failed, %v", err)
+		}
+		return fmt.Errorf("remote return err, %d, %v", data.Ret, string(msg))
 	}
 
 	if err = json.Unmarshal([]byte(data.Data), &outData); err != nil {
-		return fmt.Errorf("data unmarshal failed, %v\n", err)
+		return fmt.Errorf("data unmarshal failed, %v", err)
 	}
 	return nil
 }
 
 func dealQcaDaemonClient(conn net.Conn) {
+	closeConn := func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("close conn fialed, %v\n", err)
+		}
+	}
+
 	var cliInfo VirtualGuestInfo
 	err := RecvData(conn, &cliInfo)
 	if err != nil {
 		log.Printf("Recv client regist info failed, %v\n", err)
-		goto close
+		closeConn()
+		return
 	}
 
 	/* recive kvm id is 64 id */
 	err = addConnClient(cliInfo.Id, conn)
 	if err != nil {
 		log.Printf("Save conn to map failed, %v\n", err)
-		SendData(conn, []byte("save conn to map falied"), RET_SAVECLIENTERR)
-		goto close
+		err = SendData(conn, []byte("save conn to map falied"), RET_SAVECLIENTERR)
+		if err != nil {
+			log.Printf("send fail msg to qca_daemon failed, %v\n", err)
+		}
+		closeConn()
+		return
 	}
 
-	SendData(conn, []byte("client register success"), RET_SUCCESS)
-	log.Println("Regist qca_daemon client success\n")
-	return
+	err = SendData(conn, []byte("client register success"), RET_SUCCESS)
+	if err != nil {
+		log.Printf("send success to qca_daemon failed.\n")
+		closeConn()
+	}
 
-close:
-	conn.Close()
+	log.Println("Regist qca_daemon client success")
 }
 
-func StartQcaDaemonServer(saddr string) {
+func StartQcaDaemonServer(saddr string, done chan bool) {
 	listen, err := net.Listen("tcp", saddr)
 	if err != nil {
 		log.Fatalf("Listen %v failed, %v", saddr, err)
@@ -499,7 +517,7 @@ func StartQcaDaemonServer(saddr string) {
 
 	for {
 		select {
-		case <-Done:
+		case <-done:
 			return
 		default:
 			conn, err := listen.Accept()
@@ -528,7 +546,7 @@ func checkVirtGuestInfo(info *VirtualGuestInfo) error {
 			return fmt.Errorf("invalid id length %d", len(info.Id))
 		}
 	case "kvm":
-		if len(info.Id) != 36 {
+		if len(info.Id) != KVM_UUID_LEN {
 			return fmt.Errorf("invalid uuid length %d", len(info.Id))
 		}
 	default:
@@ -604,8 +622,8 @@ func callCRegisterContainer(js_input []byte) (int, error) {
 }
 
 func CallCRemoteAttest(js_input []byte, out_len uint32) ([]byte, error) {
-	if js_input == nil || out_len == 0 {
-		return nil, errors.New("invalid json input or lens")
+	if len(js_input) == 0 || out_len == 0 {
+		return nil, errors.New("invalid json input or output len")
 	}
 
 	/*** format conversion: Go -> C ***/
@@ -620,11 +638,10 @@ func CallCRemoteAttest(js_input []byte, out_len uint32) ([]byte, error) {
 	c_out.size = C.__uint32_t(out_len)
 	up_c_out := C.malloc(C.ulong(c_out.size))
 	c_out.buf = (*C.uint8_t)(up_c_out)
-	defer C.free(up_c_out)
 
 	teec_result := C.RemoteAttest(&c_in, &c_out)
 	if int(teec_result) != 0 {
-		return nil, errors.New("Invoke remoteAttest failed")
+		return nil, errors.New("invoke remoteAttest failed")
 	}
 
 	output := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
