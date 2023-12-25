@@ -1,0 +1,221 @@
+From 978bb5d4f4032a3ebf302a10d31fbbef2a01c1c5 Mon Sep 17 00:00:00 2001
+From: chen zheng <chenzheng5555@huawei.com>
+Date: Fri, 3 Nov 2023 19:44:22 +0800
+Subject: [PATCH] libqca/qta add delete interface
+
+---
+ test/CA/libqca/include/ra_client_api.h     |  2 +
+ test/CA/libqca/src/ra_operate_api.c        | 51 ++++++++++++++++++++++
+ test/CA/libqca/src/ra_operate_api.h        |  1 +
+ test/TA/qta/src/container/container_info.c | 28 ++++++++++++
+ test/TA/qta/src/container/container_info.h |  1 +
+ test/TA/qta/src/container/dlist.h          | 11 +++++
+ test/TA/qta/src/tee_qta.c                  | 19 ++++++++
+ test/TA/qta/src/tee_qta.h                  |  1 +
+ 8 files changed, 114 insertions(+)
+
+diff --git a/test/CA/libqca/include/ra_client_api.h b/test/CA/libqca/include/ra_client_api.h
+index afa9e07..4e2e135 100644
+--- a/test/CA/libqca/include/ra_client_api.h
++++ b/test/CA/libqca/include/ra_client_api.h
+@@ -22,6 +22,8 @@ TEEC_Result RemoteAttest(struct ra_buffer_data *in, struct ra_buffer_data *out);
+ #ifdef HOST_QCA
+ TEEC_Result RegisterContainer(struct ra_buffer_data *container_info, TEEC_Context *context,
+     TEEC_Session *session, uint32_t *origin);
++TEEC_Result UnRegisterContainer(char *id);
++TEEC_Result UnRegisterContainerWithSess(char *id, TEEC_Session *session);
+ #endif
+ 
+ #endif
+diff --git a/test/CA/libqca/src/ra_operate_api.c b/test/CA/libqca/src/ra_operate_api.c
+index fea5142..4b09c8f 100644
+--- a/test/CA/libqca/src/ra_operate_api.c
++++ b/test/CA/libqca/src/ra_operate_api.c
+@@ -201,4 +201,55 @@ TEEC_Result RegisterContainer(struct ra_buffer_data *container_info, TEEC_Contex
+     }
+     return container_info_ops(container_info, REGISTER_CONTAINER_CMD, context, session, origin);
+ }
++
++TEEC_Result UnRegisterContainerWithSess(char *id, TEEC_Session *session)
++{
++    if (id == NULL || strlen(id) == 0 || session == NULL) {
++        tloge("invalid input\n");
++        return TEEC_ERROR_BAD_PARAMETERS;
++    }
++
++    TEEC_Operation operation = {0};
++    uint32_t origin;
++
++    operation.started = 1;
++    operation.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_NONE, TEEC_NONE, TEEC_NONE);
++    operation.params[0].tmpref.buffer = id;
++    operation.params[0].tmpref.size = strlen(id);
++
++    TEEC_Result result = TEEC_InvokeCommand(session, UNREGISTER_CONTAINER_CMD, &operation, &origin);
++    if (result != TEEC_SUCCESS) {
++        tloge("invoke command failed, result = 0x%x\n", result);
++    }
++    return result;
++}
++
++TEEC_Result UnRegisterContainer(char *id)
++{
++    TEEC_Context context = {0};
++    TEEC_Session session = {0};
++    TEEC_Operation operation = {0};
++    TEEC_UUID uuid = g_tee_qta_uuid;
++
++    TEEC_Result result = TEEC_InitializeContext(NULL, &context);
++    if (result != TEEC_SUCCESS) {
++        tloge("init context is failed, result is 0x%x\n", result);
++        return result;
++    }
++
++    operation.started = 1;
++    operation.paramTypes = TEEC_PARAM_TYPES(TEEC_NONE, TEEC_NONE, TEEC_NONE, TEEC_NONE);
++    result = TEEC_OpenSession(&context, &session, &uuid, TEEC_LOGIN_IDENTIFY, NULL, &operation, NULL);
++    if (result != TEEC_SUCCESS) {
++        tloge("open session is failed, result is 0x%x\n", result);
++        goto cleanup_1;
++    }
++
++    result = UnRegisterContainerWithSess(id, &session);
++
++    TEEC_CloseSession(&session);
++cleanup_1:
++    TEEC_FinalizeContext(&context);
++    return result;
++}
+ #endif
+diff --git a/test/CA/libqca/src/ra_operate_api.h b/test/CA/libqca/src/ra_operate_api.h
+index 4925409..cdf740a 100644
+--- a/test/CA/libqca/src/ra_operate_api.h
++++ b/test/CA/libqca/src/ra_operate_api.h
+@@ -22,6 +22,7 @@
+ #define REMOTE_ATTEST_CMD         (0x1001)
+ #ifdef HOST_QCA
+ #define REGISTER_CONTAINER_CMD    (0x1002)
++#define UNREGISTER_CONTAINER_CMD  (0x1004)
+ #endif
+ 
+ #endif
+diff --git a/test/TA/qta/src/container/container_info.c b/test/TA/qta/src/container/container_info.c
+index 0e602ed..8aed3b5 100644
+--- a/test/TA/qta/src/container/container_info.c
++++ b/test/TA/qta/src/container/container_info.c
+@@ -119,3 +119,31 @@ end:
+     (void)pthread_mutex_unlock(&g_container_list_mutex);
+     return ret;
+ }
++
++TEE_Result unregister_container(char container_id[])
++{
++    /* default success, because qta may be unloaded. */
++    TEE_Result ret = TEE_SUCCESS;
++
++    if (!g_container_list_init) {
++        return ret;
++    }
++
++    if (pthread_mutex_lock(&g_container_list_mutex) != 0) {
++        tloge("lock container list failed\n");
++        return TEE_ERROR_GENERIC;
++    }
++
++    /* if already registered, update nsid */
++    struct container_info *info_node = NULL;
++    dlist_for_each_entry(info_node, &g_container_list, struct container_info, list) {
++        if (strcmp(info_node->container_id, container_id) == 0) {
++            dlist_delete(&info_node->list);
++            free(info_node);
++            break;
++        }
++    }
++
++    (void)pthread_mutex_unlock(&g_container_list_mutex);
++    return ret;
++}
+diff --git a/test/TA/qta/src/container/container_info.h b/test/TA/qta/src/container/container_info.h
+index 7955e41..7faf99a 100644
+--- a/test/TA/qta/src/container/container_info.h
++++ b/test/TA/qta/src/container/container_info.h
+@@ -19,4 +19,5 @@
+ TEE_Result init_container_list(void);
+ TEE_Result get_nsid_by_container_id(char container_id[], uint32_t *nsid);
+ TEE_Result register_container(char container_id[], uint32_t nsid);
++TEE_Result unregister_container(char container_id[]);
+ #endif
+diff --git a/test/TA/qta/src/container/dlist.h b/test/TA/qta/src/container/dlist.h
+index 0c129eb..557abcd 100644
+--- a/test/TA/qta/src/container/dlist.h
++++ b/test/TA/qta/src/container/dlist.h
+@@ -66,6 +66,17 @@ static inline void dlist_insert_head(struct dlist_node *node, struct dlist_node
+     dlist_insert(head, node);
+ }
+ 
++static inline void dlist_delete(struct dlist_node *node)
++{
++    struct dlist_node *tmp = NULL;
++
++    tmp       = node->prev;
++    tmp->next = node->next;
++    tmp       = node->next;
++    tmp->prev = node->prev;
++    dlist_init(node);
++}
++
+ /* get the address of the containing struct */
+ #define dlist_entry(ptr, type, member) container_of(ptr, type, member)
+ 
+diff --git a/test/TA/qta/src/tee_qta.c b/test/TA/qta/src/tee_qta.c
+index d84a5ba..fd875f5 100644
+--- a/test/TA/qta/src/tee_qta.c
++++ b/test/TA/qta/src/tee_qta.c
+@@ -456,6 +456,22 @@ clean:
+         tloge("qta container info: handle cmd 0x%x failed\n", cmd_id);
+     return ret;
+ }
++
++static TEE_Result handle_unregister_container(uint32_t param_types, TEE_Param *params)
++{
++    bool check = check_param_type(param_types, TEE_PARAM_TYPE_MEMREF_INPUT, TEE_PARAM_TYPE_NONE,
++        TEE_PARAM_TYPE_NONE, TEE_PARAM_TYPE_NONE);
++    if (!check || params == NULL) {
++        tloge("qta container info: check param type failed\n");
++        return TEE_ERROR_BAD_PARAMETERS;
++    }
++    if (params[0].memref.buffer == NULL || params[0].memref.size == 0) {
++        tloge("qta container info: input param invalid\n");
++        return TEE_ERROR_BAD_PARAMETERS;
++    }
++    char *id = params[0].memref.buffer;
++    return unregister_container(id);
++}
+ #endif
+ 
+ static TEE_Result handle_remote_attest(uint32_t cmd_id, uint32_t param_types, TEE_Param *params)
+@@ -495,6 +511,9 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session_context, uint32_t cmd_id,
+         ret = handle_remote_attest(cmd_id, param_types, params);
+         break;
+ #ifdef CONFIG_HOST_QTA
++    case UNREGISTER_CONTAINER_CMD:
++        ret = handle_unregister_container(param_types, params);
++        break;
+     case REGISTER_CONTAINER_CMD:
+         ret = handle_container_info(cmd_id, param_types, params);
+         break;
+diff --git a/test/TA/qta/src/tee_qta.h b/test/TA/qta/src/tee_qta.h
+index 4246254..cc22090 100644
+--- a/test/TA/qta/src/tee_qta.h
++++ b/test/TA/qta/src/tee_qta.h
+@@ -23,6 +23,7 @@
+ #define REMOTE_ATTEST_CMD         0x1001
+ #ifdef CONFIG_HOST_QTA
+ #define REGISTER_CONTAINER_CMD    0x1002
++#define UNREGISTER_CONTAINER_CMD    0x1004
+ #endif
+ #if defined(CONFIG_HOST_QTA) || defined(CONFIG_QTA_REPORT)
+ #define VERIFY_CONTAINER_CMD      0x1003
+-- 
+2.42.0.windows.2
+

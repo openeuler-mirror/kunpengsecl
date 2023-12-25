@@ -23,7 +23,7 @@ import (
 
 const (
 	configFilePath = "./config.yaml"
-	QcaConfig      = `
+	QcaConfigCont  = `
 qcaconfig:
   server: 127.0.0.1:40007
   akserver: 127.0.0.1:40008
@@ -43,8 +43,12 @@ var (
 	tcb      = false
 )
 
+const (
+	TEST_FILE_MODE = 0644
+)
+
 func CreateQcaConfigFile() {
-	err := ioutil.WriteFile(configFilePath, []byte(QcaConfig), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(QcaConfigCont), TEST_FILE_MODE)
 	if err != nil {
 		return
 	}
@@ -65,7 +69,7 @@ func TestGetTAReport(t *testing.T) {
 	LoadConfigs()
 	HandleFlags()
 
-	res, err := GetTAReport([]byte(testUuid), []byte(data), tcb)
+	res, err := GetTAReport([]byte(testUuid), []byte(data), tcb, nil)
 	if res == nil || err != nil {
 		t.Error(GET_TA_REPORT_ERROR)
 	}
@@ -83,7 +87,7 @@ func TestGenerateAKCert(t *testing.T) {
 		t.Error(GENERATE_AK_CERT_ERROR)
 	}
 
-	Qcacfg.Scenario = 1
+	qcaCfg.Scenario = 1
 	_, err = GenerateAKCert()
 	if err != nil {
 		t.Error(GENERATE_AK_CERT_ERROR)
@@ -96,7 +100,7 @@ func TestGenerateAKCert(t *testing.T) {
 	// 	t.Error(GENERATE_AK_CERT_ERROR)
 	// }
 
-	Qcacfg.Scenario = 3
+	qcaCfg.Scenario = 3
 	_, err = GenerateAKCert()
 	if err == nil {
 		t.Error(GENERATE_AK_CERT_ERROR)

@@ -17,9 +17,9 @@ import (
 )
 
 func main() {
-	qcatools.InitFlags()
 	qcatools.LoadConfigs()
-	qcatools.HandleFlags()
+	qcatools.InitFlags()
+	qcaCfg := qcatools.HandleFlags()
 
-	qapi.StartServer()
+	qapi.StartServer(qcaCfg)
 }

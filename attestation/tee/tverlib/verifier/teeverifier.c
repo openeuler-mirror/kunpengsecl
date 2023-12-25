@@ -931,6 +931,30 @@ bool restorePEMCert(uint8_t *data, int data_len, buffer_data *certdrk)
     return true;
 }
 
+void free_ta_attr(TA_attr *attr)
+{
+    if (attr == NULL)
+        return;
+    if (attr->type == 0) {
+        if (attr->data.reserve == NULL)
+            return;
+        if (attr->data.reserve->buf)
+            free(attr->data.reserve->buf);
+        free(attr->data.reserve);
+        return;
+    }
+    if (attr->type == 1) {
+        if (attr->data.container == NULL)
+            return;
+        if (attr->data.container->id.buf)
+            free(attr->data.container->id.buf);
+        if (attr->data.container->type.buf)
+            free(attr->data.container->type.buf);
+        free(attr->data.container);
+        return;
+    }
+}
+
 void free_report(TA_report *report)
 {
     if (NULL == report)
@@ -947,6 +971,8 @@ void free_report(TA_report *report)
             free(report->cert->buf);
         free(report->cert);
     }
+
+    free_ta_attr(&(report->ta_attr));
 
     free(report);
 }
@@ -1109,21 +1135,68 @@ void test_print(uint8_t *printed, int printed_size, char *printed_name)
     printf("\n");
 };
 
-bool tee_verify(buffer_data *bufdata, int type, char *filename)
+static bool compare_buffer_data(buffer_data *a, buffer_data *b)
+{
+    if (a == NULL || b == NULL || a->buf == NULL || b->buf == NULL) {
+        printf("buffer_data input is invalid\n");
+        return false;
+    }
+
+    if (a->size != b->size) {
+        return false;
+    }
+
+    return cmp_bytes(a->buf, b->buf, a->size);
+}
+
+static bool compare_container_info(container_info *info, TA_report *report)
+{
+    if (report == NULL) {
+        printf("report input is invalid\n");
+        return false;
+    }
+
+    /* no need to compare container info when report not contain container info */
+    if (report->ta_attr.type != 1) {
+        return true;
+    }
+
+    if (info == NULL || report->ta_attr.data.container == NULL) {
+        printf("report ta_attr or container info is invalid\n");
+        return false;
+    }
+
+    return compare_buffer_data(&(info->id), &(report->ta_attr.data.container->id)) &&
+           compare_buffer_data(&(info->type), &(report->ta_attr.data.container->type));
+}
+
+
+bool tee_verify(buffer_data *bufdata, container_info *info, int type, char *filename)
 {
     TA_report *report = Convert(bufdata);
-    base_value *baseval = LoadBaseValue(report, filename);
+    base_value *qta_report_baseval = NULL;
+    base_value *baseval = LoadBaseValue(report, filename, &qta_report_baseval);
 
-    bool verified;
+    bool verified = false;
     if ((report == NULL) || (baseval == NULL)) {
-        printf("Pointer Error!\n");
-        verified = false;
-    } else
-        verified = Compare(type, report,
-                           baseval); // compare the report with the basevalue
+        printf("convert report or basevalue file failed!\n");
+        goto end;
+    }
 
-    free_report(report);
-    free(baseval);
+    if (!compare_container_info(info, report)) {
+        printf("compare container id or type failed\n");
+        goto end;
+    }
+
+    verified = Compare(type, report, baseval, qta_report_baseval); // compare the report with the basevalue
+
+end:
+    if (report)
+        free_report(report);
+    if (baseval)
+        free(baseval);
+    if (qta_report_baseval)
+        free(qta_report_baseval);
     return verified;
 }
 
@@ -1246,6 +1319,118 @@ bool get_alg_from_payload(cJSON *pljson, TA_report *tr)
     return true;
 }
 
+static bool base64urldecode_copy(char *src, uint8_t *dst, int dstMax_len)
+{
+    if (src == NULL || dst == NULL || dstMax_len <= 0) {
+        printf("input params error\n");
+        return false;
+    }
+
+    int len = 0;
+    uint8_t *tmp = base64urldecode(src, strlen(src), &len);
+    if (len > dstMax_len) {
+        printf("base64urldecode len is overflow\n");
+        free(tmp);
+        return false;
+    }
+    memcpy(dst, tmp, len);
+    free(tmp);
+    return true;
+}
+
+static bool create_copy_buf(char *src, buffer_data *dst)
+{
+    if (src == NULL || dst == NULL) {
+        printf("input params error\n");
+        return false;
+    }
+
+    dst->size = 0;
+    dst->buf = NULL;
+
+    dst->size = strlen(src);
+    if (dst->size == 0) {
+        return true;
+    }
+
+    dst->buf = (uint8_t *)malloc(dst->size);
+    if (dst->buf== NULL) {
+        printf("malloc buf failed\n");
+        return false;
+    }
+
+    memcpy(dst->buf, src, dst->size);
+    return true;
+}
+
+static bool get_complex_ta_attr(cJSON *attr_json, TA_report *tr)
+{
+    if (attr_json == NULL || tr == NULL || attr_json->child == NULL) {
+        printf("input params error\n");
+        return false;
+    }
+
+    tr->ta_attr.type = 1;
+    cJSON *id = cJSON_GetObjectItemCaseSensitive(attr_json, "container_id");
+    cJSON *type = cJSON_GetObjectItemCaseSensitive(attr_json, "container_type");
+    cJSON *imgjson = cJSON_GetObjectItemCaseSensitive(attr_json, "qta_report_img_hash");
+    cJSON *memjson = cJSON_GetObjectItemCaseSensitive(attr_json, "qta_report_mem_hash");
+    if (id == NULL || type == NULL || imgjson == NULL || memjson == NULL) {
+        printf("cjson parse attr data from report error\n");
+        return false;
+    }
+
+    Container_attr *ta_attr = (Container_attr *)calloc(1, sizeof(Container_attr));
+    if (ta_attr == NULL) {
+        printf("malloc ta_attr node failed\n");
+        return false;
+    }
+
+    if (!base64urldecode_copy(imgjson->valuestring, ta_attr->img_hash, HASH_SIZE) ||
+        !base64urldecode_copy(memjson->valuestring, ta_attr->mem_hash, HASH_SIZE)) {
+        printf("decode qta_report hash failed\n");
+        free(ta_attr);
+        return false;
+    }
+
+    if (!create_copy_buf(id->valuestring, &ta_attr->id) || !create_copy_buf(type->valuestring, &ta_attr->type)) {
+        printf("read and copy container info failed\n");
+        free(ta_attr);
+        return false;
+    }
+
+    tr->ta_attr.data.container = ta_attr;
+    return true;
+}
+
+static bool get_ta_attr(cJSON *attr_json, TA_report *tr)
+{
+    if (attr_json == NULL || tr == NULL) {
+        printf("input params error\n");
+        return false;
+    }
+
+    if (attr_json->child == NULL) {
+        tr->ta_attr.type = 0;
+        buffer_data *buf_node = (buffer_data *)calloc(1, sizeof(buffer_data));
+        if (buf_node == NULL) {
+            printf("malloc reserve node failed\n");
+            return false;
+        }
+
+        /* ta_attr data storaged in buf */
+        if (!create_copy_buf(attr_json->valuestring, buf_node)) {
+            printf("read and copy reserve buf failed\n");
+            free(buf_node);
+            return false;
+        }
+        tr->ta_attr.data.reserve = buf_node;
+        return true;
+    }
+
+    return get_complex_ta_attr(attr_json, tr);
+}
+
 bool get_other_params_from_report(cJSON *pljson, TA_report *tr)
 {
     // get version, timestamp, ta_attr
@@ -1258,8 +1443,12 @@ bool get_other_params_from_report(cJSON *pljson, TA_report *tr)
     }
 
     memcpy(tr->timestamp, tsjson->valuestring, strlen(tsjson->valuestring));
-    memcpy(tr->reserve, reservejson->valuestring, strlen(reservejson->valuestring));
     memcpy(tr->version, vjson->valuestring, strlen(vjson->valuestring));
+
+    if (!get_ta_attr(reservejson, tr)) {
+        printf("cjson parse ta_attr error\n");
+        return false;
+    }
 
     return true;
 }
@@ -1352,55 +1541,114 @@ void read_bytes(void *input, size_t size, size_t nmemb, uint8_t *output, size_t 
     *offset += size * nmemb;
 }
 
-base_value *LoadBaseValue(const TA_report *report, char *filename)
+static uint8_t g_qta_report_uuid[UUID_SIZE] = {0xe0, 0xc0, 0x84, 0x4f, 0x3f, 0x4c, 0x2f, 0x42,
+                                               0x97, 0xdc, 0x14, 0xbf, 0xa2, 0x31, 0x4a, 0xd1};
+
+static base_value *create_basevalue(const uint8_t *uuid, char *img_str, char *mem_str)
 {
-    base_value *baseval = NULL;
-    size_t fbuf_len = 0; // if needed
+    if (uuid == NULL || img_str == NULL || mem_str == NULL) {
+        printf("invalid input\n");
+        return NULL;
+    }
 
-    if (report == NULL)
-        verifier_error("illegal report pointer!");
-    char *fbuf = file_to_buffer(filename, &fbuf_len);
+    base_value *baseval = (base_value *)calloc(1, sizeof(base_value));
+    if (baseval == NULL) {
+        printf("calloc basevalue failed\n");
+        return NULL;
+    }
 
-    /*
-       base_value *baseval_tmp = NULL;
-       size_t fbuf_offset = 0;
-       while(fbuf_offset < fbuf_len) {
-          baseval_tmp = (base_value *)(fbuf+fbuf_offset);
-          if (cmp_bytes(report->uuid, baseval_tmp->uuid, UUID_SIZE)) break;
-          fbuf_offset += sizeof(base_value);
-       }
+    memcpy(baseval->uuid, uuid, UUID_SIZE);
+    str_to_hash(img_str, baseval->valueinfo[0]);
+    str_to_hash(mem_str, baseval->valueinfo[1]);
+    return baseval;
+}
 
-       baseval = (base_value *)calloc(1, sizeof(base_value));
-       memcpy(baseval->uuid, baseval_tmp->uuid, UUID_SIZE*sizeof(uint8_t));
-       memcpy(baseval->valueinfo[0], baseval_tmp->valueinfo[0],
-    HASH_SIZE*sizeof(uint8_t)); memcpy(baseval->valueinfo[1],
-    baseval_tmp->valueinfo[1], HASH_SIZE*sizeof(uint8_t));
+static bool found_baseval(char *fbuf, const uint8_t *ta_uuid, base_value **ta, base_value **qta_report, bool need_qta_report)
+{
+    if (fbuf == NULL || ta_uuid == NULL || ta == NULL || qta_report == NULL) {
+        printf("invalid input\n");
+        return false;
+    }
 
-       baseval_tmp = NULL;
-    **/
-
+    *ta = NULL;
+    *qta_report = NULL;
     // fbuf is string stream.
     char *line = NULL;
     line = strtok(fbuf, "\n");
 
-    baseval = (base_value *)calloc(1, sizeof(base_value));
-    char uuid_str[37];
-    char image_hash_str[65];
-    char hash_str[65];
-    int num = 0;
+    char uuid_str[37], image_hash_str[65], hash_str[65];
+    uint8_t cur_uuid[UUID_SIZE] = {0};
+    bool found_ta = false, found_qta_report = !need_qta_report;
+
     while (line != NULL) {
-        ++num;
         sscanf(line, "%36s %64s %64s", uuid_str, image_hash_str, hash_str);
-        str_to_uuid(uuid_str, baseval->uuid);
-        if (cmp_bytes(report->uuid, baseval->uuid, UUID_SIZE)) {
-            str_to_hash(image_hash_str, baseval->valueinfo[0]);
-            str_to_hash(hash_str, baseval->valueinfo[1]);
-            break;
+        str_to_uuid(uuid_str, cur_uuid);
+        if (cmp_bytes(ta_uuid, cur_uuid, UUID_SIZE)) {
+            *ta = create_basevalue(ta_uuid, image_hash_str, hash_str);
+            if (*ta == NULL) {
+                printf("found ta basevalue, but malloc basevalue failed\n");
+                goto err;
+            }
+            found_ta = true;
+            if (found_qta_report)
+                break;
+        }
+        if (need_qta_report) {
+            if (cmp_bytes(g_qta_report_uuid, cur_uuid, UUID_SIZE)) {
+                *qta_report = create_basevalue(g_qta_report_uuid, image_hash_str, hash_str);
+                if (*qta_report == NULL) {
+                    printf("found qta_report basevalue, but malloc basevalue failed\n");
+                    goto err;
+                }
+                found_qta_report = true;
+                if (found_ta)
+                    break;
+            }
         }
 
         line = strtok(NULL, "\n");
     }
 
+    if (!found_ta || !found_qta_report) {
+        printf("not found the ta basevalue\n");
+        goto err;
+    }
+    return true;
+
+err:
+    if (*ta) {
+        free(*ta);
+        *ta = NULL;
+    }
+    if (*qta_report) {
+        free(*qta_report);
+        *qta_report = NULL;
+    }
+    return false;
+}
+
+base_value *LoadBaseValue(const TA_report *report, char *filename, base_value **qta_report_baseval)
+{
+    if (report == NULL || filename == NULL || qta_report_baseval == NULL) {
+        printf("input argument is invalid\n");
+        return NULL;
+    }
+
+    base_value *baseval = NULL;
+    size_t fbuf_len = 0; // if needed
+
+    char *fbuf = file_to_buffer(filename, &fbuf_len);
+    if (fbuf == NULL) {
+        printf("read basevalue file %d failed\n", filename);
+        return NULL;
+    }
+
+    bool is_container = (report->ta_attr.type == 1);
+    if (!found_baseval(fbuf, report->uuid, &baseval, qta_report_baseval, is_container)) {
+        printf("found basevalue failed\n");
+    }
+    
+end:
     free(fbuf);
     return baseval;
 }
@@ -1571,9 +1819,20 @@ err:
     return buffer;
 }
 
-bool Compare(int type, TA_report *report, base_value *basevalue)
+bool Compare(int type, TA_report *report, base_value *basevalue, base_value *qta_baseval)
 {
-    bool compared;
+    if (report == NULL || basevalue == NULL) {
+        printf("invalid input\n");
+        return false;
+    }
+    bool is_container = (report->ta_attr.type == 1);
+    if (is_container && (qta_baseval == NULL || report->ta_attr.data.container == NULL)) {
+        printf("need qta_report basevalue and hash\n");
+        return false;
+    }
+    Container_attr *attr = report->ta_attr.data.container;
+
+    bool compared = false, qta_compared = !is_container;
     /*
        test_print(report->image_hash, HASH_SIZE, "report->image_hash");
        test_print(report->hash, HASH_SIZE, "report->hash");
@@ -1586,15 +1845,25 @@ bool Compare(int type, TA_report *report, base_value *basevalue)
     case 1:
         printf("%s\n", "Compare image measurement..");
         compared = cmp_bytes(report->image_hash, basevalue->valueinfo[0], HASH_SIZE);
+        if (is_container) {
+            qta_compared = cmp_bytes(attr->img_hash, qta_baseval->valueinfo[0], HASH_SIZE);
+        }
         break;
     case 2:
         printf("%s\n", "Compare hash measurement..");
         compared = cmp_bytes(report->hash, basevalue->valueinfo[1], HASH_SIZE);
+        if (is_container) {
+            qta_compared = cmp_bytes(attr->mem_hash, qta_baseval->valueinfo[1], HASH_SIZE);
+        }
         break;
     case 3:
         printf("%s\n", "Compare image & hash measurement..");
         compared = (cmp_bytes(report->image_hash, basevalue->valueinfo[0], HASH_SIZE) &
                     cmp_bytes(report->hash, basevalue->valueinfo[1], HASH_SIZE));
+        if (is_container) {
+            qta_compared = (cmp_bytes(attr->img_hash, qta_baseval->valueinfo[0], HASH_SIZE) &
+                            cmp_bytes(attr->mem_hash, qta_baseval->valueinfo[1], HASH_SIZE));
+        }
         break;
     default:
         printf("%s\n", "Type is incorrect.");
@@ -1602,7 +1871,7 @@ bool Compare(int type, TA_report *report, base_value *basevalue)
     }
 
     printf("%s\n", "Finish Comparation");
-    return compared;
+    return compared && qta_compared;
 }
 
 bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size)
@@ -1679,7 +1948,7 @@ bool tee_verify_nonce(buffer_data *buf_data, buffer_data *nonce)
     return vn;
 }
 
-int tee_verify_report(buffer_data *buf_data, buffer_data *nonce, int type, char *filename)
+int tee_verify_report(buffer_data *buf_data, buffer_data *nonce, container_info *info, int type, char *filename)
 {
     bool vn = tee_verify_nonce(buf_data, nonce);
     if (vn == false) {
@@ -1689,7 +1958,7 @@ int tee_verify_report(buffer_data *buf_data, buffer_data *nonce, int type, char 
     if (vs == false) {
         return TVS_VERIFIED_SIGNATURE_FAILED;
     }
-    bool v = tee_verify(buf_data, type, filename);
+    bool v = tee_verify(buf_data, info, type, filename);
     if (v == false) {
         return TVS_VERIFIED_HASH_FAILED;
     }
@@ -1706,7 +1975,7 @@ bool tee_verify2(buffer_data *bufdata, int type, base_value *baseval)
         verified = false;
     } else
         verified = Compare(type, report,
-                           baseval); // compare the report with the basevalue
+                           baseval, NULL); // compare the report with the basevalue
 
     free_report(report);
     return verified;

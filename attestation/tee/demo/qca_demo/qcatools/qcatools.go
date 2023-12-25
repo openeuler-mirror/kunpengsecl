@@ -92,8 +92,10 @@ import "C"
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"unsafe"
@@ -122,6 +124,9 @@ const (
 	NoDaaACFile = "qcaconfig.nodaaacfile"
 	// DaaACFile means qcaconfig daaacfile
 	DaaACFile = "qcaconfig.daaacfile"
+	// virtual server to support virtual remote attest
+	VirtServer    = "qcaconfig.virtual.server"
+	VirtHealthChk = "qcaconfig.virtual.healthcheck"
 	/*** cmd flags ***/
 	// server open ip:port
 	lflagServer = "server"
@@ -131,6 +136,16 @@ const (
 	lflagScenario = "scenario"
 	sflagScenario = "C"
 	helpScenario  = "set the app usage scenario"
+	// specify virtual server to support virtual remote attest
+	lflagVirtSupport   = "virtual"
+	sflagVirtSupport   = "V"
+	helpVirtSupport    = "is support remote attest"
+	lflagVirtServer    = "virtualserver"
+	sflagVirtServer    = "A"
+	helpVirtServer     = "virtual server addr"
+	lflagVirtHealthChk = "healthcheck"
+	sflagVirtHealthChk = "H"
+	helpVirtHealthChk  = "virtual connect health check"
 	// RemoteAttest Handler
 	RAProvisionInHandler  = "provisioning-input"
 	RAProvisionOutHandler = "provisioning-output"
@@ -195,45 +210,50 @@ type (
 		Size uint32
 		Buf  []uint8
 	}
-	qcaConfig struct {
-		Server      string
-		AKServer    string
-		Scenario    int32
-		NoDaaACFile string
-		DaaACFile   string
+	QcaConfig struct {
+		Server        string
+		AKServer      string
+		Scenario      int32
+		NoDaaACFile   string
+		DaaACFile     string
+		VirtSupport   bool
+		VirtServer    string
+		VirtHealthChk int32
 	}
 )
 
 var (
 	// server side config
-	// Qcacfg means qca config
-	Qcacfg       *qcaConfig = nil
-	defaultPaths            = []string{
+	defaultPaths = []string{
 		strLocalConf,
 		strHomeConf,
 		strSysConf,
 	}
-	// ServerFlag means server flag
-	ServerFlag *string = nil
-	// ScenarioFlag means scenario flag
-	ScenarioFlag *int32 = nil
+	// qcaCfg means qca config
+	qcaCfg *QcaConfig = &QcaConfig{}
 )
 
 // InitFlags inits the qca server command flags.
 func InitFlags() {
 	log.Print("Init qca flags......")
-	ServerFlag = pflag.StringP(lflagServer, sflagServer, "", helpServer)
-	ScenarioFlag = pflag.Int32P(lflagScenario, sflagScenario, 0, helpScenario)
+	if qcaCfg == nil {
+		log.Fatalf("qcaCfg is nil")
+	}
+
+	pflag.StringVarP(&qcaCfg.Server, lflagServer, sflagServer, qcaCfg.Server, helpServer)
+	pflag.Int32VarP(&qcaCfg.Scenario, lflagScenario, sflagScenario, qcaCfg.Scenario, helpScenario)
+	pflag.BoolVarP(&qcaCfg.VirtSupport, lflagVirtSupport, sflagVirtSupport, false, helpVirtSupport)
+	pflag.StringVarP(&qcaCfg.VirtServer, lflagVirtServer, sflagVirtServer, qcaCfg.VirtServer, helpVirtServer)
+	pflag.Int32VarP(&qcaCfg.VirtHealthChk, lflagVirtHealthChk, sflagVirtHealthChk, qcaCfg.VirtHealthChk, helpVirtHealthChk)
 	pflag.Parse()
 }
 
 // LoadConfigs searches and loads config from config.yaml file.
 func LoadConfigs() {
 	log.Print("Load qca Configs......")
-	if Qcacfg != nil {
-		return
+	if qcaCfg == nil {
+		log.Fatalf("qcaCfg is nil")
 	}
-	Qcacfg = &qcaConfig{}
 	viper.SetConfigName(ConfName)
 	viper.SetConfigType(ConfExt)
 	for _, s := range defaultPaths {
@@ -244,36 +264,33 @@ func LoadConfigs() {
 		log.Printf("Read config file failed! %v", err)
 		return
 	}
-	Qcacfg.Server = viper.GetString(Server)
-	Qcacfg.AKServer = viper.GetString(AKServer)
-	Qcacfg.Scenario = viper.GetInt32(Scenario)
-	Qcacfg.NoDaaACFile = viper.GetString(NoDaaACFile)
-	Qcacfg.DaaACFile = viper.GetString(DaaACFile)
+	qcaCfg.Server = viper.GetString(Server)
+	qcaCfg.AKServer = viper.GetString(AKServer)
+	qcaCfg.Scenario = viper.GetInt32(Scenario)
+	qcaCfg.NoDaaACFile = viper.GetString(NoDaaACFile)
+	qcaCfg.DaaACFile = viper.GetString(DaaACFile)
+	qcaCfg.VirtServer = viper.GetString(VirtServer)
+	qcaCfg.VirtHealthChk = viper.GetInt32(VirtHealthChk)
 }
 
 // HandleFlags handles the command flags.
-func HandleFlags() {
+func HandleFlags() *QcaConfig {
 	log.Print("Handle qca flags......")
-
-	if ServerFlag != nil && *ServerFlag != "" {
-		Qcacfg.Server = *ServerFlag
-	}
-	if ScenarioFlag != nil && *ScenarioFlag != 0 {
-		Qcacfg.Scenario = *ScenarioFlag
-	}
+	log.Printf("Qca configs: %v\n", qcaCfg)
+	return qcaCfg
 }
 
 // GetQcaServer returns the qca service server configuration.
 func GetQcaServer() string {
-	if Qcacfg == nil {
+	if qcaCfg == nil {
 		return ""
 	}
-	return Qcacfg.Server
+	return qcaCfg.Server
 }
 
 // SetScenario sets the qca service scenario configuration.
 func SetScenario(s int32) {
-	Qcacfg.Scenario = s
+	qcaCfg.Scenario = s
 }
 
 func reverseEndian(num []byte) {
@@ -289,13 +306,18 @@ func adapt2TAUUID(uuid []byte) {
 }
 
 type (
+	VirtualGuestInfo struct {
+		Id   string `json:"id,omitempty"`
+		Type string `json:"type,omitempty"`
+	}
 	reportInPl struct {
-		Version  string  `json:"version,omitempty"`  // VERSION_TYPE
-		Nonce    string  `json:"nonce,omitempty"`    // BASE64_TYPE
-		Uuid     string  `json:"uuid,omitempty"`     // 待证明的TA UUID的hex字符串描述，字母小写，如"e08f7eca-e875-440e-9ab0-5f381136c600"
-		Hash_alg string  `json:"hash_alg,omitempty"` // HASH_ALG_TYPE
-		With_tcb bool    `json:"with_tcb,omitempty"` // BOOLEAN_TYPE, 当前只能是 “FALSE”
-		Daa_bsn  *string `json:"daa_bsn,omitempty"`  // BASE64_TYPE, BASE64 of DAA用户挑选出来的basename
+		Version  string            `json:"version,omitempty"`        // VERSION_TYPE
+		Nonce    string            `json:"nonce,omitempty"`          // BASE64_TYPE
+		Uuid     string            `json:"uuid,omitempty"`           // 待证明的TA UUID的hex字符串描述，字母小写，如"e08f7eca-e875-440e-9ab0-5f381136c600"
+		Hash_alg string            `json:"hash_alg,omitempty"`       // HASH_ALG_TYPE
+		With_tcb bool              `json:"with_tcb,omitempty"`       // BOOLEAN_TYPE, 当前只能是 “FALSE”
+		Daa_bsn  *string           `json:"daa_bsn,omitempty"`        // BASE64_TYPE, BASE64 of DAA用户挑选出来的basename
+		Info     *VirtualGuestInfo `json:"container_info,omitempty"` // 名字兼容tee里名字
 	}
 	reportInParam struct {
 		Handler string     `json:"handler,omitempty"`
@@ -303,12 +325,65 @@ type (
 	}
 )
 
+func forwardReportReq(inparam []byte, out_len uint32, info *VirtualGuestInfo) ([]byte, error) {
+	var report []byte
+	var err error
+	switch {
+	// host request
+	case info == nil || (info.Id == "" && info.Type == ""):
+		log.Println("Deal host TA report request")
+		report, err = CallCRemoteAttest(inparam, out_len)
+		if err != nil {
+			log.Printf("Get host ta report failed, %v", err)
+			return nil, err
+		}
+		log.Print("Get host TA report succeeded!")
+	// virtual guest request
+	default:
+		log.Printf("Deal virtaul guest TA report request, info: %v\n", info)
+		report, err = dealVirtualTAReq(info, inparam)
+		if err != nil {
+			log.Printf("Get virtual guest TA report failed, %v", err)
+			return nil, err
+		}
+		log.Print("Get virtual guest TA report succeeded!")
+	}
+
+	return report, nil
+}
+
+func adaptkvm(info *VirtualGuestInfo) (*VirtualGuestInfo, error) {
+	if info == nil || info.Type != "kvm" {
+		return info, nil
+	}
+
+	// convert uuid to 64 id and type to docker
+	var newInfo VirtualGuestInfo
+	newInfo.Type = "docker"
+	uuid, err := uuid.Parse(info.Id)
+	if err != nil {
+		return nil, fmt.Errorf("uuid is invalid, %v", err)
+	}
+
+	id16 := uuid[:]
+	id32 := append(id16, id16...)
+	newInfo.Id = hex.EncodeToString(id32)
+	return &newInfo, nil
+}
+
 // GetTAReport gets TA trusted report information.
-func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte, error) {
+func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool, info *VirtualGuestInfo) ([]byte, error) {
 	n := base64.RawURLEncoding.EncodeToString(usr_data)
 	id, err := uuid.FromBytes(ta_uuid)
 	if err != nil {
-		log.Printf("wrong uuid in parameters, %v", err)
+		log.Printf("Wrong uuid in parameters, %v", err)
+		return nil, err
+	}
+
+	// in tee, only docker type is supported
+	newInfo, err := adaptkvm(info)
+	if err != nil {
+		log.Printf("Adapt kvm info failed, %v\n", err)
 		return nil, err
 	}
 
@@ -320,6 +395,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte, error)
 		Hash_alg: RA_HASH_ALG_SHA256,
 		With_tcb: with_tcb, // false
 		Daa_bsn:  nil,      // line73 only support basename = NULL now
+		Info:     newInfo,
 	}
 	inparam := reportInParam{
 		Handler: RAReportInHandler,
@@ -330,26 +406,8 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) ([]byte, error)
 		log.Printf("Encode GetTAReport json message error, %v", err)
 		return nil, err
 	}
-	/*** format conversion: Go -> C ***/
-	// in parameter conversion
-	c_in := C.struct_ra_buffer_data{}
-	c_in.size = C.__uint32_t(len(inparamjson))
-	up_c_in := C.CBytes(inparamjson)
-	c_in.buf = (*C.uchar)(up_c_in)
-	defer C.free(up_c_in)
 
-	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
-	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
-
-	teec_result := C.RemoteAttest(&c_in, &c_out)
-	if int(teec_result) != 0 {
-		return nil, errors.New("Invoke remoteAttest failed, Get TA report failed")
-	}
-	log.Print("Generate TA report succeeded!")
-	report := []byte(C.GoBytes(unsafe.Pointer(c_out.buf), C.int(c_out.size)))
-
-	return report, nil
+	return forwardReportReq(inparamjson, MAX_OUTBUF_SIZE, info)
 }
 
 /*
@@ -370,7 +428,7 @@ func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte {
 	c_usr_data.buf = (*C.uchar)(up_usr_data_buf)
 	defer C.free(up_usr_data_buf)
 	// paramset conversion
-	c_param_set.buf = C.generateParamSetBufferGetReport(C.__uint32_t(Qcacfg.Scenario), C.bool(with_tcb))
+	c_param_set.buf = C.generateParamSetBufferGetReport(C.__uint32_t(qcaCfg.Scenario), C.bool(with_tcb))
 	c_param_set.size = C.getParamSetBufferSize(c_param_set.buf)
 	defer C.free(unsafe.Pointer(c_param_set.buf))
 	// report conversion
@@ -427,7 +485,7 @@ func provisionNoAS() (int, error) {
 	defer C.free(up_c_in)
 
 	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
+	c_out.size = MAX_OUTBUF_SIZE
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 
 	result := C.RemoteAttest(&c_in, &c_out)
@@ -454,7 +512,7 @@ func provisionNoDAA() ([]byte, error) {
 	defer C.free(up_c_in)
 
 	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
+	c_out.size = MAX_OUTBUF_SIZE
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 
 	result := C.RemoteAttest(&c_in, &c_out)
@@ -508,7 +566,7 @@ func provisionDAA() ([]byte, error) {
 	defer C.free(up_c_in)
 
 	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
+	c_out.size = MAX_OUTBUF_SIZE
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 
 	result := C.RemoteAttest(&c_in, &c_out)
@@ -579,7 +637,7 @@ func provisionDAA() ([]byte, error) {
 
 // GenerateAKCert generates ak cert according to qca server scenario configuration.
 func GenerateAKCert() ([]byte, error) {
-	switch Qcacfg.Scenario {
+	switch qcaCfg.Scenario {
 	case typeConv(RA_SCENARIO_NO_AS):
 		result, err := provisionNoAS()
 		if err != nil {
@@ -621,7 +679,7 @@ func SaveAKCert(cert []byte) error {
 	defer C.free(cert_buf)
 
 	c_out := C.struct_ra_buffer_data{}
-	c_out.size = 0x3000
+	c_out.size = MAX_OUTBUF_SIZE
 	c_out.buf = (*C.uint8_t)(C.malloc(C.ulong(c_out.size)))
 
 	result := C.RemoteAttest(&cert_data, &c_out)

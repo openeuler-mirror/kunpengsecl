@@ -115,6 +115,26 @@ typedef struct __attribute__((__packed__)) report_response {
      */
 } report_get;
 
+/* container info storaged in ta_attr*/
+typedef struct {
+    buffer_data id;
+    buffer_data type;
+    uint8_t img_hash[HASH_SIZE];
+    uint8_t mem_hash[HASH_SIZE];
+} Container_attr;
+
+typedef struct {
+    /*
+     * 0, reserve
+     * 1, container info
+     */
+    uint8_t type;
+    union {
+        Container_attr *container;
+        buffer_data *reserve;
+    } data;
+} TA_attr;
+
 typedef struct {
     uint8_t version[VERSION_SIZE];
     uint8_t timestamp[TS_SIZE];
@@ -125,7 +145,7 @@ typedef struct {
     uint32_t hash_alg; // Hash algorithm type
     uint8_t image_hash[HASH_SIZE];
     uint8_t hash[HASH_SIZE];
-    uint8_t reserve[HASH_SIZE];
+    TA_attr ta_attr;
     // uint8_t		signature[SIG_SIZE];
     // uint8_t 	cert[CERT_SIZE];  //AK cert
     buffer_data *signature;
@@ -154,14 +174,14 @@ struct ak_cert {
 // static int tee_validate_report(buffer_data *buf_data, buffer_data *nonce);
 static bool tee_verify_nonce(buffer_data *buf_data, buffer_data *nonce);
 static bool tee_verify_signature(buffer_data *report);
-static bool tee_verify(buffer_data *buf_data, int type, char *filename);
+static bool tee_verify(buffer_data *buf_data, container_info *info, int type, char *filename);
 static bool tee_verify2(buffer_data *bufdata, int type, base_value *baseval);
 static void verifier_error(const char *msg);
 static void file_error(const char *s);
 static TA_report *Convert(buffer_data *buf_data);
 // static void parse_uuid(uint8_t *uuid, TEE_UUID buf_uuid);
 static void read_bytes(void *input, size_t size, size_t nmemb, uint8_t *output, size_t *offset);
-static base_value *LoadBaseValue(const TA_report *report, char *filename);
+static base_value *LoadBaseValue(const TA_report *report, char *filename, base_value **qta_report_baseval);
 static void str_to_uuid(const char *str, uint8_t *uuid);
 static void uuid_to_str(const uint8_t *uuid, char *str);
 static void str_to_hash(const char *str, uint8_t *hash);
@@ -169,7 +189,7 @@ static void hash_to_str(const uint8_t *hash, char *str);
 static void hex2str(const uint8_t *source, int source_len, char *dest);
 static void str2hex(const char *source, int source_len, uint8_t *dest);
 static char *file_to_buffer(char *file, size_t *file_length);
-static bool Compare(int type, TA_report *report, base_value *basevalue);
+static bool Compare(int type, TA_report *report, base_value *basevalue, base_value *qta_baseval);
 static bool cmp_bytes(const uint8_t *a, const uint8_t *b, size_t size);
 static void test_print(uint8_t *printed, int printed_size, char *printed_name);
 static void save_basevalue(const base_value *bv);

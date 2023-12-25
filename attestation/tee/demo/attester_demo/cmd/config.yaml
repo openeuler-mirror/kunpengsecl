@@ -3,3 +3,6 @@ attesterconfig:
   basevalue: "./basevalue.txt"
   mspolicy: 2
   uuid: 435dcafa-0029-4d53-97e8-a7a13a80c82e
+  #virtualguest:      # if test docker or virtual guest attest, add these config 
+  #  id: xxxxx(64)    # if docker, id is 64 container id; or kvm, id is 36 uuid
+  #  type: docker     # current support docker and kvm

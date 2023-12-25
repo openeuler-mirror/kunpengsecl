@@ -260,10 +260,10 @@ func TestQapi(t *testing.T) {
 
 	qcatools.InitFlags()
 	qcatools.LoadConfigs()
-	qcatools.HandleFlags()
+	qcaCfg := qcatools.HandleFlags()
 	server := qcatools.GetQcaServer()
 
-	go StartServer()
+	go StartServer(qcaCfg)
 	qca, err := makesock(server)
 	if err != nil {
 		t.Error(err)
@@ -294,7 +294,7 @@ func TestQapi(t *testing.T) {
 	StopServer()
 
 	qcatools.SetScenario(RA_SCENARIO_AS_NO_DAA)
-	go StartServer()
+	go StartServer(qcaCfg)
 	req3 := &GetReportRequest{
 		Uuid:    id3,
 		Nonce:   nonce3,
@@ -308,7 +308,7 @@ func TestQapi(t *testing.T) {
 	StopServer()
 
 	qcatools.SetScenario(RA_SCENARIO_AS_WITH_DAA)
-	go StartServer()
+	go StartServer(qcaCfg)
 	req4 := &GetReportRequest{
 		Uuid:    id4,
 		Nonce:   nonce4,

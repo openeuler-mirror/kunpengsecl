@@ -584,7 +584,7 @@ void test(int data_len, uint8_t *report, char *bv_file)
     printf("scenario:%u\n", report1->scenario);
     test_print(report1->image_hash,HASH_SIZE,"img_hash");
     test_print(report1->hash,HASH_SIZE,"hash");
-    test_print(report1->reserve,HASH_SIZE,"reserve");
+    test_print(report1->ta_attr.data.reserve->buf,HASH_SIZE,"reserve");
     free_report(report1);
 
     bool tv = tee_verify_signature(&bufdata);
@@ -607,7 +607,7 @@ void test(int data_len, uint8_t *report, char *bv_file)
         printf("verify nonce failed\n");
     }
 
-    tv = tee_verify(&bufdata, 3, bv_file);//test report1-success
+    tv = tee_verify(&bufdata, NULL, 3, bv_file);//test report1-success
     if (tv)
     {
         printf("verify succeeded\n");

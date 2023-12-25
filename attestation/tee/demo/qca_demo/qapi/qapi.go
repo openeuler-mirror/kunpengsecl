@@ -18,6 +18,7 @@ package qapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -58,12 +59,29 @@ var (
 	srv   *grpc.Server = nil
 )
 
+func getVirtualGuestInfo(in *GetReportRequest) *qcatools.VirtualGuestInfo {
+	info := in.GetInfo()
+	if info == nil || (info.GetId() == "" && info.GetType() == "") {
+		return nil
+	}
+
+	return &qcatools.VirtualGuestInfo{
+		Id:   info.GetId(),
+		Type: info.GetType(),
+	}
+}
+
 // GetReport gets report from report request.
 func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error) {
 	countConnections()
 	_ = ctx // ignore the unused warning
+	if in == nil {
+		return nil, fmt.Errorf("invalid request input")
+	}
 	Usrdata := in.GetNonce()
-	rep, err := qcatools.GetTAReport(in.GetUuid(), Usrdata, in.WithTcb)
+	info := getVirtualGuestInfo(in)
+
+	rep, err := qcatools.GetTAReport(in.GetUuid(), Usrdata, in.WithTcb, info)
 	if err != nil {
 		log.Print("Get TA Report failed!")
 		return nil, err
@@ -75,26 +93,32 @@ func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetRepo
 }
 
 // StartServer starts a server to start qca demo.
-func StartServer() {
+func StartServer(qcaCfg *qcatools.QcaConfig) {
 	log.Print("Start Server......")
-	listen, err := net.Listen("tcp", qcatools.Qcacfg.Server)
+	listen, err := net.Listen("tcp", qcaCfg.Server)
 	if err != nil {
-		log.Fatalf("Listen %s failed, err: %v\n", qcatools.Qcacfg.Server, err)
+		log.Fatalf("Listen %s failed, err: %v\n", qcaCfg.Server, err)
 		return
 	}
 
 	srv = grpc.NewServer()
 	RegisterQcaServer(srv, &service{})
 
-	result := hasAKCert(qcatools.Qcacfg.Scenario)
+	result := hasAKCert(qcaCfg)
 	if !result {
-		createAKCert(qcatools.Qcacfg.Scenario)
+		createAKCert(qcaCfg)
+	}
+
+	done := make(chan bool)
+	if qcaCfg.VirtSupport {
+		go qcatools.StartQcaDaemonServer(qcaCfg.VirtServer, done)
+		go qcatools.CheckConnAlive(qcaCfg.VirtHealthChk, done)
 	}
 
 	if err = srv.Serve(listen); err != nil {
 		log.Fatalf("Server: fail to serve %v", err)
 	}
-
+	done <- true
 	log.Print("Stop Server......")
 }
 
@@ -107,20 +131,20 @@ func StopServer() {
 	srv = nil
 }
 
-func hasAKCert(s int32) bool {
-	switch s {
+func hasAKCert(qcaCfg *qcatools.QcaConfig) bool {
+	switch qcaCfg.Scenario {
 	case RA_SCENARIO_NO_AS:
 		log.Print("Serve in scenario: RA_SCENARIO_NO_AS")
 		return false
 	case RA_SCENARIO_AS_NO_DAA:
 		log.Print("Serve in scenario: RA_SCENARIO_AS_NO_DAA")
-		err := readFile(qcatools.Qcacfg.NoDaaACFile)
+		err := readFile(qcaCfg.NoDaaACFile)
 		if err != nil {
 			return false
 		}
 	case RA_SCENARIO_AS_WITH_DAA:
 		log.Print("Serve in scenario: RA_SCENARIO_AS_WITH_DAA")
-		err := readFile(qcatools.Qcacfg.DaaACFile)
+		err := readFile(qcaCfg.DaaACFile)
 		if err != nil {
 			return false
 		}
@@ -141,24 +165,24 @@ func readFile(path string) error {
 	return nil
 }
 
-func createAKCert(s int32) {
+func createAKCert(qcaCfg *qcatools.QcaConfig) {
 	ac, err := qcatools.GenerateAKCert()
 	if err != nil {
 		return
 	}
-	newCert, err := aslib.GetAKCert(qcatools.Qcacfg.AKServer, ac, s)
+	newCert, err := aslib.GetAKCert(qcaCfg.AKServer, ac, qcaCfg.Scenario)
 	if err != nil {
 		return
 	}
 	log.Print("Get new cert signed by as succeeded.")
-	switch s {
+	switch qcaCfg.Scenario {
 	case RA_SCENARIO_AS_NO_DAA:
-		err := createFile(qcatools.Qcacfg.NoDaaACFile, newCert)
+		err := createFile(qcaCfg.NoDaaACFile, newCert)
 		if err != nil {
 			return
 		}
 	case RA_SCENARIO_AS_WITH_DAA:
-		err := createFile(qcatools.Qcacfg.DaaACFile, newCert)
+		err := createFile(qcaCfg.DaaACFile, newCert)
 		if err != nil {
 			return
 		}
