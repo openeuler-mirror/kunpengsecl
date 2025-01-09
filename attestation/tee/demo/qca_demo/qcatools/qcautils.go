@@ -192,13 +192,13 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
+	"encoding/binary"
 
 	"github.com/docker/docker/client"
 )
 
 const (
 	MAX_CONN_CNT     = 512
-	MAX_OUTBUF_SIZE  = 0x3000
 	MAX_REGBUF_SIZE  = 512
 	DOCKER_ID_LEN    = 64
 	KVM_UUID_LEN     = 36
@@ -414,10 +414,6 @@ func getVirtGuestNsidByInfo(info *VirtualGuestInfo) (int, error) {
 }
 
 func SendData(conn net.Conn, data interface{}, errno int) error {
-	err := connCheck(conn)
-	if err != nil {
-		return fmt.Errorf("conn is not alive, %v", err)
-	}
 
 	datajs, err := json.Marshal(data)
 	if err != nil {
@@ -433,7 +429,16 @@ func SendData(conn net.Conn, data interface{}, errno int) error {
 		return fmt.Errorf("message marshl failed, %v", err)
 	}
 
-	n, err := conn.Write(injson)
+	jsonlen := len(injson)
+	lenbuf := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenbuf, uint32(jsonlen))
+
+	n, err := conn.Write(lenbuf)
+	if err != nil || n != len(lenbuf) {
+		return fmt.Errorf("send data len failed, %v", err)
+	}
+
+	n, err = conn.Write(injson)
 	if err != nil || n != len(injson) {
 		return fmt.Errorf("send data failed, %v", err)
 	}
@@ -442,19 +447,34 @@ func SendData(conn net.Conn, data interface{}, errno int) error {
 }
 
 func RecvData(conn net.Conn, outData interface{}) error {
-	err := connCheck(conn)
+	
+	lenbuf := make([]byte, 4)
+	n, err := conn.Read(lenbuf)
 	if err != nil {
-		return fmt.Errorf("conn is not alive, %v", err)
+		return fmt.Errorf("read from connection failed, %v", err)
 	}
 
-	var buf [MAX_OUTBUF_SIZE]byte
-	n, err := conn.Read(buf[:])
-	if err != nil || n == 0 {
-		return fmt.Errorf("read data failed, %v", err)
+	readlen := binary.BigEndian.Uint32(lenbuf)
+	buf := make([]byte, 0)
+	partbuf := make([]byte, readlen)
+
+	for {
+		n, err = conn.Read(partbuf)
+
+		if err!= nil || n == 0 {
+			return fmt.Errorf("read data failed, %v", err)
+		}
+
+		buf = append(buf, partbuf...)
+		
+		if len(buf) == int(readlen) {
+			break
+		}
 	}
 
 	var data ConnWrapMsg
-	if err = json.Unmarshal(buf[:n], &data); err != nil {
+	err = json.Unmarshal(buf[:readlen], &data)
+	if  err != nil {
 		return fmt.Errorf("message unmarshal failed, %v", err)
 	}
 	if data.Ret != 0 {

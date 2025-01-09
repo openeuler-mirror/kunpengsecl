@@ -292,6 +292,11 @@ func handlePemCertBlanks(olddrk []byte) []byte {
 			break
 		}
 	}
+	
+	if i == len(olddrk) {
+		return olddrk
+	}
+
 	comb := buffer.Bytes()
 
 	return comb[:]
