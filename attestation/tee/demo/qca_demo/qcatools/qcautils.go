@@ -199,6 +199,7 @@ import (
 
 const (
 	MAX_CONN_CNT     = 512
+	MAX_OUTBUF_SIZE  = 0x3000
 	MAX_REGBUF_SIZE  = 512
 	DOCKER_ID_LEN    = 64
 	KVM_UUID_LEN     = 36
