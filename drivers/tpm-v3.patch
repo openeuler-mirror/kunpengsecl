@@ -1,0 +1,500 @@
+diff -Nuar linux-new-source/drivers/char/tpm/tpm-dev-common.c linux-new-fix3/drivers/char/tpm/tpm-dev-common.c
+--- linux-new-source/drivers/char/tpm/tpm-dev-common.c	2024-04-23 22:39:00.280803424 +0800
++++ linux-new-fix3/drivers/char/tpm/tpm-dev-common.c	2024-05-17 17:49:45.622904252 +0800
+@@ -19,6 +19,7 @@
+ #include "tpm.h"
+ #include "tpm-dev.h"
+ 
++unsigned long vtpm_random = 0;
+ static struct workqueue_struct *tpm_dev_wq;
+ static DEFINE_MUTEX(tpm_dev_wq_lock);
+ 
+@@ -27,6 +28,8 @@
+ {
+ 	struct tpm_header *header = (void *)buf;
+ 	ssize_t ret, len;
++	if(vtpm_1201cmd(buf) || vtpm_1201admincmd(buf))
++		space = NULL;
+ 
+ 	ret = tpm2_prepare_space(chip, space, buf, bufsiz);
+ 	/* If the command is not implemented by the TPM, synthesize a
+@@ -271,6 +274,13 @@
+ 
+ int __init tpm_dev_common_init(void)
+ {
++	if(vtpm_random == 0) {
++		get_random_bytes(&vtpm_random, sizeof(vtpm_random));
++		if(vtpm_random == 0) {
++			vtpm_random = 0x1201120112011201;
++		}
++	}
++
+ 	tpm_dev_wq = alloc_workqueue("tpm_dev_wq", WQ_MEM_RECLAIM, 0);
+ 
+ 	return !tpm_dev_wq ? -ENOMEM : 0;
+diff -Nuar linux-new-source/drivers/char/tpm/tpm-dev.h linux-new-fix3/drivers/char/tpm/tpm-dev.h
+--- linux-new-source/drivers/char/tpm/tpm-dev.h	2024-04-23 22:39:00.264803423 +0800
++++ linux-new-fix3/drivers/char/tpm/tpm-dev.h	2024-05-17 17:49:45.626904252 +0800
+@@ -5,6 +5,9 @@
+ #include <linux/poll.h>
+ #include "tpm.h"
+ 
++void get_random_bytes(void *buf, int nbytes);
++extern unsigned long vtpm_random;
++
+ struct file_priv {
+ 	struct tpm_chip *chip;
+ 	struct tpm_space *space;
+diff -Nuar linux-new-source/drivers/char/tpm/tpm.h linux-new-fix3/drivers/char/tpm/tpm.h
+--- linux-new-source/drivers/char/tpm/tpm.h	2024-04-23 22:39:00.236803421 +0800
++++ linux-new-fix3/drivers/char/tpm/tpm.h	2024-05-17 17:49:45.629904252 +0800
+@@ -35,6 +35,13 @@
+ #define TPM_BUFSIZE		4096
+ #define TPM_NUM_DEVICES		65536
+ #define TPM_RETRY		50
++#define MAX_SESSIONS		16
++
++enum vtpm_check_status {
++	VTPM_CHECK_STATUS_NONE,
++	VTPM_CHECK_STATUS_ACTIVATION,
++	VTPM_CHECK_STATUS_SHUTDOWN,
++};
+ 
+ enum tpm_timeout {
+ 	TPM_TIMEOUT = 5,	/* msecs */
+@@ -241,4 +248,17 @@
+ void tpm_bios_log_teardown(struct tpm_chip *chip);
+ int tpm_dev_common_init(void);
+ void tpm_dev_common_exit(void);
++unsigned int vtpm_get_session(void *ptr);
++void vtpm_setvid(u8 *buf, unsigned int id);
++bool vtpm_1201cmd(u8 *buf);
++bool vtpm_1201admincmd(u8 *buf);
++bool vtpm_1201activatecmd(u8 *buf);
++bool vtpm_1201shutdowncmd(u8 *buf);
++bool vtpm_cmdsuccess(u8 *buf);
++unsigned int vtpm_get_check_status(unsigned long sessionid);
++void vtpm_set_check_status(unsigned long sessionid, unsigned int checkstatus);
++bool vtpm_get_activation(unsigned long sessionid);
++void vtpm_set_activation(unsigned long sessionid, bool activation);
++void vtpm_cachesession(unsigned long sessionid, u8 *buf);
++void vtpm_clearsession(unsigned long sessionid, void *ptr);
+ #endif
+diff -Nuar linux-new-source/drivers/char/tpm/tpmrm-dev.c linux-new-fix3/drivers/char/tpm/tpmrm-dev.c
+--- linux-new-source/drivers/char/tpm/tpmrm-dev.c	2024-04-23 22:39:00.193803419 +0800
++++ linux-new-fix3/drivers/char/tpm/tpmrm-dev.c	2024-05-17 17:49:45.659904251 +0800
+@@ -10,6 +10,223 @@
+ 	struct tpm_space space;
+ };
+ 
++#define VTPM_1201CMD	0x20000100
++#define VTPM_1201MAXCMD	0x20000106
++
++#define SW_VTPM_SIZE_UUID	0x10
++#define SW_VTPM_SIZE_APK	0x34
++
++#define HSM_COVTPM_INIT_INSTANCE 0x1c
++#define HSM_COVTPM_RESUME_INSTANCE 0x1d
++#define HSM_COVTPM_SHUTDOWN_INSTANCE 0x1e
++
++struct vtpm_req_hd_t {
++	uint8_t uuid[SW_VTPM_SIZE_UUID];
++	uint8_t apk[SW_VTPM_SIZE_APK];
++	uint32_t opc;
++} __packed;
++
++struct vtpm_res_hd_t {
++	uint8_t uuid[SW_VTPM_SIZE_UUID];
++	uint32_t opc;
++	uint32_t return_val;
++} __packed;
++
++struct vtpm_shutdown_instance_req_t {
++	struct tpm_header header;
++	struct vtpm_req_hd_t hd;
++	uint32_t pcr_clear;
++} __packed;
++
++#define HSM_COVTPM_APK_OFFSET (TPM_HEADER_SIZE + sizeof(struct vtpm_res_hd_t))
++
++struct vtpm_state {
++	volatile bool activation;
++	volatile unsigned int checkstatus;
++	volatile unsigned long session;
++	u8 uuid[SW_VTPM_SIZE_UUID];
++	u8 apk[SW_VTPM_SIZE_APK];
++} vtpm_sessions[MAX_SESSIONS] = {0};
++
++static DEFINE_MUTEX(vtpm_sessions_lock);
++
++unsigned int alloc_session(void *ptr)
++{
++	unsigned int i = 0;
++	unsigned int j = MAX_SESSIONS;
++	unsigned long raw_ptr = (unsigned long)ptr;
++	
++	//if(0 == raw_ptr)
++	//	return MAX_SESSIONS + 1;
++
++	if(raw_ptr != vtpm_random)
++		raw_ptr ^= vtpm_random;
++	mutex_lock(&vtpm_sessions_lock);
++	for(; i < MAX_SESSIONS; i++) {
++		if(j == MAX_SESSIONS && 0 == vtpm_sessions[i].session)
++			j = i;
++		if(raw_ptr == vtpm_sessions[i].session) {
++			j = i;
++			break;
++		}
++	}
++	if(j < MAX_SESSIONS) {
++		vtpm_sessions[j].activation = false;
++		vtpm_sessions[j].checkstatus = VTPM_CHECK_STATUS_NONE;
++		vtpm_sessions[j].session = raw_ptr;
++	}
++	mutex_unlock(&vtpm_sessions_lock);
++	return j;
++}
++
++void free_session(void * ptr)
++{
++	unsigned int i = vtpm_get_session(ptr);
++	if(i >= MAX_SESSIONS)
++		return;
++	if(vtpm_sessions[i].activation) {
++		vtpm_clearsession(i, ptr);
++	}
++	mutex_lock(&vtpm_sessions_lock);
++	vtpm_sessions[i].activation = false;
++	vtpm_sessions[i].checkstatus = VTPM_CHECK_STATUS_NONE;
++	vtpm_sessions[i].session = 0;
++	mutex_unlock(&vtpm_sessions_lock);
++}
++
++unsigned int vtpm_get_session(void *ptr)
++{
++	unsigned int i = 0;
++	unsigned long raw_ptr = (unsigned long)ptr;
++	
++	//if(0 == raw_ptr)
++	//	return MAX_SESSIONS + 1;
++
++	if(raw_ptr != vtpm_random)
++		raw_ptr ^= vtpm_random;
++	mutex_lock(&vtpm_sessions_lock);
++	for(; i < MAX_SESSIONS; i++) {
++		if(raw_ptr == vtpm_sessions[i].session) {
++			break;
++		}
++	}
++	mutex_unlock(&vtpm_sessions_lock);
++	return i;
++}
++EXPORT_SYMBOL_GPL(vtpm_get_session);
++
++void vtpm_setvid(u8 *buf, unsigned int id)
++{
++	u8 * uuid = buf + sizeof(struct tpm_header);
++	uuid[15] = (unsigned char)id;
++}
++EXPORT_SYMBOL_GPL(vtpm_setvid);
++
++bool vtpm_1201cmd(u8 *buf)
++{
++	struct tpm_header *header = (struct tpm_header *)buf;
++	unsigned int ordinal = be32_to_cpu(header->ordinal);
++	return ordinal == VTPM_1201CMD;
++}
++EXPORT_SYMBOL_GPL(vtpm_1201cmd);
++
++bool vtpm_1201admincmd(u8 *buf)
++{
++	struct tpm_header *header = (struct tpm_header *)buf;
++	unsigned int ordinal = be32_to_cpu(header->ordinal);
++	return (ordinal > VTPM_1201CMD) && (ordinal < VTPM_1201MAXCMD);
++}
++EXPORT_SYMBOL_GPL(vtpm_1201admincmd);
++
++bool vtpm_1201activatecmd(u8 *buf)
++{
++	struct vtpm_req_hd_t * header = (struct vtpm_req_hd_t *)(buf + TPM_HEADER_SIZE);
++	return (header->opc == HSM_COVTPM_INIT_INSTANCE) || (header->opc == HSM_COVTPM_RESUME_INSTANCE);
++}
++EXPORT_SYMBOL_GPL(vtpm_1201activatecmd);
++
++bool vtpm_1201shutdowncmd(u8 *buf)
++{
++	struct vtpm_req_hd_t * header = (struct vtpm_req_hd_t *)(buf + TPM_HEADER_SIZE);
++	return header->opc == HSM_COVTPM_SHUTDOWN_INSTANCE;
++}
++EXPORT_SYMBOL_GPL(vtpm_1201shutdowncmd);
++
++bool vtpm_cmdsuccess(u8 *buf)
++{
++	struct tpm_header * header = (struct tpm_header *)buf;
++	struct vtpm_res_hd_t * hd = (struct vtpm_res_hd_t *)(buf + TPM_HEADER_SIZE);
++	return (header->return_code == 0) && (hd->return_val == 0);
++}
++EXPORT_SYMBOL_GPL(vtpm_cmdsuccess);
++
++unsigned int vtpm_get_check_status(unsigned long sessionid)
++{
++	return vtpm_sessions[sessionid].checkstatus;
++}
++EXPORT_SYMBOL_GPL(vtpm_get_check_status);
++
++void vtpm_set_check_status(unsigned long sessionid, unsigned int checkstatus)
++{
++	vtpm_sessions[sessionid].checkstatus = checkstatus;
++}
++EXPORT_SYMBOL_GPL(vtpm_set_check_status);
++
++bool vtpm_get_activation(unsigned long sessionid)
++{
++	return vtpm_sessions[sessionid].activation;
++}
++EXPORT_SYMBOL_GPL(vtpm_get_activation);
++
++void vtpm_set_activation(unsigned long sessionid, bool activation)
++{
++	vtpm_sessions[sessionid].activation = activation;
++}
++EXPORT_SYMBOL_GPL(vtpm_set_activation);
++
++void vtpm_cachesession(unsigned long sessionid, u8 *buf)
++{
++	memcpy(vtpm_sessions[sessionid].uuid, buf + TPM_HEADER_SIZE, SW_VTPM_SIZE_UUID);
++	memcpy(vtpm_sessions[sessionid].apk, buf + HSM_COVTPM_APK_OFFSET, SW_VTPM_SIZE_APK);
++}
++EXPORT_SYMBOL_GPL(vtpm_cachesession);
++
++void vtpm_clearsession(unsigned long sessionid, void *ptr)
++{
++	struct file_priv * priv = (struct file_priv *)ptr;
++	struct vtpm_shutdown_instance_req_t * cmd = 
++		(struct vtpm_shutdown_instance_req_t *)priv->data_buffer;
++
++	mutex_lock(&priv->buffer_mutex);
++
++	priv->response_length = 0;
++	priv->response_read = false;
++
++	if(tpm_try_get_ops(priv->chip))
++		goto out;
++
++	cmd->header.tag = cpu_to_be16(TPM2_ST_NO_SESSIONS);
++	cmd->header.length = cpu_to_be32(sizeof(struct vtpm_shutdown_instance_req_t));
++	cmd->header.ordinal = cpu_to_be32(VTPM_1201CMD);
++	memcpy(cmd->hd.uuid, vtpm_sessions[sessionid].uuid, SW_VTPM_SIZE_UUID);
++	memcpy(cmd->hd.apk, vtpm_sessions[sessionid].apk, SW_VTPM_SIZE_APK);
++	cmd->hd.opc = HSM_COVTPM_SHUTDOWN_INSTANCE;
++	cmd->pcr_clear = 0x01;
++
++	tpm_transmit(priv->chip, (u8*)cmd, sizeof(struct vtpm_shutdown_instance_req_t));
++
++	tpm_put_ops(priv->chip);
++
++out:
++	mutex_unlock(&priv->buffer_mutex);
++}
++EXPORT_SYMBOL_GPL(vtpm_clearsession);
++
++#ifndef O_VTPM
++#define O_VTPM 00000020
++#endif
++
++static int tpmrm_release(struct inode *inode, struct file *file);
+ static int tpmrm_open(struct inode *inode, struct file *file)
+ {
+ 	struct tpm_chip *chip;
+@@ -28,6 +245,12 @@
+ 	}
+ 
+ 	tpm_common_open(file, chip, &priv->priv, &priv->space);
++	if(file->f_flags & O_VTPM) {
++		if(alloc_session(&priv->priv) >= MAX_SESSIONS) {
++			tpmrm_release(inode, file);
++			return -EBUSY;
++		}
++	}
+ 
+ 	return 0;
+ }
+@@ -37,6 +260,9 @@
+ 	struct file_priv *fpriv = file->private_data;
+ 	struct tpmrm_priv *priv = container_of(fpriv, struct tpmrm_priv, priv);
+ 
++	if(file->f_flags & O_VTPM) {
++		free_session(fpriv);
++	}
+ 	tpm_common_release(file, fpriv);
+ 	tpm2_del_space(fpriv->chip, &priv->space);
+ 	kfree(priv);
+diff -Nuar linux-new-source/drivers/char/tpm/tpm_tis.c linux-new-fix3/drivers/char/tpm/tpm_tis.c
+--- linux-new-source/drivers/char/tpm/tpm_tis.c	2024-04-23 22:39:00.056803411 +0800
++++ linux-new-fix3/drivers/char/tpm/tpm_tis.c	2024-05-17 17:55:16.686890295 +0800
+@@ -174,8 +174,10 @@
+ {
+ 	struct tpm_tis_tcg_phy *phy = to_tpm_tis_tcg_phy(data);
+ 
+-	while (len--)
++	while (len--) {
+ 		*result++ = ioread8(phy->iobase + addr);
++		udelay(20);
++	}
+ 
+ 	return 0;
+ }
+@@ -185,8 +187,10 @@
+ {
+ 	struct tpm_tis_tcg_phy *phy = to_tpm_tis_tcg_phy(data);
+ 
+-	while (len--)
++	while (len--) {
+ 		iowrite8(*value++, phy->iobase + addr);
++		udelay(20);
++	}
+ 
+ 	return 0;
+ }
+@@ -196,6 +200,7 @@
+ 	struct tpm_tis_tcg_phy *phy = to_tpm_tis_tcg_phy(data);
+ 
+ 	*result = ioread16(phy->iobase + addr);
++	udelay(20);
+ 
+ 	return 0;
+ }
+@@ -205,6 +210,7 @@
+ 	struct tpm_tis_tcg_phy *phy = to_tpm_tis_tcg_phy(data);
+ 
+ 	*result = ioread32(phy->iobase + addr);
++	udelay(20);
+ 
+ 	return 0;
+ }
+@@ -214,6 +220,7 @@
+ 	struct tpm_tis_tcg_phy *phy = to_tpm_tis_tcg_phy(data);
+ 
+ 	iowrite32(value, phy->iobase + addr);
++	udelay(20);
+ 
+ 	return 0;
+ }
+diff -Nuar linux-new-source/drivers/char/tpm/tpm_tis_core.c linux-new-fix3/drivers/char/tpm/tpm_tis_core.c
+--- linux-new-source/drivers/char/tpm/tpm_tis_core.c	2024-04-23 22:39:00.045803410 +0800
++++ linux-new-fix3/drivers/char/tpm/tpm_tis_core.c	2024-05-17 17:57:32.816884556 +0800
+@@ -25,6 +25,7 @@
+ #include <linux/acpi.h>
+ #include <linux/freezer.h>
+ #include "tpm.h"
++#include "tpm-dev.h"
+ #include "tpm_tis_core.h"
+ 
+ static void tpm_tis_clkrun_enable(struct tpm_chip *chip, bool value);
+@@ -316,6 +317,9 @@
+ 	u32 expected;
+ 	int rc;
+ 
++	struct file_priv *fpriv = container_of(buf, struct file_priv, data_buffer[0]);
++	unsigned int sessionid = vtpm_get_session(fpriv);
++
+ 	if (count < TPM_HEADER_SIZE) {
+ 		size = -EIO;
+ 		goto out;
+@@ -359,6 +363,20 @@
+ 		goto out;
+ 	}
+ 
++	if(sessionid < MAX_SESSIONS && vtpm_cmdsuccess(buf)) {
++		switch(vtpm_get_check_status(sessionid)) {
++			case VTPM_CHECK_STATUS_ACTIVATION:
++				vtpm_cachesession(sessionid, buf);
++				vtpm_set_activation(sessionid, true);
++				break;
++			case VTPM_CHECK_STATUS_SHUTDOWN:
++				vtpm_set_activation(sessionid, false);
++				break;
++			default:
++				break;
++		}
++	}
++
+ out:
+ 	tpm_tis_ready(chip);
+ 	return size;
+@@ -458,6 +476,7 @@
+ 	chip->flags &= ~TPM_CHIP_FLAG_IRQ;
+ }
+ 
++#define TPM_VID_HUAWEI 0x8888
+ /*
+  * If interrupts are used (signaled by an irq set in the vendor structure)
+  * tpm.c can skip polling for the data to be available as the interrupt is
+@@ -471,6 +490,29 @@
+ 	unsigned long dur;
+ 	unsigned int try;
+ 
++	struct file_priv *fpriv = container_of(buf, struct file_priv, data_buffer[0]);
++	unsigned int sessionid = vtpm_get_session(fpriv);
++	if(sessionid < MAX_SESSIONS) {
++		if(vtpm_1201cmd((u8*)buf)) {
++			vtpm_setvid((u8*)buf, sessionid);
++			if(vtpm_1201activatecmd((u8*)buf)) {
++				if(!vtpm_get_activation(sessionid)) {
++					vtpm_set_check_status(sessionid, VTPM_CHECK_STATUS_ACTIVATION);
++				} else {
++					return -EIO;
++				}
++			} else if(vtpm_1201shutdowncmd((u8*)buf)) {
++				vtpm_set_check_status(sessionid, VTPM_CHECK_STATUS_SHUTDOWN);
++			} else {
++				vtpm_set_check_status(sessionid, VTPM_CHECK_STATUS_NONE);
++			}
++		}
++	} else {
++		if(vtpm_1201cmd((u8*)buf)) {
++			return -EIO;
++		}
++	}
++
+ 	for (try = 0; try < TPM_RETRY; try++) {
+ 		rc = tpm_tis_send_data(chip, buf, len);
+ 		if (rc >= 0)
+diff -Nuar linux-new-source/fs/fcntl.c linux-new-fix3/fs/fcntl.c
+--- linux-new-source/fs/fcntl.c	2024-04-23 22:39:00.441803433 +0800
++++ linux-new-fix3/fs/fcntl.c	2024-05-17 17:49:45.683904250 +0800
+@@ -1043,7 +1043,7 @@
+ 	 * Exceptions: O_NONBLOCK is a two bit define on parisc; O_NDELAY
+ 	 * is defined as O_NONBLOCK on some platforms and not on others.
+ 	 */
+-	BUILD_BUG_ON(21 - 1 /* for O_RDONLY being 0 */ !=
++	BUILD_BUG_ON(22 - 1 /* for O_RDONLY being 0 */ !=
+ 		HWEIGHT32(
+ 			(VALID_OPEN_FLAGS & ~(O_NONBLOCK | O_NDELAY)) |
+ 			__FMODE_EXEC | __FMODE_NONOTIFY));
+diff -Nuar linux-new-source/include/linux/fcntl.h linux-new-fix3/include/linux/fcntl.h
+--- linux-new-source/include/linux/fcntl.h	2024-04-23 22:39:00.460803434 +0800
++++ linux-new-fix3/include/linux/fcntl.h	2024-05-17 17:49:45.687904249 +0800
+@@ -10,7 +10,7 @@
+ 	(O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC | \
+ 	 O_APPEND | O_NDELAY | O_NONBLOCK | __O_SYNC | O_DSYNC | \
+ 	 FASYNC	| O_DIRECT | O_LARGEFILE | O_DIRECTORY | O_NOFOLLOW | \
+-	 O_NOATIME | O_CLOEXEC | O_PATH | __O_TMPFILE)
++	 O_NOATIME | O_CLOEXEC | O_PATH | __O_TMPFILE | O_VTPM)
+ 
+ /* List of all valid flags for the how->upgrade_mask argument: */
+ #define VALID_UPGRADE_FLAGS \
+diff -Nuar linux-new-source/include/uapi/asm-generic/fcntl.h linux-new-fix3/include/uapi/asm-generic/fcntl.h
+--- linux-new-source/include/uapi/asm-generic/fcntl.h	2024-04-23 22:39:00.451803434 +0800
++++ linux-new-fix3/include/uapi/asm-generic/fcntl.h	2024-05-17 17:49:45.691904249 +0800
+@@ -62,6 +62,9 @@
+ #ifndef O_CLOEXEC
+ #define O_CLOEXEC	02000000	/* set close_on_exec */
+ #endif
++#ifndef O_VTPM
++#define O_VTPM	00000020	/* set vtpm */
++#endif
+ 
+ /*
+  * Before Linux 2.6.33 only O_DSYNC semantics were implemented, but using
