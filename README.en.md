@@ -45,7 +45,7 @@ $ rpm -e kunpengsecl-ras-2.0.0-1.x86_64(aarch64)
 
 If you want to compile the source code, you need install some libraries as following:
 ```shell
-$ sudo yum install openssl-devel crypto-devel cjson-devel cjson
+$ sudo yum install openssl-devel cjson-devel cjson
 ```
 
 ### Installation based on Ubuntu system(Bionic Beaver 18.04.6 LTS)

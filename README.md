@@ -43,7 +43,7 @@ $ rpm -e kunpengsecl-ras-2.0.0-1.x86_64(aarch64)
 
 如果需要对源代码进行编译，需要提前在系统中安装一些三方依赖库，命令如下：
 ```shell
-$ sudo yum install openssl-devel crypto-devel cjson-devel cjson
+$ sudo yum install openssl-devel cjson-devel cjson
 ```
 
 ### 基于Ubuntu系统的安装(Bionic Beaver 18.04.6 LTS)
