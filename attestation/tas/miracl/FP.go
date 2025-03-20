@@ -74,7 +74,7 @@ func NewFPrand(rng *core.RAND) *FP {
 }
 
 func (F *FP) ToString() string {
-	F.reduce()
+	//F.reduce()
 	return F.redc().ToString()
 }
 
@@ -94,6 +94,7 @@ func (F *FP) nres() {
 
 /* convert back to regular form */
 func (F *FP) redc() *BIG {
+	F.reduce()
 	if MODTYPE != PSEUDO_MERSENNE && MODTYPE != GENERALISED_MERSENNE {
 		d := NewDBIGscopy(F.x)
 		return mod(d)
@@ -137,7 +138,7 @@ func mod(d *DBIG) *BIG {
 		return b
 	}
 
-	if MODTYPE == GENERALISED_MERSENNE { // GoldiLocks only
+	if MODTYPE == GENERALISED_MERSENNE { // Ed448 only
 		t := d.split(MODBITS)
 		b := NewBIGdcopy(d)
 		b.add(t)
@@ -489,7 +490,7 @@ func (F *FP) fpow() *FP {
 	e := int(PM1D2)
 
 	n = int(MODBITS)
-	if MODTYPE == GENERALISED_MERSENNE { // Goldilocks ONLY
+	if MODTYPE == GENERALISED_MERSENNE { // Ed448 ONLY
 		n /= 2
 	}
 
@@ -574,7 +575,7 @@ func (F *FP) fpow() *FP {
 		r.mul(key)
 	}
 
-	if MODTYPE == GENERALISED_MERSENNE { // Goldilocks ONLY
+	if MODTYPE == GENERALISED_MERSENNE { // Ed448 ONLY
 		key.copy(r)
 		r.sqr()
 		r.mul(F)
