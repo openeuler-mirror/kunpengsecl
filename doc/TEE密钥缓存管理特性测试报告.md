@@ -2,18 +2,18 @@
 
 <!-- TOC -->
 
-  - [单元测试](#单元测试)
-      - [密钥缓存管理](#密钥缓存管理)
-          - [kta测试](#kta测试)
-          - [katools测试](#katools测试)
-          - [kcmtools测试](#kcmstools测试)
-          - [kdb测试](#kdb测试)
-  - [集成测试](#集成测试)
-      - [密钥缓存管理](#密钥缓存管理-1)
-  - [性能测试](#性能测试)
-      - [密钥缓存管理](#密钥缓存管理-2)
-          - [密钥请求响应时间](#密钥请求响应时间)
-          - [KA并发支持](#ka并发支持)
+- [单元测试](#单元测试)
+    - [密钥缓存管理](#密钥缓存管理)
+        - [kta测试](#kta测试)
+        - [katools测试](#katools测试)
+        - [kcmtools测试](#kcmstools测试)
+        - [kdb测试](#kdb测试)
+- [集成测试](#集成测试)
+    - [密钥缓存管理](#密钥缓存管理-1)
+- [性能测试](#性能测试)
+    - [密钥缓存管理](#密钥缓存管理-2)
+        - [密钥请求响应时间](#密钥请求响应时间)
+        - [KA并发支持](#ka并发支持)
 
 <!-- TOC -->
 
@@ -110,6 +110,7 @@ ok      gitee.com/openeuler/kunpengsecl/attestation/ras/kcms/kdb        0.038s
 
 **story4.1 测试**
 测试思路：
+
 1. 在kunpengsecl根目录下进行 `make build` 编译。
 2. 创建测试目录，并加载程序启动所需文件。
 3. 启动RAS。
@@ -130,6 +131,7 @@ test succeeded!
 
 **story4.2-3 测试**
 测试思路：
+
 1. 在kunpengsecl根目录下进行 `make build` 编译。
 2. 创建测试目录，并加载程序启动所需文件。
 3. 启动RAS。
@@ -149,6 +151,7 @@ test get key and verify succeeded!
 
 **story4.4 测试**
 测试思路：
+
 1. 在kunpengsecl根目录下进行 `make build` 编译。
 2. 创建测试目录，并加载程序启动所需文件。
 3. 启动RAS。
@@ -171,6 +174,7 @@ test delete key succeeded!
 
 **story4.6 测试**  
 测试思路：  
+
 1. 在kunpengsecl根目录下进行 `make build` 编译。
 2. 创建测试目录，并加载程序启动所需文件。
 3. 启动RAS。
@@ -211,6 +215,7 @@ test get kta trusted success!
 
 **story4.7 测试**   
 测试思路：  
+
 1. 在kunpengsecl根目录下进行 `make build` 编译。
 2. 创建测试目录，并加载程序启动所需文件。
 3. 启动RAS。
