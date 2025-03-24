@@ -2,30 +2,30 @@
 
 <!-- TOC -->
 
-  - [TEE特性实现](#tee特性实现)
-      - [密钥缓存管理特性](#密钥缓存管理特性)
-          - [实体介绍](#实体介绍-1)
-              - [KTA介绍](#kta介绍)
-              - [KA介绍](#ka介绍)
-              - [KCMS介绍](#kcms介绍)
-          - [数据定义](#数据定义)
-              - [KTA关键常量](#kta关键常量)
-              - [KTA参数声明](#kta参数声明)
-              - [KTA关键数据结构](#kta关键数据结构)
-              - [KA关键常量](#ka关键常量)
-              - [KA关键数据结构](#ka关键数据结构)
-              - [KCMS关键常量](#kcms关键常量)
-              - [KCMS关键数据结构](#kcms关键数据结构)
-          - [接口描述](#接口描述)
-              - [KTA接口](#kta接口)
-              - [KA接口](#ka接口)
-              - [KCMS接口](#kcms接口)
-          - [流程图](#流程图)
-              - [密钥缓存初始化](#密钥缓存初始化)
-              - [密钥访问鉴权&密钥获取](#密钥访问鉴权密钥获取)
-              - [密钥缓存清理](#密钥缓存清理)
-              - [本地证明&远程证明](#本地证明远程证明)
-              - [KMS支持](#kms支持)
+- [TEE设计文档](#tee设计文档)
+  - [密钥缓存管理特性](#密钥缓存管理特性)
+    - [实体介绍](#实体介绍)
+      - [KTA介绍](#kta介绍)
+      - [KA介绍](#ka介绍)
+      - [KCMS介绍](#kcms介绍)
+    - [数据定义](#数据定义)
+      - [KTA关键常量](#kta关键常量)
+      - [KTA参数声明](#kta参数声明)
+      - [KTA关键数据结构](#kta关键数据结构)
+      - [KA关键常量](#ka关键常量)
+      - [KA关键数据结构](#ka关键数据结构)
+      - [KCMS关键常量](#kcms关键常量)
+      - [KCMS关键数据结构](#kcms关键数据结构)
+    - [接口描述](#接口描述)
+      - [KTA接口](#kta接口)
+      - [KA接口](#ka接口)
+      - [KCMS接口](#kcms接口)
+    - [流程图](#流程图)
+      - [密钥缓存初始化](#密钥缓存初始化)
+      - [密钥访问鉴权\&密钥获取](#密钥访问鉴权密钥获取)
+      - [密钥缓存清理](#密钥缓存清理)
+      - [本地证明\&远程证明](#本地证明远程证明)
+      - [KMS支持](#kms支持)
 
 <!-- TOC -->
 
@@ -66,6 +66,7 @@ KCMS(Key Caching Management Service)作为密钥缓存管理服务端，向外�
 #### KTA参数声明
 
 1、描述：KTA初始化
+
 ```C
 cmd CMD_KTA_INITIALIZE
 param_type = TEE_PARAM_TYPES(
@@ -77,6 +78,7 @@ param_type = TEE_PARAM_TYPES(
 ```
 
 2、描述：KTA请求函数
+
 ```C
 cmd CMD_SEND_REQUEST
 param_type = TEE_PARAM_TYPES(
@@ -88,6 +90,7 @@ param_type = TEE_PARAM_TYPES(
 ```
 
 3、描述：KA请求返回
+
 ```C
 cmd CMD_RESPOND_REQUEST
 param_type = TEE_PARAM_TYPES(
@@ -99,6 +102,7 @@ param_type = TEE_PARAM_TYPES(
 ```
 
 4、描述：TA请求生成密钥
+
 ```C
 cmd CMD_TA_GENERATE
 param_type = TEE_PARAM_TYPES(
@@ -111,6 +115,7 @@ param_type = TEE_PARAM_TYPES(
 ```
 
 5、描述：TA请求查询密钥
+
 ```C
 cmd CMD_KEY_SEARCH
 param_type = TEE_PARAM_TYPES(
@@ -123,6 +128,7 @@ param_type = TEE_PARAM_TYPES(
 ```
 
 6、描述：TA请求删除密钥缓存
+
 ```C
 cmd CMD_KEY_DELETE
 param_type = TEE_PARAM_TYPES(
@@ -134,6 +140,7 @@ param_type = TEE_PARAM_TYPES(
 ```
 
 7、描述：KTA向TA返回结果
+
 ```C
 cmd CMD_KCM_REPLY
 param_type = TEE_PARAM_TYPES(
@@ -145,6 +152,7 @@ param_type = TEE_PARAM_TYPES(
 ```
 
 8、描述：TA删除所有kta内部保存的信息
+
 ```C
 cmd CMD_CLEAR_CACHE
 param_type = TEE_PARAM_TYPES(
@@ -158,6 +166,7 @@ param_type = TEE_PARAM_TYPES(
 #### KTA关键数据结构
 
 1、描述：密钥信息结构
+
 ```c
 typedef struct _tagKeyInfo{
     TEE_UUID    id;             // 密钥ID
@@ -167,6 +176,7 @@ typedef struct _tagKeyInfo{
 ```
 
 2、描述：可信应用信息结构
+
 ```c
 typedef struct _tagTaInfo{
     TEE_UUID    id;                 // 可信应用ID
@@ -181,6 +191,7 @@ typedef struct _tagTaInfo{
 ```
 
 3、保存可信应用信息的缓存结构
+
 ```c
 typedef struct _tagCache{
     TaInfo  ta[MAX_TA_NUM];     // 可信应用数组
@@ -190,6 +201,7 @@ typedef struct _tagCache{
 ```
 
 4、指令信息结构
+
 ```c
 typedef struct _tagCmdData{
     int32_t     cmd;                // 操作指令
@@ -202,6 +214,7 @@ typedef struct _tagCmdData{
 ```
 
 5、指令队列结构，存储所有已生成尚待处理的指令信息
+
 ```c
 typedef struct _tagCmdQueue{
     CmdNode queue[MAX_QUEUE_SIZE];  // 指令队列
@@ -211,6 +224,7 @@ typedef struct _tagCmdQueue{
 ```
 
 6、响应信息结构
+
 ```c
 typedef struct _tagReplyData{
     TEE_UUID    taId;               // 可信应用ID
@@ -220,6 +234,7 @@ typedef struct _tagReplyData{
 ```
 
 7、响应队列结构，存储所有已返回尚待接收的响应信息
+
 ```c
 typedef struct _tagCmdQueue{
     ReplyNode queue[MAX_QUEUE_SIZE];    // 响应队列
@@ -229,6 +244,7 @@ typedef struct _tagCmdQueue{
 ```
 
 8、请求信息结构
+
 ```c
 typedef struct _tagRequest{
     /*
@@ -248,6 +264,7 @@ typedef struct _tagRequest{
 ```
 
 9、TEE内部所使用的参数结构
+
 ```c
 typedef union {
     struct {
@@ -266,6 +283,7 @@ typedef union {
 #### KA关键数据结构
 
 1、描述：用于存储字节流的缓冲区
+
 ```c
 struct buffer_data{
     uint32_t size;  // 缓冲区大小
@@ -282,59 +300,75 @@ struct buffer_data{
 #### KTA接口
 
 **用于KCM：**
+
 ```c
 TEE_Result KTAInitialize(uint32_t param_types, TEE_Param params[PARAM_COUNT]);
 ```
+
 接口描述：用于初始化进程中KTA的初始化操作。  
 参数1：对应CMD_KTA_INITIALIZE的参数类型。  
 参数2：各参数类型所对应的参数值。  
 ***
+
 ```c
 TEE_Result SendRequest(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 ```
+
 接口描述：当KA轮询时向KA发送请求，并在需要时向KA传递TA的可信状态。  
 参数1：对应CMD_SEND_REQUEST的参数类型。  
 参数2：各参数类型所对应的参数值。  
 ***
+
 ```c
 TEE_Result GetResponse(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 ```
+
 接口描述：当KTA此前向KCM发送过访问请求，则获取KA所返回的响应，并将结果存入响应队列。  
 参数1：对应CMD_RESPOND_REQUEST的参数类型。  
 参数2：各参数类型所对应的参数值。  
 ***
 **用于TA：**
+
 ```c
 TEE_Result GenerateTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 ```
+
 接口描述：向KCM请求生成新密钥，将请求放入请求队列等待KA轮询。  
 参数1：对应CMD_TA_GENERATE的参数类型。  
 参数2：各参数类型所对应的参数值。  
 ***
+
 ```c
 TEE_Result SearchTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 ```
+
 接口描述：查询指定TA密钥，若缓存查询失败，则向KCM请求查询密钥，将请求放入请求队列等待KA轮询。  
 参数1：对应CMD_KEY_SEARCH的参数类型。  
 参数2：各参数类型所对应的参数值。  
 ***
+
 ```c
 TEE_Result DeleteTAKey(uint32_t param_type, TEE_Param params[PARAM_COUNT]); 
 ```
+
 接口描述：删除缓存中指定密钥，并向KCM生成一个删除密钥请求。  
 参数1：对应CMD_KEY_DELETE的参数类型。  
 参数2：各参数类型所对应的参数值。  
 ***
+
 ```c
 TEE_Result GetKcmReply(uint32_t param_type, TEE_Param params[PARAM_COUNT]);
 ```
+
 接口描述：从响应队列中获取一个KCM响应结果。  
 参数1：对应CMD_KCM_REPLY的参数类型。  
 参数2：各参数类型所对应的参数值。  
 ***
+
 ```c
 TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) ;
 ```
+
 接口描述：删除指定TA的缓存。  
 参数1：对应CMD_CLEAR_CACHE的参数类型。  
 参数2：各参数类型所对应的参数值。  
@@ -344,18 +378,22 @@ TEE_Result ClearCache(uint32_t param_type, TEE_Param params[PARAM_COUNT]) ;
 
 **katools：**  
 KA作为一个TEE内部TA的CA，表示KTA的使能端，katools使用Go语言编写，接口函数主要有：
+
 ```go
 func KaMain(addr string, id int64)
 ```
+
 接口描述：使能KTA并对KTA请求进行轮询操作  
 参数1【传入】：服务端地址。  
 参数2【传入】：ka所属的ClientID。
 
 **ktalib：**  
 KTALIB中包含了对KTA的相关操作，包括与KTA建立会话、KTA初始化操作、KTA命令获取操作、KTA命令请求操作、与KTA断开连接操作：
+
 ```c
 TEEC_Result InitContextSession(uint8_t* ktapath) 
 ```
+
 接口描述：初始化上下文和会话  
 参数1【传入】：kta路径。
 
@@ -367,6 +405,7 @@ TEEC_Result KTAinitialize(
     struct buffer_data* ktaPrivKey_D, 
     struct buffer_data *out_data)
 ```
+
 接口描述：初始化KTA过程  
 参数1【传入】：KCM的公钥参数N。  
 参数2【传入】：KTA公钥证书。  
@@ -377,6 +416,7 @@ TEEC_Result KTAinitialize(
 ```c
 TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum)
 ```
+
 接口描述：从KTA侧获取命令请求  
 参数1【传出】：获取KTA侧的命令请求。  
 参数2【传出】：存放剩余请求数量。
@@ -384,68 +424,83 @@ TEEC_Result KTAgetCommand(struct buffer_data* out_data, uint32_t* retnum)
 ```c
 TEEC_Result KTAsendCommandreply(struct buffer_data* in_data)
 ```
+
 接口描述：向KTA返回密钥请求结果  
 参数1【传入】：密钥请求参数。
 
 ```c
 void KTAshutdown() 
 ```
+
 接口描述：关闭KTA的连接
 
 #### KCMS接口
 
 KCM Service作为密钥缓存管理的服务端，通过ClientAPI与KA进行交互。主要提供的接口为：
+
 1. 向KA返回KCM公钥证书；
 2. 验证KTA的公钥证书；
 3. 调用Kcmstools的相关函数进行密钥缓存相关的操作。
+
 ```go
 func DoSendKCMPubKeyCertWithConn(ras *RasConn, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error);
 ```
+
 接口描述：接收KA传入的信息，并传给clientapi的SendKCMPubKeyCert函数进行下一步处理  
 参数1：ras连接  
 参数2：空值（包含在Request中，下同）  
 返回值1：KCM公钥证书（包含在Reply中，下同）  
 返回值2：错误输出。  
 ***
+
 ```go
 func DoVerifyKTAPubKeyCertWithConn(ras *RasConn, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error);
 ```
+
 接口描述：接收KA传入的信息，并传给clientapi的VerifyKTAPubKeyCert函数进行下一步处理  
 参数1：ras连接  
 参数2：KA所在RAC的设备ID、KTA公钥证书（[]byte类型）。  
 返回值1：KA所在RAC的设备ID（出错时将数值设置为-1）  
 返回值2：错误输出。  
 ***
+
 ```go
 func DoKeyOperationWithConn(ras *RasConn, in *KeyOperationRequest) (*KeyOperationReply, error);
 ```
+
 接口描述：接收KA传入的信息，并传给clientapi的DoKeyOperationWithConn函数进行下一步处理  
 参数1：ras连接  
 参数2：设备ID和加密后的入参，包括：TA的身份ID、TA登录KMS的账号、TA登录KMS的密码、TA请求获取的密钥ID、TA请求生成新密钥需要依据的主密钥的ID（均为[]byte类型）  
 返回值1：密钥操作函数运行成功标志（bool类型）加密后的出参，包括：TA的身份ID、密钥ID、密钥明文、TA请求生成新密钥需要依据的主密钥的ID、KTA公钥加密过的会话密钥密文（均为byte[]类型）、功能标志（uint32类型）  
 返回值2：错误输出。  
 ***
+
 ```go
 func (s *rasService) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCertRequest) (*SendKCMPubKeyCertReply, error);
 ```
+
 接口描述：调用kcmstools中的SendKCMPubKeyCert函数进行下一步处理，将其返回的数据返回给DoSendKCMPubKeyCertWithConn  
 参数1：ras连接的Context  
 参数2：空值（包含在Request中，下同）  
 返回值1：KCM公钥证书（包含在Reply中，下同）  
 返回值2：错误输出。  
 ***
+
 ```go
 func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error);
 ```
+
 接口描述：接收DoVerifyKTAPubKeyCertWithConn的输入，对输入参数进行解析，调用kcmstools中的VerifyKTAPubKeyCert进行下一步处理，将其返回的数据返回给DoVerifyKTAPubKeyCertWithConn  
 参数1：ras连接的Context  
 参数2：KA所在RAC的设备ID、KTA公钥证书（[]byte类型）。  
 返回值1：KA所在RAC的设备ID（出错时将数值设置为-1）  
 返回值2：错误输出。  
 ***
+
 ```go
 func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) (*KeyOperationReply, error);
 ```
+
 接口描述：接收DoKeyOperationWithConn传入的信息，对输入参数进行解析，选择kcmstools中的对应密钥操作函数进行调用和下一步处理，对其返回的数据进行加密再返回给DoKeyOperationWithConn  
 参数1：ras连接的Context  
 参数2：设备ID和加密后的入参，包括：TA的身份ID、TA登录KMS的账号、TA登录KMS的密码、TA请求获取的密钥ID、TA请求生成新密钥需要依据的主密钥的ID（均为[]byte类型）  
@@ -457,16 +512,20 @@ func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) 
 **初始化场景接口**
 
 KCM Servie初始化操作分为两个步骤，首先是发送KCMS公钥证书，然后是验证并保存KTA公钥。
+
 ```go
 func SendKCMPubKeyCert() ([]byte, error);
 ```
+
 接口描述：请求KCM Service返回KCMS的公钥证书  
 返回值1：KCMS公钥证书的[]byte值。  
 返回值2：错误输出。  
 ***
+
 ```go
 func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error;
 ```
+
 接口描述：验证KTA发送的公钥证书，并保存KTA公钥  
 参数1：KA所在RAC的设备ID。  
 参数2：KTA公钥证书的[]byte值。  
@@ -477,6 +536,7 @@ func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error;
 ```go
 func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error);
 ```
+
 接口描述：请求KCM Service让KMS依据主密钥ID生成新的密钥，并生成密钥ID，将密钥密文和密钥ID保存下来，返回密钥明文和密钥ID，并对返回值进行加密保护。  
 参数1：TA的身份ID的[]byte值。  
 参数2：TA登录KMS的账号的[]byte值。  
@@ -496,6 +556,7 @@ func GenerateNewKey(taid []byte, account []byte, password []byte, hostkeyid []by
 ```go
 func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyid []byte, ktaid string, deviceId int64) ([]byte, []byte, []byte, []byte, []byte, error);
 ```
+
 接口描述：请求KCM Service依据密钥ID查询到相应的密钥密文，然后请求KMS依据主密钥ID解密旧的密钥，并返回密钥明文和密钥ID，其中需要对返回值进行加密保护。  
 参数1：TA的身份ID的[]byte值。  
 参数2：TA登录KMS的账号的[]byte值。  
@@ -516,6 +577,7 @@ func GetKey(taid []byte, account []byte, password []byte, keyid []byte, hostkeyi
 ```go
 func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte, []byte, error) ;
 ```
+
 接口描述：请求KCM Service依据密钥ID删除相应的密钥  
 参数1：TA的身份ID的[]byte值。  
 参数2：TA需要删除的密钥ID的[]byte值。   
@@ -529,26 +591,32 @@ func DeleteKey(taid []byte, keyid []byte, ktaid string, deviceId int64) ([]byte,
 
 KCM Servie数据库操作主要是针对密钥和KTA公钥，主要分为查询、删除和保存操作。  
 密钥部分：
+
 ```go
 func FindKeyInfo(taid, keyid string) (*typdefs.KeyinfoRow, error); 
 ```
+
 接口描述：根据TA的身份ID和密钥ID查询相应的密钥密文信息  
 参数1：TA的身份ID。  
 参数2：密钥的ID。  
 返回值1：查询到的密钥密文。  
 返回值2：错误输出。
 ***
+
 ```go
 func DeleteKeyInfo(taid, keyid string) error;
 ```
+
 接口描述：根据TA的身份ID和密钥ID删除相应的密钥密文信息  
 参数1：TA的身份ID。  
 参数2：密钥的ID。  
 返回值：错误输出。  
 ***
+
 ```go
 func SaveKeyInfo(taid, keyid, cipherkey string) (*typdefs.KeyinfoRow, error);
 ```
+
 接口描述：保存密钥密文信息，其中包括TA的身份ID、密钥ID和密钥密文  
 参数1：TA的身份ID。  
 参数2：密钥的ID。  
@@ -557,24 +625,30 @@ func SaveKeyInfo(taid, keyid, cipherkey string) (*typdefs.KeyinfoRow, error);
 返回值2：错误输出。  
 ***
 KTA公钥部分：
+
 ```go
 func FindPubKeyInfo(deviceid int64) (*typdefs.PubKeyinfoRow, error); 
 ```
+
 接口描述：根据设备ID查询相应的KTA公钥证书信息  
 参数：设备ID的值。  
 返回值1：查询到的KTA公钥证书。  
 返回值2：错误输出。  
 ***
+
 ```go
 func DeletePubKeyInfo(deviceid int64) error;
 ```
+
 接口描述：根据设备ID删除相应的KTA公钥证书信息  
 参数：设备ID的值。  
 返回值：错误输出。  
 ***
+
 ```go
 func SavePubKeyInfo(deviceid int64, pubkeycert string) (*typdefs.PubKeyinfoRow, error);
 ```
+
 接口描述：保存KTA公钥信息，其中包括设备ID和KTA的公钥证书  
 参数1：设备ID的值。  
 参数2：KTA的公钥证书。  
