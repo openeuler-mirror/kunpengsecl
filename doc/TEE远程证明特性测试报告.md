@@ -2,17 +2,17 @@
 
 <!-- TOC -->
 
-  - [单元测试](#单元测试)
-      - [最小实现](#最小实现)
-      - [独立实现](#独立实现)
-      - [整合实现](#整合实现)
-  - [集成测试](#集成测试)
-      - [最小实现](#最小实现-1)
-      - [独立实现](#独立实现-1)
-      - [整合实现](#整合实现-1)
-  - [性能测试](#性能测试)
-      - [最小实现/独立实现](#最小实现独立实现)
-      - [整合实现](#整合实现-2)
+- [单元测试](#单元测试)
+    - [最小实现](#最小实现)
+    - [独立实现](#独立实现)
+    - [整合实现](#整合实现)
+- [集成测试](#集成测试)
+    - [最小实现](#最小实现-1)
+    - [独立实现](#独立实现-1)
+    - [整合实现](#整合实现-1)
+- [性能测试](#性能测试)
+    - [最小实现/独立实现](#最小实现独立实现)
+    - [整合实现](#整合实现-2)
 
 <!-- TOC -->
 
@@ -392,15 +392,16 @@ ok      gitee.com/openeuler/kunpengsecl/attestation/ras/trustmgr        0.393s
 ### <a id="最小实现-1"></a>最小实现
 
 测试思路：
-1.  Story1.1——Story1.5将一并进行测试。
-2.  构建测试目录，并准备必要的文件。
-3.  启动QCA服务端。
-4.  等待3秒，终止QCA进程。检查是否生成身份密钥和证书，记录检查结果。
-5.  先启动QCA服务端，然后添加-T参数启动ATTESTER客户端。
-6.  等待3秒，终止QCA进程。检查是否生成指定TA的完整性报告，记录检查结果。
-7.  先启动QCA服务端，然后添加-T参数启动ATTESTER客户端。
-8.  等待3秒，终止QCA进程。检查ATTESTER是否接收到QCA发送的可信报告，记录检查结果。
-9.  先启动QCA服务端，然后添加-T -M 1参数启动ATTESTER客户端。
+
+1. Story1.1——Story1.5将一并进行测试。
+2. 构建测试目录，并准备必要的文件。
+3. 启动QCA服务端。
+4. 等待3秒，终止QCA进程。检查是否生成身份密钥和证书，记录检查结果。
+5. 先启动QCA服务端，然后添加-T参数启动ATTESTER客户端。
+6. 等待3秒，终止QCA进程。检查是否生成指定TA的完整性报告，记录检查结果。
+7. 先启动QCA服务端，然后添加-T参数启动ATTESTER客户端。
+8. 等待3秒，终止QCA进程。检查ATTESTER是否接收到QCA发送的可信报告，记录检查结果。
+9. 先启动QCA服务端，然后添加-T -M 1参数启动ATTESTER客户端。
 10. 等待3秒，终止QCA进程。检查ATTESTER是否成功设置可信报告度量策略，记录检查结果。
 11. 先启动QCA服务端，然后添加-T参数启动ATTESTER客户端。
 12. 等待3秒，终止QCA进程。检查ATTESTER是否成功对可信报告进行验证，记录检查结果。
@@ -441,6 +442,7 @@ test succeeded!
 **story2.1测试**
 
 测试思路：
+
 1. 在kunpengsecl根目录下进行 `make build` 编译。
 2. 创建测试目录，并加载程序启动所需文件。
 3. 启动AK Service。
@@ -493,6 +495,7 @@ test succeeded!
 **story2.2测试**
 
 测试思路：
+
 1. 在kunpengsecl根目录下进行 `make build` 编译。
 2. 创建测试目录，并加载程序启动所需文件。
 3. 启动AK Service。
@@ -545,15 +548,16 @@ test succeeded!
 **story2.3测试**
 
 测试思路：
-1.  在kunpengsecl根目录下进行 `make build` 编译。
-2.  创建测试目录，并加载程序启动所需文件。
-3.  添加-T参数启动AK Service获取authtoken值，若获取失败，流程结束。
-4.  等待3秒，启动AK Service。
-5.  等待3秒，查询当前服务端基准值信息，若查询失败，流程结束，否则，记录为默认基准值。
-6.  等待3秒，终止AK Service进程。
-7.  等待3秒，重新启动AK Service。
-8.  等待3秒，查询当前服务端基准值信息，若与默认值不一致，则测试失败，流程结束。
-9.  等待3秒，修改基准值信息为"test value"。
+
+1. 在kunpengsecl根目录下进行 `make build` 编译。
+2. 创建测试目录，并加载程序启动所需文件。
+3. 添加-T参数启动AK Service获取authtoken值，若获取失败，流程结束。
+4. 等待3秒，启动AK Service。
+5. 等待3秒，查询当前服务端基准值信息，若查询失败，流程结束，否则，记录为默认基准值。
+6. 等待3秒，终止AK Service进程。
+7. 等待3秒，重新启动AK Service。
+8. 等待3秒，查询当前服务端基准值信息，若与默认值不一致，则测试失败，流程结束。
+9. 等待3秒，修改基准值信息为"test value"。
 10. 等待3秒，比较修改值是否与"test value"一致，若不一致，则测试失败，流程结束，否则，测试成功。
 
 测试结果：
@@ -615,6 +619,7 @@ test succeeded!
 **story2.4测试**
 
 测试思路：
+
 1. 在kunpengsecl根目录下进行 `make build` 编译。
 2. 创建测试目录，并加载程序启动所需文件。
 3. 启动AK Service。
@@ -667,15 +672,16 @@ test succeeded!
 **story2.5测试**
 
 测试思路：
-1.  在kunpengsecl根目录下进行 `make build` 编译。
-2.  创建测试目录，并加载程序启动所需文件。
-3.  启动AK Service。
-4.  等待3秒，添加-C 2参数启动QCA Demo。
-5.  等待3秒，添加-T -M 1参数启动ATTESTER Demo。
-6.  等待3秒，终止ATTESTER Demo进程，检查是否使用度量策略1，若没有，则测试失败，流程结束。
-7.  等待3秒，添加-T -M 2参数启动ATTESTER Demo。
-8.  等待3秒，终止ATTESTER Demo进程，检查是否使用度量策略2，若没有，则测试失败，流程结束。
-9.  等待3秒，添加-T -M 3参数启动ATTESTER Demo。
+
+1. 在kunpengsecl根目录下进行 `make build` 编译。
+2. 创建测试目录，并加载程序启动所需文件。
+3. 启动AK Service。
+4. 等待3秒，添加-C 2参数启动QCA Demo。
+5. 等待3秒，添加-T -M 1参数启动ATTESTER Demo。
+6. 等待3秒，终止ATTESTER Demo进程，检查是否使用度量策略1，若没有，则测试失败，流程结束。
+7. 等待3秒，添加-T -M 2参数启动ATTESTER Demo。
+8. 等待3秒，终止ATTESTER Demo进程，检查是否使用度量策略2，若没有，则测试失败，流程结束。
+9. 等待3秒，添加-T -M 3参数启动ATTESTER Demo。
 10. 等待3秒，终止ATTESTER Demo进程，检查是否使用度量策略3，若没有，则测试失败，流程结束。
 11. 等待3秒，添加-T -M 0参数启动ATTESTER Demo。
 12. 等待3秒，终止AK Service、QCA Demo和ATTESTER Demo进程，检查是否使用度量策略0，若没有，则测试失败，流程结束，否则，测试成功。
@@ -735,15 +741,16 @@ test succeeded!
 **story2.6测试**
 
 测试思路：
-1.  在kunpengsecl根目录下进行 `make build` 编译。
-2.  创建测试目录，并加载程序启动所需文件。
-3.  启动AK Service。
-4.  等待3秒，添加-C 2参数启动QCA Demo。
-5.  等待3秒，添加-T -M 1参数启动ATTESTER Demo。
-6.  等待3秒，终止ATTESTER Demo进程，检查是否完成image度量，若没有，则测试失败，流程结束。
-7.  等待3秒，添加-T -M 2参数启动ATTESTER Demo。
-8.  等待3秒，终止ATTESTER Demo进程，检查是否完成hash度量，若没有，则测试失败，流程结束。
-9.  等待3秒，添加-T -M 3参数启动ATTESTER Demo。
+
+1. 在kunpengsecl根目录下进行 `make build` 编译。
+2. 创建测试目录，并加载程序启动所需文件。
+3. 启动AK Service。
+4. 等待3秒，添加-C 2参数启动QCA Demo。
+5. 等待3秒，添加-T -M 1参数启动ATTESTER Demo。
+6. 等待3秒，终止ATTESTER Demo进程，检查是否完成image度量，若没有，则测试失败，流程结束。
+7. 等待3秒，添加-T -M 2参数启动ATTESTER Demo。
+8. 等待3秒，终止ATTESTER Demo进程，检查是否完成hash度量，若没有，则测试失败，流程结束。
+9. 等待3秒，添加-T -M 3参数启动ATTESTER Demo。
 10. 等待3秒，终止ATTESTER Demo进程，检查是否完成image&hash度量，若没有，则测试失败，流程结束。
 11. 等待3秒，添加-T -M 0参数启动ATTESTER Demo。
 12. 等待3秒，终止AK Service、QCA Demo和ATTESTER Demo进程，检查是否提示度量失败，若没有，则测试失败，流程结束，否则，测试成功。
@@ -803,6 +810,7 @@ test succeeded!
 ### <a id="整合实现-1"></a>整合实现
 
 测试思路：
+
 1. 配置好raagent和ras的配置文件，ras使用缺省ras配置文件（mgrstrategy: auto），raagent使用缺省rac配置文件（clientID: -1）；
 2. 清空kunpengsecl所有数据库表；
 3. 分别启动ras和raagent（仅一个raagent，-t 测试模式启动）；
