@@ -35,12 +35,16 @@ To create a 64-bit library
 
     python3 config64.py
 
-Then select options 1, 3, 7, 28, 30, 37, 38 and 41 (these are fixed for the example 
+Then select options 1, 3, 7, 28, 30, 37, 38 and 42 (these are fixed for the example 
 program provided). Select 0 to exit.
 
 Run the ECC test program by executing
 
     go run TestECC.go
+
+Run the EDDSA test program by executing
+
+    go run TestEDDSA.go
 
 Run the MPIN test program by executing
 
@@ -77,7 +81,7 @@ NEW: support for emerging Hash To Curve standard.
 See https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/
 
 
-Create 32 or 64-bit library selecting curves 1, 2, 3, 7, 17 and 31 (ED25519, C25519, NIST256, GOLDILOCKS, SECP256K1 and BLS12381)
+Create 32 or 64-bit library selecting curves 1, 2, 3, 7, 17 and 31 (ED25519, C25519, NIST256, ED448, SECP256K1 and BLS12381)
 
     go run TestHTP.go
 
