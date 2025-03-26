@@ -21,7 +21,8 @@ func randomBytes(n int) ([]byte, error) {
 // 测试用例1：常规短文本加密解密
 func TestShortText(t *testing.T) {
 	plaintext := []byte("SM4测试")
-	key := randomBytes(16)
+	const KeySize = 16
+	key := randomBytes(KeySize)
 
 	ciphertext, iv, err := SM4Encrypt(plaintext, key)
 	if err != nil {
@@ -41,7 +42,8 @@ func TestShortText(t *testing.T) {
 // 测试用例2：长文本加密解密
 func TestLongText(t *testing.T) {
 	plaintext := bytes.Repeat([]byte("Go语言SM4测试-"), 100) // 约1.5KB数据
-	key := randomBytes(16)
+	const KeySize = 16
+	key := randomBytes(KeySize)
 
 	ciphertext, iv, err := SM4Encrypt(plaintext, key)
 	if err != nil {
@@ -61,7 +63,8 @@ func TestLongText(t *testing.T) {
 // 测试用例3：二进制数据加密解密
 func TestBinaryData(t *testing.T) {
 	plaintext := randomBytes(512) // 512字节随机数据
-	key := randomBytes(16)
+	const KeySize = 16
+	key := randomBytes(KeySize)
 
 	ciphertext, iv, err := SM4Encrypt(plaintext, key)
 	if err != nil {
@@ -81,7 +84,8 @@ func TestBinaryData(t *testing.T) {
 // 测试用例4：多次加密结果不同（因IV随机）
 func TestRandomIV(t *testing.T) {
 	plaintext := []byte("相同输入不同IV")
-	key := randomBytes(16)
+	const KeySize = 16
+	key := randomBytes(KeySize)
 
 	// 第一次加密
 	ciphertext1, iv1, _ := SM4Encrypt(plaintext, key)
