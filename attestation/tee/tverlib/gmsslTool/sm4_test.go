@@ -8,11 +8,15 @@ import (
 )
 
 // 测试辅助函数：生成随机字节
-func randomBytes(n int) []byte {
+func randomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
-	_, _ = rand.Read(b)
-	return b
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
+
 
 // 测试用例1：常规短文本加密解密
 func TestShortText(t *testing.T) {
