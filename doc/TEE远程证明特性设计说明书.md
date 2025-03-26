@@ -2,21 +2,30 @@
 
 <!-- TOC -->
 
-  - [TEE特性实现](#tee特性实现)
-      - [远程证明特性](#远程证明特性)
-          - [实体介绍](#实体介绍)
-              - [QCA_DEMO介绍](#qca_demo介绍)
-              - [ATTESTER_DEMO介绍](#attester_demo介绍)
-              - [VERIFIER_LIB介绍](#verifier_lib介绍)
-              - [AK_Service介绍](#ak_service介绍)
-          - [接口介绍](#接口介绍)
-              - [QCA接口](#qca接口)
-              - [ATTESTER接口](#attester接口)
-              - [AK_Service接口](#ak_service接口)
-          - [流程架构图](#流程架构图)
-              - [最小实现](#最小实现)
-              - [独立实现](#独立实现)
-              - [整合实现](#整合实现)
+- [TEE设计文档](#tee设计文档)
+  - [远程证明特性](#远程证明特性)
+    - [实体介绍](#实体介绍)
+      - [QCA\_DEMO介绍](#qca_demo介绍)
+      - [ATTESTER\_DEMO介绍](#attester_demo介绍)
+      - [VERIFIER\_LIB介绍](#verifier_lib介绍)
+      - [AK\_Service介绍](#ak_service介绍)
+    - [接口介绍](#接口介绍)
+      - [QCA接口](#qca接口)
+        - [qcatools方法描述](#qcatools方法描述)
+        - [qapi方法描述](#qapi方法描述)
+        - [aslib方法描述](#aslib方法描述)
+      - [Attester接口](#attester接口)
+        - [attestertools方法描述](#attestertools方法描述)
+        - [VERIFIER\_LIB方法描述](#verifier_lib方法描述)
+      - [AK\_Service接口](#ak_service接口)
+        - [akissuer方法描述](#akissuer方法描述)
+        - [clientapi方法描述](#clientapi方法描述)
+        - [config方法描述](#config方法描述)
+        - [restapi方法描述](#restapi方法描述)
+    - [流程架构图](#流程架构图)
+      - [最小实现](#最小实现)
+      - [独立实现](#独立实现)
+      - [整合实现](#整合实现)
 
 <!-- TOC -->
 
@@ -52,27 +61,36 @@ AK_Service作为证明密钥服务端，分场景实现对TA的AKey Cert进行�
 
 QCA Demo的工具包，用以支持QCA Demo初始化命令行参数、初始化配置、与QCA Lib进行交互等。  
 qcatools的对外方法如下：
+
 ```go
 func InitFlags()
 ```
+
 方法描述：初始化QCA Demo启动时的命令行参数。  
 可用命令行参数如下：
-```
+
+```text
 -C, --scenario int32   设置QCA Demo的使用场景
 -S, --server string    指定QCA Demo可以被客户端连接的IP地址
 ```
+
 目前支持的场景有：
+
 ```go
 RA_SCENARIO_NO_AS = 0 // 无AKS场景，对应最小实现
 RA_SCENARIO_AS_NO_DAA = 1 // 有AKS无DAA场景
 RA_SCENARIO_AS_WITH_DAA = 2 // 有AKS有DAA场景
 ```
+
 ***
+
 ```go
 func LoadConfigs()
 ```
+
 方法描述：加载预定义的配置。  
 目前的默认配置为：
+
 ```yaml
 qcaconfig:
   server: 127.0.0.1:40007
@@ -81,31 +99,40 @@ qcaconfig:
   nodaaacfile: ./nodaa-ac.crt
   daaacfile: ./daa-ac.crt
 ```
+
 ***
+
 ```go
 func HandleFlags()
 ```
+
 方法描述：处理命令行参数。
 ***
+
 ```go
 func GetTAReport(ta_uuid []byte, usr_data []byte, with_tcb bool) []byte
 ```
+
 方法描述：调用QCA Lib接口获取TA的完整性报告。  
 参数1：指定TA的唯一标识符UUID。  
 参数2：用户传入的挑战数据，如nonce值，用以防重放攻击。  
 参数3：指明是否携带TCB度量值。  
 返回值：TA的完整性报告。
 ***
+
 ```go
 func GenerateAKCert() ([]byte, error)
 ```
+
 方法描述：根据不同使用场景请求QCA Lib返回相应证书。  
 返回值1：DER格式的AK证书，无AKS场景返回为空。  
 返回值2：错误输出。
 ***
+
 ```go
 func SaveAKCert(cert []byte) error
 ```
+
 方法描述：将AKS签发的AK证书保存入TEE环境。  
 参数：DER格式的AK证书。  
 返回值：错误输出。
@@ -115,24 +142,30 @@ func SaveAKCert(cert []byte) error
 
 QCA Demo与外交互的接口，向外提供TA的完整性报告。  
 qapi的对外方法如下：
+
 ```go
 func StartServer()
 ```
+
 方法描述：QCA Demo的启动入口。
 >QCA Demo启动后，若使用场景为有AKS场景，则会先检查本地指定路径下是否存有AKS签发的AK证书。若有，那么跳过后续与QCA Lib及AKS的交互步骤，直接开始监听自己对外提供的服务端口；若没有，那么需要发起与QCA Lib和AKS的交互，并将最终AKS签发的AK证书存于本地指定路径。
 ***
+
 ```go
 func DoGetTeeReport(addr string, in *GetReportRequest) (*GetReportReply, error)
 ```
+
 方法描述：供外部平台调用的接口，用以获取指定TA的完整性报告。  
 参数1：待连接服务端的IP:Port地址，这里的服务端即QCA Demo。  
 参数2：gRPC请求参数，包含uuid、nonce、with_tcb三个字段。  
 返回值1：gRPC响应参数，包含TA的完整性报告的字节数组。
 返回值2：错误输出。
 ***
+
 ```go
 func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetReportReply, error)
 ```
+
 方法描述：gRPC中对应获取指定TA完整性报告的服务。  
 参数1：服务请求的上下文信息。  
 参数2：gRPC请求参数，包含uuid、nonce、with_tcb三个字段。  
@@ -144,9 +177,11 @@ func (s *service) GetReport(ctx context.Context, in *GetReportRequest) (*GetRepo
 
 QCA Demo与AK Service交互的接口，用以请求AKS签发AK证书。  
 aslib的对外方法如下：
+
 ```go
 func GetAKCert(oldAKCert []byte, scenario int32) ([]byte, error)
 ```
+
 方法描述：通过AKS提供的clientapi请求AKS签发指定场景的AK证书。  
 参数1：TEE环境中自签名的AK证书。  
 参数2：指定服务的使用场景，主要是NoDAA/DAA场景。  
@@ -160,12 +195,15 @@ func GetAKCert(oldAKCert []byte, scenario int32) ([]byte, error)
 
 Attester的工具包，用以支持Attester Demo初始化命令行参数、初始化配置、与QCA Demo进行交互等。  
 attestertools的对外方法如下：
+
 ```go
 func InitFlags()
 ```
+
 方法描述：初始化Attester Demo启动时的命令行参数。  
 可用命令行参数如下：
-```
+
+```text
 -B, --basevalue string   设置基准值文件的读取路径
 -M, --mspolicy int       设置待使用的度量策略
 -S, --server string      指定待连接的服务器端口
@@ -173,12 +211,16 @@ func InitFlags()
 -U, --uuid string        指定待验证的TA
 -V, --version            打印版本号并退出程序
 ```
+
 ***
+
 ```go
 func LoadConfigs()
 ```
+
 方法描述：加载预定义的配置。  
 目前的默认配置为：
+
 ```yaml
 attesterconfig:
   server: 127.0.0.1:40007
@@ -186,15 +228,20 @@ attesterconfig:
   mspolicy: 2
   uuid: f68fd704-6eb1-4d14-b218-722850eb3ef0
 ```
+
 ***
+
 ```go
 func HandleFlags()
 ```
+
 方法描述：处理命令行参数。
 ***
+
 ```go
 func StartAttester()
 ```
+
 方法描述：Attester Demo的启动入口。
 >用户可通过读取Attester Demo的运行日志判断指定TA的度量结果。
 ***
@@ -202,9 +249,11 @@ func StartAttester()
 ##### VERIFIER_LIB方法描述
 
 VERIFIER_LIB为Attester demo提供可信验证支持，返回验证结果给用户，接口主要有：
+
 ```c
 int tee_verify_report(buffer_data *data_buf,buffer_data *nonce,int type, char *filename);
 ```
+
 接口描述：对可信报告进行身份验证和完整性验证  
 参数1：可信报告缓冲区指针，即通过事先调用QCA_LIB中RemoteAttestReport函数所更新的report参数  
 参数2：用户提供的一个随机数，需要与可信报告中指定位置的nonce值进行比对，用于防重放攻击  
@@ -212,6 +261,7 @@ int tee_verify_report(buffer_data *data_buf,buffer_data *nonce,int type, char *f
 参数4：基准值文件路径，可从该文件中读取基准值与可信报告中的度量值进行比对  
 返回值：验证结果（0或-1或-2或-3）  
 相应的返回值定义如下：
+
 ```c
 enum error_status_code {
     TVS_ALL_SUCCESSED = 0, // 可信验证通过
@@ -220,19 +270,24 @@ enum error_status_code {
     TVS_VERIFIED_HASH_FAILED = -3, // 度量值验证失败
 };
 ```
+
 ***
 本接口内部由以下三个函数实现对应功能：
+
 ```c
 bool tee_verify_nonce(buffer_data *buf_data,buffer_data *nonce);
 ```
+
 接口描述：验证可信报告中的nonce值是否与用户生成的一致  
 参数1：可信报告缓冲区指针，即通过事先调用QCA_LIB中RemoteAttestReport函数所更新的report参数  
 参数2：用户提供的nonce值缓冲区指针  
 返回值：验证结果（true or false）  
 ***
+
 ```c
 bool tee_verify_signature(buffer_data *report);
 ```
+
 接口描述：验证报告签名和证书有效性，例如使用DRK证书对签名数据进行验签(noas)  
 参数1：可信报告缓冲区指针，即通过事先调用QCA_LIB中RemoteAttestReport函数所更新的report参数  
 返回值：验证结果（true or false）  
@@ -240,6 +295,7 @@ bool tee_verify_signature(buffer_data *report);
 **ak_cert对应的固定字段、属性字段和数据字段：**
 
 注：如果为noas情况，需要将akcert转换成如下的数据类型，从中获取到对应的ak_pub、sign_drk以及cert_drk等数据
+
 ```c
 #define KEY_PURPOSE_SIZE 32
 struct ak_cert
@@ -261,14 +317,18 @@ struct ak_cert
 ```
 
 **验证过程：**
+
 1. 通过传入的缓冲区类型的report解析出对应的结构体类型的报告
 2. 使用DRK证书对sign_drk进行验签（noas情况）
 3. 从akcert中获取akpub对sign_ak进行验签
 4. 返回验签结果
+
 ***
+
 ```c
 bool tee_verify(buffer_data *buf_data, int type, char *filename);
 ```
+
 接口描述：验证报告hash值  
 参数1：可信报告缓冲区指针，即事先通过调用QCA_LIB中RemoteAttestReport函数所更新的report参数  
 参数2：验证类型，即度量策略，1为仅比对img-hash值，2为仅比对hash值，3为同时比对img-hash和hash两个值  
@@ -298,9 +358,11 @@ basevalue文件以十六进制字符串的形式存储基准值记录
 
 akissuer实现NoDAA/DAA协议帮助生成AK证书。  
 akissuer的对外方法如下：
+
 ```go
 func GenerateAKCert(oldAKCert []byte, scenario int32) ([]byte, error)
 ```
+
 方法描述：AKS对设备自签名的AK证书进行重新签名。  
 参数1：原始AK证书的[]byte值。  
 参数2：对应生成AK证书的场景。1 ---> NoDAA证书 ; 2 ---> DAA证书  
@@ -312,24 +374,30 @@ func GenerateAKCert(oldAKCert []byte, scenario int32) ([]byte, error)
 
 clientapi接收目标平台AK证书生成请求。  
 clientapi的对外方法如下：
+
 ```go
 func (s *service) GetAKCert(ctx context.Context, in *GetAKCertRequest) (*GetAKCertReply, error)
 ```
+
 方法描述：gRPC中对应生成指定场景AK证书的服务。  
 参数1：服务请求的上下文信息。  
 参数2：gRPC请求参数，包含akcert、scenario两个字段。  
 返回值1：gRPC响应参数，包含AKS签发的AK证书的字节数组。
 返回值2：错误输出。
 ***
+
 ```go
 func StartServer(addr string)
 ```
+
 方法描述：AKS对客户端的服务启动入口。  
 参数：AKS服务端的IP:Port地址。
 ***
+
 ```go
 func DoGetAKCert(addr string, in *GetAKCertRequest) (*GetAKCertReply, error)
 ```
+
 方法描述：供外部平台调用的接口，用以获取AKS重新签名的AK证书。  
 参数1：待连接服务端的IP:Port地址，这里的服务端即AKS。  
 参数2：gRPC请求参数，包含akcert、scenario两个字段。  
@@ -341,20 +409,27 @@ func DoGetAKCert(addr string, in *GetAKCertRequest) (*GetAKCertReply, error)
 
 AKS的配置服务包，用以获取、修改AKS的指定配置。  
 config的对外方法如下：
+
 ```go
 func InitFlags()
 ```
+
 方法描述：初始化AKS启动时的命令行参数。  
 可用命令行参数如下：
-```
+
+```text
 -T, --token   为restapi服务生成测试token
 ```
+
 ***
+
 ```go
 func LoadConfigs()
 ```
+
 方法描述：加载预定义的配置。  
 目前的默认配置为：
+
 ```yaml
 tasconfig:
   port: 127.0.0.1:40008
@@ -367,88 +442,117 @@ tasconfig:
   basevalue: "cc0fe80b4510b3c8d5bf6308024676d2d9e83fbb05ba3d23cd645bfb573ae8a1 bd9df1a7f941c572c14723b80a0fbd805d52641bbac8325681a19d8ba8487b53"
   authkeyfile: ./ecdsakey.pub
 ```
+
 ***
+
 ```go
 func InitializeAS() error
 ```
+
 方法描述：对AKS进行初始化。
 >本方法主要实现解析AKS的证书、私钥以及解析华为证书的功能，因此要求用户预先在指定路径下配置好相应的AKS证书、AKS私钥以及华为证书，否则AKS将无法正常启动。
 ***
+
 ```go
 func GetConfigs() *tasConfig
 ```
+
 方法描述：获取AKS的所有配置信息。  
 返回值：AKS的配置信息。
 ***
+
 ```go
 func GetServerPort() string
 ```
+
 方法描述：获取AKS的clientapi服务端口地址。  
 返回值：AKS的clientapi服务端口地址。
 ***
+
 ```go
 func GetRestPort() string
 ```
+
 方法描述：获取AKS的restapi服务端口地址。  
 返回值：AKS的restapi服务端口地址。
 ***
+
 ```go
 func GetASCertFile() string
 ```
+
 方法描述：获取AKS证书的文件路径。  
 返回值：AKS证书的文件路径。
 ***
+
 ```go
 func GetASKeyFile() string
 ```
+
 方法描述：获取AKS私钥的文件路径。  
 返回值：AKS私钥的文件路径。
 ***
+
 ```go
 func GetHWCertFile() string
 ```
+
 方法描述：获取华为证书的文件路径。  
 返回值：华为证书的文件路径。
 ***
+
 ```go
 func GetASCert() *x509.Certificate
 ```
+
 方法描述：获取AKS证书。  
 返回值：x509格式的AKS证书。
 ***
+
 ```go
 func GetASPrivKey() *rsa.PrivateKey
 ```
+
 方法描述：获取AKS私钥。  
 返回值：RSA格式的AKS私钥。
 ***
+
 ```go
 func GetHWCert() *x509.Certificate
 ```
+
 方法描述：获取华为证书。  
 返回值：x509格式的华为证书。
 ***
+
 ```go
 func GetDAAGrpPrivKey() (string, string)
 ```
+
 方法描述：获取DAA私钥。  
 返回值：DAA私钥X和DAA私钥Y。
 ***
+
 ```go
 func GetAuthKeyFile() string
 ```
+
 方法描述：获取restapi服务的验证密钥文件路径。  
 返回值：验证密钥的文件路径。
 ***
+
 ```go
 func GetBaseValue() string
 ```
+
 方法描述：获取对原始AK证书中qta度量数据进行度量的基准值。  
 返回值：基准值信息。
 ***
+
 ```go
 func SetBaseValue(s string)
 ```
+
 方法描述：设置对原始AK证书中qta度量数据进行度量的基准值。  
 参数：待设置的基准值。
 ***
@@ -457,36 +561,46 @@ func SetBaseValue(s string)
 
 restapi向用户提供信息维护服务。  
 restapi的对外方法如下：
+
 ```go
 func StartServer(addr string)
 ```
+
 方法描述：AKS对客户端的服务启动入口。  
 参数：AKS服务端的IP:Port地址。
 ***
+
 ```go
 func CreateTestAuthToken() ([]byte, error)
 ```
+
 方法描述：生成测试用的token值供用户请求restapi服务时使用。  
 返回值1：基于JSON的token值字节数组。  
 返回值2：错误输出。
 ***
+
 ```go
 func CreateAuthValidator(v JWSValidator) (echo.MiddlewareFunc, error)
 ```
+
 方法描述：生成restapi服务中对JWT进行验证的中间层。  
 返回值1：JWT验证器中间件。  
 返回值2：错误输出。
 ***
+
 ```go
 func (s *MyRestAPIServer) GetConfig(ctx echo.Context) error
 ```
+
 方法描述：允许用户读取AKS的配置信息，目前只允许读取基准值。  
 参数：请求上下文。    
 返回值：错误输出。  
 ***
+
 ```go
 func (s *MyRestAPIServer) PostConfig(ctx echo.Context) error
 ```
+
 方法描述：允许用户修改AKS的配置信息，目前只允许修改基准值。  
 参数：请求上下文。  
 返回值：错误输出。  
