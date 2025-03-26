@@ -24,3 +24,4 @@ attestation/tee/tverlib/miracl/fp_FP512BN.h
 attestation/tee/tverlib/miracl/hpke_FP512BN.h
 attestation/tee/tverlib/miracl/mpin_FP512BN.h
 attestation/tee/tverlib/miracl/pair_FP512BN.h
+attestation/tee/tverlib/miracl/eddsa_FP512BN.h

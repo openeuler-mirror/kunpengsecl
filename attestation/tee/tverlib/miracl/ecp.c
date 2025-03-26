@@ -428,7 +428,7 @@ void ECP_ZZZ_map2point(ECP_ZZZ *P,FP_YYY *h)
     FP_YYY_one(&one);
 
 #if MODTYPE_YYY != GENERALISED_MERSENNE
-// its NOT goldilocks!
+// its NOT ed448!
 // Figure out the Montgomery curve parameters
 
     FP_YYY_rcopy(&B,CURVE_B_ZZZ);
@@ -552,7 +552,7 @@ void ECP_ZZZ_map2point(ECP_ZZZ *P,FP_YYY *h)
     }
 
 #if MODTYPE_YYY == GENERALISED_MERSENNE
-// GOLDILOCKS isogeny
+// Ed448 isogeny
     FP_YYY_sqr(&t,&X1);  // t=u^2
     FP_YYY_add(&w,&t,&one); // w=u^2+1
     FP_YYY_norm(&w);
@@ -958,13 +958,14 @@ void ECP_ZZZ_rawoutput(ECP_ZZZ *P)
 void ECP_ZZZ_toOctet(octet *W, ECP_ZZZ *P, bool compress)
 {
 #if CURVETYPE_ZZZ==MONTGOMERY
-    BIG_XXX x;
+    BIG_XXX x; BIG_XXX_zero(x);
     ECP_ZZZ_get(x, P);
     W->len = MODBYTES_XXX;// + 1;
     //W->val[0] = 6;
     BIG_XXX_toBytes(&(W->val[0]), x);
 #else
     BIG_XXX x, y;
+    BIG_XXX_zero(x); BIG_XXX_zero(y);
     bool alt=false;
     ECP_ZZZ_affine(P);
     ECP_ZZZ_get(x, y, P);

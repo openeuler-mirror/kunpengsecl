@@ -61,9 +61,13 @@ static octet ECCSHA512 = {8, sizeof(eccsha512), (char *)eccsha512};
 static unsigned char ecpk[7] = {0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01};
 static octet ECPK = {7, sizeof(ecpk), (char *)ecpk};
 
-// ED Public Key - Elliptic curve EdDSA (Ed25519) Signature
-static unsigned char edpk[3] = {0x2B, 0x65, 0x70};   
-static octet EDPK = {3, sizeof(edpk),(char *)edpk};
+// ED25519 Public Key - Elliptic curve EdDSA (Ed25519) Signature
+static unsigned char edpk25519[3] = {0x2B, 0x65, 0x70};  
+static octet EDPK25519 = {3, sizeof(edpk25519),(char *)edpk25519};
+
+// ED448 Public Key - Elliptic curve EdDSA (Ed448) Signature
+static unsigned char edpk448[3] = {0x2B, 0x65, 0x71};  
+static octet EDPK448 = {3, sizeof(edpk448),(char *)edpk448};
 
 // C25519 curve
 static unsigned char prime25519[9] = {0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01}; /*****/
@@ -224,12 +228,13 @@ pktype X509_extract_private_key(octet *c,octet *pk)
     j += skip(len);
 
     fin = j + len;
+    if (len>SOID.max) return ret;
     SOID.len = len;
     for (i = 0; j < fin; j++)
         SOID.val[i++] = c->val[j];
     j=fin;
 
-    if (OCT_comp(&EDPK, &SOID)) 
+    if (OCT_comp(&EDPK25519, &SOID))
     { // Its an Ed25519 key
         len = getalen(OCT, c->val, j);
         if (len < 0) return ret;
@@ -238,13 +243,32 @@ pktype X509_extract_private_key(octet *c,octet *pk)
         if (len < 0) return ret;
         j += skip(len);
         rlen=32;
+        if (rlen>pk->max) return ret;
         pk->len=rlen;
         for (i=0;i<rlen-len;i++)
             pk->val[i]=0;
         for (i=rlen-len;i<rlen;i++)
             pk->val[i]=c->val[j++];
         ret.type = X509_ECD;
-        ret.curve = USE_C25519;
+        ret.curve = USE_ED25519;
+    }
+    if (OCT_comp(&EDPK448, &SOID))
+    { // Its an Ed25519 key
+        len = getalen(OCT, c->val, j);
+        if (len < 0) return ret;
+        j += skip(len);
+        len = getalen(OCT, c->val, j);
+        if (len < 0) return ret;
+        j += skip(len);
+        rlen=57;
+        if (rlen>pk->max) return ret;
+        pk->len=rlen;
+        for (i=0;i<rlen-len;i++)
+            pk->val[i]=0;
+        for (i=rlen-len;i<rlen;i++)
+            pk->val[i]=c->val[j++];
+        ret.type = X509_ECD;
+        ret.curve = USE_ED448;
     }
     if (OCT_comp(&DILITHIUM3, &SOID))
     { // Its a DILITHIUM3 key
@@ -270,6 +294,7 @@ pktype X509_extract_private_key(octet *c,octet *pk)
         j += skip(len);
 
         fin = j + len;
+        if (len>SOID.max) return ret;
         SOID.len = len;
         for (i = 0; j < fin; j++)
             SOID.val[i++] = c->val[j];
@@ -304,7 +329,11 @@ pktype X509_extract_private_key(octet *c,octet *pk)
             rlen=66;
             ret.curve = USE_NIST521;
         }
-
+        if (rlen>pk->max)
+        {
+            ret.curve=0;
+            return ret;
+        }
         pk->len=rlen;
         for (i=0;i<rlen-len;i++)
             pk->val[i]=0;
@@ -353,6 +382,10 @@ pktype X509_extract_private_key(octet *c,octet *pk)
             len--;
         }
         rlen=bround(len);
+        if (5*rlen>pk->max)
+            return ret;
+ 
+
         for (i=0;i<rlen-len;i++)
             pk->val[i]=0;
 
@@ -423,15 +456,21 @@ pktype X509_extract_cert_sig(octet *sc, octet *sig)
     j += skip(len);
 
     fin = j + len;
+    if (len>SOID.max) return ret;
     SOID.len = len;
     for (i = 0; j < fin; j++)
         SOID.val[i++] = sc->val[j];
 
     // check OID here..
-    if (OCT_comp(&EDPK, &SOID)) 
+    if (OCT_comp(&EDPK25519, &SOID))
     {
         ret.type = X509_ECD;
         ret.hash = X509_H512;
+    }
+    if (OCT_comp(&EDPK448, &SOID))
+    {
+        ret.type = X509_ECD;
+        ret.hash = X509_SHAKE256;
     }
     if (OCT_comp(&ECCSHA256, &SOID))
     {
@@ -484,17 +523,20 @@ pktype X509_extract_cert_sig(octet *sc, octet *sig)
 
     if (ret.type==X509_ECD)  
     {
-        rlen = bround(len);
-        ex = rlen - len;
-
-        sig->len = rlen;
+        if (len>sig->max)
+        {
+            ret.type=0;
+            return ret;
+        }
+        sig->len = len;
         i = 0;
-        for (k = 0; k < ex; k++)
-            sig->val[i++] = 0;
 
         fin = j + len;
         for (; j < fin; j++)
             sig->val[i++] = sc->val[j];
+
+        if (ret.hash == X509_H512) ret.curve = USE_ED25519;
+        if (ret.hash == X509_SHAKE256) ret.curve = USE_ED448;
     }
 
     if (ret.type == X509_ECC)
@@ -526,6 +568,11 @@ pktype X509_extract_cert_sig(octet *sc, octet *sig)
         rlen = bround(len);
 
         ex = rlen - len;
+        if (2*rlen>sig->max)
+        {
+            ret.type=0;
+            return ret;
+        }
         sig->len = 2 * rlen;
 
         i = 0;
@@ -569,6 +616,11 @@ pktype X509_extract_cert_sig(octet *sc, octet *sig)
         rlen = bround(len);
         ex = rlen - len;
 
+        if (rlen>sig->max)
+        {
+            ret.type=0;
+            return ret;
+        }
         sig->len = rlen;
         i = 0;
         for (k = 0; k < ex; k++)
@@ -582,6 +634,11 @@ pktype X509_extract_cert_sig(octet *sc, octet *sig)
     }
     if (ret.type == X509_PQ)
     {
+        if (len>sig->max)
+        {
+            ret.type=0;
+            return ret;
+        }
         sig->len = len;
         fin = j + len;
         for (i=0; j < fin; j++)
@@ -609,33 +666,28 @@ int X509_extract_cert(octet *sc, octet *cert)
     j += skip(len);
 
     fin = j + len;
+    if (fin-k>cert->max) return 0;
     cert->len = fin - k;
     for (i = k; i < fin; i++) cert->val[i - k] = sc->val[i];
 
     return 1;
 }
 
-// Extract Public Key from inside Certificate
-pktype X509_extract_public_key(octet *c, octet *key)
+// find index to start of ASN.1 raw public key, and return its length
+int X509_find_public_key(octet *c,int *ptr)
 {
-    int i, j, fin, len, sj;
-    char koid[12];     /*****/
-    octet KOID = {0, sizeof(koid), koid};
-    pktype ret;
-
-    ret.type = ret.hash = 0;
-    ret.curve = -1;
+    int i, j, k, fin, len, sj;
 
     j = 0;
 
     len = getalen(SEQ, c->val, j);
-    if (len < 0) return ret;
+    if (len < 0) return 0;
     j += skip(len);
 
-    if (len + j != c->len) return ret;
+    if (len + j != c->len) return 0;
 
     len = getalen(ANY, c->val, j);
-    if (len < 0) return ret;
+    if (len < 0) return 0;
     j += skip(len) + len; //jump over version clause
 
     len = getalen(INT, c->val, j);
@@ -643,20 +695,43 @@ pktype X509_extract_public_key(octet *c, octet *key)
     if (len > 0) j += skip(len) + len; // jump over serial number clause (if there is one)
 
     len = getalen(SEQ, c->val, j);
-    if (len < 0) return ret;
+    if (len < 0) return 0;
     j += skip(len) + len; // jump over signature algorithm
 
     len = getalen(SEQ, c->val, j);
-    if (len < 0) return ret;
+    if (len < 0) return 0;
     j += skip(len) + len; // skip issuer
 
     len = getalen(SEQ, c->val, j);
-    if (len < 0) return ret;
+    if (len < 0) return 0;
     j += skip(len) + len; // skip validity
 
     len = getalen(SEQ, c->val, j);
-    if (len < 0) return ret;
+    if (len < 0) return 0;
     j += skip(len) + len; // skip subject
+
+    k=j;
+    len = getalen(SEQ, c->val, j); // look ahead to determine length
+    if (len < 0) return 0;
+    j += skip(len); //
+
+    fin=j+len;
+    *ptr=k;
+    return fin-k;
+}
+
+// get Public Key details from ASN.1 description
+pktype X509_get_public_key(octet *c,octet *key) 
+{
+    int i, j, fin, len, sj, ptr;
+    char koid[16];     /*****/
+    octet KOID = {0, sizeof(koid), koid};
+    pktype ret;
+
+    ret.type = ret.hash = 0;
+    ret.curve = -1;
+
+    j=0;
 
     len = getalen(SEQ, c->val, j);
     if (len < 0) return ret;
@@ -677,13 +752,15 @@ pktype X509_extract_public_key(octet *c, octet *key)
     j += skip(len);
 
     fin = j + len;
+    if (len>KOID.max) return ret;
     KOID.len = len;
     for (i = 0; j < fin; j++)
         KOID.val[i++] = c->val[j];
 
     ret.type = 0;
     if (OCT_comp(&ECPK, &KOID)) ret.type = X509_ECC;
-    if (OCT_comp(&EDPK, &KOID)) ret.type = X509_ECD;
+    if (OCT_comp(&EDPK25519, &KOID)) {ret.type = X509_ECD; ret.curve=USE_ED25519;}
+    if (OCT_comp(&EDPK448, &KOID)) {ret.type = X509_ECD;  ret.curve=USE_ED448;}
     if (OCT_comp(&RSAPK, &KOID)) ret.type = X509_RSA;
     if (OCT_comp(&DILITHIUM3, &KOID)) ret.type = X509_PQ;
 
@@ -701,11 +778,16 @@ pktype X509_extract_public_key(octet *c, octet *key)
         j += skip(len);
 
         fin = j + len;
+        if (len>KOID.max)
+        {
+            ret.type=0;
+            return ret;
+        }
         KOID.len = len;
         for (i = 0; j < fin; j++)
             KOID.val[i++] = c->val[j];
 
-        if (OCT_comp(&PRIME25519, &KOID)) ret.curve = USE_C25519; /*****/
+        if (OCT_comp(&PRIME25519, &KOID)) ret.curve = USE_ED25519; /*****/
         if (OCT_comp(&PRIME256V1, &KOID)) ret.curve = USE_NIST256;
         if (OCT_comp(&SECP384R1, &KOID)) ret.curve = USE_NIST384;
         if (OCT_comp(&SECP521R1, &KOID)) ret.curve = USE_NIST521;
@@ -726,6 +808,11 @@ pktype X509_extract_public_key(octet *c, octet *key)
 // extract key
     if (ret.type == X509_ECC || ret.type == X509_ECD || ret.type == X509_PQ)
     {
+        if (len>key->max)
+        {
+            ret.type=0;
+            return ret;
+        }
         key->len = len;
         fin = j + len;
         for (i = 0; j < fin; j++)
@@ -757,7 +844,11 @@ pktype X509_extract_public_key(octet *c, octet *key)
             j++;
             len--; // remove leading zero
         }
-
+        if (len>key->max)
+        {
+            ret.type=0;
+            return ret;
+        }
         key->len = len;
         fin = j + len;
         for (i = 0; j < fin; j++)
@@ -768,11 +859,22 @@ pktype X509_extract_public_key(octet *c, octet *key)
     return ret;
 }
 
+// Extract Public Key from inside Certificate
+pktype X509_extract_public_key(octet *c, octet *key)
+{
+    int ptr=0;
+    int pklen=X509_find_public_key(c,&ptr);
+    octet CC={pklen,pklen,&c->val[ptr]};
+    return X509_get_public_key(&CC,key);
+}
+
 // Find pointer to main sections of cert, before extracting individual field
-// Find index to issuer in cert
-int X509_find_issuer(octet *c)
+// Find index to issuer in cert, and its length
+// This is the certificate DER encoded distinguished issuer name 
+int X509_find_issuer(octet *c,int *flen)
 {
     int j, len;
+    *flen=0;
     j = 0;
     len = getalen(SEQ, c->val, j);
     if (len < 0) return 0;
@@ -792,6 +894,9 @@ int X509_find_issuer(octet *c)
     if (len < 0) return 0;
     j += skip(len) + len; // jump over signature algorithm
 
+    len=getalen(SEQ,c->val,j);
+    *flen=len+skip(len);      // length of issuer
+
     return j;
 }
 
@@ -799,40 +904,48 @@ int X509_find_issuer(octet *c)
 int X509_find_validity(octet *c)
 {
     int j, len;
-    j = X509_find_issuer(c);
-
-    len = getalen(SEQ, c->val, j);
-    if (len < 0) return 0;
-    j += skip(len) + len; // skip issuer
+    j = X509_find_issuer(c,&len);
+    j+=len; // skip issuer
+    
+    //len = getalen(SEQ, c->val, j);
+    //if (len < 0) return 0;
+    //j += skip(len) + len; // skip issuer
 
     return j;
 }
 
-// Find index to subject in cert
-int X509_find_subject(octet *c)
+// Find index to subject in cert, and its length
+// This is the certificate DER encoded distinguished subject name
+int X509_find_subject(octet *c,int *flen)
 {
     int j, len;
+    *flen=0;
     j = X509_find_validity(c);
 
     len = getalen(SEQ, c->val, j);
     if (len < 0) return 0;
     j += skip(len) + len; // skip validity
 
+    len=getalen(SEQ,c->val,j);
+    *flen=len+skip(len);
+
     return j;
 }
 
 int X509_self_signed(octet *c)
 {
-    int i,m;
-    int ksub=X509_find_subject(c);
-    int kiss=X509_find_issuer(c);
+    int i,m,slen,ilen;
+    int ksub=X509_find_subject(c,&slen);
+    int kiss=X509_find_issuer(c,&ilen);
 
-    int sublen=getalen(SEQ,c->val,ksub);
-    int isslen=getalen(SEQ,c->val,kiss);
-    if (isslen!=sublen) return 0;
-    ksub+=skip(sublen);
-    kiss+=skip(isslen);
-    for (i=m=0;i<sublen;i++)
+    if (slen!=ilen) return 0;
+
+    //int sublen=getalen(SEQ,c->val,ksub);
+    //int isslen=getalen(SEQ,c->val,kiss);
+    //if (isslen!=sublen) return 0;
+    //ksub+=skip(sublen);
+    //kiss+=skip(isslen);
+    for (i=m=0;i<slen;i++)
         m|=c->val[i+ksub] - c->val[i+kiss];
     if (m!=0) return 0;
     return 1;
@@ -869,6 +982,7 @@ int X509_find_entity_property(octet *c, octet *SOID, int start, int *flen)
         if (len < 0) return 0;
         j += skip(len);
         fin = j + len; // extract OID
+        if (len>FOID.max) return 0;
         FOID.len = len;
         for (i = 0; j < fin; j++)
             FOID.val[i++] = c->val[j];
@@ -944,11 +1058,11 @@ int X509_find_expiry_date(octet *c, int start)
 int X509_find_extensions(octet *c)
 {
     int j, len;
-    j=X509_find_subject(c);
-
-    len = getalen(SEQ, c->val, j);
-    if (len<0) return 0;
-    j += skip(len)+len; // skip subject
+    j=X509_find_subject(c,&len);
+    j+=len; // skip subject
+    //len = getalen(SEQ, c->val, j);
+    //if (len<0) return 0;
+    //j += skip(len)+len; // skip subject
 
     len = getalen(SEQ, c->val, j);
     if (len<0) return 0;
@@ -984,6 +1098,7 @@ int X509_find_extension(octet *c, octet *SOID, int start, int *flen)
         if (len < 0) return 0;
         j += skip(len);
         fin = j + len; // extract OID
+        if (len>FOID.max) return 0;
         FOID.len = len;
         for (i = 0; j < fin; j++)
             FOID.val[i++] = c->val[j];
