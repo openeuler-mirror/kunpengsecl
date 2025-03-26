@@ -307,8 +307,8 @@ If you want to modify the information of the target server, you can use the `POS
 
 ```go
 type clientInfo struct {
- Registered   *bool `json:"registered"`  // target server registration status
- IsAutoUpdate *bool `json:"isautoupdate"`// target server baseline update policy
+    Registered   *bool `json:"registered"`  // target server registration status
+    IsAutoUpdate *bool `json:"isautoupdate"`// target server baseline update policy
 }
 ```
 
@@ -363,14 +363,14 @@ If you want to add a baseline value to the target server, you can use the `POST`
 
 ```go
 type baseValueJson struct {
- BaseType   string `json:"basetype"`   // base value type
- Uuid       string `json:"uuid"`       // the identification number of the container or device
- Name       string `json:"name"`       // base value name
- Enabled    bool   `json:"enabled"`    // whether a baseline value is available
- Pcr        string `json:"pcr"`        // PCR value
- Bios       string `json:"bios"`       // BIOS value
- Ima        string `json:"ima"`        // IMA value
- IsNewGroup bool   `json:"isnewgroup"` // whether it is a new set of baseline values
+    BaseType   string `json:"basetype"`   // base value type
+    Uuid       string `json:"uuid"`       // the identification number of the container or device
+    Name       string `json:"name"`       // base value name
+    Enabled    bool   `json:"enabled"`    // whether a baseline value is available
+    Pcr        string `json:"pcr"`        // PCR value
+    Bios       string `json:"bios"`       // BIOS value
+    Ima        string `json:"ima"`        // IMA value
+    IsNewGroup bool   `json:"isnewgroup"` // whether it is a new set of baseline values
 }
 ```
 
@@ -440,10 +440,10 @@ If you want to add a baseline value to a specific user TA on the target server, 
 
 ```go
 type tabaseValueJson struct {
- Uuid      string `json:"uuid"`       // the identification number of the user TA
- Name      string `json:"name"`       // base value name
- Enabled   bool   `json:"enabled"`    // whether a baseline value is available
- Valueinfo string `json:"valueinfo"`  // mirror hash value and memory hash value
+    Uuid      string `json:"uuid"`       // the identification number of the user TA
+    Name      string `json:"name"`       // base value name
+    Enabled   bool   `json:"enabled"`    // whether a baseline value is available
+    Valueinfo string `json:"valueinfo"`  // mirror hash value and memory hash value
 }
 ```
 
@@ -492,20 +492,20 @@ If you want to modify the configuration information of the target server/RAS/dat
 ```go
 type cfgRecord struct {
   // target server configuration
- HBDuration      string `json:"hbduration" form:"hbduration"`
- TrustDuration   string `json:"trustduration" form:"trustduration"`
-   DigestAlgorithm string `json:"digestalgorithm" form:"digestalgorithm"`
+    HBDuration      string `json:"hbduration" form:"hbduration"`
+    TrustDuration   string `json:"trustduration" form:"trustduration"`
+    DigestAlgorithm string `json:"digestalgorithm" form:"digestalgorithm"`
   // database configuration
- DBHost          string `json:"dbhost" form:"dbhost"`
- DBName          string `json:"dbname" form:"dbname"`
- DBPassword      string `json:"dbpassword" form:"dbpassword"`
- DBPort          int    `json:"dbport" form:"dbport"`
- DBUser          string `json:"dbuser" form:"dbuser"`
+    DBHost          string `json:"dbhost" form:"dbhost"`
+    DBName          string `json:"dbname" form:"dbname"`
+    DBPassword      string `json:"dbpassword" form:"dbpassword"`
+    DBPort          int    `json:"dbport" form:"dbport"`
+    DBUser          string `json:"dbuser" form:"dbuser"`
   // RAS configuration
- MgrStrategy     string `json:"mgrstrategy" form:"mgrstrategy"`
- ExtractRules    string `json:"extractrules" form:"extractrules"`
-   IsAllupdate     *bool  `json:"isallupdate" form:"isallupdate"`
- LogTestMode     *bool  `json:"logtestmode" form:"logtestmode"`
+    MgrStrategy     string `json:"mgrstrategy" form:"mgrstrategy"`
+    ExtractRules    string `json:"extractrules" form:"extractrules"`
+    IsAllupdate     *bool  `json:"isallupdate" form:"isallupdate"`
+    LogTestMode     *bool  `json:"logtestmode" form:"logtestmode"`
 }
 ```
 
