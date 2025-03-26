@@ -1,4 +1,3 @@
-
 package sm4
 
 import (
@@ -17,12 +16,14 @@ func randomBytes(n int) ([]byte, error) {
 	return b, nil
 }
 
-
 // 测试用例1：常规短文本加密解密
 func TestShortText(t *testing.T) {
 	plaintext := []byte("SM4测试")
 	const KeySize = 16
-	key := randomBytes(KeySize)
+	key, err := randomBytes(KeySize)
+	if err != nil {
+		t.Fatalf("生成随机密钥失败: %v", err)
+	}
 
 	ciphertext, iv, err := SM4Encrypt(plaintext, key)
 	if err != nil {
@@ -43,7 +44,10 @@ func TestShortText(t *testing.T) {
 func TestLongText(t *testing.T) {
 	plaintext := bytes.Repeat([]byte("Go语言SM4测试-"), 100) // 约1.5KB数据
 	const KeySize = 16
-	key := randomBytes(KeySize)
+	key, err := randomBytes(KeySize)
+	if err != nil {
+		t.Fatalf("生成随机密钥失败: %v", err)
+	}
 
 	ciphertext, iv, err := SM4Encrypt(plaintext, key)
 	if err != nil {
@@ -62,9 +66,16 @@ func TestLongText(t *testing.T) {
 
 // 测试用例3：二进制数据加密解密
 func TestBinaryData(t *testing.T) {
-	plaintext := randomBytes(512) // 512字节随机数据
+	plaintext, err := randomBytes(512) // 512字节随机数据
+	if err != nil {
+		t.Fatalf("生成随机数据失败: %v", err)
+	}
+
 	const KeySize = 16
-	key := randomBytes(KeySize)
+	key, err := randomBytes(KeySize)
+	if err != nil {
+		t.Fatalf("生成随机密钥失败: %v", err)
+	}
 
 	ciphertext, iv, err := SM4Encrypt(plaintext, key)
 	if err != nil {
@@ -85,12 +96,22 @@ func TestBinaryData(t *testing.T) {
 func TestRandomIV(t *testing.T) {
 	plaintext := []byte("相同输入不同IV")
 	const KeySize = 16
-	key := randomBytes(KeySize)
+	key, err := randomBytes(KeySize)
+	if err != nil {
+		t.Fatalf("生成随机密钥失败: %v", err)
+	}
 
 	// 第一次加密
-	ciphertext1, iv1, _ := SM4Encrypt(plaintext, key)
+	ciphertext1, iv1, err := SM4Encrypt(plaintext, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// 第二次加密
-	ciphertext2, iv2, _ := SM4Encrypt(plaintext, key)
+	ciphertext2, iv2, err := SM4Encrypt(plaintext, key)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// IV必须不同
 	if bytes.Equal(iv1, iv2) {
