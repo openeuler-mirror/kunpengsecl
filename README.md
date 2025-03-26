@@ -300,8 +300,8 @@ $ curl -X GET -H "Content-Type: application/json" http://localhost:40002/1
 
 ```go
 type clientInfo struct {
-  Registered   *bool `json:"registered"`  // 目标服务器注册状态
-  IsAutoUpdate *bool `json:"isautoupdate"`// 目标服务器基准值更新策略
+    Registered   *bool `json:"registered"`  // 目标服务器注册状态
+    IsAutoUpdate *bool `json:"isautoupdate"`// 目标服务器基准值更新策略
 }
 ```
 
@@ -356,14 +356,14 @@ $ curl -X GET -H "Content-Type: application/json" http://localhost:40002/1/basev
 
 ```go
 type baseValueJson struct {
-  BaseType   string `json:"basetype"`   // 基准值类型
-  Uuid       string `json:"uuid"`       // 容器或设备的标识号
-  Name       string `json:"name"`       // 基准值名称
-  Enabled    bool   `json:"enabled"`    // 基准值是否可用
-  Pcr        string `json:"pcr"`        // PCR值
-  Bios       string `json:"bios"`       // BIOS值
-  Ima        string `json:"ima"`        // IMA值
-  IsNewGroup bool   `json:"isnewgroup"` // 是否为一组新的基准值
+    BaseType   string `json:"basetype"`   // 基准值类型
+    Uuid       string `json:"uuid"`       // 容器或设备的标识号
+    Name       string `json:"name"`       // 基准值名称
+    Enabled    bool   `json:"enabled"`    // 基准值是否可用
+    Pcr        string `json:"pcr"`        // PCR值
+    Bios       string `json:"bios"`       // BIOS值
+    Ima        string `json:"ima"`        // IMA值
+    IsNewGroup bool   `json:"isnewgroup"` // 是否为一组新的基准值
 }
 ```
 
@@ -433,10 +433,10 @@ $ curl -X DELETE -H "Content-type: application/json" -H "Authorization: $AUTHTOK
 
 ```go
 type tabaseValueJson struct {
-  Uuid      string `json:"uuid"`       // 用户 TA 的标识号
-  Name      string `json:"name"`       // 基准值名称
-  Enabled   bool   `json:"enabled"`    // 基准值是否可用
-  Valueinfo string `json:"valueinfo"`  // 镜像哈希值和内存哈希值
+    Uuid      string `json:"uuid"`       // 用户 TA 的标识号
+    Name      string `json:"name"`       // 基准值名称
+    Enabled   bool   `json:"enabled"`    // 基准值是否可用
+    Valueinfo string `json:"valueinfo"`  // 镜像哈希值和内存哈希值
 }
 ```
 
@@ -485,20 +485,20 @@ $ curl -X GET -H "Content-Type: application/json" http://localhost:40002/config
 ```go
 type cfgRecord struct {
   // 目标服务器配置
-  HBDuration      string `json:"hbduration" form:"hbduration"`
-  TrustDuration   string `json:"trustduration" form:"trustduration"`
+    HBDuration      string `json:"hbduration" form:"hbduration"`
+    TrustDuration   string `json:"trustduration" form:"trustduration"`
     DigestAlgorithm string `json:"digestalgorithm" form:"digestalgorithm"`
   // 数据库配置
-  DBHost          string `json:"dbhost" form:"dbhost"`
-  DBName          string `json:"dbname" form:"dbname"`
-  DBPassword      string `json:"dbpassword" form:"dbpassword"`
-  DBPort          int    `json:"dbport" form:"dbport"`
-  DBUser          string `json:"dbuser" form:"dbuser"`
+    DBHost          string `json:"dbhost" form:"dbhost"`
+    DBName          string `json:"dbname" form:"dbname"`
+    DBPassword      string `json:"dbpassword" form:"dbpassword"`
+    DBPort          int    `json:"dbport" form:"dbport"`
+    DBUser          string `json:"dbuser" form:"dbuser"`
   // RAS配置
-  MgrStrategy     string `json:"mgrstrategy" form:"mgrstrategy"`
-  ExtractRules    string `json:"extractrules" form:"extractrules"`
+    MgrStrategy     string `json:"mgrstrategy" form:"mgrstrategy"`
+    ExtractRules    string `json:"extractrules" form:"extractrules"`
     IsAllupdate     *bool  `json:"isallupdate" form:"isallupdate"`
-  LogTestMode     *bool  `json:"logtestmode" form:"logtestmode"`
+    LogTestMode     *bool  `json:"logtestmode" form:"logtestmode"`
 }
 ```
 
