@@ -41,11 +41,13 @@
 #define X509_H256 2     /**< Using SHA256 hashing */
 #define X509_H384 3     /**< Using SHA384 hashing */
 #define X509_H512 4     /**< Using SHA512 hashing */
+#define X509_SHAKE256 5 /**< Using SHA3-SHAKE256 hashing */
 
 // Supported Curves
 
 #define USE_NIST256 0    /**< For the NIST 256-bit standard curve - WEIERSTRASS only */
-#define USE_C25519 1     /**< Bernstein's Modulus 2^255-19 - EDWARDS or MONTGOMERY only */
+#define USE_ED25519 1       /**< Bernstein's Modulus 2^255-19 - EDWARDS */
+#define USE_ED448 4         /**< Goldilocks Modulus Ed448 - EDWARDS */
 #define USE_BRAINPOOL 2  /**< For Brainpool 256-bit curve - WEIERSTRASS only */
 #define USE_ANSSI 3      /**< For French 256-bit standard curve - WEIERSTRASS only */
 #define USE_NIST384 10   /**< For the NIST 384-bit standard curve - WEIERSTRASS only */
@@ -80,7 +82,7 @@ typedef struct
  *
 	@param c an X.509 private key 
 	@param pk the extracted private key - for RSA octet = p|q|dp|dq|c, for ECC octet = k
-	@return 0 on failure, or indicator of private key type (ECC or RSA)
+	@return indicator of private key type (ECC or RSA)
 */
 extern pktype X509_extract_private_key(octet *c,octet *pk);
 
@@ -88,7 +90,7 @@ extern pktype X509_extract_private_key(octet *c,octet *pk);
  *
 	@param c an X.509 certificate
 	@param s the extracted signature
-	@return 0 on failure, or indicator of signature type (ECC or RSA)
+	@return indicator of signature type (ECC or RSA)
 
 */
 extern pktype X509_extract_cert_sig(octet *c, octet *s);
@@ -99,19 +101,38 @@ extern pktype X509_extract_cert_sig(octet *c, octet *s);
 	@return 0 on failure
 */
 extern int X509_extract_cert(octet *sc, octet *c);
+
+
+/** @brief
+ *
+	@param c an X.509 certificate
+	@param ptr pointer to ASN.1 raw public key
+	@return length of raw public key
+*/
+extern int X509_find_public_key(octet *c,int *ptr);
+
+/** @brief
+ *
+	@param c an ASN.1 encoded public key
+	@param key the extracted public key
+	@return indicator of public key type (ECC or RSA)
+*/
+extern pktype X509_get_public_key(octet *c,octet *key);
+
 /** @brief
  *
 	@param c an X.509 certificate
 	@param k the extracted key
-	@return 0 on failure, or indicator of public key type (ECC or RSA)
+	@return indicator of public key type (ECC or RSA)
 */
 extern pktype X509_extract_public_key(octet *c, octet *k);
 /** @brief
  *
 	@param c an X.509 certificate
+    @param len length of issuer field
 	@return 0 on failure, or pointer to issuer field in cert
 */
-extern int X509_find_issuer(octet *c);
+extern int X509_find_issuer(octet *c,int *len);
 /** @brief
  *
 	@param c an X.509 certificate
@@ -121,9 +142,10 @@ extern int X509_find_validity(octet *c);
 /** @brief
  *
 	@param c an X.509 certificate
+    @param len length of subject field
 	@return 0 on failure, or pointer to subject field in cert
 */
-extern int X509_find_subject(octet *c);
+extern int X509_find_subject(octet *c,int *len);
 
 /** @brief
  *

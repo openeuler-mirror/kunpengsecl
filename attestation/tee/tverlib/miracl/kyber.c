@@ -331,14 +331,28 @@ static void decode(byte pack[],int L,sign16 t[],int len)
         t[i]=nextword(L,pack,&ptr,&bts);
 }
 
+// Bernsteins safe division by 0xD01
+static int32_t safediv(int32_t x)
+{
+    int32_t qpart,q=0;    
+
+    qpart=(int32_t)(((int64_t)x*645083)>>31);
+    x-=qpart*0xD01; q += qpart;
+
+    qpart=(int32_t)(((int64_t)x*645083)>>31)+1;
+    x-=qpart*0xD01; q += qpart+(x>>31);
+
+    return q;
+}
+
 // compress polynomial coefficents in place, for polynomial vector of length len
 static void compress(sign16 t[],int len,int d)
 {
-	int twod=(1<<d);
+	sign32 twod=(1<<d);
 	for (int i=0;i<len*KY_DEGREE;i++)
     {
         t[i]+=(t[i]>>15)&KY_PRIME;
-		t[i]= ((twod*t[i]+KY_PRIME/2)/KY_PRIME)&(twod-1);
+        t[i]= (sign16)(safediv(twod*t[i]+KY_PRIME/2)&(twod-1));
     }
 }
 
@@ -383,6 +397,9 @@ void KYBER_CPA_keypair(const int *params,byte *tau,octet *sk,octet *pk)
    
     for (i=0;i<32;i++)
         SHA3_process(&sh,tau[i]); 
+#ifdef ML_KEM
+    SHA3_process(&sh,(byte)ck);  /*** ML-KEM change ***/
+#endif
 	SHA3_hash(&sh,(char *)buff);
 	for (i=0;i<32;i++)
 	{
@@ -628,11 +645,15 @@ void KYBER_CCA_encrypt(const int *params,byte *randbytes32,octet *pk,octet *ss,o
     int dv=params[4];
     int shared_secret_size=params[5];
 
-
+#ifdef ML_KEM
+    for (i=0;i<32;i++)
+        hm[i]=randbytes32[i];
+#else
     SHA3_init(&sh,SHA3_HASH256);               // H(m)
     for (i=0;i<32;i++)
         SHA3_process(&sh,randbytes32[i]);
     SHA3_hash(&sh,(char *)hm);
+#endif
 
     SHA3_init(&sh,SHA3_HASH256);               // H(pk)
     for (i=0;i<pk->len;i++)
@@ -650,6 +671,10 @@ void KYBER_CCA_encrypt(const int *params,byte *randbytes32,octet *pk,octet *ss,o
         coins[i]=g[i+32];
     KYBER_CPA_encrypt(params,coins,pk,&HM,ct);
     
+#ifdef ML_KEM
+    for (i=0;i<32;i++)
+        ss->val[i]=g[i];
+#else
     SHA3_init(&sh,SHA3_HASH256);              // H(ct)
     for (i=0;i<ct->len;i++)
         SHA3_process(&sh,(byte)ct->val[i]);
@@ -662,6 +687,7 @@ void KYBER_CCA_encrypt(const int *params,byte *randbytes32,octet *pk,octet *ss,o
         SHA3_process(&sh,h[i]);
 
     SHA3_shake(&sh,ss->val,shared_secret_size); // could be any length?
+#endif
     ss->len=shared_secret_size;
 }
 
@@ -739,8 +765,22 @@ void KYBER_CCA_decrypt(const int *params,octet *sk,octet *ct,octet *ss)
 
     for (i=0;i<32;i++)
         coins[i]=g[i+32];
+
+#ifdef ML_KEM
+    SHA3_init(&sh,SHAKE256);                  // K=PRF2(z|ct)
+    for (i=0;i<32;i++)
+        SHA3_process(&sh,z[i]);
+    for (i=0;i<ct->len;i++)
+        SHA3_process(&sh,(byte)ct->val[i]);
+    SHA3_shake(&sh,ss->val,shared_secret_size);
+#endif
+
     mask=KYBER_CPA_check_encrypt(params,coins,&PK,&M,ct);       // encrypt again with public key - FO transform CPA->CCA 
 
+#ifdef ML_KEM
+    for (i=0;i<32;i++)
+        ss->val[i]^=(ss->val[i]^g[i])&(~mask);               // substitute g for K on success
+#else
     for (i=0;i<32;i++)
         g[i]^=(g[i]^z[i])&mask;               // substitute z for Kb on failure
 
@@ -756,6 +796,7 @@ void KYBER_CCA_decrypt(const int *params,octet *sk,octet *ct,octet *ss)
         SHA3_process(&sh,h[i]);
     
     SHA3_shake(&sh,ss->val,shared_secret_size); // could be any length?
+#endif
     ss->len=shared_secret_size;
     sk->len=olen; // restore length
 }
@@ -792,18 +833,18 @@ void KYBER1024_encrypt(byte *r32,octet *PK,octet *SS,octet *CT)
     KYBER_CCA_encrypt(PARAMS_1024,r32,PK,SS,CT);
 }
 
-void KYBER512_decrypt(octet *PK,octet *CT,octet *SS)
+void KYBER512_decrypt(octet *SK,octet *CT,octet *SS)
 {
-    KYBER_CCA_decrypt(PARAMS_512,PK,CT,SS);
+    KYBER_CCA_decrypt(PARAMS_512,SK,CT,SS);
 }
 
-void KYBER768_decrypt(octet *PK,octet *CT,octet *SS)
+void KYBER768_decrypt(octet *SK,octet *CT,octet *SS)
 {
-    KYBER_CCA_decrypt(PARAMS_768,PK,CT,SS);
+    KYBER_CCA_decrypt(PARAMS_768,SK,CT,SS);
 }
 
-void KYBER1024_decrypt(octet *PK,octet *CT,octet *SS)
+void KYBER1024_decrypt(octet *SK,octet *CT,octet *SS)
 {
-    KYBER_CCA_decrypt(PARAMS_1024,PK,CT,SS);
+    KYBER_CCA_decrypt(PARAMS_1024,SK,CT,SS);
 }
 

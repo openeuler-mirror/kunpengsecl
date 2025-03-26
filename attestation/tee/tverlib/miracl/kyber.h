@@ -26,6 +26,8 @@
 
 /* Kyber768 parameters */
 
+#define ML_KEM    // define this for FIPS 203 standard
+
 //q= 3329
 #define KY_LGN 8
 #define KY_DEGREE (1 << KY_LGN)
@@ -79,7 +81,7 @@ extern void KYBER512_encrypt(byte *r32,octet *PK,octet *SS,octet *CT);
 	@param CT ciphertext
 	@param SS output session key 
  */
-extern void KYBER512_decrypt(octet *PK,octet *CT,octet *SS);
+extern void KYBER512_decrypt(octet *SK,octet *CT,octet *SS);
 
 /** @brief Kyber KEM CCA key pair generation
  *
@@ -106,7 +108,7 @@ extern void KYBER768_encrypt(byte *r32,octet *PK,octet *SS,octet *CT);
 	@param CT ciphertext
 	@param SS output session key 
  */
-extern void KYBER768_decrypt(octet *PK,octet *CT,octet *SS);
+extern void KYBER768_decrypt(octet *SK,octet *CT,octet *SS);
 
 /** @brief Kyber KEM CCA key pair generation
  *
@@ -133,6 +135,6 @@ extern void KYBER1024_encrypt(byte *r32,octet *PK,octet *SS,octet *CT);
 	@param CT ciphertext
 	@param SS output session key 
  */
-extern void KYBER1024_decrypt(octet *PK,octet *CT,octet *SS);
+extern void KYBER1024_decrypt(octet *SK,octet *CT,octet *SS);
 
 #endif
