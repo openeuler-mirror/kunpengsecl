@@ -1,12 +1,12 @@
-## 实体介绍
+# 实体介绍
 
-### KCM Service介绍
+## KCM Service介绍
 
 KCM Service作为密钥缓存管理服务端，向外支持对接KMIP兼容KMS服务，向内提供密钥安全缓冲协议接口。其中，ClientAPI接收KA转发的密钥请求，Kcmstools实现密钥缓存相关的操作，Kdb实现相应的数据库操作。
 
-## 接口介绍
+# 接口介绍
 
-### KCM Service接口
+## KCM Service接口
 
 KCM Service作为密钥缓存管理的服务端，通过ClientAPI与KA进行交互。主要提供的接口为：1.向KA返回KCM公钥证书接口；2.验证KTA的公钥证书接口；3.调用Kcmstools的相关函数进行密钥缓存相关的操作。
 
@@ -40,7 +40,7 @@ func DoVerifyKTAPubKeyCertWithConn(ras *RasConn, in *VerifyKTAPubKeyCertRequest)
 
 返回值2：错误输出。
 
-------
+-----
 
 ```go
 func DoKeyOperationWithConn(ras *RasConn, in *KeyOperationRequest) (*KeyOperationReply, error);
@@ -72,7 +72,7 @@ func (s *rasService) SendKCMPubKeyCert(ctx context.Context, in *SendKCMPubKeyCer
 
 返回值2：错误输出。
 
-----
+-----
 
 ```go
 func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKeyCertRequest) (*VerifyKTAPubKeyCertReply, error);
@@ -88,7 +88,7 @@ func (s *rasService) VerifyKTAPubKeyCert(ctx context.Context, in *VerifyKTAPubKe
 
 返回值2：错误输出。
 
-----
+-----
 
 ```go
 func (s *rasService) KeyOperation(ctx context.Context, in *KeyOperationRequest) (*KeyOperationReply, error);
@@ -120,7 +120,7 @@ func SendKCMPubKeyCert() ([]byte, error);
 
 返回值2：错误输出。
 
----
+-----
 
 ```go
 func VerifyKTAPubKeyCert(deviceId int64, ktaPubKeyCert []byte) error;
@@ -226,7 +226,7 @@ func FindKeyInfo(taid, keyid string) (*typdefs.KeyinfoRow, error);
 
 返回值2：错误输出。
 
----
+-----
 
 ```go
 func DeleteKeyInfo(taid, keyid string) error;
@@ -240,7 +240,7 @@ func DeleteKeyInfo(taid, keyid string) error;
 
 返回值：错误输出。
 
-----
+-----
 
 ```go
 func SaveKeyInfo(taid, keyid, cipherkey string) (*typdefs.KeyinfoRow, error);
@@ -258,7 +258,7 @@ func SaveKeyInfo(taid, keyid, cipherkey string) (*typdefs.KeyinfoRow, error);
 
 返回值2：错误输出。
 
-----
+-----
 
 KTA公钥部分：
 
@@ -274,7 +274,7 @@ func FindPubKeyInfo(deviceid int64) (*typdefs.PubKeyinfoRow, error);
 
 返回值2：错误输出。
 
-----
+-----
 
 ```go
 func DeletePubKeyInfo(deviceid int64) error;
@@ -286,7 +286,7 @@ func DeletePubKeyInfo(deviceid int64) error;
 
 返回值：错误输出。
 
-----
+-----
 
 ```go
 func SavePubKeyInfo(deviceid int64, pubkeycert string) (*typdefs.PubKeyinfoRow, error);
@@ -302,7 +302,8 @@ func SavePubKeyInfo(deviceid int64, pubkeycert string) (*typdefs.PubKeyinfoRow, 
 
 返回值2：错误输出。
 
-#### 流程图
+# 流程图
+
 KCMS初始化过程如下图所示：
 
 ![img](./kcms_pictures/KCMS_Initialize.png "KCMS初始化流程")
