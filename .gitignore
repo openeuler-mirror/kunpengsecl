@@ -4,11 +4,15 @@
 .vscode/
 attestation/go.sum
 attestation/vendor/
+attestation/common/pkg/
+attestation/kms/pkg
 attestation/rac/pkg/
 attestation/ras/pkg/
 attestation/ras/example/pkg/
+attestation/tas/pkg/
 attestation/tas/miracl/core/
 
+attestation/tee/demo/pkg/
 attestation/tee/tverlib/miracl/big_512_60.h
 attestation/tee/tverlib/miracl/bls_FP512BN.h
 attestation/tee/tverlib/miracl/config_big_512_60.h
@@ -24,3 +28,4 @@ attestation/tee/tverlib/miracl/fp_FP512BN.h
 attestation/tee/tverlib/miracl/hpke_FP512BN.h
 attestation/tee/tverlib/miracl/mpin_FP512BN.h
 attestation/tee/tverlib/miracl/pair_FP512BN.h
+attestation/tee/tverlib/miracl/build.log
