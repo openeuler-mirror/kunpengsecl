@@ -3,29 +3,29 @@
 <!-- TOC -->
 
 - [TEE设计文档](#tee设计文档)
-  - [远程证明特性](#远程证明特性)
-    - [实体介绍](#实体介绍)
-      - [QCA\_DEMO介绍](#qca_demo介绍)
-      - [ATTESTER\_DEMO介绍](#attester_demo介绍)
-      - [VERIFIER\_LIB介绍](#verifier_lib介绍)
-      - [AK\_Service介绍](#ak_service介绍)
-    - [接口介绍](#接口介绍)
-      - [QCA接口](#qca接口)
-        - [qcatools方法描述](#qcatools方法描述)
-        - [qapi方法描述](#qapi方法描述)
-        - [aslib方法描述](#aslib方法描述)
-      - [Attester接口](#attester接口)
-        - [attestertools方法描述](#attestertools方法描述)
-        - [VERIFIER\_LIB方法描述](#verifier_lib方法描述)
-      - [AK\_Service接口](#ak_service接口)
-        - [akissuer方法描述](#akissuer方法描述)
-        - [clientapi方法描述](#clientapi方法描述)
-        - [config方法描述](#config方法描述)
-        - [restapi方法描述](#restapi方法描述)
-    - [流程架构图](#流程架构图)
-      - [最小实现](#最小实现)
-      - [独立实现](#独立实现)
-      - [整合实现](#整合实现)
+    - [远程证明特性](#远程证明特性)
+        - [实体介绍](#实体介绍)
+            - [QCA\_DEMO介绍](#qca_demo介绍)
+            - [ATTESTER\_DEMO介绍](#attester_demo介绍)
+            - [VERIFIER\_LIB介绍](#verifier_lib介绍)
+            - [AK\_Service介绍](#ak_service介绍)
+        - [接口介绍](#接口介绍)
+            - [QCA接口](#qca接口)
+                - [qcatools方法描述](#qcatools方法描述)
+                - [qapi方法描述](#qapi方法描述)
+                - [aslib方法描述](#aslib方法描述)
+            - [Attester接口](#attester接口)
+                - [attestertools方法描述](#attestertools方法描述)
+                - [VERIFIER\_LIB方法描述](#verifier_lib方法描述)
+            - [AK\_Service接口](#ak_service接口)
+                - [akissuer方法描述](#akissuer方法描述)
+                - [clientapi方法描述](#clientapi方法描述)
+                - [config方法描述](#config方法描述)
+                - [restapi方法描述](#restapi方法描述)
+        - [流程架构图](#流程架构图)
+            - [最小实现](#最小实现)
+            - [独立实现](#独立实现)
+            - [整合实现](#整合实现)
 
 <!-- TOC -->
 
@@ -338,7 +338,7 @@ bool tee_verify(buffer_data *buf_data, int type, char *filename);
 
 basevalue文件以十六进制字符串的形式存储基准值记录
 
-每一条basevalue记录分为三项：uuid、image-hash、hash，项与项之间用空格间隔，记录之间用换行间隔
+每一条basevalue记录分为三项：uuid、img-hash、hash，项与项之间用空格间隔，记录之间用换行间隔
 
 | column | uuid(xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) | img-hash | hash |
 | --- | --- | --- | --- |
