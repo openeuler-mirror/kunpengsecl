@@ -84,10 +84,11 @@ import (
 	"errors"
 	"unsafe"
 )
-
+const SM4KeySize = 16
+const SM4IVSize = 16
 // SM4Encrypt 使用 SM4 算法进行加密
 func SM4Encrypt(plaintext []byte, key []byte) ([]byte, []byte, error) {
-	if len(key) != 16 {
+	if len(key) != SM4KeySize {
 		return nil, nil, errors.New("SM4 key must be 16 bytes")
 	}
 	iv := make([]byte, 16)
@@ -95,7 +96,8 @@ func SM4Encrypt(plaintext []byte, key []byte) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	ciphertext := make([]byte, len(plaintext)+16)
+    const IVSize = 16
+	ciphertext := make([]byte, len(plaintext)+IVSize)
 	var ciphertextLen C.int
 	C.sm4_encrypt(
 		(*C.uchar)(unsafe.Pointer(&plaintext[0])),
@@ -110,10 +112,11 @@ func SM4Encrypt(plaintext []byte, key []byte) ([]byte, []byte, error) {
 
 // SM4Decrypt 使用 SM4 算法进行解密
 func SM4Decrypt(ciphertext []byte, key []byte, iv []byte) ([]byte, error) {
-	if len(key) != 16 {
+	
+    if len(key) != SM4KeySize {
 		return nil, errors.New("SM4 key must be 16 bytes")
 	}
-	if len(iv) != 16 {
+	if len(iv) != SM4IVSize {
 		return nil, errors.New("SM4 IV must be 16 bytes")
 	}
 	plaintext := make([]byte, len(ciphertext))

@@ -132,20 +132,23 @@ func GenerateSM2KeyPair() (pubKey, privKey string, err error) {
 
 // SM2Sign 使用 SM2 私钥签名数据
 func SM2Sign(privKeyPEM string, data []byte) ([]byte, error) {
-	sig := make([]byte, 64) // SM2 签名长度通常为 64 字节
-	var sigLen C.size_t
+    sig := make([]byte, 64) // SM2 签名长度通常为 64 字节
+    var sigLen C.size_t
 
-	if C.sm2_sign(
-		C.CString(privKeyPEM),
-		(*C.uchar)(unsafe.Pointer(&data[0])),
-		C.size_t(len(data)),
-		(*C.uchar)(unsafe.Pointer(&sig[0])),
-		&sigLen,
-	) != 1 {
-		return nil, errors.New("SM2 signing failed")
-	}
-	return sig[:sigLen], nil
+    cPrivKeyPEM := C.CString(privKeyPEM)
+    if C.sm2_sign(
+        cPrivKeyPEM,
+        (*C.uchar)(unsafe.Pointer(&data[0])),
+        C.size_t(len(data)),
+        (*C.uchar)(unsafe.Pointer(&sig[0])),
+        &sigLen,
+    ) != 1 {
+        return nil, errors.New("SM2 signing failed")
+    }
+    defer C.free(unsafe.Pointer(cPrivKeyPEM))
+    return sig[:sigLen], nil
 }
+
 
 // SM2Verify 使用 SM2 公钥验签
 func SM2Verify(pubKeyPEM string, data, sig []byte) (bool, error) {
@@ -156,6 +159,7 @@ func SM2Verify(pubKeyPEM string, data, sig []byte) (bool, error) {
 		(*C.uchar)(unsafe.Pointer(&sig[0])),
 		C.size_t(len(sig)),
 	)
+    defer C.free(unsafe.Pointer(C.CString(pubKeyPEM))) // 释放C.CString分配的内存
 	if ret == 1 {
 		return true, nil
 	}
