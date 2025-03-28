@@ -38,9 +38,9 @@ import (
 	"math/big"
 	"sync/atomic"
 	"time"
-	"cryptotools/gmssTool/SM2"          // 导入SM2包
-    "cryptotools/gmssTool/SM3"          // 导入SM3包
-    "cryptotools/gmssTool/SM4"
+	"gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools/gmsslTool/sm2"          // 导入SM2包
+    "gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools/gmsslTool/sm3"          // 导入SM3包
+    "gitee.com/openeuler/kunpengsecl/attestation/common/cryptotools/gmsslTool/sm4"
 )
 
 const (
