@@ -1,7 +1,7 @@
 #/bin/sh
 osv=`grep "\<NAME=" /etc/os-release | awk -F '[" ]' '{print $2}'`
 # install deps
-ubuntu_deps="protobuf-compiler libssl-dev jq cjson-dev"
+ubuntu_deps="protobuf-compiler libssl-dev jq libcjson1 libcjson-dev"
 openeuler_deps="golang protobuf-compiler openssl-devel jq cjson-devel"
 
 VERSION=1.15.14
