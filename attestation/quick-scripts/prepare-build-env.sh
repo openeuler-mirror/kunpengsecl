@@ -5,7 +5,7 @@ osv=`grep "\<NAME=" /etc/os-release | awk -F '[" ]' '{print $2}'`
 ubuntu_deps="protobuf-compiler libssl-dev jq"
 openeuler_deps="golang protobuf-compiler openssl-devel jq cjson-devel"
 
-VERSION=1.15.14
+VERSION=1.17.3
 OS=linux
 PROCESSOR=`uname -p`
 case ${PROCESSOR} in
