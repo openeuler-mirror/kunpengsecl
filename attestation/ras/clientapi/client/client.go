@@ -60,7 +60,7 @@ type RasConn struct {
 // CreateConn creates a grpc connection to remote server at addr:ip.
 func CreateConn(addr string) (*RasConn, error) {
 	ras := &RasConn{}
-	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock(), grpc.FailOnNonTempDialError(true))
 	if err != nil {
 		logger.L.Sugar().Errorf("connect %s error, %v", addr, err)
 		return nil, typdefs.ErrConnectFailed
