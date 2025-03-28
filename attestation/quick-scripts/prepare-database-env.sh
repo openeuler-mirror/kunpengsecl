@@ -14,8 +14,17 @@ case $osv in
         sudo su - postgres <<EOF
 initdb --pgdata="/var/lib/pgsql/data" --auth=ident
 sed -i "s/ ident/ md5/g" ~/data/pg_hba.conf
-pg_ctl -D /var/lib/pgsql/data start
 EOF
+        if [ -f "/usr/lib/systemd/system/postgresql.service" ] && \
+            grep -q "PGDATA=/var/lib/pgsql/data" "/usr/lib/systemd/system/postgresql.service"; then
+            echo Enable and start postgresql.service...
+            sudo systemctl enable postgresql.service
+            sudo systemctl restart postgresql.service
+        else
+            echo "Start PostgreSQL with 'pg_ctl -D /var/lib/pgsql/data start'."
+            echo "Don't forget to restart it after the process was killed in reboot or other situations."
+            sudo su - postgres -c "pg_ctl -D /var/lib/pgsql/data start"
+        fi
         ;;
     *)
         echo $osv is not supported yet
