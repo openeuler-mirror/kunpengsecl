@@ -1,7 +1,8 @@
 #/bin/sh
 osv=`grep "\<NAME=" /etc/os-release | awk -F '[" ]' '{print $2}'`
 # install deps
-ubuntu_deps="protobuf-compiler libssl-dev jq cjson-dev"
+# (cjson is handled separately because its package name varies between Ubuntu versions.)
+ubuntu_deps="protobuf-compiler libssl-dev jq"
 openeuler_deps="golang protobuf-compiler openssl-devel jq cjson-devel"
 
 VERSION=1.15.14
@@ -25,6 +26,18 @@ GOFILE=go${VERSION}.${OS}-${ARCH}.tar.gz
 case ${osv} in
     Ubuntu) 
         sudo apt-get install ${ubuntu_deps}
+        # install cjson specially
+        if sudo apt-get install -y libcjson1 libcjson-dev; then
+            echo "Install libcjson-dev libcjson1 successfully."
+        elif sudo apt-get install -y cjson-dev; then
+            echo "Install cjson-dev successfully."
+        else
+            echo "Download and install cjson manually..."
+            wget https://blueprints.launchpad.net/ubuntu/+source/cjson/1.7.15-1/+build/22291562/+files/libcjson1_1.7.15-1_amd64.deb
+            wget https://blueprints.launchpad.net/ubuntu/+source/cjson/1.7.15-1/+build/22291562/+files/libcjson-dev_1.7.15-1_amd64.deb
+            sudo dpkg -i libcjson1_1.7.15-1_amd64.deb
+            sudo dpkg -i libcjson-dev_1.7.15-1_amd64.deb
+        fi
         wget -O ${HOME}/${GOFILE} https://studygolang.com/dl/golang/${GOFILE}
         mkdir -p ${HOME}/go-${VERSION}
         tar -C ${HOME}/go-${VERSION} -xzf ${HOME}/${GOFILE}
