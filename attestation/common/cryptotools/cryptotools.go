@@ -38,6 +38,9 @@ import (
 	"math/big"
 	"sync/atomic"
 	"time"
+	"cryptotools/gmssTool/SM2"          // 导入SM2包
+    "cryptotools/gmssTool/SM3"          // 导入SM3包
+    "cryptotools/gmssTool/SM4"
 )
 
 const (
@@ -58,13 +61,24 @@ const (
 	AlgCBC = 0x0042
 	// AlgCFB means CFB mode
 	AlgCFB = 0x0043
+	// AlgSM4 means SM4 algorithm
+	AlgSM4 = 0x0007
+	// AlgSM2 means SM2 algorithm
+	AlgSM2 = 0x0008
+    // AlgSM3 means SM3 algorithm
+    AlgSM3 = 0x0009
 	// KEYSIZE means the size of key
 	KEYSIZE = 16
-
 	// Encrypt_Alg means AES128 encryption algorithm with CBC mode
 	Encrypt_Alg = "AES128-CBC"
 	// AesKeySize means the size of AES algorithm key
 	AesKeySize = 16
+	// SM4KeySize means the size of SM4 algorithm key
+	SM4KeySize = 16
+	// SM4IVSize means the size of SM4 initialization vector
+	SM4IVSize = 16
+	// Encrypt_Alg_SM4 means SM4 encryption algorithm with CBC mode
+	Encrypt_Alg_SM4 = "SM4-CBC"
 	// RsaKeySize means the size of RSA algorithm key
 	RsaKeySize     = 2048
 	headPrivKey    = "PRIVATE KEY"
@@ -235,6 +249,8 @@ func SymmetricEncrypt(alg, mod uint16, key, iv, plaintext []byte) ([]byte, error
 			return aesOFBEncDec(key, iv, plaintext)
 		case AlgCTR:
 			return aesCTREncDec(key, iv, plaintext)
+		case AlgSM4:
+			return SymmetricEncryptSM4(key, iv, plaintext)
 		}
 	}
 	return []byte{}, ErrWrongParams
@@ -253,6 +269,8 @@ func SymmetricDecrypt(alg, mod uint16, key, iv, ciphertext []byte) ([]byte, erro
 			return aesOFBEncDec(key, iv, ciphertext)
 		case AlgCTR:
 			return aesCTREncDec(key, iv, ciphertext)
+		case AlgSM4:
+			return SymmetricDecryptSM4(key, iv, ciphertext)
 		}
 	}
 	return []byte{}, ErrWrongParams
@@ -1074,4 +1092,45 @@ func validateCert(cert, parent *x509.Certificate) error {
 		return err
 	}
 	return nil
+}
+// SymmetricEncryptSM4 uses key/iv to encrypt the plaintext with SM4 algorithm in CBC mode.
+func SymmetricEncryptSM4(key, iv, plaintext []byte) ([]byte, error) {
+    if len(key) != SM4KeySize {
+        return nil, ErrWrongParams
+    }
+    if len(iv) != SM4IVSize {
+        return nil, ErrWrongParams
+    }
+    ciphertext, _, err := sm4.SM4Encrypt(plaintext, key)
+    return ciphertext, err
+}
+
+// SymmetricDecryptSM4 uses key/iv to decrypt the ciphertext with SM4 algorithm in CBC mode.
+func SymmetricDecryptSM4(key, iv, ciphertext []byte) ([]byte, error) {
+    if len(key) != SM4KeySize {
+        return nil, ErrWrongParams
+    }
+    if len(iv) != SM4IVSize {
+        return nil, ErrWrongParams
+    }
+    plaintext, err := sm4.SM4Decrypt(ciphertext, key, iv)
+    return plaintext, err
+}
+// SM3Hash 计算数据的 SM3 哈希值
+func SM3Hash(data []byte) ([]byte, error) {
+    return sm3.SM3Hash(data)
+}
+// GenerateSM2KeyPair 生成 SM2 密钥对（返回 PEM 格式字符串）
+func GenerateSM2KeyPair() (pubKey, privKey string, err error) {
+    return sm2.GenerateSM2KeyPair()
+}
+
+// SM2Sign 使用 SM2 私钥签名数据
+func SM2Sign(privKeyPEM string, data []byte) ([]byte, error) {
+    return sm2.SM2Sign(privKeyPEM, data)
+}
+
+// SM2Verify 使用 SM2 公钥验签
+func SM2Verify(pubKeyPEM string, data, sig []byte) (bool, error) {
+    return sm2.SM2Verify(pubKeyPEM, data, sig)
 }
