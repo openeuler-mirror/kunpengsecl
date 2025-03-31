@@ -934,6 +934,58 @@ func TestDecodeDerCert(t *testing.T) {
 	fmt.Println(rt)
 }
 
+// 测试辅助函数：生成随机字节
+func randomBytes(n int) ([]byte, error) {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+func TestSM3Hash(t *testing.T) {
+	data := []byte("Hello, SM3!")
+	hash, err := SM3Hash(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hash) != 32 {
+		t.Fatalf("invalid hash length: %d", len(hash))
+	}
+}
+
+// 测试 SymmetricDecryptSM4 函数
+func TestSymmetricDecryptSM4(t *testing.T) {
+	// 生成16字节的随机密钥
+	key := make([]byte, 16)
+	if _, err := rand.Read(key); err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+	// 生成16字节的随机初始向量
+	iv := make([]byte, 16)
+	if _, err := rand.Read(iv); err != nil {
+		t.Fatalf("Failed to generate iv: %v", err)
+	}
+	plaintext := []byte("1234567890")
+
+	// 先加密得到密文
+	ciphertext, iv, err := SymmetricEncryptSM4(key, iv, plaintext)
+	if err != nil {
+		t.Errorf("Encryption for test failed: %v", err)
+		return
+	}
+
+	// 调用解密函数
+	decryptedText, err := SymmetricDecryptSM4(key, iv, ciphertext)
+	if err != nil {
+		t.Errorf("SymmetricDecryptSM4 failed: %v", err)
+	}
+	if !bytes.Equal(decryptedText, plaintext) {
+		t.Errorf("Decryption result does not match original plaintext. Got: %s, Want: %s",
+			string(decryptedText), string(plaintext))
+	}
+}
+
 /*
 import (
 	"bytes"
