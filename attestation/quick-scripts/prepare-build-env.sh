@@ -60,7 +60,10 @@ esac
 
 go env -w GOPROXY="https://goproxy.cn,direct"
 go env -w GO111MODULE="on"
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.41.1
+
+curl -sSfL https://gh-proxy.com/https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh -o golangci-lint-install.sh
+sed -i 's|https://github.com|https://gh-proxy.com/github.com|g' golangci-lint-install.sh
+sh golangci-lint-install.sh -b $(go env GOPATH)/bin -d v1.41.1
 
 protoc --version
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
