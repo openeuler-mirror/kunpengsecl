@@ -250,8 +250,8 @@ func SymmetricEncrypt(alg, mod uint16, key, iv, plaintext []byte) ([]byte, error
 			return aesOFBEncDec(key, iv, plaintext)
 		case AlgCTR:
 			return aesCTREncDec(key, iv, plaintext)
-			// case AlgSM4:
-			// 	return SymmetricEncryptSM4(key, iv, plaintext)
+		case AlgSM4:
+			return SymmetricEncryptSM4(key, iv, plaintext)
 		}
 	}
 	return []byte{}, ErrWrongParams
