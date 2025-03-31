@@ -954,32 +954,22 @@ func TestSM3Hash(t *testing.T) {
 	}
 }
 
-// 测试 SymmetricEncryptSM4 函数
-func TestSymmetricEncryptSM4(t *testing.T) {
-	// 构造测试数据
-	key := []byte("your16ByteKeyHere")
-	iv := []byte("your16ByteIVHere")
-	plaintext := []byte("This is a test plaintext")
-
-	// 调用被测试函数
-	ciphertext, err := SymmetricEncryptSM4(key, iv, plaintext)
-	if err != nil {
-		t.Errorf("SymmetricEncryptSM4 failed: %v", err)
-	}
-	if ciphertext == nil {
-		t.Errorf("SymmetricEncryptSM4 returned nil ciphertext")
-	}
-}
-
 // 测试 SymmetricDecryptSM4 函数
 func TestSymmetricDecryptSM4(t *testing.T) {
-	// 构造测试数据
-	key := []byte("your16ByteKeyHere")
-	iv := []byte("your16ByteIVHere")
-	plaintext := []byte("This is a test plaintext")
+	// 生成16字节的随机密钥
+	key := make([]byte, 16)
+	if _, err := rand.Read(key); err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+	// 生成16字节的随机初始向量
+	iv := make([]byte, 16)
+	if _, err := rand.Read(iv); err != nil {
+		t.Fatalf("Failed to generate iv: %v", err)
+	}
+	plaintext := []byte("1234567890")
 
 	// 先加密得到密文
-	ciphertext, err := SymmetricEncryptSM4(key, iv, plaintext)
+	ciphertext, iv, err := SymmetricEncryptSM4(key, iv, plaintext)
 	if err != nil {
 		t.Errorf("Encryption for test failed: %v", err)
 		return
@@ -990,7 +980,7 @@ func TestSymmetricDecryptSM4(t *testing.T) {
 	if err != nil {
 		t.Errorf("SymmetricDecryptSM4 failed: %v", err)
 	}
-	if string(decryptedText) != string(plaintext) {
+	if !bytes.Equal(decryptedText, plaintext) {
 		t.Errorf("Decryption result does not match original plaintext. Got: %s, Want: %s",
 			string(decryptedText), string(plaintext))
 	}
