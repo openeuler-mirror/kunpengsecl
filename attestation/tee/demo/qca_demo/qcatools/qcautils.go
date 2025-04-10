@@ -466,7 +466,7 @@ func RecvData(conn net.Conn, outData interface{}) error {
 			return fmt.Errorf("read data failed, %v", err)
 		}
 
-		buf = append(buf, partbuf...)
+		buf = append(buf, partbuf[:n]...)
 		
 		if len(buf) == int(readlen) {
 			break
